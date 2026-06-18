@@ -1,0 +1,130 @@
+import type { TranslationKey } from "./en";
+
+export const ar: Record<TranslationKey, string> = {
+  // Brand
+  appName: "هاڤن",
+  tagline: "فصلك الدراسي بهدوء",
+
+  // Nav
+  nav_dashboard: "الرئيسية",
+  nav_courses: "المقررات",
+  nav_progress: "التقدّم",
+  nav_schedule: "الجدول",
+  nav_settings: "الإعدادات",
+  comingSoon: "قريبًا",
+  switchToArabic: "العربية",
+  switchToEnglish: "English",
+
+  // Common actions
+  addCourse: "إضافة مقرر",
+  addItem: "إضافة عنصر",
+  save: "حفظ",
+  cancel: "إلغاء",
+  delete: "حذف",
+  remove: "إزالة",
+  edit: "تعديل",
+  close: "إغلاق",
+  optional: "اختياري",
+  confirm: "تأكيد",
+
+  // Dashboard
+  welcomeBack: "أهلًا بعودتك، {name}",
+  welcomeBackNoName: "أهلًا بعودتك",
+  semesterProgress: "تقدّم الفصل",
+  weekOf: "الأسبوع {current} من {total}",
+  semesterGpa: "المعدل الفصلي",
+  gpaHidden: "مخفي",
+  clickReveal: "اضغط للعرض",
+  clickHide: "اضغط للإخفاء",
+  upcoming: "القادمة",
+  upcomingNearest: "التالي: {name}",
+  noUpcoming: "لا يوجد مجدول",
+  avgAttendance: "متوسط الحضور",
+  coursesHeading: "المقررات",
+  viewAll: "عرض الكل",
+  emptyTitle: "لا توجد مقررات بعد",
+  emptyHint: "أضف أول مقرر، أو حمّل البيانات التجريبية من الإعدادات للاستكشاف.",
+  noGradesYet: "لا توجد درجات كافية بعد",
+
+  // Course card / grades
+  creditsShort: "{n} ساعة",
+  currentGrade: "الدرجة الحالية",
+  notGraded: "لم تُرصد درجات بعد",
+  weightsLabel: "الأوزان",
+  weightsUnassigned: "{used}% · {left}% غير موزّعة",
+  weightsComplete: "{used}% موزّعة",
+  attendance: "الحضور",
+  attendedOf: "{attended} / {total} محاضرة",
+  attStatus_ok: "ضمن الحدّ",
+  attStatus_warn: "اقتراب من الحدّ",
+  attStatus_danger: "خطر الحرمان",
+
+  // Courses page
+  coursesSubtitle: "مرجعك الأساسي — عدّل الدرجات والحضور من هنا.",
+  componentsHeading: "عناصر الدرجة",
+  noComponents: "لا توجد عناصر بعد. أضف الاختبارات والنصفي والنهائي.",
+  weightsTotalLabel: "مجموع الأوزان",
+  newCourse: "مقرر جديد",
+  courseName: "اسم المقرر",
+  courseNamePlaceholder: "مثال: تفاضل ١",
+  creditHours: "الساعات المعتمدة",
+
+  // Component fields
+  itemName: "الاسم",
+  itemNamePlaceholder: "مثال: اختبار ١",
+  itemType: "النوع",
+  itemWeight: "الوزن",
+  itemOutOf: "من",
+  itemDate: "التاريخ",
+  itemScore: "الدرجة",
+  unitPercent: "٪",
+  unitPoints: "نقطة",
+  dateNotSpecified: "غير محدد",
+  dateSpecific: "تاريخ محدد",
+  type_quiz: "اختبار قصير",
+  type_midterm: "نصفي",
+  type_final: "نهائي",
+  type_project: "مشروع",
+  type_assignment: "واجب",
+
+  // Final advice
+  finalTitle: "ماذا تحتاج في النهائي",
+  finalCeiling: "أعلى تقدير ممكن: {letter} — احصل على {raw} / {total}",
+  finalCeilingNone: "حتى النهائي الكامل لن يغيّر تقديرك الآن.",
+  finalAvoidF: "احصل على {raw} / {total} على الأقل لتجنّب الرسوب.",
+  finalSecured: "تنجح حتى بصفر — التقدير {letter} مضمون.",
+
+  // Attendance editor
+  attendanceEditor: "الحضور",
+  attended: "حضر",
+  totalLectures: "إجمالي المحاضرات",
+
+  // Settings
+  settingsTitle: "الإعدادات",
+  settingsSubtitle: "خصّص هاڤن وأدِر بياناتك.",
+  sectionPreferences: "التفضيلات",
+  languageLabel: "اللغة",
+  english: "English",
+  arabic: "العربية",
+  profileLabel: "اسمك",
+  profilePlaceholder: "أدخل اسمك",
+  sectionSemester: "الفصل الدراسي",
+  semesterName: "اسم الفصل",
+  startDate: "تاريخ البداية",
+  endDate: "تاريخ النهاية",
+  calendarLabel: "التقويم",
+  hijri: "هجري",
+  gregorian: "ميلادي",
+  sectionData: "البيانات",
+  demoTitle: "بيانات تجريبية",
+  demoDesc: "املأ هاڤن بمقررات نموذجية لاستكشاف الواجهة.",
+  loadDemo: "تحميل بيانات تجريبية",
+  resetTitle: "إعادة تعيين البيانات",
+  resetDesc: "حذف جميع المقررات والدرجات. لا يمكن التراجع.",
+  resetData: "إعادة تعيين كل البيانات",
+  resetConfirm: "حذف جميع المقررات والدرجات؟ لا يمكن التراجع عن ذلك.",
+
+  // Coming soon page
+  comingSoonTitle: "قريبًا",
+  comingSoonDesc: "نُجهّز هذه الصفحة. ستصل في تحديث قادم.",
+};

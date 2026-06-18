@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(if \\(-not $?\\) { \"Directory does not exist or is empty\" })",
+      "Bash(Get-Content \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\src\\\\i18n\\\\index.ts\")",
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(if \\(Test-Path \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\.git\"\\) { Write-Output \"git repo: yes\" } else { Write-Output \"git repo: no\" }; if \\(Test-Path \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\.gitignore\"\\) { Write-Output \"--- .gitignore exists ---\" } else { Write-Output \"--- no .gitignore ---\" }; \\(Get-Command git -ErrorAction SilentlyContinue\\).Source)"
+    ]
+  }
+}

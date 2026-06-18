@@ -1,0 +1,130 @@
+export const en = {
+  // Brand
+  appName: "Haven",
+  tagline: "Your calm semester",
+
+  // Nav
+  nav_dashboard: "Dashboard",
+  nav_courses: "Courses",
+  nav_progress: "Progress",
+  nav_schedule: "Schedule",
+  nav_settings: "Settings",
+  comingSoon: "Coming soon",
+  switchToArabic: "العربية",
+  switchToEnglish: "English",
+
+  // Common actions
+  addCourse: "Add course",
+  addItem: "Add item",
+  save: "Save",
+  cancel: "Cancel",
+  delete: "Delete",
+  remove: "Remove",
+  edit: "Edit",
+  close: "Close",
+  optional: "optional",
+  confirm: "Confirm",
+
+  // Dashboard
+  welcomeBack: "Welcome back, {name}",
+  welcomeBackNoName: "Welcome back",
+  semesterProgress: "Semester progress",
+  weekOf: "Week {current} of {total}",
+  semesterGpa: "Semester GPA",
+  gpaHidden: "Hidden",
+  clickReveal: "Click to reveal",
+  clickHide: "Click to hide",
+  upcoming: "Upcoming",
+  upcomingNearest: "Next: {name}",
+  noUpcoming: "Nothing scheduled",
+  avgAttendance: "Avg attendance",
+  coursesHeading: "Courses",
+  viewAll: "View all",
+  emptyTitle: "No courses yet",
+  emptyHint: "Add your first course, or load demo data from Settings to explore.",
+  noGradesYet: "Not enough grades yet",
+
+  // Course card / grades
+  creditsShort: "{n} cr",
+  currentGrade: "Current grade",
+  notGraded: "Not graded yet",
+  weightsLabel: "Weights",
+  weightsUnassigned: "{used}% · {left}% unassigned",
+  weightsComplete: "{used}% assigned",
+  attendance: "Attendance",
+  attendedOf: "{attended} / {total} lectures",
+  attStatus_ok: "On track",
+  attStatus_warn: "Approaching limit",
+  attStatus_danger: "Withdrawal risk",
+
+  // Courses page
+  coursesSubtitle: "Your source of truth — edit grades and attendance here.",
+  componentsHeading: "Grade items",
+  noComponents: "No items yet. Add quizzes, midterms, and your final.",
+  weightsTotalLabel: "Weights total",
+  newCourse: "New course",
+  courseName: "Course name",
+  courseNamePlaceholder: "e.g. Calculus I",
+  creditHours: "Credit hours",
+
+  // Component fields
+  itemName: "Name",
+  itemNamePlaceholder: "e.g. Quiz 1",
+  itemType: "Type",
+  itemWeight: "Weight",
+  itemOutOf: "Out of",
+  itemDate: "Date",
+  itemScore: "Score",
+  unitPercent: "%",
+  unitPoints: "pts",
+  dateNotSpecified: "Not specified",
+  dateSpecific: "Specific date",
+  type_quiz: "Quiz",
+  type_midterm: "Midterm",
+  type_final: "Final",
+  type_project: "Project",
+  type_assignment: "Assignment",
+
+  // Final advice
+  finalTitle: "What you need on the final",
+  finalCeiling: "Highest reachable: {letter} — score {raw} / {total}",
+  finalCeilingNone: "Even a perfect final can't change your letter grade now.",
+  finalAvoidF: "Score at least {raw} / {total} to avoid an F.",
+  finalSecured: "You pass even with 0 — {letter} is secured.",
+
+  // Attendance editor
+  attendanceEditor: "Attendance",
+  attended: "Attended",
+  totalLectures: "Total lectures",
+
+  // Settings
+  settingsTitle: "Settings",
+  settingsSubtitle: "Personalize Haven and manage your data.",
+  sectionPreferences: "Preferences",
+  languageLabel: "Language",
+  english: "English",
+  arabic: "العربية",
+  profileLabel: "Your name",
+  profilePlaceholder: "Enter your name",
+  sectionSemester: "Semester",
+  semesterName: "Semester name",
+  startDate: "Start date",
+  endDate: "End date",
+  calendarLabel: "Calendar",
+  hijri: "Hijri",
+  gregorian: "Gregorian",
+  sectionData: "Data",
+  demoTitle: "Demo data",
+  demoDesc: "Fill Haven with sample courses to explore the interface.",
+  loadDemo: "Load demo data",
+  resetTitle: "Reset data",
+  resetDesc: "Remove all courses and grades. This cannot be undone.",
+  resetData: "Reset all data",
+  resetConfirm: "Delete all courses and grades? This cannot be undone.",
+
+  // Coming soon page
+  comingSoonTitle: "Coming soon",
+  comingSoonDesc: "This space is being prepared. It will arrive in a future update.",
+};
+
+export type TranslationKey = keyof typeof en;
