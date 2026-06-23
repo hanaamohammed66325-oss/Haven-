@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "Haven — Your calm semester",
+  title: "Haven | GPA calculator, grade tracking & attendance for university students",
   description:
-    "A calm, simple dashboard to manage your university semester: GPA, grades, attendance, and progress.",
+    "Plan your semester with Haven — calculate your GPA, track grades and attendance, and see your withdrawal risk before it's too late. Everything in one calm dashboard.",
   icons: {
     icon: "/favicon.svg",
   },
@@ -18,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" dir="ltr">
+    <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -27,14 +26,12 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=Tajawal:wght@400;500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
       </head>
       <body>
-        <Providers>
-          <AppShell>{children}</AppShell>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

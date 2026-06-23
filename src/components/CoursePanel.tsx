@@ -1,50 +1,46 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Minus, Target } from "lucide-react";
+import { Plus, Trash2, Target, Pencil } from "lucide-react";
 import { Card } from "./Card";
 import { GradeBadge } from "./GradeBadge";
-import { AttendanceBadge } from "./AttendanceBadge";
+import { AttendanceSection } from "./AttendanceSection";
 import { AddItemModal } from "./AddItemModal";
+import { AddCourseModal } from "./AddCourseModal";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import {
   courseCurrentPct,
   weightsTotal,
-  attendanceInfo,
   finalAdvice,
 } from "@/lib/grades";
+import { creditHoursLabel } from "@/lib/format";
 import type { Course, GradeComponent } from "@/types";
 
 export function CoursePanel({ course }: { course: Course }) {
-  const { t } = useT();
-  const { addComponent, updateComponent, deleteComponent, updateAttendance, deleteCourse } = useStore();
+  const { t, lang } = useT();
+  const { addComponent, updateComponent, deleteComponent, deleteCourse, updateCourse } = useStore();
   const [addingItem, setAddingItem] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editingItem, setEditingItem] = useState<GradeComponent | null>(null);
 
   const pct = courseCurrentPct(course);
   const used = weightsTotal(course);
   const left = Math.max(0, 100 - used);
-  const att = attendanceInfo(course);
   const advice = finalAdvice(course);
 
   const border = { borderColor: "var(--color-border)" };
 
-  function stepAttendance(dAttended: number, dTotal: number) {
-    const total = Math.max(0, course.totalLectures + dTotal);
-    const attended = Math.max(0, Math.min(total, course.attendedLectures + dAttended));
-    updateAttendance(course.id, attended, total);
-  }
-
   return (
     <Card padding="p-0" className="overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 p-5 border-b" style={border}>
+      <div className="flex items-start justify-between gap-3 p-8 border-b" style={border}>
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold truncate" style={{ color: "var(--color-ink)" }}>
+          <h2 className="font-display text-xl truncate" style={{ color: "var(--color-ink)" }}>
             {course.name}
           </h2>
-          <div className="flex items-center gap-2 mt-1 text-xs" style={{ color: "var(--color-muted)" }}>
-            <span>{t("creditsShort", { n: course.creditHours })}</span>
+          <div className="flex items-center gap-2 mt-2.5 text-[13px]" style={{ color: "var(--color-muted)" }}>
+            <span>{creditHoursLabel(course.creditHours, lang)}</span>
             <span>·</span>
             <span>
               {used < 100
@@ -53,8 +49,15 @@ export function CoursePanel({ course }: { course: Course }) {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <GradeBadge pct={pct} showPct size="lg" />
+        <div className="flex items-center gap-2 shrink-0">
+          <GradeBadge pct={pct} size="lg" />
+          <button
+            onClick={() => setEditing(true)}
+            className="rounded-lg p-2 transition-colors hover:bg-black/5"
+            aria-label={t("editCourse")}
+          >
+            <Pencil size={16} style={{ color: "var(--color-muted)" }} />
+          </button>
           <button
             onClick={() => deleteCourse(course.id)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"
@@ -66,9 +69,9 @@ export function CoursePanel({ course }: { course: Course }) {
       </div>
 
       {/* Components */}
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>{t("componentsHeading")}</h3>
+      <div className="p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="haven-label" style={{ color: "var(--color-ink)" }}>{t("componentsHeading")}</h3>
           <button
             onClick={() => setAddingItem(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
@@ -82,12 +85,13 @@ export function CoursePanel({ course }: { course: Course }) {
         {course.components.length === 0 ? (
           <p className="text-sm py-4 text-center" style={{ color: "var(--color-muted)" }}>{t("noComponents")}</p>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {course.components.map((comp) => (
               <ComponentRow
                 key={comp.id}
                 comp={comp}
                 onScore={(score) => updateComponent(course.id, comp.id, { score })}
+                onEdit={() => setEditingItem(comp)}
                 onDelete={() => deleteComponent(course.id, comp.id)}
               />
             ))}
@@ -97,7 +101,7 @@ export function CoursePanel({ course }: { course: Course }) {
         {/* Final advice */}
         {advice && (
           <div
-            className="mt-4 rounded-xl p-4 flex gap-3"
+            className="mt-6 rounded-xl p-6 flex gap-3"
             style={{ background: "var(--color-primary-soft)" }}
           >
             <Target size={18} className="shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
@@ -121,31 +125,28 @@ export function CoursePanel({ course }: { course: Course }) {
       </div>
 
       {/* Attendance */}
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-t flex-wrap" style={border}>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{t("attendanceEditor")}</span>
-          {att && <AttendanceBadge status={att.status} absence={att.absence} />}
-        </div>
-        <div className="flex items-center gap-4">
-          <Stepper
-            label={t("attended")}
-            value={course.attendedLectures}
-            onDec={() => stepAttendance(-1, 0)}
-            onInc={() => stepAttendance(1, 0)}
-          />
-          <Stepper
-            label={t("totalLectures")}
-            value={course.totalLectures}
-            onDec={() => stepAttendance(0, -1)}
-            onInc={() => stepAttendance(0, 1)}
-          />
-        </div>
-      </div>
+      <AttendanceSection course={course} />
 
       <AddItemModal
         open={addingItem}
         onClose={() => setAddingItem(false)}
         onSubmit={(c) => addComponent(course.id, c)}
+      />
+
+      <AddItemModal
+        open={editingItem != null}
+        onClose={() => setEditingItem(null)}
+        onSubmit={(c) => {
+          if (editingItem) updateComponent(course.id, editingItem.id, c);
+        }}
+        initial={editingItem ?? undefined}
+      />
+
+      <AddCourseModal
+        open={editing}
+        onClose={() => setEditing(false)}
+        onSubmit={(data) => updateCourse(course.id, data)}
+        initial={{ name: course.name, creditHours: course.creditHours }}
       />
     </Card>
   );
@@ -154,10 +155,12 @@ export function CoursePanel({ course }: { course: Course }) {
 function ComponentRow({
   comp,
   onScore,
+  onEdit,
   onDelete,
 }: {
   comp: GradeComponent;
   onScore: (score: number | null) => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const { t } = useT();
@@ -186,36 +189,12 @@ function ComponentRow({
         />
         <span className="text-sm" style={{ color: "var(--color-muted)" }}>/ {comp.total}</span>
       </div>
+      <button onClick={onEdit} className="rounded-lg p-1.5 transition-colors hover:bg-black/5 shrink-0" aria-label={t("editItem")}>
+        <Pencil size={14} style={{ color: "var(--color-muted)" }} />
+      </button>
       <button onClick={onDelete} className="rounded-lg p-1.5 transition-colors hover:bg-black/5 shrink-0" aria-label={t("delete")}>
         <Trash2 size={14} style={{ color: "var(--color-muted)" }} />
       </button>
-    </div>
-  );
-}
-
-function Stepper({
-  label,
-  value,
-  onDec,
-  onInc,
-}: {
-  label: string;
-  value: number;
-  onDec: () => void;
-  onInc: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>{label}</span>
-      <div className="flex items-center gap-1.5">
-        <button onClick={onDec} className="rounded-lg border p-1 transition-colors hover:bg-black/5" style={{ borderColor: "var(--color-border)" }}>
-          <Minus size={14} style={{ color: "var(--color-ink)" }} />
-        </button>
-        <span className="w-7 text-center text-sm font-semibold" style={{ color: "var(--color-ink)" }}>{value}</span>
-        <button onClick={onInc} className="rounded-lg border p-1 transition-colors hover:bg-black/5" style={{ borderColor: "var(--color-border)" }}>
-          <Plus size={14} style={{ color: "var(--color-ink)" }} />
-        </button>
-      </div>
     </div>
   );
 }

@@ -36,6 +36,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const el = document.documentElement;
     el.lang = language;
     el.dir = dir;
+    // Keep the tab title + meta description in the active language.
+    document.title = dictionaries[language].metaTitle;
+    const desc = document.querySelector('meta[name="description"]');
+    if (desc) desc.setAttribute("content", dictionaries[language].metaDescription);
   }, [language, dir]);
 
   const t = (key: TranslationKey, params?: Params): string => {

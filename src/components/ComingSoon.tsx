@@ -8,7 +8,7 @@ export function ComingSoon({ title }: { title: string }) {
   return (
     <div className="haven-fade-in flex flex-col items-center justify-center text-center py-24">
       <div
-        className="flex items-center justify-center rounded-2xl mb-5"
+        className="flex items-center justify-center rounded-2xl mb-6"
         style={{
           width: 64,
           height: 64,
@@ -18,10 +18,10 @@ export function ComingSoon({ title }: { title: string }) {
       >
         <Lock size={26} />
       </div>
-      <h1 className="text-xl font-semibold mb-2" style={{ color: "var(--color-ink)" }}>
+      <h1 className="font-display text-2xl mb-3" style={{ color: "var(--color-ink)" }}>
         {title}
       </h1>
-      <p className="max-w-sm text-sm" style={{ color: "var(--color-muted)" }}>
+      <p className="max-w-sm text-[15px]" style={{ color: "var(--color-muted)" }}>
         {t("comingSoonDesc")}
       </p>
     </div>

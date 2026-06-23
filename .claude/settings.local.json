@@ -6,7 +6,14 @@
       "mcp__Claude_Preview__preview_start",
       "PowerShell(node --version)",
       "PowerShell(npm --version)",
-      "PowerShell(if \\(Test-Path \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\.git\"\\) { Write-Output \"git repo: yes\" } else { Write-Output \"git repo: no\" }; if \\(Test-Path \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\.gitignore\"\\) { Write-Output \"--- .gitignore exists ---\" } else { Write-Output \"--- no .gitignore ---\" }; \\(Get-Command git -ErrorAction SilentlyContinue\\).Source)"
+      "PowerShell(if \\(Test-Path \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\.git\"\\) { Write-Output \"git repo: yes\" } else { Write-Output \"git repo: no\" }; if \\(Test-Path \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\.gitignore\"\\) { Write-Output \"--- .gitignore exists ---\" } else { Write-Output \"--- no .gitignore ---\" }; \\(Get-Command git -ErrorAction SilentlyContinue\\).Source)",
+      "Bash(node -e \"const I=require\\('lucide-react'\\); const names=['ArrowRight','Sparkles','TrendingUp','CalendarCheck','CalendarDays','Target','Globe','MousePointer2','MousePointer','ChevronDown','GraduationCap','Facebook','Instagram','Twitter','Award','School']; for\\(const n of names\\){process.stdout.write\\(n+'='+\\(n in I\\)+'  '\\);} console.log\\('\\\\nversion:', require\\('lucide-react/package.json'\\).version\\);\")",
+      "PowerShell(git -C \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\" show HEAD:src/i18n/translations/ar.ts)",
+      "PowerShell(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\src\\\\app\\\\\\(app\\)\\\\progress\"; if \\(-not \\(Test-Path \"C:\\\\Users\\\\Hanaa\\\\Desktop\\\\Haven\\\\src\\\\app\\\\\\(app\\)\\\\progress\"\\)\\) { \"deleted\" } else { \"still exists\" })",
+      "Bash(command -v gh)",
+      "Bash(gh auth *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

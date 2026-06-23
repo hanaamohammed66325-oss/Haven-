@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 interface CircularProgressProps {
   value: number; // 0–100
   size?: number;
@@ -18,9 +20,24 @@ export function CircularProgress({
   children,
 }: CircularProgressProps) {
   const clamped = Math.max(0, Math.min(100, value));
+  const [shown, setShown] = useState(0);
+
+  // animate the arc from 0 → value on mount (respect reduced motion)
+  useEffect(() => {
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setShown(clamped);
+      return;
+    }
+    const id = requestAnimationFrame(() => setShown(clamped));
+    return () => cancelAnimationFrame(id);
+  }, [clamped]);
+
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
-  const offset = circ - (clamped / 100) * circ;
+  const offset = circ - (shown / 100) * circ;
   const gid = `haven-gauge-${size}`;
 
   return (
@@ -54,7 +71,7 @@ export function CircularProgress({
           strokeLinecap="round"
           strokeDasharray={circ}
           strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1)" }}
+          style={{ transition: "stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1)" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">

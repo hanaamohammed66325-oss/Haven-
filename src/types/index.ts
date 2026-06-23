@@ -1,5 +1,15 @@
 export type CalendarType = "hijri" | "gregorian";
 
+export type ThemeId =
+  | "haven"
+  | "midnight"
+  | "rose"
+  | "lavender"
+  | "sand"
+  | "forest"
+  | "ocean"
+  | "mono";
+
 export type ComponentType = "quiz" | "midterm" | "final" | "project" | "assignment";
 export type WeightUnit = "percent" | "points";
 
@@ -14,12 +24,33 @@ export interface GradeComponent {
   date: string | null;
 }
 
+/** A recurring weekly class meeting: a weekday and its duration in minutes. */
+export interface CourseSession {
+  id: string;
+  day: number; // 0 = Sunday … 6 = Saturday
+  minutes: number; // duration of this session in minutes
+  time?: string; // start time "HH:MM" (optional)
+  building?: string; // building name/number (optional)
+  room?: string; // room number (optional)
+  note?: string; // free note for this session (optional)
+}
+
+/** A single logged absence referencing one of the course's weekly sessions. */
+export interface MissedEntry {
+  id: string;
+  sessionId: string;
+}
+
 export interface Course {
   id: string;
   name: string;
   creditHours: number;
-  attendedLectures: number;
-  totalLectures: number;
+  /** weekly class meetings — drives totals for both counting methods */
+  sessions: CourseSession[];
+  /** missed count for the "by lecture" method */
+  missedLectures: number;
+  /** logged missed sessions for the "by hour" method */
+  missedSessions: MissedEntry[];
   components: GradeComponent[];
 }
 
@@ -29,11 +60,53 @@ export interface Semester {
   endDate: string;
   calendarType: CalendarType;
   gradingSystem: "saudi5";
+  /** teaching length in weeks — shared by all courses, used in attendance math */
+  weeks: number;
+  /** number of finals weeks (informational, set separately) */
+  finalsWeeks: number;
+  /** withdrawal ("حرمان") threshold as a percentage of absence */
+  withdrawalLimit: number;
+}
+
+/** A typed note/task placed inside a planner week. */
+export interface PlannerNote {
+  id: string;
+  week: number; // 0-based week index
+  day?: number; // 0 = Sunday … 6 = Saturday; undefined = whole-week / general
+  text: string;
+  color: string; // hex
+  tag?: string; // tag key (exam/quiz/…) when it's a quick tag
+  highlight?: boolean;
+  done?: boolean; // task checked off
+}
+
+/** A freehand pen stroke on the planner drawing layer. */
+export interface PlannerStroke {
+  id: string;
+  color: string;
+  width: number;
+  points: number[][]; // [[x,y], …] in grid-relative px
+}
+
+export interface PlannerData {
+  notes: PlannerNote[];
+  strokes: PlannerStroke[];
+  highlights: number[]; // highlighted week indices
 }
 
 export interface AppData {
   profileName: string;
+  email: string;
+  /** profile picture as a data URL (stored locally) */
+  profilePhoto: string | null;
+  /** target semester GPA (0–5) */
+  gpaGoal: number;
   language: "en" | "ar";
+  /** active color theme */
+  theme: ThemeId;
   semester: Semester;
   courses: Course[];
+  planner: PlannerData;
+  /** course ids in the order the Tasks page sections are arranged */
+  taskOrder: string[];
 }

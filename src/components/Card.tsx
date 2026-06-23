@@ -11,13 +11,13 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 export function Card({
   children,
   hover = false,
-  padding = "p-5",
+  padding = "p-8",
   className = "",
   ...props
 }: CardProps) {
   return (
     <div
-      className={`haven-card glass-card rounded-2xl ${padding} ${
+      className={`haven-card rounded-3xl ${padding} ${
         hover ? "haven-card--hover" : ""
       } ${className}`}
       {...props}

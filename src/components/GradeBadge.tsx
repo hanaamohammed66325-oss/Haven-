@@ -4,7 +4,6 @@ import { pctToGrade } from "@/lib/grades";
 
 interface GradeBadgeProps {
   pct: number | null;
-  showPct?: boolean;
   size?: "sm" | "md" | "lg";
 }
 
@@ -15,7 +14,7 @@ function gradeColor(points: number): string {
   return "#D9534F"; // danger
 }
 
-export function GradeBadge({ pct, showPct = false, size = "md" }: GradeBadgeProps) {
+export function GradeBadge({ pct, size = "md" }: GradeBadgeProps) {
   if (pct == null) {
     return (
       <span className="text-sm" style={{ color: "var(--color-muted)" }}>
@@ -33,18 +32,11 @@ export function GradeBadge({ pct, showPct = false, size = "md" }: GradeBadgeProp
   }[size];
 
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        className={`font-semibold rounded-lg ${sizeClass}`}
-        style={{ background: `${color}1A`, color }}
-      >
-        {grade.letter}
-      </span>
-      {showPct && (
-        <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-          {pct.toFixed(1)}%
-        </span>
-      )}
+    <span
+      className={`inline-flex items-center font-semibold rounded-lg ${sizeClass}`}
+      style={{ background: `${color}1A`, color }}
+    >
+      {grade.letter}
     </span>
   );
 }

@@ -1,5 +1,8 @@
 import type { Course, Semester } from "@/types";
 
+/** absence below this is "approaching" the limit; at/above the withdrawal limit is danger */
+export const APPROACHING_ABSENCE = 18;
+
 // Saudi 5.0 scale (default cutoffs; make editable later)
 export const SCALE = [
   { min: 95, letter: "A+", points: 5.0 },
@@ -44,16 +47,50 @@ export function semesterGPA(courses: Course[]): number | null {
 export const weightsTotal = (c: Course) =>
   c.components.reduce((s, x) => s + (Number(x.weight) || 0), 0);
 
-// Attendance: warn ≥18% absence (approaching), danger ≥25% (withdrawal/"حرمان" limit)
-export function attendanceInfo(c: Course) {
-  if (!c.totalLectures) return null;
-  const rate = (c.attendedLectures / c.totalLectures) * 100,
-    absence = 100 - rate;
-  return {
-    rate,
-    absence,
-    status: absence >= 25 ? "danger" : absence >= 18 ? "warn" : "ok",
-  } as { rate: number; absence: number; status: "ok" | "warn" | "danger" };
+export const sessionsPerWeek = (c: Course) => c.sessions.length;
+export const minutesPerWeek = (c: Course) =>
+  c.sessions.reduce((s, x) => s + (Number(x.minutes) || 0), 0);
+
+export interface AttendanceInfo {
+  weeks: number;
+  /** percentage cost of one contact hour */
+  unit: number;
+  absence: number;
+  rate: number;
+  limit: number;
+  status: "ok" | "warn" | "danger";
+}
+
+// Duration-based absence: every session and every logged absence is weighted by its real length
+// in minutes, so a 2-hour class counts twice a 1-hour one. Compared against the withdrawal limit.
+export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null {
+  const sessions = c.sessions ?? [];
+  const weeks = Math.max(1, Math.round(sem?.weeks ?? 15) || 15);
+  const limit = sem && sem.withdrawalLimit > 0 ? sem.withdrawalLimit : 25;
+
+  const total = minutesPerWeek(c) * weeks; // total contact minutes for the term
+  if (!total) return null;
+
+  const missed = (c.missedSessions ?? []).reduce((sum, m) => {
+    const sess = sessions.find((s) => s.id === m.sessionId);
+    return sum + (sess ? Number(sess.minutes) || 0 : 0);
+  }, 0);
+
+  const unit = (100 / total) * 60; // percent per hour
+  const absence = Math.min(100, (missed / total) * 100);
+  const rate = 100 - absence;
+  const status: "ok" | "warn" | "danger" =
+    absence >= limit ? "danger" : absence >= APPROACHING_ABSENCE ? "warn" : "ok";
+
+  return { weeks, unit, absence, rate, limit, status };
+}
+
+// Total weeks computed from the semester start/end dates.
+export function weeksFromDates(sem: Semester): number {
+  const start = +new Date(sem.startDate);
+  const end = +new Date(sem.endDate);
+  if (!start || !end || end <= start) return 15;
+  return Math.max(1, Math.round((end - start) / (7 * 864e5)));
 }
 
 // Semester progress from start/end dates

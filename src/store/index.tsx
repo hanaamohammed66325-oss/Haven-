@@ -11,12 +11,26 @@ import React, {
 import type {
   AppData,
   Course,
+  CourseSession,
   GradeComponent,
+  PlannerData,
   Semester,
+  ThemeId,
 } from "@/types";
 import { demoCourses } from "@/lib/demo";
 
 const STORAGE_KEY = "haven-data";
+
+const THEME_IDS: ThemeId[] = [
+  "haven",
+  "midnight",
+  "rose",
+  "lavender",
+  "sand",
+  "forest",
+  "ocean",
+  "mono",
+];
 
 function uid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -31,21 +45,80 @@ const defaultSemester: Semester = {
   endDate: "2026-08-09",
   calendarType: "gregorian",
   gradingSystem: "saudi5",
+  weeks: 15,
+  finalsWeeks: 2,
+  withdrawalLimit: 25,
 };
+
+const emptyPlanner: PlannerData = { notes: [], strokes: [], highlights: [] };
 
 const initialData: AppData = {
   profileName: "Student",
+  email: "",
+  profilePhoto: null,
+  gpaGoal: 4.5,
   language: "en",
+  theme: "haven",
   semester: defaultSemester,
   courses: [],
+  planner: emptyPlanner,
+  taskOrder: [],
 };
+
+function normalizePlanner(p: unknown): PlannerData {
+  const pl = (p ?? {}) as Partial<PlannerData>;
+  return {
+    notes: Array.isArray(pl.notes) ? pl.notes : [],
+    strokes: Array.isArray(pl.strokes) ? pl.strokes : [],
+    highlights: Array.isArray(pl.highlights) ? pl.highlights : [],
+  };
+}
+
+// Bring courses saved under older shapes up to the current model.
+function normalizeCourse(c: Partial<Course> & Record<string, unknown>): Course {
+  const rawSessions = Array.isArray(c.sessions) ? c.sessions : [];
+  const sessions: CourseSession[] = rawSessions.map((s) => {
+    const sess = s as Partial<CourseSession> & { hours?: number };
+    return {
+      id: sess.id ?? uid(),
+      day: Number(sess.day) || 0,
+      // migrate legacy `hours` → minutes
+      minutes:
+        sess.minutes != null
+          ? Number(sess.minutes) || 0
+          : sess.hours != null
+          ? (Number(sess.hours) || 0) * 60
+          : 60,
+      // optional timetable details — preserve when present
+      ...(sess.time ? { time: String(sess.time) } : {}),
+      ...(sess.building ? { building: String(sess.building) } : {}),
+      ...(sess.room ? { room: String(sess.room) } : {}),
+      ...(sess.note ? { note: String(sess.note) } : {}),
+    };
+  });
+  return {
+    id: (c.id as string) ?? uid(),
+    name: (c.name as string) ?? "",
+    creditHours: Number(c.creditHours) || 0,
+    sessions,
+    missedLectures: Number(c.missedLectures) || 0,
+    missedSessions: Array.isArray(c.missedSessions) ? c.missedSessions : [],
+    components: Array.isArray(c.components) ? (c.components as GradeComponent[]) : [],
+  };
+}
 
 interface StoreValue extends AppData {
   hydrated: boolean;
   setProfileName: (name: string) => void;
+  setEmail: (email: string) => void;
+  setProfilePhoto: (photo: string | null) => void;
+  setGpaGoal: (goal: number) => void;
+  setPlanner: (planner: PlannerData) => void;
   setLanguage: (lang: "en" | "ar") => void;
+  setTheme: (theme: ThemeId) => void;
+  setTaskOrder: (order: string[]) => void;
   setSemester: (patch: Partial<Semester>) => void;
-  addCourse: (course: Omit<Course, "id" | "components">) => void;
+  addCourse: (course: { name: string; creditHours: number }) => void;
   updateCourse: (
     id: string,
     data: Partial<Omit<Course, "id" | "components">>
@@ -61,11 +134,16 @@ interface StoreValue extends AppData {
     data: Partial<Omit<GradeComponent, "id">>
   ) => void;
   deleteComponent: (courseId: string, componentId: string) => void;
-  updateAttendance: (
+  addSession: (courseId: string, session: Omit<CourseSession, "id">) => void;
+  updateSession: (
     courseId: string,
-    attended: number,
-    total: number
+    sessionId: string,
+    data: Partial<Omit<CourseSession, "id">>
   ) => void;
+  deleteSession: (courseId: string, sessionId: string) => void;
+  setMissedLectures: (courseId: string, missed: number) => void;
+  addMissedSession: (courseId: string, sessionId: string) => void;
+  removeMissedSession: (courseId: string, missedId: string) => void;
   loadDemo: () => void;
   resetData: () => void;
 }
@@ -85,8 +163,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setData({
           ...initialData,
           ...parsed,
+          theme: THEME_IDS.includes(parsed.theme as ThemeId)
+            ? (parsed.theme as ThemeId)
+            : "haven",
+          taskOrder: Array.isArray(parsed.taskOrder) ? parsed.taskOrder : [],
           semester: { ...defaultSemester, ...(parsed.semester ?? {}) },
-          courses: parsed.courses ?? [],
+          courses: Array.isArray(parsed.courses)
+            ? parsed.courses.map((c) => normalizeCourse(c as Course))
+            : [],
+          planner: normalizePlanner(parsed.planner),
         });
       }
     } catch {
@@ -105,13 +190,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [data, hydrated]);
 
+  // Reflect the active theme onto <html> so CSS variables cascade everywhere
+  // (including modals portaled to <body>).
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", data.theme);
+  }, [data.theme]);
+
   const setProfileName = useCallback(
     (name: string) => setData((d) => ({ ...d, profileName: name })),
     []
   );
 
+  const setEmail = useCallback(
+    (email: string) => setData((d) => ({ ...d, email })),
+    []
+  );
+
+  const setProfilePhoto = useCallback(
+    (photo: string | null) => setData((d) => ({ ...d, profilePhoto: photo })),
+    []
+  );
+
+  const setGpaGoal = useCallback(
+    (goal: number) => setData((d) => ({ ...d, gpaGoal: goal })),
+    []
+  );
+
+  const setPlanner = useCallback(
+    (planner: PlannerData) => setData((d) => ({ ...d, planner })),
+    []
+  );
+
   const setLanguage = useCallback(
     (lang: "en" | "ar") => setData((d) => ({ ...d, language: lang })),
+    []
+  );
+
+  const setTheme = useCallback(
+    (theme: ThemeId) => setData((d) => ({ ...d, theme })),
+    []
+  );
+
+  const setTaskOrder = useCallback(
+    (order: string[]) => setData((d) => ({ ...d, taskOrder: order })),
     []
   );
 
@@ -122,10 +243,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const addCourse = useCallback(
-    (course: Omit<Course, "id" | "components">) =>
+    (course: { name: string; creditHours: number }) =>
       setData((d) => ({
         ...d,
-        courses: [...d.courses, { ...course, id: uid(), components: [] }],
+        courses: [
+          ...d.courses,
+          {
+            id: uid(),
+            name: course.name,
+            creditHours: course.creditHours,
+            sessions: [],
+            missedLectures: 0,
+            missedSessions: [],
+            components: [],
+          },
+        ],
       })),
     []
   );
@@ -199,13 +331,85 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const updateAttendance = useCallback(
-    (courseId: string, attended: number, total: number) =>
+  const addSession = useCallback(
+    (courseId: string, session: Omit<CourseSession, "id">) =>
       setData((d) => ({
         ...d,
         courses: d.courses.map((c) =>
           c.id === courseId
-            ? { ...c, attendedLectures: attended, totalLectures: total }
+            ? { ...c, sessions: [...c.sessions, { ...session, id: uid() }] }
+            : c
+        ),
+      })),
+    []
+  );
+
+  const updateSession = useCallback(
+    (courseId: string, sessionId: string, patch: Partial<Omit<CourseSession, "id">>) =>
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId
+            ? {
+                ...c,
+                sessions: c.sessions.map((s) =>
+                  s.id === sessionId ? { ...s, ...patch } : s
+                ),
+              }
+            : c
+        ),
+      })),
+    []
+  );
+
+  const deleteSession = useCallback(
+    (courseId: string, sessionId: string) =>
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId
+            ? {
+                ...c,
+                sessions: c.sessions.filter((s) => s.id !== sessionId),
+                missedSessions: c.missedSessions.filter((m) => m.sessionId !== sessionId),
+              }
+            : c
+        ),
+      })),
+    []
+  );
+
+  const setMissedLectures = useCallback(
+    (courseId: string, missed: number) =>
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId ? { ...c, missedLectures: Math.max(0, missed) } : c
+        ),
+      })),
+    []
+  );
+
+  const addMissedSession = useCallback(
+    (courseId: string, sessionId: string) =>
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId
+            ? { ...c, missedSessions: [...c.missedSessions, { id: uid(), sessionId }] }
+            : c
+        ),
+      })),
+    []
+  );
+
+  const removeMissedSession = useCallback(
+    (courseId: string, missedId: string) =>
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId
+            ? { ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }
             : c
         ),
       })),
@@ -226,7 +430,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setData((d) => ({
         ...initialData,
         language: d.language,
+        theme: d.theme,
         profileName: d.profileName,
+        email: d.email,
+        profilePhoto: d.profilePhoto,
+        gpaGoal: d.gpaGoal,
+        semester: d.semester,
       })),
     []
   );
@@ -235,7 +444,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ...data,
     hydrated,
     setProfileName,
+    setEmail,
+    setProfilePhoto,
+    setGpaGoal,
+    setPlanner,
     setLanguage,
+    setTheme,
+    setTaskOrder,
     setSemester,
     addCourse,
     updateCourse,
@@ -243,7 +458,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addComponent,
     updateComponent,
     deleteComponent,
-    updateAttendance,
+    addSession,
+    updateSession,
+    deleteSession,
+    setMissedLectures,
+    addMissedSession,
+    removeMissedSession,
     loadDemo,
     resetData,
   };

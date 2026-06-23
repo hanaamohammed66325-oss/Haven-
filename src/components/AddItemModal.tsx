@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
+import { DateField } from "./DateField";
+import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
 
@@ -14,10 +16,14 @@ interface AddItemModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (component: Omit<GradeComponent, "id">) => void;
+  /** when provided, the modal edits an existing item (prefilled) */
+  initial?: GradeComponent;
 }
 
-export function AddItemModal({ open, onClose, onSubmit }: AddItemModalProps) {
+export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalProps) {
   const { t } = useT();
+  const { semester } = useStore();
+  const isEdit = initial != null;
   const [name, setName] = useState("");
   const [type, setType] = useState<ComponentType>("quiz");
   const [weight, setWeight] = useState("");
@@ -29,16 +35,29 @@ export function AddItemModal({ open, onClose, onSubmit }: AddItemModalProps) {
 
   const border = { borderColor: "var(--color-border)" };
 
-  function reset() {
-    setName("");
-    setType("quiz");
-    setWeight("");
-    setUnit("percent");
-    setTotal("");
-    setDateMode("none");
-    setDate("");
-    setScore("");
-  }
+  // Prefill on open (edit) or reset to defaults (add).
+  useEffect(() => {
+    if (!open) return;
+    if (initial) {
+      setName(initial.name);
+      setType(initial.type);
+      setWeight(String(initial.weight));
+      setUnit(initial.unit);
+      setTotal(String(initial.total));
+      setDateMode(initial.date ? "specific" : "none");
+      setDate(initial.date ?? "");
+      setScore(initial.score != null ? String(initial.score) : "");
+    } else {
+      setName("");
+      setType("quiz");
+      setWeight("");
+      setUnit("percent");
+      setTotal("");
+      setDateMode("none");
+      setDate("");
+      setScore("");
+    }
+  }, [open, initial]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,13 +73,26 @@ export function AddItemModal({ open, onClose, onSubmit }: AddItemModalProps) {
       score: score.trim() === "" ? null : Number(score),
       date: dateMode === "specific" && date ? date : null,
     });
-    reset();
     onClose();
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={t("addItem")}>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? t("editItem") : t("addItem")}
+      footer={
+        <div className="flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
+            {t("cancel")}
+          </button>
+          <button type="submit" form="add-item-form" className="haven-btn px-5 py-2 rounded-xl text-sm font-medium">
+            {isEdit ? t("save") : t("addItem")}
+          </button>
+        </div>
+      }
+    >
+      <form id="add-item-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         {/* Name */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemName")}</label>
@@ -121,7 +153,13 @@ export function AddItemModal({ open, onClose, onSubmit }: AddItemModalProps) {
             ))}
           </div>
           {dateMode === "specific" && (
-            <input className={`${field} mt-1`} style={border} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateField
+              calendar={semester.calendarType}
+              className={`${field} mt-1`}
+              style={border}
+              value={date}
+              onChange={setDate}
+            />
           )}
         </div>
 
@@ -131,15 +169,6 @@ export function AddItemModal({ open, onClose, onSubmit }: AddItemModalProps) {
             {t("itemScore")} <span style={{ opacity: 0.7 }}>({t("optional")})</span>
           </label>
           <input className={field} style={border} type="number" min="0" step="any" value={score} onChange={(e) => setScore(e.target.value)} />
-        </div>
-
-        <div className="flex justify-end gap-3 pt-1">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
-            {t("cancel")}
-          </button>
-          <button type="submit" className="haven-btn px-5 py-2 rounded-xl text-sm font-medium">
-            {t("addItem")}
-          </button>
         </div>
       </form>
     </Modal>

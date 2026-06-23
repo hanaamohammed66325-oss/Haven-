@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useT } from "@/i18n";
 
@@ -9,11 +10,16 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  /** optional pinned footer (e.g. Save / Cancel) that stays visible while the body scrolls */
+  footer?: React.ReactNode;
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const { t } = useT();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -28,9 +34,12 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  // Portal to <body> so the overlay's `fixed` positioning is relative to the
+  // viewport — not a page ancestor that keeps a transform from its entrance
+  // animation (which would otherwise push the modal off-screen on tall pages).
+  return createPortal(
     <div
       ref={overlayRef}
       className="haven-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -54,7 +63,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
           className="flex items-center justify-between px-5 py-4 border-b shrink-0"
           style={{ borderColor: "var(--color-border)" }}
         >
-          <h2 className="font-semibold text-base" style={{ color: "var(--color-ink)" }}>
+          <h2 className="font-display text-lg" style={{ color: "var(--color-ink)" }}>
             {title}
           </h2>
           <button
@@ -65,8 +74,17 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             <X size={18} style={{ color: "var(--color-muted)" }} />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-5">{children}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">{children}</div>
+        {footer && (
+          <div
+            className="shrink-0 border-t px-6 py-4"
+            style={{ borderColor: "var(--color-border)", background: "#fff" }}
+          >
+            {footer}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

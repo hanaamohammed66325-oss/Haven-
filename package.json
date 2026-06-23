@@ -1,7 +1,7 @@
 {
   "name": "haven",
   "version": "1.0.0",
-  "description": "A calm academic dashboard for university students",
+  "description": "A focused academic dashboard for university students",
   "private": true,
   "scripts": {
     "dev": "next dev",

@@ -27,6 +27,15 @@ export function CountUp({
     const to = value;
     startRef.current = null;
 
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setDisplay(to);
+      fromRef.current = to;
+      return;
+    }
+
     cancelAnimationFrame(frameRef.current);
 
     const step = (timestamp: number) => {

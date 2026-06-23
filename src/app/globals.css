@@ -5,38 +5,41 @@
   --color-primary-dark: #365a62;
   --color-primary-soft: #e7eff0;
   --color-sidebar: #0f3a40;
+  --color-brass: #b8975a;
+  --color-brass-soft: #efe7d8;
   --color-warning: #e89b4a;
   --color-danger: #d9534f;
   --color-success: #5fa98c;
   --color-ink: #243640;
-  --color-muted: #5b6b72;
-  --color-surface: #ffffff;
-  --color-canvas: #f4f8f8;
-  --color-border: #e2ebec;
+  --color-muted: #6b7a80;
+  --color-surface: #fcfbf9;
+  --color-canvas: #f1eee8;
+  --color-border: rgba(36, 54, 64, 0.08);
 
   --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
-  --font-arabic: "IBM Plex Sans Arabic", "Tajawal", "Segoe UI", sans-serif;
+  --font-display: "Fraunces", "Georgia", "Times New Roman", serif;
+  --font-arabic: "Tajawal", "IBM Plex Sans Arabic", "Segoe UI", sans-serif;
 
-  --radius-card: 1rem;
-  --shadow-card: 0 2px 12px rgba(36, 54, 64, 0.06);
-  --shadow-card-hover: 0 8px 24px rgba(36, 54, 64, 0.1);
+  --radius-card: 1.5rem;
+  --shadow-card: 0 4px 24px rgba(36, 54, 64, 0.06);
+  --shadow-card-hover: 0 16px 44px rgba(36, 54, 64, 0.12);
 
   --grad-primary: linear-gradient(135deg, #4f8693 0%, #365a62 100%);
-  --grad-warm: linear-gradient(135deg, #f0b067 0%, #e89b4a 100%);
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* ---- Base app background + theme tokens that aren't Tailwind utilities ---- */
+:root {
+  /* page backdrop — gives the glass sidebar something with depth to blur */
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(71, 118, 128, 0.10) 0%, transparent 58%),
+    radial-gradient(1100px 700px at 100% 0%, rgba(184, 151, 90, 0.07) 0%, transparent 55%),
+    linear-gradient(180deg, #f3f0ea 0%, #edeae3 100%);
 }
 
 html {
   font-family: var(--font-sans);
-  background-color: var(--color-canvas);
   color: var(--color-ink);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -48,94 +51,150 @@ html[lang="ar"] {
 body {
   min-height: 100dvh;
   color: var(--color-ink);
+  background: var(--app-bg);
+  background-attachment: fixed;
+  transition: background 0.45s ease, color 0.45s ease;
+}
+
+/* ---- Display (serif) typography ---- */
+.font-display {
+  font-family: var(--font-display);
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+html[lang="ar"] .font-display {
+  font-family: var(--font-arabic);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* tiny uppercase section labels */
+.haven-label {
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+/* ---- Surfaces / cards ---- */
+.surface-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  transition: background 0.45s ease, border-color 0.45s ease;
+}
+.haven-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.25s ease, transform 0.25s ease, background 0.45s ease,
+    border-color 0.45s ease;
+}
+.haven-card--hover {
+  cursor: pointer;
+}
+.haven-card--hover:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-4px);
+}
+
+/* ---- Glass sidebar ---- */
+.haven-sidebar {
+  /* deep-teal glass: translucent theme colour + backdrop blur */
   background:
-    radial-gradient(1200px 700px at 10% -5%, #eef5f5 0%, transparent 55%),
-    radial-gradient(900px 600px at 100% 110%, #f3ede6 0%, transparent 50%),
-    linear-gradient(180deg, #f4f8f8 0%, #eef4f4 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 24%),
+    color-mix(in srgb, var(--color-sidebar) 72%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  backdrop-filter: blur(18px) saturate(125%);
+  border-inline-end: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 60px rgba(15, 58, 64, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: background 0.45s ease;
+}
+/* Fallback when backdrop-filter is unsupported — stay fully opaque & readable */
+@supports not (
+  (backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))
+) {
+  .haven-sidebar {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 26%),
+      var(--color-sidebar);
+  }
+}
+/* Respect users who prefer less transparency */
+@media (prefers-reduced-transparency: reduce) {
+  .haven-sidebar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 26%),
+      var(--color-sidebar);
+  }
 }
 
-/* ---- Ambient animated background orbs ---- */
-.haven-bg {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
+/* ---- Premium upsell card (follows the active theme) ----
+   color-mix is lifted into custom properties so it is never nested inside a
+   gradient (which the CSS pipeline drops); the gradients use plain vars. */
+.haven-premium-card {
+  --pc-from: color-mix(in srgb, var(--color-primary) 58%, var(--color-sidebar));
+  --pc-to: color-mix(in srgb, var(--color-brass) 42%, var(--color-sidebar));
+  --pc-border: color-mix(in srgb, var(--color-brass) 42%, transparent);
+  --pc-glow: color-mix(in srgb, var(--color-brass) 16%, transparent);
+  background: linear-gradient(150deg, var(--pc-from) 0%, var(--color-sidebar) 54%, var(--pc-to) 100%);
+  border: 1px solid var(--pc-border);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 22px var(--pc-glow);
+  transition: background 0.45s ease, border-color 0.45s ease;
 }
-.haven-bg span {
-  position: absolute;
-  display: block;
-  border-radius: 9999px;
-  filter: blur(90px);
-  will-change: transform;
+.haven-premium-glow {
+  --glow: color-mix(in srgb, var(--color-brass) 38%, transparent);
+  background: radial-gradient(circle, var(--glow), transparent 70%);
 }
-.haven-orb-1 {
-  width: 540px;
-  height: 540px;
-  top: -180px;
-  left: -140px;
-  background: #477680;
-  opacity: 0.34;
-  animation: orb-float-1 24s ease-in-out infinite;
-}
-.haven-orb-2 {
-  width: 480px;
-  height: 480px;
-  bottom: -200px;
-  right: -120px;
-  background: #e89b4a;
-  opacity: 0.28;
-  animation: orb-float-2 28s ease-in-out infinite;
-}
-.haven-orb-3 {
-  width: 460px;
-  height: 460px;
-  top: 30%;
-  left: -160px;
-  background: #5fa98c;
-  opacity: 0.26;
-  animation: orb-float-3 32s ease-in-out infinite;
-}
-.haven-orb-4 {
-  width: 360px;
-  height: 360px;
-  top: 50%;
-  left: 50%;
-  background: #6aa3b0;
-  opacity: 0.16;
-  animation: orb-float-2 30s ease-in-out infinite;
-}
-@keyframes orb-float-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(70px, 50px) scale(1.12); }
-}
-@keyframes orb-float-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-60px, -50px) scale(1.1); }
-}
-@keyframes orb-float-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-50px, 40px) scale(0.92); }
+.haven-upgrade-btn {
+  --ub-1: color-mix(in srgb, var(--color-brass) 74%, #ffffff);
+  --ub-3: color-mix(in srgb, var(--color-brass) 88%, #000000);
+  background: linear-gradient(135deg, var(--ub-1) 0%, var(--color-brass) 52%, var(--ub-3) 100%);
+  color: color-mix(in srgb, var(--color-brass) 26%, #060606);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-brass) 38%, transparent);
+  transition: background 0.45s ease, box-shadow 0.45s ease, transform 0.22s ease,
+    filter 0.22s ease;
 }
 
-/* ---- Glass surfaces ---- */
-.glass-sidebar {
+/* ---- Sidebar nav ---- */
+.haven-nav-item {
+  transition: background 0.25s ease, color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+}
+.haven-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(2px);
+}
+html[dir="rtl"] .haven-nav-item:hover {
+  transform: translateX(-2px);
+}
+/* active nav item: soft brass-tinted highlight + gentle inner glow */
+.haven-nav-active {
   background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.62) 0%,
-    rgba(231, 239, 240, 0.5) 100%
+    90deg,
+    rgba(184, 151, 90, 0.14) 0%,
+    rgba(255, 255, 255, 0.05) 55%,
+    rgba(255, 255, 255, 0.02) 100%
   );
-  backdrop-filter: blur(28px) saturate(170%);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  border-inline-end: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 8px 40px rgba(36, 54, 64, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 10px rgba(184, 151, 90, 0.12);
 }
-.glass-card {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px) saturate(135%);
-  -webkit-backdrop-filter: blur(16px) saturate(135%);
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 6px 24px rgba(36, 54, 64, 0.07);
+html[dir="rtl"] .haven-nav-active {
+  background: linear-gradient(
+    270deg,
+    rgba(184, 151, 90, 0.14) 0%,
+    rgba(255, 255, 255, 0.05) 55%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+}
+.haven-nav-underline {
+  border-bottom: 2px solid var(--color-brass);
+  padding-bottom: 2px;
 }
 
 /* ---- Gradient text accent ---- */
@@ -146,92 +205,118 @@ body {
   color: transparent;
 }
 
-/* ---- Primary gradient button ---- */
+/* ---- Primary button ---- */
 .haven-btn {
   background: var(--grad-primary);
   color: #fff;
-  box-shadow: 0 8px 20px rgba(54, 90, 98, 0.28);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  box-shadow: 0 8px 22px rgba(54, 90, 98, 0.24);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
 }
 .haven-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(54, 90, 98, 0.34);
-  filter: brightness(1.05);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(54, 90, 98, 0.3);
+  filter: brightness(1.04);
 }
 .haven-btn:active {
   transform: translateY(0);
 }
 
-/* ---- Cards ---- */
-.haven-card {
-  transition: box-shadow 0.28s ease, transform 0.28s ease;
-}
-.haven-card--hover {
-  cursor: pointer;
-}
-.haven-card--hover:hover {
-  box-shadow: 0 18px 44px rgba(36, 54, 64, 0.14) !important;
-  transform: translateY(-4px);
-}
-
-/* ---- Sidebar nav ---- */
-.haven-nav-item {
-  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
-}
-.haven-nav-item:hover {
-  background: rgba(71, 118, 128, 0.08);
-}
-
-/* ---- Gentle page / element entrance ---- */
+/* ---- Entrance animations ---- */
 @keyframes haven-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes haven-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .haven-fade-in {
-  animation: haven-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: haven-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.haven-fade-up {
+  animation: haven-fade-up 0.45s ease-out both;
+}
+
+/* Staggered entrance: direct children fade up ~70ms apart */
+.haven-stagger > * {
+  animation: haven-fade-up 0.45s ease-out both;
+}
+.haven-stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.haven-stagger > *:nth-child(2) { animation-delay: 0.11s; }
+.haven-stagger > *:nth-child(3) { animation-delay: 0.18s; }
+.haven-stagger > *:nth-child(4) { animation-delay: 0.25s; }
+.haven-stagger > *:nth-child(5) { animation-delay: 0.32s; }
+.haven-stagger > *:nth-child(6) { animation-delay: 0.39s; }
+.haven-stagger > *:nth-child(7) { animation-delay: 0.46s; }
+.haven-stagger > *:nth-child(8) { animation-delay: 0.53s; }
+
+/* ---- Gentle floating (hero preview) ---- */
+@keyframes haven-float-card {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-16px); }
+}
+.haven-float {
+  animation: haven-float-card 7s ease-in-out infinite;
+}
+@keyframes haven-float-soft {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-10px) rotate(-2deg); }
+}
+.haven-float-soft {
+  animation: haven-float-soft 8s ease-in-out infinite;
+}
+
+/* ---- Gentle nudge for a clickable hint (e.g. info chevron) ---- */
+@keyframes haven-nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+.haven-nudge {
+  animation: haven-nudge 1.5s ease-in-out infinite;
+}
+
+/* ---- Info popover ---- */
+@keyframes haven-pop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.haven-pop {
+  animation: haven-pop-in 0.16s ease-out both;
+}
+
+/* ---- Jump-to-course highlight (from Assignments) ---- */
+@keyframes haven-target-glow {
+  0% { box-shadow: 0 0 0 0 rgba(71, 118, 128, 0); }
+  20% { box-shadow: 0 0 0 4px rgba(71, 118, 128, 0.28); }
+  100% { box-shadow: 0 0 0 0 rgba(71, 118, 128, 0); }
+}
+.haven-target {
+  animation: haven-target-glow 1.6s ease-out both;
+  border-radius: var(--radius-card);
 }
 
 /* ---- Modal ---- */
-@keyframes haven-overlay-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+@keyframes haven-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes haven-modal-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.haven-overlay {
-  animation: haven-overlay-in 0.2s ease both;
-}
-.haven-modal {
-  animation: haven-modal-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
+.haven-overlay { animation: haven-overlay-in 0.2s ease both; }
+.haven-modal { animation: haven-modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 /* ---- GPA reveal (blur → clear) ---- */
 .haven-blur {
-  filter: blur(8px);
-  transition: filter 0.4s ease;
+  filter: blur(10px);
+  opacity: 0.7;
+  transform: scale(0.98);
+  transition: filter 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
   user-select: none;
 }
 .haven-clear {
   filter: blur(0);
-  transition: filter 0.4s ease;
+  opacity: 1;
+  transform: scale(1);
+  transition: filter 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -245,16 +330,11 @@ body {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 8px;
+  background: rgba(36, 54, 64, 0.14);
+  border-radius: 9px;
 }
 
 /* Focus ring */
@@ -264,10 +344,146 @@ body {
   border-radius: 6px;
 }
 
-/* Inputs */
 input,
 select,
 button,
 textarea {
   font-family: inherit;
+}
+
+/* ============================================================
+   THEMES — switch instantly by setting data-theme on <html>.
+   Each block overrides the CSS variables the whole UI reads.
+   "haven" is the default (base :root) and needs no override.
+   ============================================================ */
+
+/* 2) Midnight — calm dark mode */
+html[data-theme="midnight"] {
+  --color-primary: #5fa9b8;
+  --color-primary-dark: #4a8c9a;
+  --color-primary-soft: rgba(95, 169, 184, 0.16);
+  --color-sidebar: #0a141a;
+  --color-brass: #cBaa6e;
+  --color-warning: #eaa85c;
+  --color-danger: #ec6f6a;
+  --color-success: #5ec39e;
+  --color-ink: #e8eef2;
+  --color-muted: #93a4ad;
+  --color-surface: #16242b;
+  --color-canvas: #0e1a20;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 16px 44px rgba(0, 0, 0, 0.5);
+  --grad-primary: linear-gradient(135deg, #4f8e9c 0%, #2f5d68 100%);
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(95, 169, 184, 0.14) 0%, transparent 58%),
+    radial-gradient(1000px 700px at 100% 0%, rgba(200, 168, 110, 0.08) 0%, transparent 55%),
+    linear-gradient(180deg, #0f1b22 0%, #0a1217 100%);
+}
+
+/* 3) Rose Quartz */
+html[data-theme="rose"] {
+  --color-primary: #b3737f;
+  --color-primary-dark: #97606b;
+  --color-primary-soft: #f6e9ec;
+  --color-sidebar: #46303a;
+  --color-brass: #c08a72;
+  --color-ink: #3a2a30;
+  --color-surface: #fdfbfb;
+  --color-canvas: #f4edee;
+  --color-border: rgba(58, 42, 48, 0.09);
+  --grad-primary: linear-gradient(135deg, #c98a95 0%, #97606b 100%);
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(179, 115, 127, 0.12) 0%, transparent 58%),
+    radial-gradient(1100px 700px at 100% 0%, rgba(192, 138, 114, 0.1) 0%, transparent 55%),
+    linear-gradient(180deg, #f7f0f1 0%, #f0e8e9 100%);
+}
+
+/* 4) Lavender */
+html[data-theme="lavender"] {
+  --color-primary: #7e6fb0;
+  --color-primary-dark: #695b99;
+  --color-primary-soft: #ece9f6;
+  --color-sidebar: #322c4a;
+  --color-brass: #b89a6a;
+  --color-ink: #2e2a3c;
+  --color-surface: #fdfcff;
+  --color-canvas: #f1eef7;
+  --color-border: rgba(46, 42, 60, 0.09);
+  --grad-primary: linear-gradient(135deg, #8f7fc4 0%, #695b99 100%);
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(126, 111, 176, 0.13) 0%, transparent 58%),
+    radial-gradient(1100px 700px at 100% 0%, rgba(184, 154, 106, 0.08) 0%, transparent 55%),
+    linear-gradient(180deg, #f3f0f9 0%, #ede9f4 100%);
+}
+
+/* 5) Sand & Clay */
+html[data-theme="sand"] {
+  --color-primary: #b07a52;
+  --color-primary-dark: #95643f;
+  --color-primary-soft: #f3e9df;
+  --color-sidebar: #463729;
+  --color-brass: #a98955;
+  --color-ink: #382c22;
+  --color-surface: #fdfbf8;
+  --color-canvas: #f3ece2;
+  --color-border: rgba(56, 44, 34, 0.09);
+  --grad-primary: linear-gradient(135deg, #c08f63 0%, #95643f 100%);
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(176, 122, 82, 0.12) 0%, transparent 58%),
+    radial-gradient(1100px 700px at 100% 0%, rgba(169, 137, 85, 0.1) 0%, transparent 55%),
+    linear-gradient(180deg, #f6efe5 0%, #efe6d9 100%);
+}
+
+/* 6) Forest */
+html[data-theme="forest"] {
+  --color-primary: #3f7d5a;
+  --color-primary-dark: #336547;
+  --color-primary-soft: #e3efe7;
+  --color-sidebar: #1c3528;
+  --color-brass: #b8975a;
+  --color-ink: #243029;
+  --color-surface: #fcfdfb;
+  --color-canvas: #ebf0ea;
+  --color-border: rgba(36, 48, 41, 0.09);
+  --grad-primary: linear-gradient(135deg, #4f9069 0%, #336547 100%);
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(63, 125, 90, 0.13) 0%, transparent 58%),
+    radial-gradient(1100px 700px at 100% 0%, rgba(184, 151, 90, 0.08) 0%, transparent 55%),
+    linear-gradient(180deg, #eef3ec 0%, #e7eee6 100%);
+}
+
+/* 7) Ocean */
+html[data-theme="ocean"] {
+  --color-primary: #3a6ea5;
+  --color-primary-dark: #2f5a87;
+  --color-primary-soft: #e4edf6;
+  --color-sidebar: #14304a;
+  --color-brass: #b8975a;
+  --color-ink: #22303d;
+  --color-surface: #fbfdfe;
+  --color-canvas: #e9eff5;
+  --color-border: rgba(34, 48, 61, 0.09);
+  --grad-primary: linear-gradient(135deg, #4a82bd 0%, #2f5a87 100%);
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(58, 110, 165, 0.13) 0%, transparent 58%),
+    radial-gradient(1100px 700px at 100% 0%, rgba(184, 151, 90, 0.07) 0%, transparent 55%),
+    linear-gradient(180deg, #eef3f8 0%, #e6edf3 100%);
+}
+
+/* 8) Mono — calm neutral greyscale */
+html[data-theme="mono"] {
+  --color-primary: #4a4f54;
+  --color-primary-dark: #393d41;
+  --color-primary-soft: #ececec;
+  --color-sidebar: #26282b;
+  --color-brass: #8f8f8f;
+  --color-ink: #2a2d30;
+  --color-surface: #fdfdfd;
+  --color-canvas: #eeeeee;
+  --color-border: rgba(42, 45, 48, 0.1);
+  --grad-primary: linear-gradient(135deg, #5a5f64 0%, #393d41 100%);
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(74, 79, 84, 0.1) 0%, transparent 58%),
+    linear-gradient(180deg, #f2f2f2 0%, #eaeaea 100%);
 }
