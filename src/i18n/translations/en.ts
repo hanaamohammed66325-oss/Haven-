@@ -75,6 +75,27 @@ export const en = {
   whatIfResult: "Projected GPA",
   reset: "Reset",
 
+  // Cumulative GPA calculator
+  calcCumGpa: "Calculate cumulative GPA",
+  cumGpaTitle: "Cumulative GPA Calculator",
+  cumPrevSection: "Previous record",
+  cumPrevGpa: "Previous cumulative GPA",
+  cumCompletedHours: "Completed credit hours",
+  cumThisSemester: "This semester's courses",
+  cumNoCourses: "No courses this semester yet.",
+  cumNoGradeYet: "no grade yet",
+  cumResultLabel: "New cumulative GPA",
+  cumBreakdown:
+    "This semester: {sem} / 5.0 · Previous: {prev} / 5.0 → New cumulative: {next} / 5.0",
+  cumNote: "Simulation only — your saved data isn't changed.",
+  cumTabCurrent: "This semester's courses",
+  cumTabManual: "Manual entry",
+  cumAddRow: "Add course",
+  cumClearAll: "Clear all",
+  cumCourseName: "Course name",
+  cumRowCredits: "Credit hours",
+  cumGrade: "Grade",
+
   // Needs attention
   needsAttentionTitle: "Needs attention",
   attnAllGood: "Everything's on track ✅",

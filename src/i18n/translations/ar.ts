@@ -77,6 +77,27 @@ export const ar: Record<TranslationKey, string> = {
   whatIfResult: "المعدل المتوقّع",
   reset: "إعادة تعيين",
 
+  // Cumulative GPA calculator
+  calcCumGpa: "احسب معدلك التراكمي",
+  cumGpaTitle: "حاسبة المعدل التراكمي",
+  cumPrevSection: "السجل السابق",
+  cumPrevGpa: "معدلك التراكمي السابق",
+  cumCompletedHours: "الساعات المكتملة",
+  cumThisSemester: "مواد هذا الفصل",
+  cumNoCourses: "لا توجد مواد لهذا الفصل بعد.",
+  cumNoGradeYet: "لا يوجد تقدير بعد",
+  cumResultLabel: "المعدل التراكمي الجديد",
+  cumBreakdown:
+    "هذا الفصل: {sem} / 5.0 · السابق: {prev} / 5.0 ← الجديد: {next} / 5.0",
+  cumNote: "محاكاة فقط — لا يتغيّر شيء من بياناتك المحفوظة.",
+  cumTabCurrent: "مواد الفصل الحالي",
+  cumTabManual: "إدخال يدوي",
+  cumAddRow: "أضف مادة",
+  cumClearAll: "مسح الكل",
+  cumCourseName: "اسم المادة",
+  cumRowCredits: "الساعات",
+  cumGrade: "التقدير",
+
   // Needs attention
   needsAttentionTitle: "تحتاج انتباه",
   attnAllGood: "كل شيء على ما يرام ✅",

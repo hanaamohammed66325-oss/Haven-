@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown } from "lucide-react";
+import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "@/components/Card";
@@ -17,6 +17,7 @@ import { UpcomingPanel } from "@/components/UpcomingPanel";
 import { GpaGoalCard } from "@/components/GpaGoalCard";
 import { WhatIfCard } from "@/components/WhatIfCard";
 import { NeedsAttentionCard } from "@/components/NeedsAttentionCard";
+import { CumulativeGpaModal } from "@/components/CumulativeGpaModal";
 import {
   semesterGPA,
   semesterProgress,
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   const store = useStore();
   const { hydrated, profileName, semester, courses } = store;
   const [revealGpa, setRevealGpa] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
 
   const progress = useMemo(() => semesterProgress(semester), [semester]);
   const gpa = useMemo(() => semesterGPA(courses), [courses]);
@@ -131,10 +133,22 @@ export default function DashboardPage() {
               </div>
 
               {/* GPA (hidden by default) */}
-              <button
-                onClick={() => setRevealGpa((v) => !v)}
-                className="flex flex-col items-center justify-center gap-3 p-8 text-center transition-colors hover:bg-black/[0.012]"
-              >
+              <div className="relative flex flex-col items-center justify-center p-8">
+                {/* Cumulative GPA calculator trigger */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setCalcOpen(true); }}
+                  aria-label={t("calcCumGpa")}
+                  title={t("calcCumGpa")}
+                  className="absolute top-3 end-3 z-[2] inline-flex items-center justify-center h-8 w-8 rounded-lg transition-colors hover:bg-[var(--color-primary-soft)]"
+                  style={{ color: "var(--color-primary)" }}
+                >
+                  <Calculator size={16} />
+                </button>
+                <button
+                  onClick={() => setRevealGpa((v) => !v)}
+                  className="flex flex-col items-center justify-center gap-3 text-center"
+                >
                 <div className="haven-label">{t("semesterGpa")}</div>
                 {gpa == null ? (
                   <>
@@ -155,7 +169,8 @@ export default function DashboardPage() {
                     </div>
                   </>
                 )}
-              </button>
+                </button>
+              </div>
 
               {/* Upcoming */}
               <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
@@ -228,6 +243,8 @@ export default function DashboardPage() {
           </Card>
         </aside>
       </div>
+
+      <CumulativeGpaModal open={calcOpen} onClose={() => setCalcOpen(false)} />
     </div>
   );
 }

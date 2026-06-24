@@ -75,7 +75,7 @@ function normalizePlanner(p: unknown): PlannerData {
 }
 
 // Bring courses saved under older shapes up to the current model.
-function normalizeCourse(c: Partial<Course> & Record<string, unknown>): Course {
+function normalizeCourse(c: Partial<Course>): Course {
   const rawSessions = Array.isArray(c.sessions) ? c.sessions : [];
   const sessions: CourseSession[] = rawSessions.map((s) => {
     const sess = s as Partial<CourseSession> & { hours?: number };
@@ -169,7 +169,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           taskOrder: Array.isArray(parsed.taskOrder) ? parsed.taskOrder : [],
           semester: { ...defaultSemester, ...(parsed.semester ?? {}) },
           courses: Array.isArray(parsed.courses)
-            ? parsed.courses.map((c) => normalizeCourse(c as Course))
+            ? parsed.courses.map((c) => normalizeCourse(c))
             : [],
           planner: normalizePlanner(parsed.planner),
         });

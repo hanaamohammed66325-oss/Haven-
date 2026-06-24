@@ -56,8 +56,8 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
       aria-label={title}
     >
       <div
-        className="haven-modal w-full max-w-md bg-white rounded-2xl overflow-hidden flex flex-col"
-        style={{ maxHeight: "90dvh", boxShadow: "0 20px 60px rgba(36,54,64,0.22)" }}
+        className="haven-modal w-full max-w-md rounded-2xl overflow-hidden flex flex-col"
+        style={{ maxHeight: "90dvh", background: "var(--color-surface)", boxShadow: "0 20px 60px rgba(36,54,64,0.22)" }}
       >
         <div
           className="flex items-center justify-between px-5 py-4 border-b shrink-0"
@@ -78,7 +78,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         {footer && (
           <div
             className="shrink-0 border-t px-6 py-4"
-            style={{ borderColor: "var(--color-border)", background: "#fff" }}
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
           >
             {footer}
           </div>
