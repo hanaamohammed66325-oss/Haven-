@@ -50,7 +50,7 @@ const defaultSemester: Semester = {
   withdrawalLimit: 25,
 };
 
-const emptyPlanner: PlannerData = { notes: [], strokes: [], highlights: [] };
+const emptyPlanner: PlannerData = { notes: [], strokes: [], highlights: [], autoEdits: {} };
 
 const initialData: AppData = {
   profileName: "Student",
@@ -71,6 +71,7 @@ function normalizePlanner(p: unknown): PlannerData {
     notes: Array.isArray(pl.notes) ? pl.notes : [],
     strokes: Array.isArray(pl.strokes) ? pl.strokes : [],
     highlights: Array.isArray(pl.highlights) ? pl.highlights : [],
+    autoEdits: pl.autoEdits && typeof pl.autoEdits === "object" ? pl.autoEdits : {},
   };
 }
 
@@ -93,7 +94,12 @@ function normalizeCourse(c: Partial<Course>): Course {
       ...(sess.time ? { time: String(sess.time) } : {}),
       ...(sess.building ? { building: String(sess.building) } : {}),
       ...(sess.room ? { room: String(sess.room) } : {}),
-      ...(sess.note ? { note: String(sess.note) } : {}),
+      // notes: prefer the array; migrate the legacy single `note`
+      notes: Array.isArray(sess.notes)
+        ? sess.notes.filter((n): n is string => typeof n === "string")
+        : sess.note
+        ? [String(sess.note)]
+        : [],
     };
   });
   return {

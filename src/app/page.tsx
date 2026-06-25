@@ -1,7 +1,7 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Sparkles,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { HeroDemo } from "@/components/HeroDemo";
+import { DemoPlayer } from "@/components/DemoPlayer";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 
@@ -49,13 +50,8 @@ const socialIcons = [
 
 export default function LandingPage() {
   const { t, lang } = useT();
-  const { language, setLanguage, loadDemo } = useStore();
-  const router = useRouter();
-
-  const startDemo = () => {
-    loadDemo();
-    router.push("/dashboard");
-  };
+  const { language, setLanguage } = useStore();
+  const [demoOpen, setDemoOpen] = useState(false);
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden">
@@ -144,14 +140,14 @@ export default function LandingPage() {
 
             <div className="haven-fade-up mt-10 flex flex-wrap items-center gap-4" style={{ animationDelay: "0.15s" }}>
               <Link
-                href="/dashboard"
+                href="/signup"
                 className="haven-btn inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-medium"
               >
                 {t("land_getStarted")}
                 <ArrowRight size={18} className="rtl:rotate-180" />
               </Link>
               <button
-                onClick={startDemo}
+                onClick={() => setDemoOpen(true)}
                 className="surface-card inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-medium transition-transform hover:-translate-y-0.5"
                 style={{ color: "var(--color-ink)" }}
               >
@@ -234,7 +230,7 @@ export default function LandingPage() {
               {t("land_ctaText")}
             </p>
             <Link
-              href="/dashboard"
+              href="/signup"
               className="haven-btn mt-9 inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-medium"
             >
               {t("land_ctaBtn")}
@@ -252,6 +248,8 @@ export default function LandingPage() {
           <p className="text-sm" style={{ color: "var(--color-muted)" }}>{t("land_footer")}</p>
         </footer>
       </div>
+
+      <DemoPlayer open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   );
 }

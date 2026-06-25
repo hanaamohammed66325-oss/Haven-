@@ -6,7 +6,7 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { formatShortDate, toISODate } from "@/lib/dates";
-import type { PlannerData, PlannerNote, CalendarType } from "@/types";
+import type { PlannerData, PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -39,6 +39,7 @@ const TAGS: { key: TranslationKey; color: string }[] = [
   { key: "tagDeadline", color: "#b8975a" },
   { key: "tagHoliday", color: "#5fa98c" },
 ];
+const tagColorOf = (key?: string) => TAGS.find((t) => t.key === key)?.color;
 
 const EXAM_TYPES = ["quiz", "midterm", "final"];
 const typeColor = (t: string) =>
@@ -51,8 +52,8 @@ export function Planner() {
   const [planner, setLocal] = useState<PlannerData>(stored);
   const [seeded, setSeeded] = useState(false);
   const [activeWeek, setActiveWeek] = useState(0);
+  const [activeDay, setActiveDay] = useState<number | null>(null); // null = whole week
 
-  // Seed local state once data has hydrated, then persist on every change.
   useEffect(() => {
     if (hydrated && !seeded) {
       setLocal(stored);
@@ -65,9 +66,7 @@ export function Planner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planner, seeded]);
 
-  // Number of week cards = teaching weeks + finals weeks (from settings),
-  // not derived from the semester dates. The date range per card still flows
-  // from the start date so each card shows its week in the active calendar.
+  // Week cards = teaching weeks + finals weeks (from settings), date range from start date.
   const weekCount = Math.max(1, Math.min(40, Math.round((Number(semester.weeks) || 0) + (Number(semester.finalsWeeks) || 0)) || 1));
 
   const weeks = useMemo<Week[]>(() => {
@@ -77,12 +76,11 @@ export function Planner() {
     return Array.from({ length: weekCount }, (_, i) => {
       if (!valid) return { index: i, start: null, end: null };
       const ws = new Date(+start + i * 7 * dayMs);
-      const we = new Date(+ws + 6 * dayMs);
-      return { index: i, start: ws, end: we };
+      return { index: i, start: ws, end: new Date(+ws + 6 * dayMs) };
     });
   }, [semester.startDate, weekCount]);
 
-  // ---- smart touch: exams/assignments shown in their matching week ----
+  // Smart touch: exams/assignments shown in their matching week.
   const autoByWeek = useMemo(() => {
     const map: Record<number, AutoItem[]> = {};
     weeks.forEach((w) => (map[w.index] = []));
@@ -98,9 +96,8 @@ export function Planner() {
     return map;
   }, [courses, weeks]);
 
-  // ---- note mutations (structured planner — no drawing layer) ----
+  // ---- mutations ----
   const setNotes = (notes: PlannerNote[]) => setLocal((pl) => ({ ...pl, notes }));
-
   const addNote = (week: number, day: number | undefined, text: string, color: string, tag?: string) => {
     const txt = text.trim();
     if (!txt) return;
@@ -111,6 +108,13 @@ export function Planner() {
   const deleteNote = (id: string) => setNotes(planner.notes.filter((n) => n.id !== id));
   const toggleNoteDone = (id: string) =>
     setNotes(planner.notes.map((n) => (n.id === id ? { ...n, done: !n.done } : n)));
+  const setAutoEdit = (id: string, patch: PlannerAutoEdit) =>
+    setLocal((pl) => ({ ...pl, autoEdits: { ...(pl.autoEdits ?? {}), [id]: { ...(pl.autoEdits?.[id] ?? {}), ...patch } } }));
+
+  const setTarget = (week: number, day: number | null) => {
+    setActiveWeek(week);
+    setActiveDay(day);
+  };
 
   if (!hydrated) return <div className="h-40" />;
 
@@ -119,10 +123,11 @@ export function Planner() {
     w.start && w.end
       ? `${formatShortDate(toISODate(w.start), lang, cal)} – ${formatShortDate(toISODate(w.end), lang, cal)}`
       : "";
+  const targetLabel = activeDay == null ? t("plannerWholeWeek") : t(`day${activeDay}` as TranslationKey);
 
   return (
     <div>
-      {/* Toolbar — Note tool + quick tags */}
+      {/* Toolbar — Note tool + active target + quick tags */}
       <div className="surface-card rounded-2xl p-3 mb-8 flex flex-wrap items-center gap-2">
         <span
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
@@ -135,12 +140,12 @@ export function Planner() {
         <span className="h-6 w-px mx-1" style={{ background: "var(--color-border)" }} />
 
         <span className="text-[11px] font-medium me-1" style={{ color: "var(--color-muted)" }}>
-          {t("plannerActiveWeek", { n: activeWeek + 1 })}
+          {t("plannerActiveTarget", { n: activeWeek + 1, target: targetLabel })}
         </span>
         {TAGS.map((tg) => (
           <button
             key={tg.key}
-            onClick={() => addNote(activeWeek, undefined, t(tg.key), tg.color, tg.key)}
+            onClick={() => addNote(activeWeek, activeDay ?? undefined, t(tg.key), tg.color, tg.key)}
             className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
             style={{ background: `${tg.color}1A`, color: tg.color }}
           >
@@ -159,14 +164,78 @@ export function Planner() {
             range={range(w)}
             notes={planner.notes.filter((n) => n.week === w.index)}
             autoItems={autoByWeek[w.index] ?? []}
-            active={activeWeek === w.index}
-            onActivate={() => setActiveWeek(w.index)}
-            onAdd={(day, text) => addNote(w.index, day, text, DEFAULT_NOTE_COLOR)}
+            autoEdits={planner.autoEdits ?? {}}
+            isActiveWeek={activeWeek === w.index}
+            activeDay={activeWeek === w.index ? activeDay : undefined}
+            onSetTarget={(day) => setTarget(w.index, day)}
+            onAdd={(day, text) => addNote(w.index, day ?? undefined, text, DEFAULT_NOTE_COLOR)}
             onUpdate={updateNote}
             onDelete={deleteNote}
             onToggleDone={toggleNoteDone}
+            onHideAuto={(id) => setAutoEdit(id, { hidden: true })}
+            onRetagAuto={(id, tag) => setAutoEdit(id, { tag })}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** Small inline editor used to rename a note and/or change its tag colour. */
+function TagEditor({
+  text,
+  allowRename,
+  onText,
+  onPick,
+  onDone,
+  onDelete,
+}: {
+  text: string;
+  allowRename: boolean;
+  onText: (v: string) => void;
+  onPick: (tag: string, color: string) => void;
+  onDone: () => void;
+  onDelete: () => void;
+}) {
+  const { t } = useT();
+  return (
+    <div
+      className="rounded-xl border p-2 flex flex-col gap-2"
+      style={{ borderColor: "var(--color-primary)", background: "var(--color-surface)", minWidth: 180 }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {allowRename ? (
+        <input
+          autoFocus
+          defaultValue={text}
+          onChange={(e) => onText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") onDone(); }}
+          className="rounded-lg border px-2 py-1 text-xs outline-none"
+          style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+        />
+      ) : (
+        <div className="text-xs font-medium truncate" style={{ color: "var(--color-ink)" }}>{text}</div>
+      )}
+      <div className="flex items-center gap-1.5">
+        {TAGS.map((tg) => (
+          <button
+            key={tg.key}
+            type="button"
+            onClick={() => onPick(tg.key, tg.color)}
+            aria-label={t(tg.key)}
+            title={t(tg.key)}
+            className="h-5 w-5 rounded-full transition-transform hover:scale-110"
+            style={{ background: tg.color, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.1)" }}
+          />
+        ))}
+      </div>
+      <div className="flex items-center justify-between">
+        <button type="button" onClick={onDelete} className="text-[11px] font-medium" style={{ color: "var(--color-danger)" }}>
+          {t("delete")}
+        </button>
+        <button type="button" onClick={onDone} className="text-[11px] font-medium" style={{ color: "var(--color-primary)" }}>
+          {t("save")}
+        </button>
       </div>
     </div>
   );
@@ -177,38 +246,64 @@ function WeekCard({
   range,
   notes,
   autoItems,
-  active,
-  onActivate,
+  autoEdits,
+  isActiveWeek,
+  activeDay,
+  onSetTarget,
   onAdd,
   onUpdate,
   onDelete,
   onToggleDone,
+  onHideAuto,
+  onRetagAuto,
 }: {
   label: string;
   range: string;
   notes: PlannerNote[];
   autoItems: AutoItem[];
-  active: boolean;
-  onActivate: () => void;
-  onAdd: (day: number | undefined, text: string) => void;
+  autoEdits: Record<string, PlannerAutoEdit>;
+  isActiveWeek: boolean;
+  activeDay: number | null | undefined;
+  onSetTarget: (day: number | null) => void;
+  onAdd: (day: number | null, text: string) => void;
   onUpdate: (id: string, patch: Partial<PlannerNote>) => void;
   onDelete: (id: string) => void;
   onToggleDone: (id: string) => void;
+  onHideAuto: (id: string) => void;
+  onRetagAuto: (id: string, tag: string) => void;
 }) {
   const { t } = useT();
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editNoteId, setEditNoteId] = useState<string | null>(null);
+  const [editAutoId, setEditAutoId] = useState<string | null>(null);
 
   const general = notes.filter((n) => n.day == null);
+  const visibleAuto = autoItems.filter((a) => !autoEdits[a.id]?.hidden);
+  const wholeWeekActive = isActiveWeek && activeDay == null;
+
+  const activeRing = { outline: "1px dashed var(--color-primary)", outlineOffset: 2, borderRadius: 8 };
 
   const renderNote = (n: PlannerNote) => {
-    if (editingId === n.id) {
+    if (editNoteId === n.id) {
+      if (n.tag) {
+        return (
+          <TagEditor
+            key={n.id}
+            text={n.text}
+            allowRename
+            onText={(v) => onUpdate(n.id, { text: v.trim() || n.text })}
+            onPick={(tag, color) => onUpdate(n.id, { tag, color })}
+            onDone={() => setEditNoteId(null)}
+            onDelete={() => { onDelete(n.id); setEditNoteId(null); }}
+          />
+        );
+      }
       return (
         <input
           key={n.id}
           autoFocus
           defaultValue={n.text}
           onClick={(e) => e.stopPropagation()}
-          onBlur={(e) => { onUpdate(n.id, { text: e.target.value.trim() || n.text }); setEditingId(null); }}
+          onBlur={(e) => { onUpdate(n.id, { text: e.target.value.trim() || n.text }); setEditNoteId(null); }}
           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
           className="rounded-lg px-2 py-1 text-xs outline-none"
           style={{ border: "1px solid var(--color-primary)", background: "var(--color-surface)", color: "var(--color-ink)" }}
@@ -222,8 +317,8 @@ function WeekCard({
         className="group/note inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs max-w-full"
         style={{ background: `${n.color}1A`, border: "1px solid transparent" }}
       >
-        {/* Checkbox — also serves as the note's colour dot */}
         <button
+          type="button"
           onClick={(e) => { e.stopPropagation(); onToggleDone(n.id); }}
           aria-label={t("plannerToggleDone")}
           aria-pressed={done}
@@ -233,16 +328,65 @@ function WeekCard({
           {done && <Check size={9} color="#fff" strokeWidth={3} />}
         </button>
         <span
-          onClick={(e) => { e.stopPropagation(); setEditingId(n.id); }}
+          onClick={(e) => { e.stopPropagation(); setEditNoteId(n.id); }}
           className="cursor-text truncate"
           style={{ color: "var(--color-ink)", textDecoration: done ? "line-through" : "none", opacity: done ? 0.5 : 1 }}
         >
           {n.text}
         </span>
         <button
+          type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(n.id); }}
           className="opacity-0 group-hover/note:opacity-100 transition-opacity shrink-0"
           aria-label={t("delete")}
+        >
+          <X size={11} style={{ color: "var(--color-muted)" }} />
+        </button>
+      </span>
+    );
+  };
+
+  const renderAuto = (a: AutoItem) => {
+    const override = autoEdits[a.id]?.tag;
+    const color = (override && tagColorOf(override)) || typeColor(a.type);
+    if (editAutoId === a.id) {
+      return (
+        <TagEditor
+          key={a.id}
+          text={a.name}
+          allowRename={false}
+          onText={() => {}}
+          onPick={(tag) => onRetagAuto(a.id, tag)}
+          onDone={() => setEditAutoId(null)}
+          onDelete={() => { onHideAuto(a.id); setEditAutoId(null); }}
+        />
+      );
+    }
+    return (
+      <span
+        key={a.id}
+        className="group/auto inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs"
+        style={{ background: `${color}14`, border: `1px dashed ${color}66` }}
+        title={a.course}
+      >
+        {EXAM_TYPES.includes(a.type) ? (
+          <GraduationCap size={11} style={{ color }} />
+        ) : (
+          <ClipboardList size={11} style={{ color }} />
+        )}
+        <span
+          onClick={(e) => { e.stopPropagation(); setEditAutoId(a.id); }}
+          className="cursor-pointer"
+          style={{ color: "var(--color-ink)" }}
+        >
+          {a.name}
+        </span>
+        <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>· {a.course}</span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onHideAuto(a.id); }}
+          className="opacity-0 group-hover/auto:opacity-100 transition-opacity shrink-0"
+          aria-label={t("plannerRemoveFromView")}
         >
           <X size={11} style={{ color: "var(--color-muted)" }} />
         </button>
@@ -254,62 +398,48 @@ function WeekCard({
     <Card
       padding="p-6"
       className="min-h-[160px]"
-      onClick={onActivate}
-      style={{ outline: active ? "2px solid var(--color-brass)" : "none", outlineOffset: 2 }}
+      style={{ outline: isActiveWeek ? "2px solid var(--color-brass)" : "none", outlineOffset: 2 }}
     >
-      <button onClick={(e) => { e.stopPropagation(); onActivate(); }} className="block w-full text-start mb-4">
+      <button onClick={() => onSetTarget(null)} className="block w-full text-start mb-4">
         <div className="font-display text-base" style={{ color: "var(--color-ink)" }}>{label}</div>
         {range && <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{range}</div>}
       </button>
 
-      {/* Auto items from coursework (read-only) */}
-      {autoItems.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {autoItems.map((a) => (
-            <span
-              key={a.id}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs"
-              style={{ background: `${typeColor(a.type)}14`, border: `1px dashed ${typeColor(a.type)}66` }}
-              title={a.course}
-            >
-              {EXAM_TYPES.includes(a.type) ? (
-                <GraduationCap size={11} style={{ color: typeColor(a.type) }} />
-              ) : (
-                <ClipboardList size={11} style={{ color: typeColor(a.type) }} />
-              )}
-              <span style={{ color: "var(--color-ink)" }}>{a.name}</span>
-              <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>· {a.course}</span>
-            </span>
-          ))}
+      {/* Whole week: course-derived items + general notes + whole-week add */}
+      <div className="mb-3">
+        <button
+          type="button"
+          onClick={() => onSetTarget(null)}
+          className="block text-[10px] font-semibold uppercase tracking-wide mb-1.5"
+          style={{ color: wholeWeekActive ? "var(--color-primary)" : "var(--color-muted)" }}
+        >
+          {t("plannerWholeWeek")}
+        </button>
+        <div className="flex flex-wrap items-center gap-1.5 p-0.5" style={wholeWeekActive ? activeRing : undefined}>
+          {visibleAuto.map(renderAuto)}
+          {general.map(renderNote)}
+          <DayAddInput placeholder={t("plannerDayAdd")} onFocus={() => onSetTarget(null)} onAdd={(text) => onAdd(null, text)} />
         </div>
-      )}
+      </div>
 
-      {/* Whole-week (general) notes — quick tags land here */}
-      {general.length > 0 && (
-        <div className="mb-3">
-          <div className="text-[10px] font-medium uppercase tracking-wide mb-1.5" style={{ color: "var(--color-muted)" }}>
-            {t("plannerGeneral")}
-          </div>
-          <div className="flex flex-wrap gap-1.5">{general.map(renderNote)}</div>
-        </div>
-      )}
-
-      {/* Days of the week — add a task to a specific day */}
+      {/* Days of the week */}
       <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-start">
         {WEEKDAYS.map((d) => {
           const dayNotes = notes.filter((n) => n.day === d);
+          const dayActive = isActiveWeek && activeDay === d;
           return (
             <Fragment key={d}>
-              <div className="text-[11px] leading-6 pt-0.5" style={{ color: "var(--color-muted)" }}>
+              <button
+                type="button"
+                onClick={() => onSetTarget(d)}
+                className="text-[11px] leading-6 pt-0.5 text-start"
+                style={{ color: dayActive ? "var(--color-primary)" : "var(--color-muted)", fontWeight: dayActive ? 600 : 400 }}
+              >
                 {t(`day${d}` as TranslationKey)}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+              </button>
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0 p-0.5" style={dayActive ? activeRing : undefined}>
                 {dayNotes.map(renderNote)}
-                <DayAddInput
-                  placeholder={t("plannerDayAdd")}
-                  onFocus={onActivate}
-                  onAdd={(text) => onAdd(d, text)}
-                />
+                <DayAddInput placeholder={t("plannerDayAdd")} onFocus={() => onSetTarget(d)} onAdd={(text) => onAdd(d, text)} />
               </div>
             </Fragment>
           );

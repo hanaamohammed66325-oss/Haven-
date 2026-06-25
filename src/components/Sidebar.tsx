@@ -46,6 +46,8 @@ const PREMIUM_BENEFITS: TranslationKey[] = [
   "premiumBenefit2",
   "premiumBenefit3",
   "premiumBenefit4",
+  "premiumBenefit5",
+  "premiumBenefit6",
 ];
 
 function Tooltip({ children }: { children: React.ReactNode }) {
@@ -119,6 +121,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const { t, lang } = useT();
   const { language, setLanguage, profileName, email, profilePhoto } = useStore();
   const [premiumOpen, setPremiumOpen] = useState(false);
+  const [plan, setPlan] = useState<"semester" | "annual">("annual");
 
   const initial = (profileName || "?").trim().charAt(0).toUpperCase();
 
@@ -242,6 +245,43 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
               <p className="text-[11.5px] leading-relaxed mb-3" style={{ color: "rgba(231,239,240,0.62)" }}>
                 {t("premiumSubtitle")}
               </p>
+
+              {/* Plan toggle */}
+              <div className="flex w-full rounded-lg p-0.5 mb-2.5" style={{ background: "rgba(255,255,255,0.08)" }}>
+                {(["semester", "annual"] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPlan(p)}
+                    aria-pressed={plan === p}
+                    className="flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors"
+                    style={plan === p ? { background: "var(--color-brass)", color: "#1a1410" } : { color: "rgba(231,239,240,0.7)" }}
+                  >
+                    {p === "semester" ? t("planSemester") : t("planAnnual")}
+                  </button>
+                ))}
+              </div>
+
+              {/* Price (updates with the toggle) */}
+              <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-3">
+                <span className="font-semibold text-[14px]" style={{ color: "var(--color-brass)" }}>
+                  {plan === "semester" ? t("priceSemester") : t("priceAnnual")}
+                </span>
+                {plan === "annual" && (
+                  <>
+                    <span
+                      className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                      style={{ background: "var(--color-brass)", color: "#1a1410" }}
+                    >
+                      {t("bestValue")}
+                    </span>
+                    <span className="w-full text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
+                      {t("saveAnnual")}
+                    </span>
+                  </>
+                )}
+              </div>
+
               <ul className="flex flex-col gap-1.5 mb-3.5">
                 {PREMIUM_BENEFITS.map((b) => (
                   <li key={b} className="flex items-start gap-2 text-[11.5px] leading-snug" style={{ color: "rgba(231,239,240,0.85)" }}>
@@ -250,9 +290,6 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                   </li>
                 ))}
               </ul>
-              <div className="font-semibold text-[13px] mb-3" style={{ color: "var(--color-brass)" }}>
-                {t("premiumPrice")}
-              </div>
               <button
                 onClick={() => setPremiumOpen(true)}
                 className="haven-upgrade-btn w-full rounded-xl py-2.5 text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"

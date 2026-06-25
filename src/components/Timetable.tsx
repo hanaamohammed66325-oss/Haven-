@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarRange, Clock, MapPin, DoorOpen } from "lucide-react";
+import { CalendarRange, Clock, MapPin, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
@@ -171,13 +171,10 @@ export function Timetable() {
                         </div>
                       )}
 
-                      {/* Per-session note */}
-                      <input
-                        value={s.note ?? ""}
-                        onChange={(ev) => updateSession(e.courseId, e.sessionId, { note: ev.target.value || undefined })}
-                        placeholder={t("ttNotePlaceholder")}
-                        className="w-full mt-2 rounded-lg border px-2 py-1 text-xs outline-none transition-colors focus:border-[var(--color-primary)]"
-                        style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+                      {/* Per-session notes (multiple, auto-grow) */}
+                      <SessionNotes
+                        notes={s.notes ?? []}
+                        onChange={(notes) => updateSession(e.courseId, e.sessionId, { notes })}
                       />
                     </div>
                   );
@@ -187,6 +184,73 @@ export function Timetable() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Textarea that grows to fit its content (no fixed max height). */
+function AutoGrowTextarea({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const resize = () => {
+    const el = ref.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
+  useEffect(resize, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full resize-none overflow-hidden rounded-lg border px-2 py-1 text-xs outline-none transition-colors focus:border-[var(--color-primary)]"
+      style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+    />
+  );
+}
+
+/** A session's notes: multiple auto-grow notes, each deletable, plus "Add note". */
+function SessionNotes({ notes, onChange }: { notes: string[]; onChange: (n: string[]) => void }) {
+  const { t } = useT();
+  const update = (i: number, val: string) => onChange(notes.map((n, j) => (j === i ? val : n)));
+  const remove = (i: number) => onChange(notes.filter((_, j) => j !== i));
+  const add = () => onChange([...notes, ""]);
+
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      {notes.map((n, i) => (
+        <div key={i} className="flex items-start gap-1">
+          <AutoGrowTextarea value={n} onChange={(v) => update(i, v)} placeholder={t("ttNotePlaceholder")} />
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            aria-label={t("delete")}
+            className="shrink-0 mt-0.5 rounded p-1 transition-colors hover:bg-black/5"
+          >
+            <Trash2 size={12} style={{ color: "var(--color-muted)" }} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="inline-flex items-center gap-1 self-start text-[11px] font-medium"
+        style={{ color: "var(--color-primary)" }}
+      >
+        <Plus size={12} />
+        {t("ttAddNote")}
+      </button>
     </div>
   );
 }

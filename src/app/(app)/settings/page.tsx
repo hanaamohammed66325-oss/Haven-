@@ -8,6 +8,7 @@ import { useT } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
 import { DateField } from "@/components/DateField";
+import { signOut as clearSession } from "@/lib/auth";
 import type { CalendarType, ThemeId } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -77,7 +78,10 @@ export default function SettingsPage() {
   // Return to the welcome screen. Haven keeps no auth/session token —
   // course data lives in localStorage and is intentionally preserved here
   // (clearing it is the separate "Reset data" action below).
-  const signOut = () => router.push("/");
+  const signOut = () => {
+    clearSession();
+    router.push("/");
+  };
 
   if (!hydrated) return <div className="h-40" />;
 

@@ -32,7 +32,8 @@ export interface CourseSession {
   time?: string; // start time "HH:MM" (optional)
   building?: string; // building name/number (optional)
   room?: string; // room number (optional)
-  note?: string; // free note for this session (optional)
+  note?: string; // legacy single note — migrated into `notes`
+  notes?: string[]; // multiple free notes for this session
 }
 
 /** A single logged absence referencing one of the course's weekly sessions. */
@@ -88,10 +89,18 @@ export interface PlannerStroke {
   points: number[][]; // [[x,y], …] in grid-relative px
 }
 
+/** Planner-only overrides for course-derived (auto) items, keyed by component id.
+ *  These affect the planner display only — never the underlying course data. */
+export interface PlannerAutoEdit {
+  hidden?: boolean; // removed from the planner view
+  tag?: string; // re-tagged (changes the chip colour)
+}
+
 export interface PlannerData {
   notes: PlannerNote[];
   strokes: PlannerStroke[];
   highlights: number[]; // highlighted week indices
+  autoEdits: Record<string, PlannerAutoEdit>; // component-id → planner override
 }
 
 export interface AppData {
