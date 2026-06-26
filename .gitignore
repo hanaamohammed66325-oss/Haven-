@@ -24,6 +24,8 @@ yarn-error.log*
 # env files
 .env
 .env*.local
+# allow committing production public env (NEXT_PUBLIC_* only) so CI builds get them
+!.env.production
 
 # vercel
 .vercel
