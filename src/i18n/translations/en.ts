@@ -418,6 +418,17 @@ export const en = {
   land_ctaBtn: "Start free",
   land_footer: "Made for students · Your data stays on your device",
 
+  // Feedback form (public, no account)
+  feedbackTitle: "We'd love your feedback",
+  feedbackSubtitle: "Have an idea or found a bug? We'd be glad to hear it — no account needed.",
+  feedbackMessage: "Message",
+  feedbackMessagePlaceholder: "Your message…",
+  feedbackSend: "Send",
+  feedbackSending: "Sending…",
+  feedbackThanks: "Thanks! Your feedback was sent.",
+  feedbackError: "Couldn't send your message. Please try again.",
+  feedbackEmptyError: "Please write a message first.",
+
   // Landing auto-demo
   demo_aria: "Haven feature demo",
   demo_goToSlide: "Show feature {n}",

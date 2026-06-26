@@ -418,6 +418,17 @@ export const ar: Record<TranslationKey, string> = {
   land_ctaBtn: "ابدأ مجانًا",
   land_footer: "صُنع للطلاب · بياناتك تبقى على جهازك",
 
+  // Feedback form (public, no account)
+  feedbackTitle: "يهمّنا رأيك",
+  feedbackSubtitle: "عندك فكرة أو لقيت مشكلة؟ نسعد بسماعها — بدون حساب.",
+  feedbackMessage: "الرسالة",
+  feedbackMessagePlaceholder: "رسالتك…",
+  feedbackSend: "إرسال",
+  feedbackSending: "جارٍ الإرسال…",
+  feedbackThanks: "شكرًا! وصلتنا ملاحظتك.",
+  feedbackError: "تعذّر إرسال رسالتك، يُرجى المحاولة مرة أخرى.",
+  feedbackEmptyError: "يُرجى كتابة رسالة أولًا.",
+
   // Landing auto-demo
   demo_aria: "عرض مزايا Haven",
   demo_goToSlide: "عرض الميزة {n}",

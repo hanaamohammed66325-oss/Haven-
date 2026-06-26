@@ -16,6 +16,7 @@ import {
 import { Logo } from "@/components/Logo";
 import { HeroDemo } from "@/components/HeroDemo";
 import { DemoPlayer } from "@/components/DemoPlayer";
+import { FeedbackForm } from "@/components/FeedbackForm";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 
@@ -236,6 +237,19 @@ export default function LandingPage() {
               {t("land_ctaBtn")}
               <ArrowRight size={18} className="rtl:rotate-180" />
             </Link>
+          </div>
+        </section>
+
+        {/* Feedback (public, no account — submits to Supabase) */}
+        <section id="feedback" className="pb-28">
+          <div className="surface-card rounded-3xl px-6 py-12 md:px-12 max-w-2xl mx-auto">
+            <h2 className="font-display text-2xl md:text-3xl text-center" style={{ color: "var(--color-ink)" }}>
+              {t("feedbackTitle")}
+            </h2>
+            <p className="mt-4 mb-8 text-center text-[15px]" style={{ color: "var(--color-muted)" }}>
+              {t("feedbackSubtitle")}
+            </p>
+            <FeedbackForm />
           </div>
         </section>
 
