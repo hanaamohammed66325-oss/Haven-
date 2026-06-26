@@ -29,7 +29,6 @@ import { pctToGrade } from "@/lib/grades";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 const SCENE_MS = 5600;
-const SCENE_COUNT = 8;
 const THEMES = ["haven", "midnight", "rose", "lavender", "sand", "forest", "ocean", "mono"];
 
 const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
@@ -51,9 +50,31 @@ const SAMPLE = [
   { name: "Physics II", cr: 4, pct: 82, color: "#5fa98c" },
   { name: "Programming", cr: 3, pct: 92, color: "#e89b4a" },
   { name: "English", cr: 2, pct: 96, color: "#8a6fb0" },
+  { name: "Chemistry", cr: 3, pct: 84, color: "#3b6ea5" },
+  { name: "Statistics", cr: 3, pct: 90, color: "#b8975a" },
 ];
 
-const navForScene = (i: number) => (i === 6 ? "schedule" : i === 7 ? "" : "dashboard");
+interface SceneDef {
+  caption: TranslationKey;
+  nav: string;
+  cyclesTheme?: boolean;
+  render: (p: { reduced: boolean; demoTheme: string | null }) => React.ReactNode;
+}
+
+const SCENES: SceneDef[] = [
+  { caption: "demoScene1", nav: "dashboard", render: ({ reduced }) => <SceneDashboard reduced={reduced} /> },
+  { caption: "demoScene2", nav: "dashboard", render: ({ reduced }) => <SceneGpaLive reduced={reduced} /> },
+  { caption: "demoScene3", nav: "dashboard", render: ({ reduced }) => <SceneCumulative reduced={reduced} /> },
+  { caption: "demoScene4", nav: "dashboard", render: ({ reduced }) => <SceneAttendance reduced={reduced} /> },
+  { caption: "demoScene5", nav: "dashboard", render: ({ reduced }) => <SceneFinal reduced={reduced} /> },
+  { caption: "demoScene6", nav: "dashboard", render: ({ reduced }) => <SceneWhatIf reduced={reduced} /> },
+  { caption: "demoGoalCap", nav: "dashboard", render: ({ reduced }) => <SceneGoal reduced={reduced} /> },
+  { caption: "demoTasksCap", nav: "assignments", render: () => <SceneTasks /> },
+  { caption: "demoScene7", nav: "schedule", render: ({ reduced }) => <ScenePlanner reduced={reduced} /> },
+  { caption: "demoTtCap", nav: "schedule", render: () => <SceneTimetable /> },
+  { caption: "demoScene8", nav: "", cyclesTheme: true, render: ({ demoTheme }) => <SceneThemes activeTheme={demoTheme} /> },
+];
+const SCENE_COUNT = SCENES.length;
 
 export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useT();
@@ -90,7 +111,7 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
   // Scene 8 cycles the real app theme by itself; restore the user's theme otherwise.
   useEffect(() => {
     if (!open) return;
-    if (idx !== 7 || reduced) {
+    if (!SCENES[idx].cyclesTheme || reduced) {
       document.documentElement.setAttribute("data-theme", userTheme);
       setDemoTheme(null);
       return;
@@ -113,7 +134,7 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
   if (!open || !mounted) return null;
 
   const go = (n: number) => setIdx((n + SCENE_COUNT) % SCENE_COUNT);
-  const captionKey = `demoScene${idx + 1}` as TranslationKey;
+  const captionKey = SCENES[idx].caption;
 
   return createPortal(
     <div
@@ -143,10 +164,10 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
 
         {/* App frame */}
         <div className="flex-1 min-h-0 flex" style={{ background: "var(--color-canvas)" }}>
-          <DemoSidebar activeNav={navForScene(idx)} />
+          <DemoSidebar activeNav={SCENES[idx].nav} />
           <div className="flex-1 min-w-0 relative overflow-y-auto">
             <div key={idx} className="haven-fade-in p-4 sm:p-7 min-h-full">
-              <Scene idx={idx} reduced={reduced} demoTheme={demoTheme} />
+              {SCENES[idx].render({ reduced, demoTheme })}
             </div>
           </div>
         </div>
@@ -228,19 +249,6 @@ function DemoSidebar({ activeNav }: { activeNav: string }) {
   );
 }
 
-function Scene({ idx, reduced, demoTheme }: { idx: number; reduced: boolean; demoTheme: string | null }) {
-  switch (idx) {
-    case 0: return <SceneDashboard reduced={reduced} />;
-    case 1: return <SceneGpaLive reduced={reduced} />;
-    case 2: return <SceneCumulative reduced={reduced} />;
-    case 3: return <SceneAttendance reduced={reduced} />;
-    case 4: return <SceneFinal reduced={reduced} />;
-    case 5: return <SceneWhatIf reduced={reduced} />;
-    case 6: return <ScenePlanner reduced={reduced} />;
-    default: return <SceneThemes activeTheme={demoTheme} />;
-  }
-}
-
 /* ---------------- Scene 1: Dashboard ---------------- */
 function SceneDashboard({ reduced }: { reduced: boolean }) {
   const { t } = useT();
@@ -272,7 +280,7 @@ function SceneDashboard({ reduced }: { reduced: boolean }) {
           </div>
         </div>
       </Card>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {SAMPLE.map((c) => (
           <Card key={c.name} className="flex items-center justify-between" padding="p-5">
             <div>
@@ -571,6 +579,110 @@ function NoteChip({ text }: { text: string }) {
       <span className="h-3.5 w-3.5 rounded-full shrink-0" style={{ border: "1.5px solid #477680" }} />
       <span style={{ color: "var(--color-ink)" }}>{text}<span className="opacity-50">|</span></span>
     </span>
+  );
+}
+
+/* ---------------- Scene: GPA goal ---------------- */
+function SceneGoal({ reduced }: { reduced: boolean }) {
+  const { t } = useT();
+  const goal = 4.75;
+  const current = 4.62;
+  const pct = Math.min(100, (current / goal) * 100);
+  const [w, setW] = useState(reduced ? pct : 0);
+  useEffect(() => {
+    if (reduced) return;
+    const id = requestAnimationFrame(() => setW(pct));
+    return () => cancelAnimationFrame(id);
+  }, [reduced, pct]);
+
+  return (
+    <div className="max-w-md mx-auto">
+      <Card padding="p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-display text-xl" style={{ color: "var(--color-ink)" }}>{t("gpaGoalTitle")}</h3>
+          <span className="text-xs rounded-lg px-2.5 py-1 font-medium" style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}>
+            {t("goalTarget")}: {goal.toFixed(2)}
+          </span>
+        </div>
+        <div className="flex items-end justify-center gap-2 mb-5">
+          <span className="font-display text-[46px] leading-none" style={{ color: "var(--color-brass)" }}>
+            <CountUp value={current} decimals={2} duration={1200} />
+          </span>
+          <span className="text-base mb-1.5" style={{ color: "var(--color-muted)" }}>/ {goal.toFixed(2)}</span>
+        </div>
+        <div className="h-2.5 rounded-full mb-3" style={{ background: "var(--color-primary-soft)" }}>
+          <div className="h-2.5 rounded-full" style={{ width: `${w}%`, background: "var(--grad-primary)", transition: "width 1s cubic-bezier(0.22,1,0.36,1)" }} />
+        </div>
+        <div className="text-center text-sm font-medium" style={{ color: "var(--color-success)" }}>
+          {t("goalToGo", { n: (goal - current).toFixed(2) })}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------------- Scene: Tasks by course ---------------- */
+function SceneTasks() {
+  const { t } = useT();
+  const groups = [
+    { course: "Calculus I", count: 3, rows: [["Quiz 1", t("type_quiz"), "18 / 20"], ["Midterm", t("type_midterm"), "27 / 30"], ["Final Exam", t("type_final"), "—"]] },
+    { course: "Physics II", count: 2, rows: [["Lab Report", t("type_assignment"), "—"], ["Quiz 2", t("type_quiz"), "8 / 10"]] },
+  ];
+  return (
+    <div className="haven-stagger max-w-xl mx-auto flex flex-col gap-4">
+      {groups.map((g) => (
+        <Card key={g.course} padding="p-0" className="overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: "var(--color-border)", background: "var(--color-primary-soft)" }}>
+            <h3 className="font-display text-lg" style={{ color: "var(--color-ink)" }}>{g.course}</h3>
+            <span className="inline-flex items-center justify-center rounded-full px-2 min-w-[22px] h-[22px] text-xs font-semibold" style={{ background: "var(--color-surface)", color: "var(--color-primary)" }}>{g.count}</span>
+          </div>
+          <div className="divide-y" style={{ borderColor: "var(--color-border)" }}>
+            {g.rows.map((r, i) => (
+              <div key={i} className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{r[0]}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] rounded-md px-2 py-0.5 font-medium" style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}>{r[1]}</span>
+                  <span className="text-sm font-semibold w-14 text-end" style={{ color: "var(--color-muted)" }}>{r[2]}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Scene: Weekly timetable ---------------- */
+function SceneTimetable() {
+  const { t } = useT();
+  const COL = ["#477680", "#5fa98c", "#e89b4a", "#8a6fb0", "#3b6ea5"];
+  const days = [
+    { d: 0, classes: [{ n: "Calculus I", time: "08:00", room: "B24-105", c: 0 }] },
+    { d: 1, classes: [{ n: "Physics II", time: "10:00", room: "B12-7", c: 1 }, { n: "English", time: "13:00", room: "A3-2", c: 3 }] },
+    { d: 2, classes: [{ n: "Programming", time: "09:00", room: "CS-Lab", c: 2 }] },
+    { d: 3, classes: [{ n: "Calculus I", time: "08:00", room: "B24-105", c: 0 }, { n: "Physics II", time: "10:00", room: "B12-7", c: 1 }] },
+    { d: 4, classes: [{ n: "English", time: "11:00", room: "A3-2", c: 3 }] },
+  ];
+  return (
+    <div className="haven-stagger max-w-3xl mx-auto grid grid-cols-5 gap-2.5">
+      {days.map((day) => (
+        <div key={day.d} className="rounded-2xl border p-2.5" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
+          <div className="haven-label text-center mb-2" style={{ fontSize: 10, color: "var(--color-ink)" }}>{t(`day${day.d}` as TranslationKey)}</div>
+          <div className="flex flex-col gap-2">
+            {day.classes.map((cl, i) => {
+              const col = COL[cl.c];
+              return (
+                <div key={i} className="rounded-lg px-2 py-1.5" style={{ background: `${col}14`, borderInlineStart: `3px solid ${col}` }}>
+                  <div className="text-[11px] font-semibold truncate" style={{ color: "var(--color-ink)" }}>{cl.n}</div>
+                  <div className="text-[10px] mt-0.5" style={{ color: "var(--color-muted)" }}>{cl.time} · {cl.room}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

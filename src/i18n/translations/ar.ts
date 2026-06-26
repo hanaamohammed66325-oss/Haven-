@@ -142,6 +142,9 @@ export const ar: Record<TranslationKey, string> = {
   demoScene6: "جرّب «ماذا لو» — شوف معدلك المتوقّع مع أي درجة تتخيّلها.",
   demoScene7: "خطّط فصلك أسبوع بأسبوع — كل مهمة في يومها.",
   demoScene8: "٨ ثيمات أنيقة — اختر الجو اللي يناسبك.",
+  demoGoalCap: "حدّد هدفًا لمعدلك وتابع تقدّمك نحوه.",
+  demoTasksCap: "كل مهامك، مجمّعة حسب المقرر.",
+  demoTtCap: "حصصك الأسبوعية، مرتّبة حسب اليوم.",
 
   // Auth (sign up / sign in)
   signUpTitle: "أنشئ حساب Haven",

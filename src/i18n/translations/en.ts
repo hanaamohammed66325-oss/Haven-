@@ -140,6 +140,9 @@ export const en = {
   demoScene6: "Try What-if — see your projected GPA with any grade you imagine.",
   demoScene7: "Plan week by week — every task on its day.",
   demoScene8: "8 beautiful themes — pick the vibe that fits you.",
+  demoGoalCap: "Set a GPA goal and watch your progress toward it.",
+  demoTasksCap: "All your tasks, grouped by course.",
+  demoTtCap: "Your weekly classes, organized by day.",
 
   // Auth (sign up / sign in)
   signUpTitle: "Create your Haven account",
