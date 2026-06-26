@@ -25,7 +25,7 @@ jobs:
       - name: Build static export
         run: npm run build
 
-      - name: Deploy to Hostinger via FTP
+      - name: Deploy out/ to Hostinger via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
