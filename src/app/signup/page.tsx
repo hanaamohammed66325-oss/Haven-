@@ -8,7 +8,8 @@ import { AuthLayout } from "@/components/AuthLayout";
 import { useT } from "@/i18n";
 import { signUp } from "@/lib/auth";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Simple, permissive email check: something@something.something (no spaces).
+const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 const fieldBase =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 
@@ -21,6 +22,7 @@ export default function SignUpPage() {
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmSent, setConfirmSent] = useState(false);
 
@@ -30,17 +32,28 @@ export default function SignUpPage() {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = t("authErrName");
-    if (!EMAIL_RE.test(email.trim())) errs.email = t("authErrEmail");
+    if (!isValidEmail(email)) errs.email = t("authErrEmail");
     if (password.length < 8) errs.password = t("authErrPassword");
     if (confirm !== password) errs.confirm = t("authErrMatch");
     setErrors(errs);
+    setFormError("");
     if (Object.keys(errs).length) return;
 
     setBusy(true);
     const res = await signUp(name, email, password);
     setBusy(false);
     if (!res.ok) {
-      setErrors({ email: res.error === "exists" ? t("authErrExists") : t("authErrEmail") });
+      // The email already passed our client check, so only blame the email field
+      // when the server specifically reports the address as invalid or taken.
+      // Other failures (e.g. rate limits) show their real message instead of a
+      // misleading "invalid email".
+      if (res.error === "exists") {
+        setErrors({ email: t("authErrExists") });
+      } else if (/email/i.test(res.message) && /invalid|valid/i.test(res.message)) {
+        setErrors({ email: t("authErrEmail") });
+      } else {
+        setFormError(res.message || t("authErrEmail"));
+      }
       return;
     }
     // Email confirmation is ON: do not sign the user in / redirect. Ask them to
@@ -137,6 +150,10 @@ export default function SignUpPage() {
           />
           <FieldError msg={errors.confirm} />
         </Field>
+
+        {formError && (
+          <span className="text-xs" style={{ color: "var(--color-danger)" }}>{formError}</span>
+        )}
 
         <button
           type="submit"
