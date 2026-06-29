@@ -7,7 +7,7 @@
 // clicks the confirmation link emailed to them.
 // ---------------------------------------------------------------------------
 
-import { supabase } from "./supabase";
+import { supabase, SITE_URL } from "./supabase";
 
 export interface HavenUser {
   id: string;
@@ -26,7 +26,7 @@ export async function signUp(name: string, email: string, password: string): Pro
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: name.trim() } },
+      options: { data: { full_name: name.trim() }, emailRedirectTo: SITE_URL },
     });
     if (error) {
       const message = error.message;
@@ -67,7 +67,11 @@ export async function signIn(email: string, password: string): Promise<AuthResul
 // Resend the sign-up confirmation email for an account that hasn't confirmed yet.
 export async function resendConfirmation(email: string): Promise<AuthResult> {
   try {
-    const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: SITE_URL },
+    });
     if (error) return { ok: false, error: "invalid", message: error.message };
     return { ok: true };
   } catch (e) {
