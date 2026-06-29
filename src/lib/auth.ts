@@ -64,6 +64,17 @@ export async function signIn(email: string, password: string): Promise<AuthResul
   }
 }
 
+// Resend the sign-up confirmation email for an account that hasn't confirmed yet.
+export async function resendConfirmation(email: string): Promise<AuthResult> {
+  try {
+    const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
+    if (error) return { ok: false, error: "invalid", message: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function signOut(): Promise<void> {
   try {
     await supabase.auth.signOut();

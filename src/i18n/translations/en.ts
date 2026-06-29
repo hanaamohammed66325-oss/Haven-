@@ -169,6 +169,9 @@ export const en = {
   authErrInvalid: "Invalid email or password",
   authErrUnconfirmed: "Please confirm your email first — check the link we sent you.",
   authCheckEmail: "Almost there! We've sent a confirmation link to your email. Please confirm your account, then sign in.",
+  authResend: "Resend confirmation email",
+  authResending: "Sending…",
+  authResendSent: "New confirmation link sent — check your inbox.",
 
   // Needs attention
   needsAttentionTitle: "Needs attention",
