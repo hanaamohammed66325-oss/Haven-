@@ -169,6 +169,8 @@ export const ar: Record<TranslationKey, string> = {
   authErrMatch: "كلمتا المرور غير متطابقتين.",
   authErrExists: "يوجد حساب بهذا البريد بالفعل.",
   authErrInvalid: "البريد أو كلمة المرور غير صحيحة",
+  authErrUnconfirmed: "يرجى تأكيد بريدك أولًا — افتح الرابط الذي أرسلناه إليك.",
+  authCheckEmail: "خطوة أخيرة! أرسلنا رابط تأكيد إلى بريدك. يرجى تأكيد الحساب ثم تسجيل الدخول.",
 
   // Needs attention
   needsAttentionTitle: "تحتاج انتباه",

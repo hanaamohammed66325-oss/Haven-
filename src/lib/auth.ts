@@ -1,88 +1,97 @@
 // ---------------------------------------------------------------------------
-// Local-only authentication (localStorage). This is the single source of auth
-// for the whole app — pages call ONLY this module. To move to a real backend
-// (Firebase / Supabase) later, reimplement these four functions here; nothing
-// else in the app needs to change.
+// Authentication. This is the single source of auth for the whole app — pages
+// call ONLY this module. Passwords and sessions are handled entirely by
+// Supabase Auth; nothing is stored or hashed here anymore.
 //
-// Passwords are never stored in plain text — only a SHA-256 hash is kept.
-// (Note: client-side hashing is not real security; that arrives with a backend.)
+// Email confirmation is ON: a brand-new account is NOT signed in until the user
+// clicks the confirmation link emailed to them.
 // ---------------------------------------------------------------------------
 
+import { supabase } from "./supabase";
+
 export interface HavenUser {
+  id: string;
   name: string;
   email: string;
 }
 
-interface StoredUser extends HavenUser {
-  passwordHash: string;
-}
-
-export type AuthResult = { ok: true } | { ok: false; error: "exists" | "invalid" | "unavailable" };
-
-const USER_KEY = "haven:user";
-const SESSION_KEY = "haven:session";
-
-async function hashPassword(password: string): Promise<string> {
-  const data = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function readUser(): StoredUser | null {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as StoredUser) : null;
-  } catch {
-    return null;
-  }
-}
-
-const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+export type AuthResult =
+  // `needsConfirmation` is set when sign up succeeded but the user must confirm
+  // their email before they can sign in.
+  | { ok: true; needsConfirmation?: boolean }
+  | { ok: false; error: "exists" | "invalid" | "unconfirmed" | "unavailable"; message: string };
 
 export async function signUp(name: string, email: string, password: string): Promise<AuthResult> {
   try {
-    const existing = readUser();
-    if (existing && sameEmail(existing.email, email)) return { ok: false, error: "exists" };
-    const passwordHash = await hashPassword(password);
-    const user: StoredUser = { name: name.trim(), email: email.trim(), passwordHash };
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-    localStorage.setItem(SESSION_KEY, "true");
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "unavailable" };
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { full_name: name.trim() } },
+    });
+    if (error) {
+      const message = error.message;
+      // Supabase reports an already-registered email as "User already registered".
+      if (/already registered|already exists/i.test(message)) {
+        return { ok: false, error: "exists", message };
+      }
+      return { ok: false, error: "invalid", message };
+    }
+    // With email confirmation ON there is no active session yet — the user must
+    // confirm via the email link before signing in.
+    const needsConfirmation = !data.session;
+    return { ok: true, needsConfirmation };
+  } catch (e) {
+    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
   }
 }
 
 export async function signIn(email: string, password: string): Promise<AuthResult> {
   try {
-    const user = readUser();
-    const passwordHash = await hashPassword(password);
-    if (!user || !sameEmail(user.email, email) || user.passwordHash !== passwordHash) {
-      return { ok: false, error: "invalid" };
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) {
+      const message = error.message;
+      if (/email not confirmed|not confirmed/i.test(message)) {
+        return { ok: false, error: "unconfirmed", message };
+      }
+      return { ok: false, error: "invalid", message };
     }
-    localStorage.setItem(SESSION_KEY, "true");
     return { ok: true };
-  } catch {
-    return { ok: false, error: "unavailable" };
+  } catch (e) {
+    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export function signOut(): void {
+export async function signOut(): Promise<void> {
   try {
-    localStorage.removeItem(SESSION_KEY);
+    await supabase.auth.signOut();
   } catch {
     // ignore
   }
 }
 
-export function getCurrentUser(): HavenUser | null {
+export async function getCurrentUser(): Promise<HavenUser | null> {
   try {
-    if (localStorage.getItem(SESSION_KEY) !== "true") return null;
-    const user = readUser();
-    return user ? { name: user.name, email: user.email } : null;
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (!user) return null;
+    return {
+      id: user.id,
+      name: (user.user_metadata?.full_name as string) ?? "",
+      email: user.email ?? "",
+    };
   } catch {
     return null;
+  }
+}
+
+export async function isLoggedIn(): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session !== null;
+  } catch {
+    return false;
   }
 }

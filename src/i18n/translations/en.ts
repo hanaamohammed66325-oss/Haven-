@@ -167,6 +167,8 @@ export const en = {
   authErrMatch: "Passwords don't match.",
   authErrExists: "An account with this email already exists.",
   authErrInvalid: "Invalid email or password",
+  authErrUnconfirmed: "Please confirm your email first — check the link we sent you.",
+  authCheckEmail: "Almost there! We've sent a confirmation link to your email. Please confirm your account, then sign in.",
 
   // Needs attention
   needsAttentionTitle: "Needs attention",

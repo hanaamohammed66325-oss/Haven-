@@ -78,8 +78,8 @@ export default function SettingsPage() {
   // Return to the welcome screen. Haven keeps no auth/session token —
   // course data lives in localStorage and is intentionally preserved here
   // (clearing it is the separate "Reset data" action below).
-  const signOut = () => {
-    clearSession();
+  const signOut = async () => {
+    await clearSession();
     router.push("/");
   };
 

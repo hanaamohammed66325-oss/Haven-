@@ -21,7 +21,14 @@
       "Bash(git push *)",
       "Bash(npm -v)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git commit *)",
+      "Bash(npx --yes skills add supabase/agent-skills)",
+      "mcp__66b4250c-4297-46a4-b084-566a530ef0d3__list_projects",
+      "mcp__66b4250c-4297-46a4-b084-566a530ef0d3__list_tables",
+      "mcp__66b4250c-4297-46a4-b084-566a530ef0d3__apply_migration",
+      "mcp__66b4250c-4297-46a4-b084-566a530ef0d3__get_advisors",
+      "mcp__66b4250c-4297-46a4-b084-566a530ef0d3__execute_sql"
     ]
   }
 }

@@ -28,7 +28,7 @@ export default function SignInPage() {
     const res = await signIn(email, password);
     setBusy(false);
     if (!res.ok) {
-      setError(t("authErrInvalid"));
+      setError(res.error === "unconfirmed" ? t("authErrUnconfirmed") : t("authErrInvalid"));
       return;
     }
     router.push("/dashboard");

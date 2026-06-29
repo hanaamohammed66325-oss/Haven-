@@ -22,6 +22,7 @@ export default function SignUpPage() {
   const [show, setShow] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [confirmSent, setConfirmSent] = useState(false);
 
   const borderOf = (k: string) => ({ borderColor: errors[k] ? "var(--color-danger)" : "var(--color-border)" });
 
@@ -42,8 +43,37 @@ export default function SignUpPage() {
       setErrors({ email: res.error === "exists" ? t("authErrExists") : t("authErrEmail") });
       return;
     }
+    // Email confirmation is ON: do not sign the user in / redirect. Ask them to
+    // confirm via the emailed link first. (If confirmation is ever turned off,
+    // res.needsConfirmation will be false and we can go straight to the app.)
+    if (res.needsConfirmation) {
+      setConfirmSent(true);
+      return;
+    }
     router.push("/dashboard");
   };
+
+  if (confirmSent) {
+    return (
+      <AuthLayout title={t("signUpTitle")} subtitle={t("signUpSubtitle")}>
+        <div
+          className="rounded-xl border px-4 py-4 text-sm leading-relaxed"
+          style={{
+            borderColor: "var(--color-border)",
+            background: "var(--color-primary-soft)",
+            color: "var(--color-ink)",
+          }}
+        >
+          {t("authCheckEmail")}
+        </div>
+        <p className="text-center text-sm mt-6" style={{ color: "var(--color-muted)" }}>
+          <Link href="/signin" className="font-medium" style={{ color: "var(--color-primary)" }}>
+            {t("authHaveAccount")}
+          </Link>
+        </p>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout title={t("signUpTitle")} subtitle={t("signUpSubtitle")}>
