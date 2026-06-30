@@ -75,12 +75,13 @@ export default function SettingsPage() {
     else setPremiumOpen(true);
   };
 
-  // Return to the welcome screen. Haven keeps no auth/session token —
-  // course data lives in localStorage and is intentionally preserved here
-  // (clearing it is the separate "Reset data" action below).
+  // Sign out, then return to the sign-in screen. Ending the Supabase session
+  // fires onAuthStateChange("SIGNED_OUT"), which clears the in-memory store and
+  // every Haven localStorage key (see StoreProvider) so the next account that
+  // signs in on this device never inherits this account's data.
   const signOut = async () => {
     await clearSession();
-    router.push("/");
+    router.replace("/signin");
   };
 
   if (!hydrated) return <div className="h-40" />;

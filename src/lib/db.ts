@@ -283,3 +283,39 @@ export async function deleteGradeComponent(id: string): Promise<void> {
   const { error } = await supabase.from("grade_components").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
+
+// ---------------------------------------------------------------------------
+// User preferences (profiles.preferences jsonb)
+//
+// Per-account UI/settings — theme, language, calendar, attendance limits, etc.
+// These used to live in localStorage (device-scoped, so they leaked between
+// accounts on a shared device); they now belong to the signed-in user's row.
+// ---------------------------------------------------------------------------
+
+export type Preferences = Record<string, unknown>;
+
+/** The current user's stored preferences, or {} if the column is null/empty. */
+export async function getPreferences(): Promise<Preferences> {
+  const userId = await currentUserId();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const prefs = data?.preferences;
+  return prefs && typeof prefs === "object" ? (prefs as Preferences) : {};
+}
+
+/** Merge `partial` into the current user's preferences and persist the result. */
+export async function savePreferences(partial: Preferences): Promise<void> {
+  const userId = await currentUserId();
+  // Read-merge-write so a partial save never drops the user's other settings.
+  const current = await getPreferences();
+  const next = { ...current, ...partial };
+  const { error } = await supabase
+    .from("profiles")
+    .update({ preferences: next })
+    .eq("id", userId);
+  if (error) throw new Error(error.message);
+}

@@ -19,15 +19,36 @@ import type {
   ThemeId,
 } from "@/types";
 import { demoCourses } from "@/lib/demo";
-import { getCurrentUser } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 import * as db from "@/lib/db";
+import type { Session } from "@supabase/supabase-js";
 
-// localStorage now holds ONLY the non-cloud data: preferences (theme/language),
-// profile, gpa goal, planner, task order, the semester *settings* the cloud
-// schema doesn't cover (dates / calendar / withdrawal limit), and the per-course
-// attendance layer (sessions + missed). Course identity (name/credits) and grade
-// components live in Supabase — see src/lib/db.ts.
+// localStorage scope depends on whether someone is signed in:
+//   • Signed OUT (anonymous): holds the full app state (theme/language/etc) so a
+//     visitor's choices survive a reload. There's no account to leak to.
+//   • Signed IN: holds ONLY the not-yet-cloud layer — planner, task order, and
+//     the per-course attendance layer (sessions + missed). All real per-account
+//     settings (theme, language, calendar, gpa goal, profile, semester settings)
+//     now live in profiles.preferences in Supabase, so they no longer leak
+//     between accounts on a shared device. Course identity + grade components
+//     live in Supabase too — see src/lib/db.ts.
+// localStorage is device-scoped, so it is wiped on account switch / sign out.
 const STORAGE_KEY = "haven-data";
+
+/** Remove every Haven localStorage key (called on sign-out / account switch so
+ *  one account never inherits another's device-local data). */
+function clearHavenLocalStorage() {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith("haven")) keys.push(k);
+    }
+    keys.forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
+}
 
 const THEME_IDS: ThemeId[] = [
   "haven",
@@ -172,135 +193,209 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const semesterIdRef = useRef<string | null>(null);
   const loggedInRef = useRef(false);
   const coursesRef = useRef<Course[]>([]);
+  // The user id the in-memory store is currently populated for, so we can tell
+  // a real account switch apart from a token refresh on the same account.
+  const currentUidRef = useRef<string | null>(null);
+  const loadedOnceRef = useRef(false);
   useEffect(() => {
     coursesRef.current = data.courses;
   }, [data.courses]);
 
-  // Load once after mount: local preferences/attendance first, then cloud data.
+  // Load (and re-load) the store from auth state. A single onAuthStateChange
+  // listener drives everything: the initial session, sign-in, sign-out, and
+  // account switches. On a switch we wipe the previous account's device-local
+  // data before loading the new one, so nothing leaks between accounts.
   useEffect(() => {
     let cancelled = false;
 
-    // 1. Read the local (non-cloud) layer.
-    let local: Partial<AppData> = {};
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) local = JSON.parse(raw) as Partial<AppData>;
-    } catch {
-      // corrupt storage — ignore and keep defaults
-    }
-
-    const baseLocal: AppData = {
-      ...initialData,
-      ...local,
-      theme: THEME_IDS.includes(local.theme as ThemeId)
-        ? (local.theme as ThemeId)
-        : "haven",
-      taskOrder: Array.isArray(local.taskOrder) ? local.taskOrder : [],
-      semester: { ...defaultSemester, ...(local.semester ?? {}) },
-      planner: normalizePlanner(local.planner),
-      courses: [], // filled from the cloud below
+    // Read the not-yet-cloud, device-local layer (planner / task order / the
+    // per-course attendance layer). Settings/prefs are NOT read here for signed
+    // in users — those come from the cloud below.
+    const readLocal = () => {
+      let local: Partial<AppData> = {};
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (raw) local = JSON.parse(raw) as Partial<AppData>;
+      } catch {
+        // corrupt storage — ignore
+      }
+      const layer = new Map<string, ReturnType<typeof normalizeCourseLocal>>();
+      if (Array.isArray(local.courses)) {
+        for (const c of local.courses as Partial<Course>[]) {
+          if (c && typeof c.id === "string") layer.set(c.id, normalizeCourseLocal(c));
+        }
+      }
+      return {
+        local,
+        layer,
+        planner: normalizePlanner(local.planner),
+        taskOrder: Array.isArray(local.taskOrder) ? local.taskOrder : [],
+      };
     };
 
-    // Local attendance layer, keyed by course id, to merge onto cloud courses.
-    const localLayer = new Map<string, ReturnType<typeof normalizeCourseLocal>>();
-    if (Array.isArray(local.courses)) {
-      for (const c of local.courses as Partial<Course>[]) {
-        if (c && typeof c.id === "string") localLayer.set(c.id, normalizeCourseLocal(c));
-      }
-    }
+    // Signed-out / anonymous: localStorage IS the store (no account to leak to).
+    const applyAnonymous = () => {
+      const { local, planner, taskOrder } = readLocal();
+      setData({
+        ...initialData,
+        ...local,
+        theme: THEME_IDS.includes(local.theme as ThemeId) ? (local.theme as ThemeId) : "haven",
+        taskOrder,
+        semester: { ...defaultSemester, ...(local.semester ?? {}) },
+        planner,
+        courses: [],
+      });
+      setHydrated(true);
+    };
 
-    (async () => {
-      const user = await getCurrentUser();
-      loggedInRef.current = !!user;
-
-      if (!user) {
-        if (!cancelled) {
-          setData(baseLocal);
-          setHydrated(true);
-        }
-        return;
-      }
-
+    // Signed-in: settings come from profiles.preferences (the cloud), the
+    // not-yet-migrated layer (planner / tasks / attendance) from localStorage.
+    const applyForUser = async (session: Session) => {
+      const user = session.user;
+      const { layer, planner, taskOrder } = readLocal();
       try {
-        const sem = await db.ensureActiveSemester({
-          name: baseLocal.semester.name,
-          weeks: baseLocal.semester.weeks,
-          finalsWeeks: baseLocal.semester.finalsWeeks,
-        });
+        const [prefs, sem] = await Promise.all([
+          db.getPreferences(),
+          db.ensureActiveSemester(),
+        ]);
+        if (cancelled) return;
         semesterIdRef.current = sem.id;
 
         const cloudCourses = await db.getCourses(sem.id);
         const courses: Course[] = await Promise.all(
           cloudCourses.map(async (cc) => {
             const components = await db.getGradeComponents(cc.id);
-            const layer = localLayer.get(cc.id) ?? {
-              sessions: [],
-              missedLectures: 0,
-              missedSessions: [],
-            };
+            const l = layer.get(cc.id) ?? { sessions: [], missedLectures: 0, missedSessions: [] };
             return {
               id: cc.id,
               name: cc.name,
               creditHours: cc.creditHours,
-              sessions: layer.sessions,
-              missedLectures: layer.missedLectures,
-              missedSessions: layer.missedSessions,
+              sessions: l.sessions,
+              missedLectures: l.missedLectures,
+              missedSessions: l.missedSessions,
               components,
             };
           })
         );
+        if (cancelled) return;
 
-        if (!cancelled) {
-          // Cloud is authoritative for the semester fields it stores.
-          setData({
-            ...baseLocal,
-            semester: {
-              ...baseLocal.semester,
-              name: sem.name,
-              weeks: sem.weeks,
-              finalsWeeks: sem.finalsWeeks,
-            },
-            courses,
-          });
-          setHydrated(true);
-        }
+        const num = (v: unknown, fb: number) => (typeof v === "number" ? v : fb);
+        const str = (v: unknown, fb: string) => (typeof v === "string" ? v : fb);
+        setData({
+          ...initialData,
+          profileName:
+            str(prefs.profileName, "") ||
+            ((user.user_metadata?.full_name as string) ?? "") ||
+            initialData.profileName,
+          email: user.email ?? "",
+          profilePhoto: typeof prefs.profilePhoto === "string" ? prefs.profilePhoto : null,
+          gpaGoal: num(prefs.gpaGoal, initialData.gpaGoal),
+          language: prefs.language === "ar" ? "ar" : "en",
+          theme: THEME_IDS.includes(prefs.theme as ThemeId) ? (prefs.theme as ThemeId) : "haven",
+          taskOrder, // local-only for now
+          planner, // local-only for now
+          semester: {
+            ...defaultSemester,
+            name: sem.name,
+            weeks: num(prefs.weeks, sem.weeks),
+            finalsWeeks: num(prefs.finalsWeeks, sem.finalsWeeks),
+            calendarType: prefs.calendarType === "hijri" ? "hijri" : "gregorian",
+            startDate: str(prefs.startDate, defaultSemester.startDate),
+            endDate: str(prefs.endDate, defaultSemester.endDate),
+            withdrawalLimit: num(prefs.withdrawalLimit, defaultSemester.withdrawalLimit),
+          },
+          courses,
+        });
+        setHydrated(true);
       } catch (e) {
         console.error("Haven: failed to load cloud data", e);
-        if (!cancelled) {
-          setData(baseLocal);
-          setHydrated(true);
-        }
+        if (cancelled) return;
+        // Safe fallback: defaults + the device-local layer (never localStorage prefs).
+        setData({ ...initialData, planner, taskOrder });
+        setHydrated(true);
       }
-    })();
+    };
+
+    const apply = (session: Session | null) => {
+      loggedInRef.current = !!session;
+      semesterIdRef.current = null;
+      if (session) void applyForUser(session);
+      else applyAnonymous();
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+
+      if (event === "SIGNED_OUT") {
+        currentUidRef.current = null;
+        loggedInRef.current = false;
+        semesterIdRef.current = null;
+        loadedOnceRef.current = true;
+        clearHavenLocalStorage();
+        setData(initialData);
+        setHydrated(true);
+        return;
+      }
+
+      const uid = session?.user?.id ?? null;
+      const prev = currentUidRef.current;
+      // A token refresh / metadata update for the same account: nothing to do.
+      if (loadedOnceRef.current && uid === prev) return;
+      // A different account on this device: wipe the previous one's local data.
+      if (prev !== null && prev !== uid) {
+        clearHavenLocalStorage();
+        setData(initialData);
+      }
+      currentUidRef.current = uid;
+      loadedOnceRef.current = true;
+      // Defer the load: calling Supabase auth-backed methods (db.* → getUser)
+      // synchronously inside this callback can deadlock the auth lock.
+      setTimeout(() => {
+        if (!cancelled) apply(session);
+      }, 0);
+    });
 
     return () => {
       cancelled = true;
+      sub.subscription.unsubscribe();
     };
   }, []);
 
-  // Persist the local (non-cloud) layer on change, once hydrated. Course
-  // identity and grade components are intentionally NOT written here — they
-  // live in Supabase.
+  // Persist to localStorage on change, once hydrated.
+  //   • Signed IN: only the device-local layer (planner / task order / the
+  //     per-course attendance layer). Real per-account settings live in the
+  //     cloud (profiles.preferences) and are intentionally NOT written here, so
+  //     they can never leak to another account on this device.
+  //   • Signed OUT: the full anonymous state, so a visitor's choices survive a
+  //     reload.
+  // Course identity and grade components live in Supabase, never here.
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const toSave = {
-        profileName: data.profileName,
-        email: data.email,
-        profilePhoto: data.profilePhoto,
-        gpaGoal: data.gpaGoal,
-        language: data.language,
-        theme: data.theme,
-        taskOrder: data.taskOrder,
-        planner: data.planner,
-        semester: data.semester,
-        courses: data.courses.map((c) => ({
-          id: c.id,
-          sessions: c.sessions,
-          missedLectures: c.missedLectures,
-          missedSessions: c.missedSessions,
-        })),
-      };
+      const attendanceLayer = data.courses.map((c) => ({
+        id: c.id,
+        sessions: c.sessions,
+        missedLectures: c.missedLectures,
+        missedSessions: c.missedSessions,
+      }));
+      const toSave = loggedInRef.current
+        ? {
+            taskOrder: data.taskOrder,
+            planner: data.planner,
+            courses: attendanceLayer,
+          }
+        : {
+            profileName: data.profileName,
+            email: data.email,
+            profilePhoto: data.profilePhoto,
+            gpaGoal: data.gpaGoal,
+            language: data.language,
+            theme: data.theme,
+            taskOrder: data.taskOrder,
+            planner: data.planner,
+            semester: data.semester,
+            courses: attendanceLayer,
+          };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
     } catch {
       // storage full / unavailable — ignore
@@ -312,9 +407,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     document.documentElement.setAttribute("data-theme", data.theme);
   }, [data.theme]);
 
+  // Persist a per-account preference patch to the cloud. No-op when signed out
+  // (anonymous prefs are written to localStorage by the persist effect above).
+  const persistPref = useCallback((patch: db.Preferences) => {
+    if (!loggedInRef.current) return;
+    db.savePreferences(patch).catch((e) =>
+      console.error("Haven: failed to save preferences", e)
+    );
+  }, []);
+
   const setProfileName = useCallback(
-    (name: string) => setData((d) => ({ ...d, profileName: name })),
-    []
+    (name: string) => {
+      setData((d) => ({ ...d, profileName: name }));
+      persistPref({ profileName: name });
+    },
+    [persistPref]
   );
 
   const setEmail = useCallback(
@@ -323,13 +430,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const setProfilePhoto = useCallback(
-    (photo: string | null) => setData((d) => ({ ...d, profilePhoto: photo })),
-    []
+    (photo: string | null) => {
+      setData((d) => ({ ...d, profilePhoto: photo }));
+      persistPref({ profilePhoto: photo });
+    },
+    [persistPref]
   );
 
   const setGpaGoal = useCallback(
-    (goal: number) => setData((d) => ({ ...d, gpaGoal: goal })),
-    []
+    (goal: number) => {
+      setData((d) => ({ ...d, gpaGoal: goal }));
+      persistPref({ gpaGoal: goal });
+    },
+    [persistPref]
   );
 
   const setPlanner = useCallback(
@@ -338,13 +451,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const setLanguage = useCallback(
-    (lang: "en" | "ar") => setData((d) => ({ ...d, language: lang })),
-    []
+    (lang: "en" | "ar") => {
+      setData((d) => ({ ...d, language: lang }));
+      persistPref({ language: lang });
+    },
+    [persistPref]
   );
 
   const setTheme = useCallback(
-    (theme: ThemeId) => setData((d) => ({ ...d, theme })),
-    []
+    (theme: ThemeId) => {
+      setData((d) => ({ ...d, theme }));
+      persistPref({ theme });
+    },
+    [persistPref]
   );
 
   const setTaskOrder = useCallback(
@@ -354,7 +473,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setSemester = useCallback((patch: Partial<Semester>) => {
     setData((d) => ({ ...d, semester: { ...d.semester, ...patch } }));
-    // Mirror the cloud-backed fields (name / weeks / finals) to Supabase.
+    // Mirror the cloud-backed fields (name / weeks / finals) to the semesters row.
     const id = semesterIdRef.current;
     if (loggedInRef.current && id) {
       const cloudPatch: Parameters<typeof db.updateSemester>[1] = {};
@@ -367,7 +486,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
     }
-  }, []);
+    // The remaining semester settings are per-account prefs (no cloud column of
+    // their own) — persist them to profiles.preferences so they don't leak.
+    const prefPatch: db.Preferences = {};
+    if (patch.weeks !== undefined) prefPatch.weeks = patch.weeks;
+    if (patch.finalsWeeks !== undefined) prefPatch.finalsWeeks = patch.finalsWeeks;
+    if (patch.calendarType !== undefined) prefPatch.calendarType = patch.calendarType;
+    if (patch.startDate !== undefined) prefPatch.startDate = patch.startDate;
+    if (patch.endDate !== undefined) prefPatch.endDate = patch.endDate;
+    if (patch.withdrawalLimit !== undefined) prefPatch.withdrawalLimit = patch.withdrawalLimit;
+    if (Object.keys(prefPatch).length) persistPref(prefPatch);
+  }, [persistPref]);
 
   const addCourse = useCallback(
     async (course: { name: string; creditHours: number }) => {
