@@ -502,13 +502,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     async (course: { name: string; creditHours: number }) => {
       if (!loggedInRef.current) return;
       try {
-        let semesterId = semesterIdRef.current;
-        if (!semesterId) {
-          const sem = await db.ensureActiveSemester();
-          semesterId = sem.id;
-          semesterIdRef.current = sem.id;
-        }
-        const row = await db.addCourse(semesterId, {
+        // db.addCourse resolves the current user's active semester itself, so we
+        // never pass a (possibly stale) cached semester id from this account.
+        const row = await db.addCourse({
           name: course.name,
           creditHours: course.creditHours,
           position: coursesRef.current.length,
@@ -711,19 +707,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadDemo = useCallback(async () => {
     if (!loggedInRef.current) return;
     try {
-      let semesterId = semesterIdRef.current;
-      if (!semesterId) {
-        const sem = await db.ensureActiveSemester();
-        semesterId = sem.id;
-        semesterIdRef.current = sem.id;
-      }
+      // Resolve the current user's active semester fresh (don't trust the ref).
+      const sem = await db.ensureActiveSemester();
+      semesterIdRef.current = sem.id;
       // Replace any existing courses with the demo set.
-      await db.deleteCoursesForSemester(semesterId);
+      await db.deleteCoursesForSemester(sem.id);
       const demo = demoCourses();
       const courses: Course[] = [];
       for (let i = 0; i < demo.length; i++) {
         const dc = demo[i];
-        const row = await db.addCourse(semesterId, {
+        const row = await db.addCourse({
           name: dc.name,
           creditHours: dc.creditHours,
           position: i,

@@ -75,13 +75,13 @@ export default function SettingsPage() {
     else setPremiumOpen(true);
   };
 
-  // Sign out, then return to the sign-in screen. Ending the Supabase session
+  // Sign out, then return to the public homepage. Ending the Supabase session
   // fires onAuthStateChange("SIGNED_OUT"), which clears the in-memory store and
   // every Haven localStorage key (see StoreProvider) so the next account that
   // signs in on this device never inherits this account's data.
   const signOut = async () => {
     await clearSession();
-    router.replace("/signin");
+    router.replace("/");
   };
 
   if (!hydrated) return <div className="h-40" />;

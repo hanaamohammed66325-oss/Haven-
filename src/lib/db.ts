@@ -58,7 +58,9 @@ const mapSemester = (row: {
   finalsWeeks: row.finals_weeks,
 });
 
-/** The current user's active semester, or null if none exists yet. */
+/** The current user's active semester, or null if none exists yet.
+ *  ALWAYS scoped to the current auth user — a semester is never resolved for
+ *  anyone else, which is what keeps a course from attaching to the wrong account. */
 export async function getActiveSemester(): Promise<DbSemester | null> {
   const userId = await currentUserId();
   const { data, error } = await supabase
@@ -70,6 +72,18 @@ export async function getActiveSemester(): Promise<DbSemester | null> {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapSemester(data) : null;
+}
+
+/** The owner (user_id) of a semester row, or null if it can't be read. Used to
+ *  double-check ownership right before inserting a course under it. */
+async function semesterOwnerId(semesterId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("semesters")
+    .select("user_id")
+    .eq("id", semesterId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.user_id as string | undefined) ?? null;
 }
 
 /**
@@ -142,15 +156,26 @@ export async function getCourses(semesterId: string): Promise<DbCourse[]> {
 }
 
 export async function addCourse(
-  semesterId: string,
   course: { name: string; creditHours: number; position?: number }
 ): Promise<DbCourse> {
   const userId = await currentUserId();
+  // ALWAYS resolve the active semester fresh for THIS user at insert time.
+  // Never trust a semester id from cached client state — it may belong to a
+  // previously signed-in account and would attach the course to the wrong user.
+  let sem = await ensureActiveSemester();
+  // Belt-and-suspenders: confirm the resolved semester truly belongs to the
+  // current user before inserting; if not, re-resolve once and re-check.
+  if ((await semesterOwnerId(sem.id)) !== userId) {
+    sem = await ensureActiveSemester();
+    if ((await semesterOwnerId(sem.id)) !== userId) {
+      throw new Error("Could not resolve the current user's active semester.");
+    }
+  }
   const { data, error } = await supabase
     .from("courses")
     .insert({
       user_id: userId,
-      semester_id: semesterId,
+      semester_id: sem.id,
       name: course.name,
       credits: course.creditHours,
       position: course.position ?? 0,
