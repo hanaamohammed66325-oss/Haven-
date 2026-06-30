@@ -7,7 +7,7 @@
 // clicks the confirmation link emailed to them.
 // ---------------------------------------------------------------------------
 
-import { supabase, SITE_URL } from "./supabase";
+import { supabase, WELCOME_URL } from "./supabase";
 
 export interface HavenUser {
   id: string;
@@ -26,7 +26,7 @@ export async function signUp(name: string, email: string, password: string): Pro
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: name.trim() }, emailRedirectTo: SITE_URL },
+      options: { data: { full_name: name.trim() }, emailRedirectTo: WELCOME_URL },
     });
     if (error) {
       const message = error.message;
@@ -35,6 +35,18 @@ export async function signUp(name: string, email: string, password: string): Pro
         return { ok: false, error: "exists", message };
       }
       return { ok: false, error: "invalid", message };
+    }
+    // Supabase quirk: signing up with an email that already has a (confirmed)
+    // account does NOT error — it returns a user with an empty `identities`
+    // array and no session, to avoid leaking which emails are registered.
+    // Treat that as "already registered" so we don't show a bogus "check your
+    // email" message for an account that will never get a new email.
+    if (
+      data.user &&
+      Array.isArray(data.user.identities) &&
+      data.user.identities.length === 0
+    ) {
+      return { ok: false, error: "exists", message: "User already registered" };
     }
     // With email confirmation ON there is no active session yet — the user must
     // confirm via the email link before signing in.
@@ -70,7 +82,7 @@ export async function resendConfirmation(email: string): Promise<AuthResult> {
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: email.trim(),
-      options: { emailRedirectTo: SITE_URL },
+      options: { emailRedirectTo: WELCOME_URL },
     });
     if (error) return { ok: false, error: "invalid", message: error.message };
     return { ok: true };

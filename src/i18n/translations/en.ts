@@ -172,6 +172,16 @@ export const en = {
   authResend: "Resend confirmation email",
   authResending: "Sending…",
   authResendSent: "New confirmation link sent — check your inbox.",
+  authEmailRegistered: "This email is already registered — please sign in.",
+
+  // Welcome / email-confirmation landing page
+  welcomeChecking: "Confirming your email…",
+  welcomeConfirmedTitle: "✅ Your email is confirmed — welcome to Haven!",
+  welcomeRedirecting: "Taking you to your dashboard…",
+  welcomeGoToDashboard: "Go to dashboard now",
+  welcomeInvalidTitle: "This confirmation link is invalid or has expired.",
+  welcomeInvalidSubtitle: "Please sign in to continue.",
+  welcomeGoToSignin: "Go to sign in",
 
   // Needs attention
   needsAttentionTitle: "Needs attention",

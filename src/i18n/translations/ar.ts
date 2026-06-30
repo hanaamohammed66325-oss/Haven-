@@ -174,6 +174,16 @@ export const ar: Record<TranslationKey, string> = {
   authResend: "إعادة إرسال رابط التأكيد",
   authResending: "جارٍ الإرسال…",
   authResendSent: "تم إرسال رابط تأكيد جديد — تحقّق من بريدك.",
+  authEmailRegistered: "هذا البريد مسجّل مسبقًا — سجّلي الدخول",
+
+  // Welcome / email-confirmation landing page
+  welcomeChecking: "نتحقّق من بريدك…",
+  welcomeConfirmedTitle: "✅ تم تأكيد بريدك — أهلًا بك في Haven",
+  welcomeRedirecting: "نوجّهك إلى لوحتك…",
+  welcomeGoToDashboard: "الذهاب إلى اللوحة الآن",
+  welcomeInvalidTitle: "رابط التأكيد غير صالح أو منتهي الصلاحية.",
+  welcomeInvalidSubtitle: "الرجاء تسجيل الدخول للمتابعة.",
+  welcomeGoToSignin: "الذهاب إلى تسجيل الدخول",
 
   // Needs attention
   needsAttentionTitle: "تحتاج انتباه",

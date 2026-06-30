@@ -48,7 +48,7 @@ export default function SignUpPage() {
       // Other failures (e.g. rate limits) show their real message instead of a
       // misleading "invalid email".
       if (res.error === "exists") {
-        setErrors({ email: t("authErrExists") });
+        setErrors({ email: t("authEmailRegistered") });
       } else if (/email/i.test(res.message) && /invalid|valid/i.test(res.message)) {
         setErrors({ email: t("authErrEmail") });
       } else {
