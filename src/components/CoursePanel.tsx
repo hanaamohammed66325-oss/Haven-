@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Target, Pencil } from "lucide-react";
+import { Plus, Trash2, Target, Pencil, Sparkles } from "lucide-react";
 import { Card } from "./Card";
 import { GradeBadge } from "./GradeBadge";
 import { AttendanceSection } from "./AttendanceSection";
@@ -23,6 +23,7 @@ export function CoursePanel({ course }: { course: Course }) {
   const [addingItem, setAddingItem] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<GradeComponent | null>(null);
+  const [autoFilling, setAutoFilling] = useState(false);
 
   const pct = courseCurrentPct(course);
   const used = weightsTotal(course);
@@ -30,6 +31,29 @@ export function CoursePanel({ course }: { course: Course }) {
   const advice = finalAdvice(course);
 
   const border = { borderColor: "var(--color-border)" };
+
+  // Add three standard, fully-editable grade components in one click. Only
+  // offered on an empty course, so a second click can't silently duplicate them
+  // (and the in-flight guard blocks rapid double-clicks). All values are just
+  // defaults — the student edits names/percentages/totals and fills scores later.
+  const hasComponents = course.components.length > 0;
+  const autofill = async () => {
+    if (autoFilling || hasComponents) return;
+    setAutoFilling(true);
+    const defaults: Omit<GradeComponent, "id">[] = [
+      { name: t("autofillQuiz"), type: "quiz", weight: 10, unit: "percent", total: 10, score: null, date: null },
+      { name: t("autofillMidterm"), type: "midterm", weight: 20, unit: "percent", total: 20, score: null, date: null },
+      { name: t("autofillFinal"), type: "final", weight: 40, unit: "percent", total: 40, score: null, date: null },
+    ];
+    try {
+      // Sequential so they persist (and reload) in Quiz → Midterm → Final order.
+      for (const c of defaults) {
+        await addComponent(course.id, c);
+      }
+    } finally {
+      setAutoFilling(false);
+    }
+  };
 
   return (
     <Card padding="p-0" className="overflow-hidden">
@@ -70,16 +94,28 @@ export function CoursePanel({ course }: { course: Course }) {
 
       {/* Components */}
       <div className="p-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between gap-2 mb-6">
           <h3 className="haven-label" style={{ color: "var(--color-ink)" }}>{t("componentsHeading")}</h3>
-          <button
-            onClick={() => setAddingItem(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
-          >
-            <Plus size={15} />
-            {t("addItem")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={autofill}
+              disabled={autoFilling || hasComponents}
+              title={hasComponents ? t("autofillUsed") : undefined}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ borderColor: "var(--color-border)", color: "var(--color-muted)" }}
+            >
+              <Sparkles size={15} />
+              {t("autofill")}
+            </button>
+            <button
+              onClick={() => setAddingItem(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
+            >
+              <Plus size={15} />
+              {t("addItem")}
+            </button>
+          </div>
         </div>
 
         {course.components.length === 0 ? (

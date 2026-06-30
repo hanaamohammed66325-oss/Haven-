@@ -288,6 +288,13 @@ export const en = {
   type_project: "Project",
   type_assignment: "Assignment",
 
+  // Auto-fill standard grade components
+  autofill: "Auto-fill",
+  autofillUsed: "Standard items already added — add more with “Add item”.",
+  autofillQuiz: "Quiz",
+  autofillMidterm: "Midterm",
+  autofillFinal: "Final",
+
   // Final advice
   finalTitle: "What you need on the final",
   finalCeiling: "Highest reachable: {letter} — score {raw} / {total}",

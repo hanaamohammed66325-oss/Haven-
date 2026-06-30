@@ -290,6 +290,13 @@ export const ar: Record<TranslationKey, string> = {
   type_project: "مشروع",
   type_assignment: "واجب",
 
+  // Auto-fill standard grade components
+  autofill: "تعبئة ذاتية",
+  autofillUsed: "العناصر الأساسية مضافة — أضِف المزيد عبر «إضافة عنصر».",
+  autofillQuiz: "كويز",
+  autofillMidterm: "ميد",
+  autofillFinal: "فاينل",
+
   // Final advice
   finalTitle: "المطلوب في النهائي",
   finalCeiling: "أعلى تقدير ممكن: {letter} — المطلوب {raw} / {total}",
