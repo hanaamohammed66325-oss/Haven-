@@ -114,8 +114,8 @@ export interface AppData {
   /** active color theme */
   theme: ThemeId;
   semester: Semester;
+  /** courses in display order — the order is the cloud-backed courses.position,
+   *  shared by the Courses and Tasks pages (the Tasks page just hides empty ones). */
   courses: Course[];
   planner: PlannerData;
-  /** course ids in the order the Tasks page sections are arranged */
-  taskOrder: string[];
 }

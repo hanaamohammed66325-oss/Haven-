@@ -91,7 +91,6 @@ const initialData: AppData = {
   semester: defaultSemester,
   courses: [],
   planner: emptyPlanner,
-  taskOrder: [],
 };
 
 function normalizePlanner(p: unknown): PlannerData {
@@ -150,7 +149,9 @@ interface StoreValue extends AppData {
   setPlanner: (planner: PlannerData) => void;
   setLanguage: (lang: "en" | "ar") => void;
   setTheme: (theme: ThemeId) => void;
-  setTaskOrder: (order: string[]) => void;
+  /** Reorder courses to match `orderedIds` and persist the new order to the
+   *  cloud (courses.position). Drives the Tasks page's drag-to-reorder. */
+  reorderCourses: (orderedIds: string[]) => void;
   setSemester: (patch: Partial<Semester>) => void;
   addCourse: (course: { name: string; creditHours: number }) => void;
   updateCourse: (
@@ -229,18 +230,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         local,
         layer,
         planner: normalizePlanner(local.planner),
-        taskOrder: Array.isArray(local.taskOrder) ? local.taskOrder : [],
       };
     };
 
     // Signed-out / anonymous: localStorage IS the store (no account to leak to).
     const applyAnonymous = () => {
-      const { local, planner, taskOrder } = readLocal();
+      const { local, planner } = readLocal();
       setData({
         ...initialData,
         ...local,
         theme: THEME_IDS.includes(local.theme as ThemeId) ? (local.theme as ThemeId) : "haven",
-        taskOrder,
         semester: { ...defaultSemester, ...(local.semester ?? {}) },
         planner,
         courses: [],
@@ -249,10 +248,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     // Signed-in: settings come from profiles.preferences (the cloud), the
-    // not-yet-migrated layer (planner / tasks / attendance) from localStorage.
+    // not-yet-migrated layer (planner / attendance) from localStorage. Course
+    // order is cloud-backed (courses.position), so getCourses returns them
+    // already ordered — no separate task order to apply.
     const applyForUser = async (session: Session) => {
       const user = session.user;
-      const { layer, planner, taskOrder } = readLocal();
+      const { layer, planner } = readLocal();
       try {
         const [prefs, sem] = await Promise.all([
           db.getPreferences(),
@@ -292,7 +293,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           gpaGoal: num(prefs.gpaGoal, initialData.gpaGoal),
           language: prefs.language === "ar" ? "ar" : "en",
           theme: THEME_IDS.includes(prefs.theme as ThemeId) ? (prefs.theme as ThemeId) : "haven",
-          taskOrder, // local-only for now
           planner, // local-only for now
           semester: {
             ...defaultSemester,
@@ -311,7 +311,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("Haven: failed to load cloud data", e);
         if (cancelled) return;
         // Safe fallback: defaults + the device-local layer (never localStorage prefs).
-        setData({ ...initialData, planner, taskOrder });
+        setData({ ...initialData, planner });
         setHydrated(true);
       }
     };
@@ -380,7 +380,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }));
       const toSave = loggedInRef.current
         ? {
-            taskOrder: data.taskOrder,
             planner: data.planner,
             courses: attendanceLayer,
           }
@@ -391,7 +390,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             gpaGoal: data.gpaGoal,
             language: data.language,
             theme: data.theme,
-            taskOrder: data.taskOrder,
             planner: data.planner,
             semester: data.semester,
             courses: attendanceLayer,
@@ -466,10 +464,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [persistPref]
   );
 
-  const setTaskOrder = useCallback(
-    (order: string[]) => setData((d) => ({ ...d, taskOrder: order })),
-    []
-  );
+  // Reorder courses to match `orderedIds`, then persist the new order to the
+  // cloud as courses.position (0-based). Drives the Tasks page's drag-to-reorder;
+  // the order is shared with the Courses page since both read courses.position.
+  const reorderCourses = useCallback((orderedIds: string[]) => {
+    setData((d) => {
+      const byId = new Map(d.courses.map((c) => [c.id, c]));
+      const reordered = orderedIds
+        .map((id) => byId.get(id))
+        .filter((c): c is Course => !!c);
+      // Safety: keep any course missing from orderedIds, in its prior order.
+      for (const c of d.courses) {
+        if (!orderedIds.includes(c.id)) reordered.push(c);
+      }
+      return { ...d, courses: reordered };
+    });
+    if (loggedInRef.current) {
+      orderedIds.forEach((id, i) => {
+        db.updateCourse(id, { position: i }).catch((e) =>
+          console.error("Haven: failed to persist course order", e)
+        );
+      });
+    }
+  }, []);
 
   const setSemester = useCallback((patch: Partial<Semester>) => {
     setData((d) => ({ ...d, semester: { ...d.semester, ...patch } }));
@@ -773,7 +790,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setPlanner,
     setLanguage,
     setTheme,
-    setTaskOrder,
+    reorderCourses,
     setSemester,
     addCourse,
     updateCourse,
