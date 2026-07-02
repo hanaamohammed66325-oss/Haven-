@@ -91,6 +91,7 @@ const initialData: AppData = {
   semester: defaultSemester,
   courses: [],
   planner: emptyPlanner,
+  taskOrder: [],
 };
 
 function normalizePlanner(p: unknown): PlannerData {
@@ -149,9 +150,9 @@ interface StoreValue extends AppData {
   setPlanner: (planner: PlannerData) => void;
   setLanguage: (lang: "en" | "ar") => void;
   setTheme: (theme: ThemeId) => void;
-  /** Reorder courses to match `orderedIds` and persist the new order to the
-   *  cloud (courses.position). Drives the Tasks page's drag-to-reorder. */
-  reorderCourses: (orderedIds: string[]) => void;
+  /** Set the Tasks page section order and persist it to the cloud per account
+   *  (profiles.preferences.taskOrder). Drives the Tasks page drag-to-reorder. */
+  setTaskOrder: (order: string[]) => void;
   setSemester: (patch: Partial<Semester>) => void;
   addCourse: (course: { name: string; creditHours: number }) => void;
   updateCourse: (
@@ -242,15 +243,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         theme: THEME_IDS.includes(local.theme as ThemeId) ? (local.theme as ThemeId) : "haven",
         semester: { ...defaultSemester, ...(local.semester ?? {}) },
         planner,
+        // The section order is a cloud/per-account preference — never sourced
+        // from localStorage (the Tasks page is behind auth anyway).
+        taskOrder: [],
         courses: [],
       });
       setHydrated(true);
     };
 
-    // Signed-in: settings come from profiles.preferences (the cloud), the
-    // not-yet-migrated layer (planner / attendance) from localStorage. Course
-    // order is cloud-backed (courses.position), so getCourses returns them
-    // already ordered — no separate task order to apply.
+    // Signed-in: settings (incl. the Tasks page section order) come from
+    // profiles.preferences (the cloud); the not-yet-migrated layer (planner /
+    // attendance) comes from localStorage.
     const applyForUser = async (session: Session) => {
       const user = session.user;
       const { layer, planner } = readLocal();
@@ -294,6 +297,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           language: prefs.language === "ar" ? "ar" : "en",
           theme: THEME_IDS.includes(prefs.theme as ThemeId) ? (prefs.theme as ThemeId) : "haven",
           planner, // local-only for now
+          taskOrder: Array.isArray(prefs.taskOrder)
+            ? (prefs.taskOrder as unknown[]).filter((id): id is string => typeof id === "string")
+            : [],
           semester: {
             ...defaultSemester,
             name: sem.name,
@@ -464,29 +470,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [persistPref]
   );
 
-  // Reorder courses to match `orderedIds`, then persist the new order to the
-  // cloud as courses.position (0-based). Drives the Tasks page's drag-to-reorder;
-  // the order is shared with the Courses page since both read courses.position.
-  const reorderCourses = useCallback((orderedIds: string[]) => {
-    setData((d) => {
-      const byId = new Map(d.courses.map((c) => [c.id, c]));
-      const reordered = orderedIds
-        .map((id) => byId.get(id))
-        .filter((c): c is Course => !!c);
-      // Safety: keep any course missing from orderedIds, in its prior order.
-      for (const c of d.courses) {
-        if (!orderedIds.includes(c.id)) reordered.push(c);
-      }
-      return { ...d, courses: reordered };
-    });
-    if (loggedInRef.current) {
-      orderedIds.forEach((id, i) => {
-        db.updateCourse(id, { position: i }).catch((e) =>
-          console.error("Haven: failed to persist course order", e)
-        );
-      });
-    }
-  }, []);
+  // Set the Tasks page section order and persist it to the cloud per account
+  // (profiles.preferences.taskOrder). No localStorage — so it syncs across
+  // devices and never leaks between accounts on a shared device.
+  const setTaskOrder = useCallback(
+    (order: string[]) => {
+      setData((d) => ({ ...d, taskOrder: order }));
+      persistPref({ taskOrder: order });
+    },
+    [persistPref]
+  );
 
   const setSemester = useCallback((patch: Partial<Semester>) => {
     setData((d) => ({ ...d, semester: { ...d.semester, ...patch } }));
@@ -790,7 +783,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setPlanner,
     setLanguage,
     setTheme,
-    reorderCourses,
+    setTaskOrder,
     setSemester,
     addCourse,
     updateCourse,

@@ -21,17 +21,21 @@ interface Task {
 
 export default function TasksPage() {
   const { t, lang } = useT();
-  const { hydrated, courses, semester, reorderCourses } = useStore();
+  const { hydrated, courses, semester, taskOrder, setTaskOrder } = useStore();
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
-  // Courses that actually have tasks, in the shared course order
-  // (courses.position, cloud-backed). The Tasks page just hides empty courses.
-  const ordered = useMemo(
-    () => courses.filter((c) => c.components.length > 0),
-    [courses]
-  );
+  // Courses that actually have tasks, arranged by the saved order
+  // (unknown courses keep their natural order at the end).
+  const ordered = useMemo(() => {
+    const withTasks = courses.filter((c) => c.components.length > 0);
+    const pos = (id: string) => {
+      const i = taskOrder.indexOf(id);
+      return i === -1 ? Number.POSITIVE_INFINITY : i;
+    };
+    return [...withTasks].sort((a, b) => pos(a.id) - pos(b.id));
+  }, [courses, taskOrder]);
 
   if (!hydrated) return <div className="h-40" />;
 
@@ -42,13 +46,14 @@ export default function TasksPage() {
 
   const reorder = (targetId: string) => {
     if (!dragId || dragId === targetId) return;
-    // Reorder within the full course list so the shared courses.position order
-    // stays consistent, moving the dragged course to the target's slot.
-    const fullIds = courses.map((c) => c.id);
-    if (!fullIds.includes(dragId) || !fullIds.includes(targetId)) return;
-    const next = fullIds.filter((id) => id !== dragId);
-    next.splice(next.indexOf(targetId), 0, dragId);
-    reorderCourses(next);
+    const ids = ordered.map((c) => c.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from === -1 || to === -1) return;
+    const next = [...ids];
+    next.splice(from, 1);
+    next.splice(to, 0, dragId);
+    setTaskOrder(next);
   };
 
   return (
