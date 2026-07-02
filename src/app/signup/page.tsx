@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthLayout } from "@/components/AuthLayout";
 import { useT } from "@/i18n";
 import { signUp } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 
 // Simple, permissive email check: something@something.something (no spaces).
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -27,6 +28,43 @@ export default function SignUpPage() {
   const [confirmSent, setConfirmSent] = useState(false);
 
   const borderOf = (k: string) => ({ borderColor: errors[k] ? "var(--color-danger)" : "var(--color-border)" });
+
+  // Once the "check your email" screen is showing, watch for the account being
+  // confirmed. The Supabase client persists the session, so the moment the email
+  // is confirmed and a session is established this tab advances to the dashboard.
+  // Polls every 4s + listens for the sign-in event; stops on unmount and caps at
+  // ~5 minutes so it never runs forever.
+  useEffect(() => {
+    if (!confirmSent) return;
+    let redirected = false;
+    const go = () => {
+      if (redirected) return;
+      redirected = true;
+      router.replace("/dashboard");
+    };
+    const check = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) go();
+      } catch {
+        // ignore transient errors and keep polling
+      }
+    };
+    const interval = setInterval(check, 4000);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) go();
+    });
+    check(); // check immediately too
+    const cap = setTimeout(() => {
+      clearInterval(interval);
+      sub.subscription.unsubscribe();
+    }, 5 * 60 * 1000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(cap);
+      sub.subscription.unsubscribe();
+    };
+  }, [confirmSent, router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +117,9 @@ export default function SignUpPage() {
         >
           {t("authCheckEmail")}
         </div>
+        <p className="text-center text-xs mt-3" style={{ color: "var(--color-muted)" }}>
+          {t("authWaitingConfirm")}
+        </p>
         <p className="text-center text-sm mt-6" style={{ color: "var(--color-muted)" }}>
           <Link href="/signin" className="font-medium" style={{ color: "var(--color-primary)" }}>
             {t("authHaveAccount")}

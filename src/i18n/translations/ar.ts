@@ -171,6 +171,7 @@ export const ar: Record<TranslationKey, string> = {
   authErrInvalid: "البريد أو كلمة المرور غير صحيحة",
   authErrUnconfirmed: "يرجى تأكيد بريدك أولًا — افتح الرابط الذي أرسلناه إليك.",
   authCheckEmail: "خطوة أخيرة! أرسلنا رابط تأكيد إلى بريدك. يرجى تأكيد الحساب ثم تسجيل الدخول.",
+  authWaitingConfirm: "بانتظار التأكيد…",
   authResend: "إعادة إرسال رابط التأكيد",
   authResending: "جارٍ الإرسال…",
   authResendSent: "تم إرسال رابط تأكيد جديد — تحقّق من بريدك.",
