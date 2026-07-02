@@ -18,6 +18,8 @@ function withAttendance(
   const missedSessions: MissedEntry[] = missedSessionIndexes.map((i) => ({
     id: id(),
     sessionId: sessions[i].id,
+    day: sessions[i].day,
+    minutes: sessions[i].minutes,
   }));
   return { sessions, missedLectures, missedSessions };
 }

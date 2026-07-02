@@ -169,26 +169,22 @@ export function AttendanceSection({ course }: { course: Course }) {
                 {t("missedListLabel")}
               </span>
               <div className="flex flex-wrap gap-2">
-                {course.missedSessions.map((m) => {
-                  const s = course.sessions.find((x) => x.id === m.sessionId);
-                  if (!s) return null;
-                  return (
-                    <span
-                      key={m.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
-                      style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
+                {course.missedSessions.map((m) => (
+                  <span
+                    key={m.id}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+                    style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
+                  >
+                    {dayLabel(m.day)} · {dur(m.minutes)}
+                    <button
+                      onClick={() => removeMissedSession(course.id, m.id)}
+                      className="rounded-full transition-opacity hover:opacity-70"
+                      aria-label={t("remove")}
                     >
-                      {dayLabel(s.day)} · {dur(s.minutes)}
-                      <button
-                        onClick={() => removeMissedSession(course.id, m.id)}
-                        className="rounded-full transition-opacity hover:opacity-70"
-                        aria-label={t("remove")}
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  );
-                })}
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
               </div>
             </div>
           )}

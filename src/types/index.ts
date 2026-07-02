@@ -36,10 +36,17 @@ export interface CourseSession {
   notes?: string[]; // multiple free notes for this session
 }
 
-/** A single logged absence referencing one of the course's weekly sessions. */
+/** A single logged absence. Carries its own weekday + minutes so it stands on
+ *  its own in the cloud (attendance_absences has no session reference); the
+ *  minutes drive the attendance %. `sessionId` is kept only for the session in
+ *  which it was logged and is not persisted. */
 export interface MissedEntry {
   id: string;
-  sessionId: string;
+  sessionId?: string;
+  /** weekday of the missed session, 0 = Sunday … 6 = Saturday */
+  day: number;
+  /** missed minutes — weighted into the attendance percentage */
+  minutes: number;
 }
 
 export interface Course {

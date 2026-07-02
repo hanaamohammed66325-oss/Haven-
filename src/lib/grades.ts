@@ -64,17 +64,16 @@ export interface AttendanceInfo {
 // Duration-based absence: every session and every logged absence is weighted by its real length
 // in minutes, so a 2-hour class counts twice a 1-hour one. Compared against the withdrawal limit.
 export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null {
-  const sessions = c.sessions ?? [];
   const weeks = Math.max(1, Math.round(sem?.weeks ?? 15) || 15);
   const limit = sem && sem.withdrawalLimit > 0 ? sem.withdrawalLimit : 25;
 
   const total = minutesPerWeek(c) * weeks; // total contact minutes for the term
   if (!total) return null;
 
-  const missed = (c.missedSessions ?? []).reduce((sum, m) => {
-    const sess = sessions.find((s) => s.id === m.sessionId);
-    return sum + (sess ? Number(sess.minutes) || 0 : 0);
-  }, 0);
+  const missed = (c.missedSessions ?? []).reduce(
+    (sum, m) => sum + (Number(m.minutes) || 0),
+    0
+  );
 
   const unit = (100 / total) * 60; // percent per hour
   const absence = Math.min(100, (missed / total) * 100);

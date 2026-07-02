@@ -200,12 +200,19 @@ export async function updateCourse(
 }
 
 export async function deleteCourse(id: string): Promise<void> {
-  // Remove the course's grade components first, then the course itself, so the
-  // delete succeeds regardless of the FK's ON DELETE behaviour.
-  const del1 = await supabase.from("grade_components").delete().eq("course_id", id);
-  if (del1.error) throw new Error(del1.error.message);
-  const del2 = await supabase.from("courses").delete().eq("id", id);
-  if (del2.error) throw new Error(del2.error.message);
+  // Remove every child row that references the course first, then the course
+  // itself, so the delete succeeds regardless of the FKs' ON DELETE behaviour.
+  for (const table of [
+    "grade_components",
+    "attendance_absences",
+    "attendance_sessions",
+    "timetable_entries",
+  ]) {
+    const del = await supabase.from(table).delete().eq("course_id", id);
+    if (del.error) throw new Error(del.error.message);
+  }
+  const delCourse = await supabase.from("courses").delete().eq("id", id);
+  if (delCourse.error) throw new Error(delCourse.error.message);
 }
 
 /** Delete every course (and its components) in a semester — used by reset/demo. */
@@ -219,8 +226,15 @@ export async function deleteCoursesForSemester(semesterId: string): Promise<void
   if (error) throw new Error(error.message);
   const ids = (data ?? []).map((r) => r.id);
   if (!ids.length) return;
-  const delComps = await supabase.from("grade_components").delete().in("course_id", ids);
-  if (delComps.error) throw new Error(delComps.error.message);
+  for (const table of [
+    "grade_components",
+    "attendance_absences",
+    "attendance_sessions",
+    "timetable_entries",
+  ]) {
+    const del = await supabase.from(table).delete().in("course_id", ids);
+    if (del.error) throw new Error(del.error.message);
+  }
   const delCourses = await supabase.from("courses").delete().in("id", ids);
   if (delCourses.error) throw new Error(delCourses.error.message);
 }
@@ -342,5 +356,318 @@ export async function savePreferences(partial: Preferences): Promise<void> {
     .from("profiles")
     .update({ preferences: next })
     .eq("id", userId);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Schedule + attendance (weekly sessions, timetable details, planner, absences)
+//
+// A weekly class meeting is modelled in the app as ONE CourseSession that
+// carries BOTH the attendance duration and the timetable display fields. The DB
+// splits that across attendance_sessions (day + duration — drives the % ) and,
+// sharing the SAME id, an optional timetable_entries row for the display extras
+// (time / room / building / notes). `building` and the multi-note list have no
+// column of their own, so they ride together as JSON in timetable_entries.note.
+// Absences store their weekday inside the date-only `absent_on` column.
+// ---------------------------------------------------------------------------
+
+// Pick a real calendar date whose weekday equals `day` (0=Sun..6=Sat) so an
+// absence can carry its weekday through the date-only `absent_on` column.
+// All UTC to stay timezone-stable.
+function isoForWeekday(day: number): string {
+  const base = new Date();
+  const offset = ((((day | 0) - base.getUTCDay()) % 7) + 7) % 7;
+  const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + offset));
+  return d.toISOString().slice(0, 10);
+}
+function weekdayFromIso(iso: string | null): number {
+  if (!iso) return 0;
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return 0;
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+// timetable_entries.note holds the fields with no column of their own.
+function encodeTtNote(building?: string, notes?: string[]): string | null {
+  const b = building && building.trim() ? building.trim() : undefined;
+  const ns = (notes ?? []).filter((n): n is string => typeof n === "string");
+  if (!b && ns.length === 0) return null;
+  return JSON.stringify({ building: b, notes: ns });
+}
+function decodeTtNote(note: string | null): { building?: string; notes: string[] } {
+  if (!note) return { notes: [] };
+  try {
+    const o = JSON.parse(note) as { building?: unknown; notes?: unknown };
+    if (o && typeof o === "object") {
+      return {
+        building: typeof o.building === "string" ? o.building : undefined,
+        notes: Array.isArray(o.notes) ? o.notes.filter((x): x is string => typeof x === "string") : [],
+      };
+    }
+  } catch {
+    // not JSON → treat legacy plain text as a single note
+  }
+  return { notes: [note] };
+}
+
+// ---- Attendance sessions (day + duration) ---------------------------------
+export interface DbAttendanceSession {
+  id: string;
+  courseId: string;
+  day: number;
+  minutes: number;
+}
+
+export async function getAttendanceSessions(): Promise<DbAttendanceSession[]> {
+  const userId = await currentUserId();
+  const { data, error } = await supabase
+    .from("attendance_sessions")
+    .select("id, course_id, day_of_week, duration_minutes")
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    courseId: r.course_id,
+    day: r.day_of_week ?? 0,
+    minutes: r.duration_minutes ?? 0,
+  }));
+}
+
+export async function addAttendanceSession(
+  courseId: string,
+  fields: { day: number; minutes: number }
+): Promise<DbAttendanceSession> {
+  const userId = await currentUserId();
+  const { data, error } = await supabase
+    .from("attendance_sessions")
+    .insert({
+      user_id: userId,
+      course_id: courseId,
+      day_of_week: fields.day,
+      duration_minutes: fields.minutes,
+    })
+    .select("id, course_id, day_of_week, duration_minutes")
+    .single();
+  if (error) throw new Error(error.message);
+  return {
+    id: data.id,
+    courseId: data.course_id,
+    day: data.day_of_week ?? 0,
+    minutes: data.duration_minutes ?? 0,
+  };
+}
+
+export async function updateAttendanceSession(
+  id: string,
+  fields: Partial<{ day: number; minutes: number }>
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (fields.day !== undefined) patch.day_of_week = fields.day;
+  if (fields.minutes !== undefined) patch.duration_minutes = fields.minutes;
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await supabase.from("attendance_sessions").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteAttendanceSession(id: string): Promise<void> {
+  const { error } = await supabase.from("attendance_sessions").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---- Timetable details (one row per session, sharing the session id) ------
+export interface DbTimetableEntry {
+  id: string;
+  courseId: string | null;
+  day: number;
+  time?: string;
+  building?: string;
+  room?: string;
+  notes: string[];
+}
+
+export async function getTimetable(): Promise<DbTimetableEntry[]> {
+  const userId = await currentUserId();
+  const { data, error } = await supabase
+    .from("timetable_entries")
+    .select("id, course_id, day_of_week, start_time, room, note")
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => {
+    const { building, notes } = decodeTtNote(r.note);
+    return {
+      id: r.id,
+      courseId: r.course_id,
+      day: r.day_of_week ?? 0,
+      time: r.start_time ?? undefined,
+      building,
+      room: r.room ?? undefined,
+      notes,
+    };
+  });
+}
+
+/** Create-or-update the timetable-detail row for a session (id = session id). */
+export async function updateTimetableEntry(
+  id: string,
+  fields: { courseId: string; day: number; time?: string; building?: string; room?: string; notes?: string[] }
+): Promise<void> {
+  const userId = await currentUserId();
+  const sem = await ensureActiveSemester();
+  const row = {
+    id,
+    user_id: userId,
+    semester_id: sem.id,
+    course_id: fields.courseId,
+    day_of_week: fields.day,
+    start_time: fields.time && fields.time.trim() ? fields.time.trim() : null,
+    room: fields.room && fields.room.trim() ? fields.room.trim() : null,
+    note: encodeTtNote(fields.building, fields.notes),
+  };
+  const { error } = await supabase.from("timetable_entries").upsert(row, { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
+// Same upsert, exposed under the requested "add" name.
+export const addTimetableEntry = updateTimetableEntry;
+
+export async function deleteTimetableEntry(id: string): Promise<void> {
+  const { error } = await supabase.from("timetable_entries").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---- Absences (missed sessions) -------------------------------------------
+export interface DbAbsence {
+  id: string;
+  courseId: string;
+  day: number;
+  minutes: number;
+}
+
+export async function getAbsences(): Promise<DbAbsence[]> {
+  const userId = await currentUserId();
+  const { data, error } = await supabase
+    .from("attendance_absences")
+    .select("id, course_id, absent_on, minutes")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    courseId: r.course_id,
+    day: weekdayFromIso(r.absent_on),
+    minutes: Number(r.minutes) || 0,
+  }));
+}
+
+export async function addAbsence(
+  courseId: string,
+  fields: { day: number; minutes: number }
+): Promise<DbAbsence> {
+  const userId = await currentUserId();
+  const { data, error } = await supabase
+    .from("attendance_absences")
+    .insert({
+      user_id: userId,
+      course_id: courseId,
+      absent_on: isoForWeekday(fields.day),
+      minutes: fields.minutes,
+      excused: false,
+    })
+    .select("id, course_id, absent_on, minutes")
+    .single();
+  if (error) throw new Error(error.message);
+  return {
+    id: data.id,
+    courseId: data.course_id,
+    day: weekdayFromIso(data.absent_on),
+    minutes: Number(data.minutes) || 0,
+  };
+}
+
+export async function deleteAbsence(id: string): Promise<void> {
+  const { error } = await supabase.from("attendance_absences").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// ---- Planner items ---------------------------------------------------------
+export interface DbPlannerItem {
+  id: string;
+  week: number;
+  day: number | null;
+  tag: string | null;
+  text: string;
+  done: boolean;
+}
+// planner_items.day_of_week is NOT NULL — sentinel for whole-week (general) notes.
+const PLANNER_WHOLE_WEEK = -1;
+
+export async function getPlannerItems(): Promise<DbPlannerItem[]> {
+  const userId = await currentUserId();
+  const { data, error } = await supabase
+    .from("planner_items")
+    .select("id, week_number, day_of_week, tag, note, done")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    week: r.week_number ?? 0,
+    day: r.day_of_week == null || r.day_of_week === PLANNER_WHOLE_WEEK ? null : r.day_of_week,
+    tag: r.tag ?? null,
+    text: r.note ?? "",
+    done: !!r.done,
+  }));
+}
+
+export async function addPlannerItem(item: {
+  week: number;
+  day: number | null;
+  tag?: string | null;
+  text: string;
+  done?: boolean;
+}): Promise<DbPlannerItem> {
+  const userId = await currentUserId();
+  const sem = await ensureActiveSemester();
+  const { data, error } = await supabase
+    .from("planner_items")
+    .insert({
+      user_id: userId,
+      semester_id: sem.id,
+      week_number: item.week,
+      day_of_week: item.day == null ? PLANNER_WHOLE_WEEK : item.day,
+      tag: item.tag ?? null,
+      note: item.text,
+      done: item.done ?? false,
+    })
+    .select("id, week_number, day_of_week, tag, note, done")
+    .single();
+  if (error) throw new Error(error.message);
+  return {
+    id: data.id,
+    week: data.week_number ?? 0,
+    day: data.day_of_week === PLANNER_WHOLE_WEEK ? null : data.day_of_week,
+    tag: data.tag ?? null,
+    text: data.note ?? "",
+    done: !!data.done,
+  };
+}
+
+export async function updatePlannerItem(
+  id: string,
+  fields: Partial<{ week: number; day: number | null; tag: string | null; text: string; done: boolean }>
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (fields.week !== undefined) patch.week_number = fields.week;
+  if (fields.day !== undefined) patch.day_of_week = fields.day == null ? PLANNER_WHOLE_WEEK : fields.day;
+  if (fields.tag !== undefined) patch.tag = fields.tag;
+  if (fields.text !== undefined) patch.note = fields.text;
+  if (fields.done !== undefined) patch.done = fields.done;
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await supabase.from("planner_items").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deletePlannerItem(id: string): Promise<void> {
+  const { error } = await supabase.from("planner_items").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }

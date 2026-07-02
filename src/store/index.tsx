@@ -14,7 +14,9 @@ import type {
   Course,
   CourseSession,
   GradeComponent,
+  MissedEntry,
   PlannerData,
+  PlannerNote,
   Semester,
   ThemeId,
 } from "@/types";
@@ -61,13 +63,6 @@ const THEME_IDS: ThemeId[] = [
   "mono",
 ];
 
-function uid(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
 const defaultSemester: Semester = {
   name: "Current Semester",
   startDate: "2026-04-19",
@@ -94,51 +89,38 @@ const initialData: AppData = {
   taskOrder: [],
 };
 
-function normalizePlanner(p: unknown): PlannerData {
-  const pl = (p ?? {}) as Partial<PlannerData>;
-  return {
-    notes: Array.isArray(pl.notes) ? pl.notes : [],
-    strokes: Array.isArray(pl.strokes) ? pl.strokes : [],
-    highlights: Array.isArray(pl.highlights) ? pl.highlights : [],
-    autoEdits: pl.autoEdits && typeof pl.autoEdits === "object" ? pl.autoEdits : {},
-  };
-}
+// Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
+// The cloud stores only the tag, so the colour is rebuilt on load.
+const PLANNER_TAG_COLORS: Record<string, string> = {
+  tagExam: "#d9534f",
+  tagQuiz: "#e89b4a",
+  tagAssignment: "#477680",
+  tagDeadline: "#b8975a",
+  tagHoliday: "#5fa98c",
+};
+const DEFAULT_NOTE_COLOR = "#477680";
+const colorForTag = (tag?: string | null) =>
+  (tag && PLANNER_TAG_COLORS[tag]) || DEFAULT_NOTE_COLOR;
 
-/** Normalize only the local attendance layer of a course (sessions + missed).
- *  Name / credits / components come from the cloud, not from here. */
-function normalizeCourseLocal(c: Partial<Course>): {
-  sessions: CourseSession[];
-  missedLectures: number;
-  missedSessions: Course["missedSessions"];
-} {
-  const rawSessions = Array.isArray(c.sessions) ? c.sessions : [];
-  const sessions: CourseSession[] = rawSessions.map((s) => {
-    const sess = s as Partial<CourseSession> & { hours?: number };
-    return {
-      id: sess.id ?? uid(),
-      day: Number(sess.day) || 0,
-      // migrate legacy `hours` → minutes
-      minutes:
-        sess.minutes != null
-          ? Number(sess.minutes) || 0
-          : sess.hours != null
-          ? (Number(sess.hours) || 0) * 60
-          : 60,
-      ...(sess.time ? { time: String(sess.time) } : {}),
-      ...(sess.building ? { building: String(sess.building) } : {}),
-      ...(sess.room ? { room: String(sess.room) } : {}),
-      notes: Array.isArray(sess.notes)
-        ? sess.notes.filter((n): n is string => typeof n === "string")
-        : sess.note
-        ? [String(sess.note)]
-        : [],
-    };
-  });
-  return {
-    sessions,
-    missedLectures: Number(c.missedLectures) || 0,
-    missedSessions: Array.isArray(c.missedSessions) ? c.missedSessions : [],
-  };
+/** Reshape cloud planner rows + the per-account autoEdits into PlannerData. */
+function buildPlanner(
+  items: db.DbPlannerItem[],
+  autoEditsPref: unknown
+): PlannerData {
+  const notes: PlannerNote[] = items.map((it) => ({
+    id: it.id,
+    week: it.week,
+    day: it.day == null ? undefined : it.day,
+    text: it.text,
+    color: colorForTag(it.tag),
+    tag: it.tag ?? undefined,
+    done: it.done,
+  }));
+  const autoEdits =
+    autoEditsPref && typeof autoEditsPref === "object"
+      ? (autoEditsPref as PlannerData["autoEdits"])
+      : {};
+  return { notes, strokes: [], highlights: [], autoEdits };
 }
 
 interface StoreValue extends AppData {
@@ -147,7 +129,12 @@ interface StoreValue extends AppData {
   setEmail: (email: string) => void;
   setProfilePhoto: (photo: string | null) => void;
   setGpaGoal: (goal: number) => void;
-  setPlanner: (planner: PlannerData) => void;
+  // Planner notes are cloud-backed (planner_items); autoEdits ride in
+  // profiles.preferences. Each mutation persists per account.
+  addPlannerNote: (note: Omit<PlannerNote, "id">) => void;
+  updatePlannerNote: (id: string, patch: Partial<PlannerNote>) => void;
+  deletePlannerNote: (id: string) => void;
+  setPlannerAutoEdit: (id: string, patch: PlannerData["autoEdits"][string]) => void;
   setLanguage: (lang: "en" | "ar") => void;
   setTheme: (theme: ThemeId) => void;
   /** Set the Tasks page section order and persist it to the cloud per account
@@ -210,53 +197,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    // Read the not-yet-cloud, device-local layer (planner / task order / the
-    // per-course attendance layer). Settings/prefs are NOT read here for signed
-    // in users — those come from the cloud below.
-    const readLocal = () => {
-      let local: Partial<AppData> = {};
+    // Read the anonymous localStorage layer (theme / language / semester /
+    // profile). For signed-in users NONE of this is read — settings come from
+    // profiles.preferences and schedule/attendance from their own cloud tables.
+    const readLocal = (): Partial<AppData> => {
       try {
         const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (raw) local = JSON.parse(raw) as Partial<AppData>;
+        if (raw) return JSON.parse(raw) as Partial<AppData>;
       } catch {
         // corrupt storage — ignore
       }
-      const layer = new Map<string, ReturnType<typeof normalizeCourseLocal>>();
-      if (Array.isArray(local.courses)) {
-        for (const c of local.courses as Partial<Course>[]) {
-          if (c && typeof c.id === "string") layer.set(c.id, normalizeCourseLocal(c));
-        }
-      }
-      return {
-        local,
-        layer,
-        planner: normalizePlanner(local.planner),
-      };
+      return {};
     };
 
     // Signed-out / anonymous: localStorage IS the store (no account to leak to).
+    // Planner / courses require an account, so they stay empty here.
     const applyAnonymous = () => {
-      const { local, planner } = readLocal();
+      const local = readLocal();
       setData({
         ...initialData,
         ...local,
         theme: THEME_IDS.includes(local.theme as ThemeId) ? (local.theme as ThemeId) : "haven",
         semester: { ...defaultSemester, ...(local.semester ?? {}) },
-        planner,
-        // The section order is a cloud/per-account preference — never sourced
-        // from localStorage (the Tasks page is behind auth anyway).
+        planner: emptyPlanner,
         taskOrder: [],
         courses: [],
       });
       setHydrated(true);
     };
 
-    // Signed-in: settings (incl. the Tasks page section order) come from
-    // profiles.preferences (the cloud); the not-yet-migrated layer (planner /
-    // attendance) comes from localStorage.
+    // Signed-in: everything comes from the cloud — settings + section order from
+    // profiles.preferences; courses, grade components, weekly sessions, timetable
+    // details, planner items, and absences from their own per-account tables.
     const applyForUser = async (session: Session) => {
       const user = session.user;
-      const { layer, planner } = readLocal();
       try {
         const [prefs, sem] = await Promise.all([
           db.getPreferences(),
@@ -265,18 +239,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         semesterIdRef.current = sem.id;
 
-        const cloudCourses = await db.getCourses(sem.id);
+        const [cloudCourses, cloudSessions, cloudTimetable, cloudAbsences, cloudPlanner] =
+          await Promise.all([
+            db.getCourses(sem.id),
+            db.getAttendanceSessions(),
+            db.getTimetable(),
+            db.getAbsences(),
+            db.getPlannerItems(),
+          ]);
+        if (cancelled) return;
+
+        // Merge the attendance session (day + duration) with its optional
+        // timetable-detail row (time / building / room / notes), by shared id.
+        const ttById = new Map(cloudTimetable.map((tt) => [tt.id, tt]));
+        const sessionsByCourse = new Map<string, CourseSession[]>();
+        for (const s of cloudSessions) {
+          const tt = ttById.get(s.id);
+          const session: CourseSession = {
+            id: s.id,
+            day: s.day,
+            minutes: s.minutes,
+            ...(tt?.time ? { time: tt.time } : {}),
+            ...(tt?.building ? { building: tt.building } : {}),
+            ...(tt?.room ? { room: tt.room } : {}),
+            notes: tt?.notes ?? [],
+          };
+          const arr = sessionsByCourse.get(s.courseId) ?? [];
+          arr.push(session);
+          sessionsByCourse.set(s.courseId, arr);
+        }
+        const absencesByCourse = new Map<string, MissedEntry[]>();
+        for (const a of cloudAbsences) {
+          const arr = absencesByCourse.get(a.courseId) ?? [];
+          arr.push({ id: a.id, day: a.day, minutes: a.minutes });
+          absencesByCourse.set(a.courseId, arr);
+        }
+
         const courses: Course[] = await Promise.all(
           cloudCourses.map(async (cc) => {
             const components = await db.getGradeComponents(cc.id);
-            const l = layer.get(cc.id) ?? { sessions: [], missedLectures: 0, missedSessions: [] };
             return {
               id: cc.id,
               name: cc.name,
               creditHours: cc.creditHours,
-              sessions: l.sessions,
-              missedLectures: l.missedLectures,
-              missedSessions: l.missedSessions,
+              sessions: sessionsByCourse.get(cc.id) ?? [],
+              missedLectures: 0,
+              missedSessions: absencesByCourse.get(cc.id) ?? [],
               components,
             };
           })
@@ -296,7 +304,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           gpaGoal: num(prefs.gpaGoal, initialData.gpaGoal),
           language: prefs.language === "ar" ? "ar" : "en",
           theme: THEME_IDS.includes(prefs.theme as ThemeId) ? (prefs.theme as ThemeId) : "haven",
-          planner, // local-only for now
+          planner: buildPlanner(cloudPlanner, prefs.plannerAutoEdits),
           taskOrder: Array.isArray(prefs.taskOrder)
             ? (prefs.taskOrder as unknown[]).filter((id): id is string => typeof id === "string")
             : [],
@@ -317,7 +325,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("Haven: failed to load cloud data", e);
         if (cancelled) return;
         // Safe fallback: defaults + the device-local layer (never localStorage prefs).
-        setData({ ...initialData, planner });
+        setData(initialData);
         setHydrated(true);
       }
     };
@@ -368,38 +376,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Persist to localStorage on change, once hydrated.
-  //   • Signed IN: only the device-local layer (planner / task order / the
-  //     per-course attendance layer). Real per-account settings live in the
-  //     cloud (profiles.preferences) and are intentionally NOT written here, so
-  //     they can never leak to another account on this device.
-  //   • Signed OUT: the full anonymous state, so a visitor's choices survive a
+  //   • Signed IN: nothing — a signed-in account's data lives entirely in the
+  //     cloud now (settings + section order in profiles.preferences; courses,
+  //     grade components, planner, timetable, sessions and absences in their own
+  //     tables). Writing nothing here is what stops any leak between accounts.
+  //   • Signed OUT: the anonymous settings, so a visitor's choices survive a
   //     reload.
-  // Course identity and grade components live in Supabase, never here.
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || loggedInRef.current) return;
     try {
-      const attendanceLayer = data.courses.map((c) => ({
-        id: c.id,
-        sessions: c.sessions,
-        missedLectures: c.missedLectures,
-        missedSessions: c.missedSessions,
-      }));
-      const toSave = loggedInRef.current
-        ? {
-            planner: data.planner,
-            courses: attendanceLayer,
-          }
-        : {
-            profileName: data.profileName,
-            email: data.email,
-            profilePhoto: data.profilePhoto,
-            gpaGoal: data.gpaGoal,
-            language: data.language,
-            theme: data.theme,
-            planner: data.planner,
-            semester: data.semester,
-            courses: attendanceLayer,
-          };
+      const toSave = {
+        profileName: data.profileName,
+        email: data.email,
+        profilePhoto: data.profilePhoto,
+        gpaGoal: data.gpaGoal,
+        language: data.language,
+        theme: data.theme,
+        semester: data.semester,
+      };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
     } catch {
       // storage full / unavailable — ignore
@@ -449,9 +443,92 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [persistPref]
   );
 
-  const setPlanner = useCallback(
-    (planner: PlannerData) => setData((d) => ({ ...d, planner })),
-    []
+  // --- Planner (cloud-backed notes + per-account autoEdits) -----------------
+
+  const addPlannerNote = useCallback(async (note: Omit<PlannerNote, "id">) => {
+    if (!loggedInRef.current) return;
+    try {
+      const row = await db.addPlannerItem({
+        week: note.week,
+        day: note.day ?? null,
+        tag: note.tag ?? null,
+        text: note.text,
+        done: note.done ?? false,
+      });
+      setData((d) => ({
+        ...d,
+        planner: {
+          ...d.planner,
+          notes: [
+            ...d.planner.notes,
+            {
+              id: row.id,
+              week: row.week,
+              day: row.day == null ? undefined : row.day,
+              text: row.text,
+              color: colorForTag(row.tag),
+              tag: row.tag ?? undefined,
+              done: row.done,
+            },
+          ],
+        },
+      }));
+    } catch (e) {
+      console.error("Haven: failed to add planner note", e);
+    }
+  }, []);
+
+  const updatePlannerNote = useCallback((id: string, patch: Partial<PlannerNote>) => {
+    // Keep the colour in sync with the tag (colour isn't stored in the cloud).
+    const withColor: Partial<PlannerNote> =
+      patch.tag !== undefined ? { ...patch, color: colorForTag(patch.tag) } : patch;
+    setData((d) => ({
+      ...d,
+      planner: {
+        ...d.planner,
+        notes: d.planner.notes.map((n) => (n.id === id ? { ...n, ...withColor } : n)),
+      },
+    }));
+    if (loggedInRef.current) {
+      const dbPatch: Parameters<typeof db.updatePlannerItem>[1] = {};
+      if (patch.week !== undefined) dbPatch.week = patch.week;
+      if (patch.day !== undefined) dbPatch.day = patch.day ?? null;
+      if (patch.tag !== undefined) dbPatch.tag = patch.tag ?? null;
+      if (patch.text !== undefined) dbPatch.text = patch.text;
+      if (patch.done !== undefined) dbPatch.done = patch.done;
+      if (Object.keys(dbPatch).length) {
+        db.updatePlannerItem(id, dbPatch).catch((e) =>
+          console.error("Haven: failed to update planner note", e)
+        );
+      }
+    }
+  }, []);
+
+  const deletePlannerNote = useCallback((id: string) => {
+    setData((d) => ({
+      ...d,
+      planner: { ...d.planner, notes: d.planner.notes.filter((n) => n.id !== id) },
+    }));
+    if (loggedInRef.current) {
+      db.deletePlannerItem(id).catch((e) =>
+        console.error("Haven: failed to delete planner note", e)
+      );
+    }
+  }, []);
+
+  const setPlannerAutoEdit = useCallback(
+    (id: string, patch: PlannerData["autoEdits"][string]) => {
+      let nextAutoEdits: PlannerData["autoEdits"] = {};
+      setData((d) => {
+        nextAutoEdits = {
+          ...(d.planner.autoEdits ?? {}),
+          [id]: { ...(d.planner.autoEdits?.[id] ?? {}), ...patch },
+        };
+        return { ...d, planner: { ...d.planner, autoEdits: nextAutoEdits } };
+      });
+      persistPref({ plannerAutoEdits: nextAutoEdits });
+    },
+    [persistPref]
   );
 
   const setLanguage = useCallback(
@@ -627,56 +704,122 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // --- Local-only mutations (attendance / schedule layer) -------------------
+  // --- Attendance + timetable (cloud-backed) --------------------------------
+  // A weekly session is an attendance_sessions row (day + duration); its
+  // timetable details (time / building / room / notes) share the same id in
+  // timetable_entries. Absences are their own rows carrying day + minutes.
+
+  const sessionHasDetails = (s: Pick<CourseSession, "time" | "building" | "room" | "notes">) =>
+    !!(s.time || s.building || s.room || (s.notes && s.notes.length));
 
   const addSession = useCallback(
-    (courseId: string, session: Omit<CourseSession, "id">) =>
-      setData((d) => ({
-        ...d,
-        courses: d.courses.map((c) =>
-          c.id === courseId
-            ? { ...c, sessions: [...c.sessions, { ...session, id: uid() }] }
-            : c
-        ),
-      })),
+    async (courseId: string, session: Omit<CourseSession, "id">) => {
+      if (!loggedInRef.current) return;
+      try {
+        const row = await db.addAttendanceSession(courseId, {
+          day: session.day,
+          minutes: session.minutes,
+        });
+        const newSession: CourseSession = {
+          id: row.id,
+          day: row.day,
+          minutes: row.minutes,
+          ...(session.time ? { time: session.time } : {}),
+          ...(session.building ? { building: session.building } : {}),
+          ...(session.room ? { room: session.room } : {}),
+          notes: session.notes ?? [],
+        };
+        setData((d) => ({
+          ...d,
+          courses: d.courses.map((c) =>
+            c.id === courseId ? { ...c, sessions: [...c.sessions, newSession] } : c
+          ),
+        }));
+        if (sessionHasDetails(newSession)) {
+          db.updateTimetableEntry(row.id, {
+            courseId,
+            day: newSession.day,
+            time: newSession.time,
+            building: newSession.building,
+            room: newSession.room,
+            notes: newSession.notes,
+          }).catch((e) => console.error("Haven: failed to save timetable details", e));
+        }
+      } catch (e) {
+        console.error("Haven: failed to add session", e);
+      }
+    },
     []
   );
 
   const updateSession = useCallback(
-    (courseId: string, sessionId: string, patch: Partial<Omit<CourseSession, "id">>) =>
+    (courseId: string, sessionId: string, patch: Partial<Omit<CourseSession, "id">>) => {
+      let updated: CourseSession | undefined;
       setData((d) => ({
         ...d,
         courses: d.courses.map((c) =>
           c.id === courseId
             ? {
                 ...c,
-                sessions: c.sessions.map((s) =>
-                  s.id === sessionId ? { ...s, ...patch } : s
-                ),
+                sessions: c.sessions.map((s) => {
+                  if (s.id !== sessionId) return s;
+                  updated = { ...s, ...patch };
+                  return updated;
+                }),
               }
             : c
         ),
-      })),
+      }));
+      if (!loggedInRef.current || !updated) return;
+      const touchedAttendance = patch.day !== undefined || patch.minutes !== undefined;
+      const touchedDetails =
+        patch.time !== undefined ||
+        patch.building !== undefined ||
+        patch.room !== undefined ||
+        patch.notes !== undefined;
+      if (touchedAttendance) {
+        db.updateAttendanceSession(sessionId, {
+          day: updated.day,
+          minutes: updated.minutes,
+        }).catch((e) => console.error("Haven: failed to update session", e));
+      }
+      // Write the timetable-detail row when details change, or keep its day in
+      // sync when the day changes and the session already carries details.
+      if (touchedDetails || (touchedAttendance && sessionHasDetails(updated))) {
+        db.updateTimetableEntry(sessionId, {
+          courseId,
+          day: updated.day,
+          time: updated.time,
+          building: updated.building,
+          room: updated.room,
+          notes: updated.notes,
+        }).catch((e) => console.error("Haven: failed to save timetable details", e));
+      }
+    },
     []
   );
 
-  const deleteSession = useCallback(
-    (courseId: string, sessionId: string) =>
-      setData((d) => ({
-        ...d,
-        courses: d.courses.map((c) =>
-          c.id === courseId
-            ? {
-                ...c,
-                sessions: c.sessions.filter((s) => s.id !== sessionId),
-                missedSessions: c.missedSessions.filter((m) => m.sessionId !== sessionId),
-              }
-            : c
-        ),
-      })),
-    []
-  );
+  const deleteSession = useCallback((courseId: string, sessionId: string) => {
+    setData((d) => ({
+      ...d,
+      courses: d.courses.map((c) =>
+        c.id === courseId
+          ? { ...c, sessions: c.sessions.filter((s) => s.id !== sessionId) }
+          : c
+      ),
+    }));
+    if (loggedInRef.current) {
+      db.deleteAttendanceSession(sessionId).catch((e) =>
+        console.error("Haven: failed to delete session", e)
+      );
+      db.deleteTimetableEntry(sessionId).catch((e) =>
+        console.error("Haven: failed to delete timetable details", e)
+      );
+    }
+  }, []);
 
+  // Legacy by-lecture count — unused by the current UI/attendance math; kept
+  // in-memory only for API compatibility (never persisted).
   const setMissedLectures = useCallback(
     (courseId: string, missed: number) =>
       setData((d) => ({
@@ -688,31 +831,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const addMissedSession = useCallback(
-    (courseId: string, sessionId: string) =>
+  const addMissedSession = useCallback(async (courseId: string, sessionId: string) => {
+    if (!loggedInRef.current) return;
+    const course = coursesRef.current.find((c) => c.id === courseId);
+    const sess = course?.sessions.find((s) => s.id === sessionId);
+    if (!sess) return;
+    try {
+      const row = await db.addAbsence(courseId, { day: sess.day, minutes: sess.minutes });
       setData((d) => ({
         ...d,
         courses: d.courses.map((c) =>
           c.id === courseId
-            ? { ...c, missedSessions: [...c.missedSessions, { id: uid(), sessionId }] }
+            ? {
+                ...c,
+                missedSessions: [
+                  ...c.missedSessions,
+                  { id: row.id, sessionId, day: row.day, minutes: row.minutes },
+                ],
+              }
             : c
         ),
-      })),
-    []
-  );
+      }));
+    } catch (e) {
+      console.error("Haven: failed to log absence", e);
+    }
+  }, []);
 
-  const removeMissedSession = useCallback(
-    (courseId: string, missedId: string) =>
-      setData((d) => ({
-        ...d,
-        courses: d.courses.map((c) =>
-          c.id === courseId
-            ? { ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }
-            : c
-        ),
-      })),
-    []
-  );
+  const removeMissedSession = useCallback((courseId: string, missedId: string) => {
+    setData((d) => ({
+      ...d,
+      courses: d.courses.map((c) =>
+        c.id === courseId
+          ? { ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }
+          : c
+      ),
+    }));
+    if (loggedInRef.current) {
+      db.deleteAbsence(missedId).catch((e) =>
+        console.error("Haven: failed to remove absence", e)
+      );
+    }
+  }, []);
 
   const loadDemo = useCallback(async () => {
     if (!loggedInRef.current) return;
@@ -736,13 +895,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // addGradeComponent ignores the demo's local id and returns the cloud row.
           components.push(await db.addGradeComponent(row.id, comp));
         }
+        // Persist the demo's weekly sessions + logged absences to the cloud too,
+        // so the demo timetable/attendance survive a reload like real data.
+        const sessions: CourseSession[] = [];
+        for (const ds of dc.sessions) {
+          const srow = await db.addAttendanceSession(row.id, { day: ds.day, minutes: ds.minutes });
+          sessions.push({ id: srow.id, day: srow.day, minutes: srow.minutes, notes: [] });
+        }
+        const missedSessions: MissedEntry[] = [];
+        for (const dm of dc.missedSessions) {
+          const arow = await db.addAbsence(row.id, { day: dm.day, minutes: dm.minutes });
+          missedSessions.push({ id: arow.id, day: arow.day, minutes: arow.minutes });
+        }
         courses.push({
           id: row.id,
           name: row.name,
           creditHours: row.creditHours,
-          sessions: dc.sessions,
-          missedLectures: dc.missedLectures,
-          missedSessions: dc.missedSessions,
+          sessions,
+          missedLectures: 0,
+          missedSessions,
           components,
         });
       }
@@ -770,6 +941,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       profilePhoto: d.profilePhoto,
       gpaGoal: d.gpaGoal,
       semester: d.semester,
+      // Reset removes courses/grades only — planner items aren't deleted in the
+      // cloud, so keep them in memory too (they'd otherwise reappear on reload).
+      planner: d.planner,
     }));
   }, []);
 
@@ -780,7 +954,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setEmail,
     setProfilePhoto,
     setGpaGoal,
-    setPlanner,
+    addPlannerNote,
+    updatePlannerNote,
+    deletePlannerNote,
+    setPlannerAutoEdit,
     setLanguage,
     setTheme,
     setTaskOrder,

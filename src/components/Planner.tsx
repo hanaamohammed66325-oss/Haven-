@@ -1,12 +1,12 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { StickyNote, X, Check, GraduationCap, ClipboardList } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { formatShortDate, toISODate } from "@/lib/dates";
-import type { PlannerData, PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
+import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -27,11 +27,6 @@ interface Week {
   end: Date | null;
 }
 
-function uid(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return Math.random().toString(36).slice(2);
-}
-
 const TAGS: { key: TranslationKey; color: string }[] = [
   { key: "tagExam", color: "#d9534f" },
   { key: "tagQuiz", color: "#e89b4a" },
@@ -47,24 +42,19 @@ const typeColor = (t: string) =>
 
 export function Planner() {
   const { t, lang } = useT();
-  const { hydrated, semester, courses, planner: stored, setPlanner } = useStore();
+  const {
+    hydrated,
+    semester,
+    courses,
+    planner,
+    addPlannerNote,
+    updatePlannerNote,
+    deletePlannerNote,
+    setPlannerAutoEdit,
+  } = useStore();
 
-  const [planner, setLocal] = useState<PlannerData>(stored);
-  const [seeded, setSeeded] = useState(false);
   const [activeWeek, setActiveWeek] = useState(0);
   const [activeDay, setActiveDay] = useState<number | null>(null); // null = whole week
-
-  useEffect(() => {
-    if (hydrated && !seeded) {
-      setLocal(stored);
-      setSeeded(true);
-    }
-  }, [hydrated, seeded, stored]);
-
-  useEffect(() => {
-    if (seeded) setPlanner(planner);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planner, seeded]);
 
   // Week cards = teaching weeks + finals weeks (from settings), date range from start date.
   const weekCount = Math.max(1, Math.min(40, Math.round((Number(semester.weeks) || 0) + (Number(semester.finalsWeeks) || 0)) || 1));
@@ -96,20 +86,19 @@ export function Planner() {
     return map;
   }, [courses, weeks]);
 
-  // ---- mutations ----
-  const setNotes = (notes: PlannerNote[]) => setLocal((pl) => ({ ...pl, notes }));
+  // ---- mutations (cloud-backed via the store) ----
   const addNote = (week: number, day: number | undefined, text: string, color: string, tag?: string) => {
     const txt = text.trim();
     if (!txt) return;
-    setNotes([...planner.notes, { id: uid(), week, day, text: txt, color, tag, done: false }]);
+    addPlannerNote({ week, day, text: txt, color, tag, done: false });
   };
-  const updateNote = (id: string, patch: Partial<PlannerNote>) =>
-    setNotes(planner.notes.map((n) => (n.id === id ? { ...n, ...patch } : n)));
-  const deleteNote = (id: string) => setNotes(planner.notes.filter((n) => n.id !== id));
-  const toggleNoteDone = (id: string) =>
-    setNotes(planner.notes.map((n) => (n.id === id ? { ...n, done: !n.done } : n)));
-  const setAutoEdit = (id: string, patch: PlannerAutoEdit) =>
-    setLocal((pl) => ({ ...pl, autoEdits: { ...(pl.autoEdits ?? {}), [id]: { ...(pl.autoEdits?.[id] ?? {}), ...patch } } }));
+  const updateNote = (id: string, patch: Partial<PlannerNote>) => updatePlannerNote(id, patch);
+  const deleteNote = (id: string) => deletePlannerNote(id);
+  const toggleNoteDone = (id: string) => {
+    const n = planner.notes.find((x) => x.id === id);
+    updatePlannerNote(id, { done: !n?.done });
+  };
+  const setAutoEdit = (id: string, patch: PlannerAutoEdit) => setPlannerAutoEdit(id, patch);
 
   const setTarget = (week: number, day: number | null) => {
     setActiveWeek(week);
