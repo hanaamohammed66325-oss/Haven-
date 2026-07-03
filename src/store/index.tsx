@@ -239,13 +239,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         semesterIdRef.current = sem.id;
 
+        // Load each schedule/attendance domain independently: a hiccup in one
+        // (e.g. a bad row) must not blank the others — that would look exactly
+        // like "nothing saved" after a refresh. Errors are logged, not thrown.
+        const safe = <T,>(p: Promise<T[]>, label: string): Promise<T[]> =>
+          p.catch((e) => {
+            console.error(`Haven: failed to load ${label}`, e);
+            return [];
+          });
         const [cloudCourses, cloudSessions, cloudTimetable, cloudAbsences, cloudPlanner] =
           await Promise.all([
             db.getCourses(sem.id),
-            db.getAttendanceSessions(),
-            db.getTimetable(),
-            db.getAbsences(),
-            db.getPlannerItems(),
+            safe(db.getAttendanceSessions(), "attendance sessions"),
+            safe(db.getTimetable(), "timetable"),
+            safe(db.getAbsences(), "absences"),
+            safe(db.getPlannerItems(), "planner"),
           ]);
         if (cancelled) return;
 

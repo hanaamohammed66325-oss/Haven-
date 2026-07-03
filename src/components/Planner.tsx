@@ -87,6 +87,10 @@ export function Planner() {
   }, [courses, weeks]);
 
   // ---- mutations (cloud-backed via the store) ----
+  // NOTE: `week` here is the 1-based displayed week number ("Week 11" → 11),
+  // the same identifier stored in planner_items.week_number and matched against
+  // each week cell on read (see the grid below: n.week === w.index + 1). Keep
+  // write and read on this identifier so notes reappear in the exact week.
   const addNote = (week: number, day: number | undefined, text: string, color: string, tag?: string) => {
     const txt = text.trim();
     if (!txt) return;
@@ -134,7 +138,7 @@ export function Planner() {
         {TAGS.map((tg) => (
           <button
             key={tg.key}
-            onClick={() => addNote(activeWeek, activeDay ?? undefined, t(tg.key), tg.color, tg.key)}
+            onClick={() => addNote(activeWeek + 1, activeDay ?? undefined, t(tg.key), tg.color, tg.key)}
             className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
             style={{ background: `${tg.color}1A`, color: tg.color }}
           >
@@ -151,13 +155,13 @@ export function Planner() {
             key={w.index}
             label={t("weekLabel", { n: w.index + 1 })}
             range={range(w)}
-            notes={planner.notes.filter((n) => n.week === w.index)}
+            notes={planner.notes.filter((n) => n.week === w.index + 1)}
             autoItems={autoByWeek[w.index] ?? []}
             autoEdits={planner.autoEdits ?? {}}
             isActiveWeek={activeWeek === w.index}
             activeDay={activeWeek === w.index ? activeDay : undefined}
             onSetTarget={(day) => setTarget(w.index, day)}
-            onAdd={(day, text) => addNote(w.index, day ?? undefined, text, DEFAULT_NOTE_COLOR)}
+            onAdd={(day, text) => addNote(w.index + 1, day ?? undefined, text, DEFAULT_NOTE_COLOR)}
             onUpdate={updateNote}
             onDelete={deleteNote}
             onToggleDone={toggleNoteDone}
