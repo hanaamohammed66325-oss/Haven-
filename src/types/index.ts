@@ -26,7 +26,7 @@ export interface GradeComponent {
 
 /** A recurring weekly class meeting: a weekday and its duration in minutes. */
 export interface CourseSession {
-  id: string;
+  id: string; // attendance_sessions row id (this session's own id)
   day: number; // 0 = Sunday … 6 = Saturday
   minutes: number; // duration of this session in minutes
   time?: string; // start time "HH:MM" (optional)
@@ -34,6 +34,9 @@ export interface CourseSession {
   room?: string; // room number (optional)
   note?: string; // legacy single note — migrated into `notes`
   notes?: string[]; // multiple free notes for this session
+  /** id of this session's SEPARATE timetable_entries detail row, when it has
+   *  timetable details. Distinct from `id` so the two rows never share an id. */
+  timetableId?: string;
 }
 
 /** A single logged absence. Carries its own weekday + minutes so it stands on

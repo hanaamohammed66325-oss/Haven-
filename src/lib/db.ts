@@ -364,12 +364,24 @@ export async function savePreferences(partial: Preferences): Promise<void> {
 //
 // A weekly class meeting is modelled in the app as ONE CourseSession that
 // carries BOTH the attendance duration and the timetable display fields. The DB
-// splits that across attendance_sessions (day + duration — drives the % ) and,
-// sharing the SAME id, an optional timetable_entries row for the display extras
-// (time / room / building / notes). `building` and the multi-note list have no
-// column of their own, so they ride together as JSON in timetable_entries.note.
-// Absences store their weekday inside the date-only `absent_on` column.
+// splits that across attendance_sessions (day + duration — drives the % ) and a
+// SEPARATE timetable_entries row (its OWN id) for the display extras (time /
+// room / building / notes). The two rows are linked by the session id stored in
+// the timetable row's JSON note (`sid`) — never by sharing a primary key — so
+// each is created/updated/deleted independently and one never clobbers the
+// other. Absences store their weekday inside the date-only `absent_on` column.
 // ---------------------------------------------------------------------------
+
+// Canonical weekday integers used for BOTH read and write:
+//   Sunday=0, Monday=1, Tuesday=2, Wednesday=3, Thursday=4, Friday=5, Saturday=6
+// (identical to the app's day values and JS Date.getUTCDay()). `toDayOfWeek`
+// preserves any valid selection 0..6 exactly and only falls back to 0 for
+// genuinely invalid input — it never overrides a real weekday.
+function toDayOfWeek(day: number): number {
+  const n = Math.trunc(Number(day));
+  return Number.isFinite(n) && n >= 0 && n <= 6 ? n : 0;
+}
+const fromDayOfWeek = toDayOfWeek;
 
 // Pick a real calendar date whose weekday equals `day` (0=Sun..6=Sat) so an
 // absence can carry its weekday through the date-only `absent_on` column.
@@ -387,27 +399,28 @@ function weekdayFromIso(iso: string | null): number {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
 
-// timetable_entries.note holds the fields with no column of their own.
-function encodeTtNote(building?: string, notes?: string[]): string | null {
+// timetable_entries.note holds the fields with no column of their own, plus the
+// owning session id (`sid`) that links this detail row back to its session.
+function encodeTtNote(sessionId: string, building?: string, notes?: string[]): string {
   const b = building && building.trim() ? building.trim() : undefined;
   const ns = (notes ?? []).filter((n): n is string => typeof n === "string");
-  if (!b && ns.length === 0) return null;
-  return JSON.stringify({ building: b, notes: ns });
+  return JSON.stringify({ sid: sessionId, building: b, notes: ns });
 }
-function decodeTtNote(note: string | null): { building?: string; notes: string[] } {
-  if (!note) return { notes: [] };
+function decodeTtNote(note: string | null): { sessionId: string | null; building?: string; notes: string[] } {
+  if (!note) return { sessionId: null, notes: [] };
   try {
-    const o = JSON.parse(note) as { building?: unknown; notes?: unknown };
+    const o = JSON.parse(note) as { sid?: unknown; building?: unknown; notes?: unknown };
     if (o && typeof o === "object") {
       return {
+        sessionId: typeof o.sid === "string" ? o.sid : null,
         building: typeof o.building === "string" ? o.building : undefined,
         notes: Array.isArray(o.notes) ? o.notes.filter((x): x is string => typeof x === "string") : [],
       };
     }
   } catch {
-    // not JSON → treat legacy plain text as a single note
+    // not JSON → treat legacy plain text as a single note (unlinked)
   }
-  return { notes: [note] };
+  return { sessionId: null, notes: [note] };
 }
 
 // ---- Attendance sessions (day + duration) ---------------------------------
@@ -428,7 +441,7 @@ export async function getAttendanceSessions(): Promise<DbAttendanceSession[]> {
   return (data ?? []).map((r) => ({
     id: r.id,
     courseId: r.course_id,
-    day: r.day_of_week ?? 0,
+    day: fromDayOfWeek(r.day_of_week), // integer weekday back to the app's value
     minutes: r.duration_minutes ?? 0,
   }));
 }
@@ -443,7 +456,7 @@ export async function addAttendanceSession(
     .insert({
       user_id: userId,
       course_id: courseId,
-      day_of_week: fields.day,
+      day_of_week: toDayOfWeek(fields.day), // store the selected weekday, not 0
       duration_minutes: fields.minutes,
     })
     .select("id, course_id, day_of_week, duration_minutes")
@@ -452,7 +465,7 @@ export async function addAttendanceSession(
   return {
     id: data.id,
     courseId: data.course_id,
-    day: data.day_of_week ?? 0,
+    day: fromDayOfWeek(data.day_of_week),
     minutes: data.duration_minutes ?? 0,
   };
 }
@@ -462,7 +475,8 @@ export async function updateAttendanceSession(
   fields: Partial<{ day: number; minutes: number }>
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
-  if (fields.day !== undefined) patch.day_of_week = fields.day;
+  // Persist the exact weekday the user picked (0..6) — never hardcode/default.
+  if (fields.day !== undefined) patch.day_of_week = toDayOfWeek(fields.day);
   if (fields.minutes !== undefined) patch.duration_minutes = fields.minutes;
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("attendance_sessions").update(patch).eq("id", id);
@@ -474,9 +488,10 @@ export async function deleteAttendanceSession(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-// ---- Timetable details (one row per session, sharing the session id) ------
+// ---- Timetable details (its OWN row/id, linked to a session by `sessionId`) -
 export interface DbTimetableEntry {
-  id: string;
+  id: string; // the timetable row's own id (NOT the session id)
+  sessionId: string | null; // owning attendance_sessions id, from the note JSON
   courseId: string | null;
   day: number;
   time?: string;
@@ -493,11 +508,12 @@ export async function getTimetable(): Promise<DbTimetableEntry[]> {
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => {
-    const { building, notes } = decodeTtNote(r.note);
+    const { sessionId, building, notes } = decodeTtNote(r.note);
     return {
       id: r.id,
+      sessionId,
       courseId: r.course_id,
-      day: r.day_of_week ?? 0,
+      day: fromDayOfWeek(r.day_of_week),
       time: r.start_time ?? undefined,
       building,
       room: r.room ?? undefined,
@@ -506,29 +522,51 @@ export async function getTimetable(): Promise<DbTimetableEntry[]> {
   });
 }
 
-/** Create-or-update the timetable-detail row for a session (id = session id). */
-export async function updateTimetableEntry(
-  id: string,
-  fields: { courseId: string; day: number; time?: string; building?: string; room?: string; notes?: string[] }
-): Promise<void> {
-  const userId = await currentUserId();
-  const sem = await ensureActiveSemester();
-  const row = {
-    id,
-    user_id: userId,
-    semester_id: sem.id,
-    course_id: fields.courseId,
-    day_of_week: fields.day,
-    start_time: fields.time && fields.time.trim() ? fields.time.trim() : null,
-    room: fields.room && fields.room.trim() ? fields.room.trim() : null,
-    note: encodeTtNote(fields.building, fields.notes),
-  };
-  const { error } = await supabase.from("timetable_entries").upsert(row, { onConflict: "id" });
-  if (error) throw new Error(error.message);
+interface TimetableFields {
+  sessionId: string;
+  courseId: string;
+  day: number;
+  time?: string;
+  building?: string;
+  room?: string;
+  notes?: string[];
 }
 
-// Same upsert, exposed under the requested "add" name.
-export const addTimetableEntry = updateTimetableEntry;
+/** Create a NEW timetable-detail row (its own id) for a session; returns its id. */
+export async function addTimetableEntry(fields: TimetableFields): Promise<string> {
+  const userId = await currentUserId();
+  const sem = await ensureActiveSemester();
+  const { data, error } = await supabase
+    .from("timetable_entries")
+    .insert({
+      user_id: userId,
+      semester_id: sem.id,
+      course_id: fields.courseId,
+      day_of_week: toDayOfWeek(fields.day),
+      start_time: fields.time && fields.time.trim() ? fields.time.trim() : null,
+      room: fields.room && fields.room.trim() ? fields.room.trim() : null,
+      note: encodeTtNote(fields.sessionId, fields.building, fields.notes),
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+/** Update an existing timetable-detail row by its OWN id. */
+export async function updateTimetableEntry(id: string, fields: TimetableFields): Promise<void> {
+  const { error } = await supabase
+    .from("timetable_entries")
+    .update({
+      course_id: fields.courseId,
+      day_of_week: toDayOfWeek(fields.day),
+      start_time: fields.time && fields.time.trim() ? fields.time.trim() : null,
+      room: fields.room && fields.room.trim() ? fields.room.trim() : null,
+      note: encodeTtNote(fields.sessionId, fields.building, fields.notes),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
 
 export async function deleteTimetableEntry(id: string): Promise<void> {
   const { error } = await supabase.from("timetable_entries").delete().eq("id", id);

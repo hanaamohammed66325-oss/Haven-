@@ -102,6 +102,10 @@ const DEFAULT_NOTE_COLOR = "#477680";
 const colorForTag = (tag?: string | null) =>
   (tag && PLANNER_TAG_COLORS[tag]) || DEFAULT_NOTE_COLOR;
 
+/** Whether a session carries any timetable detail worth its own detail row. */
+const sessionHasDetails = (s: Pick<CourseSession, "time" | "building" | "room" | "notes">) =>
+  !!(s.time || s.building || s.room || (s.notes && s.notes.length));
+
 /** Reshape cloud planner rows + the per-account autoEdits into PlannerData. */
 function buildPlanner(
   items: db.DbPlannerItem[],
@@ -257,12 +261,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ]);
         if (cancelled) return;
 
-        // Merge the attendance session (day + duration) with its optional
-        // timetable-detail row (time / building / room / notes), by shared id.
-        const ttById = new Map(cloudTimetable.map((tt) => [tt.id, tt]));
+        // Merge each attendance session (day + duration, its own id) with its
+        // optional timetable-detail row (own id, linked back by `sessionId`).
+        const ttBySession = new Map<string, (typeof cloudTimetable)[number]>();
+        for (const tt of cloudTimetable) {
+          if (tt.sessionId) ttBySession.set(tt.sessionId, tt);
+        }
         const sessionsByCourse = new Map<string, CourseSession[]>();
         for (const s of cloudSessions) {
-          const tt = ttById.get(s.id);
+          const tt = ttBySession.get(s.id);
           const session: CourseSession = {
             id: s.id,
             day: s.day,
@@ -271,6 +278,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(tt?.building ? { building: tt.building } : {}),
             ...(tt?.room ? { room: tt.room } : {}),
             notes: tt?.notes ?? [],
+            ...(tt ? { timetableId: tt.id } : {}),
           };
           const arr = sessionsByCourse.get(s.courseId) ?? [];
           arr.push(session);
@@ -713,12 +721,57 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // --- Attendance + timetable (cloud-backed) --------------------------------
-  // A weekly session is an attendance_sessions row (day + duration); its
-  // timetable details (time / building / room / notes) share the same id in
-  // timetable_entries. Absences are their own rows carrying day + minutes.
+  // A weekly session is an attendance_sessions row (day + duration, its own id).
+  // Its optional timetable details (time / building / room / notes) live in a
+  // SEPARATE timetable_entries row with its OWN id, tracked here as
+  // session.timetableId and linked back by sessionId — the two rows never share
+  // an id, so editing/deleting one never touches the other.
 
-  const sessionHasDetails = (s: Pick<CourseSession, "time" | "building" | "room" | "notes">) =>
-    !!(s.time || s.building || s.room || (s.notes && s.notes.length));
+  // Persist a session's timetable-detail row: create / update / delete its own
+  // row as needed, and keep session.timetableId in sync in state.
+  const persistTimetable = useCallback((courseId: string, sessionId: string, s: CourseSession) => {
+    const fields = {
+      sessionId,
+      courseId,
+      day: s.day,
+      time: s.time,
+      building: s.building,
+      room: s.room,
+      notes: s.notes,
+    };
+    const patchTimetableId = (ttId: string | undefined) =>
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId
+            ? {
+                ...c,
+                sessions: c.sessions.map((x) =>
+                  x.id === sessionId ? { ...x, timetableId: ttId } : x
+                ),
+              }
+            : c
+        ),
+      }));
+    if (sessionHasDetails(s)) {
+      if (s.timetableId) {
+        db.updateTimetableEntry(s.timetableId, fields).catch((e) =>
+          console.error("Haven: failed to update timetable details", e)
+        );
+      } else {
+        db.addTimetableEntry(fields)
+          .then((ttId) => patchTimetableId(ttId))
+          .catch((e) => console.error("Haven: failed to save timetable details", e));
+      }
+    } else if (s.timetableId) {
+      // Details cleared — remove the detail row (its own id only).
+      const ttId = s.timetableId;
+      db.deleteTimetableEntry(ttId).catch((e) =>
+        console.error("Haven: failed to delete timetable details", e)
+      );
+      patchTimetableId(undefined);
+    }
+  }, []);
 
   const addSession = useCallback(
     async (courseId: string, session: Omit<CourseSession, "id">) => {
@@ -728,6 +781,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           day: session.day,
           minutes: session.minutes,
         });
+        let timetableId: string | undefined;
+        if (sessionHasDetails(session)) {
+          timetableId = await db.addTimetableEntry({
+            sessionId: row.id,
+            courseId,
+            day: row.day,
+            time: session.time,
+            building: session.building,
+            room: session.room,
+            notes: session.notes,
+          });
+        }
         const newSession: CourseSession = {
           id: row.id,
           day: row.day,
@@ -736,6 +801,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...(session.building ? { building: session.building } : {}),
           ...(session.room ? { room: session.room } : {}),
           notes: session.notes ?? [],
+          ...(timetableId ? { timetableId } : {}),
         };
         setData((d) => ({
           ...d,
@@ -743,16 +809,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             c.id === courseId ? { ...c, sessions: [...c.sessions, newSession] } : c
           ),
         }));
-        if (sessionHasDetails(newSession)) {
-          db.updateTimetableEntry(row.id, {
-            courseId,
-            day: newSession.day,
-            time: newSession.time,
-            building: newSession.building,
-            room: newSession.room,
-            notes: newSession.notes,
-          }).catch((e) => console.error("Haven: failed to save timetable details", e));
-        }
       } catch (e) {
         console.error("Haven: failed to add session", e);
       }
@@ -762,52 +818,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateSession = useCallback(
     (courseId: string, sessionId: string, patch: Partial<Omit<CourseSession, "id">>) => {
-      let updated: CourseSession | undefined;
+      // Read the current session from the ref (deterministic — never rely on a
+      // value captured inside a setData updater, which may not run synchronously)
+      // and compute the merged result used for BOTH the UI and the DB writes.
+      const cur = coursesRef.current
+        .find((c) => c.id === courseId)
+        ?.sessions.find((s) => s.id === sessionId);
+      const updated: CourseSession | undefined = cur ? { ...cur, ...patch } : undefined;
+
       setData((d) => ({
         ...d,
         courses: d.courses.map((c) =>
           c.id === courseId
             ? {
                 ...c,
-                sessions: c.sessions.map((s) => {
-                  if (s.id !== sessionId) return s;
-                  updated = { ...s, ...patch };
-                  return updated;
-                }),
+                sessions: c.sessions.map((s) => (s.id === sessionId ? { ...s, ...patch } : s)),
               }
             : c
         ),
       }));
+
       if (!loggedInRef.current || !updated) return;
-      const touchedAttendance = patch.day !== undefined || patch.minutes !== undefined;
-      const touchedDetails =
-        patch.time !== undefined ||
-        patch.building !== undefined ||
-        patch.room !== undefined ||
-        patch.notes !== undefined;
-      if (touchedAttendance) {
+      if (patch.day !== undefined || patch.minutes !== undefined) {
         db.updateAttendanceSession(sessionId, {
           day: updated.day,
           minutes: updated.minutes,
         }).catch((e) => console.error("Haven: failed to update session", e));
       }
-      // Write the timetable-detail row when details change, or keep its day in
-      // sync when the day changes and the session already carries details.
-      if (touchedDetails || (touchedAttendance && sessionHasDetails(updated))) {
-        db.updateTimetableEntry(sessionId, {
-          courseId,
-          day: updated.day,
-          time: updated.time,
-          building: updated.building,
-          room: updated.room,
-          notes: updated.notes,
-        }).catch((e) => console.error("Haven: failed to save timetable details", e));
+      const touchedDetails =
+        patch.time !== undefined ||
+        patch.building !== undefined ||
+        patch.room !== undefined ||
+        patch.notes !== undefined;
+      // Sync the detail row when details change, or when the day changes on a
+      // session that already has details (so its timetable day stays aligned).
+      if (touchedDetails || (patch.day !== undefined && sessionHasDetails(updated))) {
+        persistTimetable(courseId, sessionId, updated);
       }
     },
-    []
+    [persistTimetable]
   );
 
   const deleteSession = useCallback((courseId: string, sessionId: string) => {
+    const cur = coursesRef.current
+      .find((c) => c.id === courseId)
+      ?.sessions.find((s) => s.id === sessionId);
+    const timetableId = cur?.timetableId;
     setData((d) => ({
       ...d,
       courses: d.courses.map((c) =>
@@ -820,9 +876,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       db.deleteAttendanceSession(sessionId).catch((e) =>
         console.error("Haven: failed to delete session", e)
       );
-      db.deleteTimetableEntry(sessionId).catch((e) =>
-        console.error("Haven: failed to delete timetable details", e)
-      );
+      // Only this session's OWN detail row (its own id) — never another's.
+      if (timetableId) {
+        db.deleteTimetableEntry(timetableId).catch((e) =>
+          console.error("Haven: failed to delete timetable details", e)
+        );
+      }
     }
   }, []);
 
