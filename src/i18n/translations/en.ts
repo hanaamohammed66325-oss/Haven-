@@ -256,6 +256,7 @@ export const en = {
   attLegend_warn: "Approaching limit — nearing the absence cap.",
   attLegend_danger: "Withdrawal risk — absences may bar entry to the exam.",
   attLimitNote: "The limit ({limit}%) is the withdrawal threshold.",
+  attLimitShort: "limit {n}%",
   eachLecture: "Each lecture = {pct}%",
   eachHour: "Each hour = {pct}%",
 
@@ -270,6 +271,7 @@ export const en = {
   courseName: "Course name",
   courseNamePlaceholder: "e.g. Calculus I",
   creditHours: "Credit hours",
+  courseLimitHint: "Standard 25% · health colleges often 20%.",
 
   // Component fields
   itemName: "Name",

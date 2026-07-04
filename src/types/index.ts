@@ -56,6 +56,9 @@ export interface Course {
   id: string;
   name: string;
   creditHours: number;
+  /** this course's own withdrawal ("حرمان") limit as an absence % (from
+   *  courses.attendance_limit). 0/undefined → fall back to the semester default. */
+  attendanceLimit?: number;
   /** weekly class meetings — drives totals for both counting methods */
   sessions: CourseSession[];
   /** missed count for the "by lecture" method */

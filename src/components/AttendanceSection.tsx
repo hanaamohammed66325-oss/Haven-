@@ -55,7 +55,7 @@ export function AttendanceSection({ course }: { course: Course }) {
               {att.absence.toFixed(1)}%
             </span>
             <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
-              {t("eachHour", { pct: att.unit.toFixed(1) })}
+              {t("eachHour", { pct: att.unit.toFixed(1) })} · {t("attLimitShort", { n: att.limit })}
             </div>
           </div>
         )}

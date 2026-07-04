@@ -10,7 +10,7 @@ import { AddCourseModal } from "@/components/AddCourseModal";
 
 export default function CoursesPage() {
   const { t } = useT();
-  const { hydrated, courses, addCourse } = useStore();
+  const { hydrated, courses, semester, addCourse } = useStore();
   const [adding, setAdding] = useState(false);
 
   // When arriving from Assignments via /courses#<courseId>, scroll to that course.
@@ -69,7 +69,12 @@ export default function CoursesPage() {
         </div>
       )}
 
-      <AddCourseModal open={adding} onClose={() => setAdding(false)} onSubmit={addCourse} />
+      <AddCourseModal
+        open={adding}
+        onClose={() => setAdding(false)}
+        onSubmit={addCourse}
+        defaultLimit={semester.withdrawalLimit}
+      />
     </div>
   );
 }

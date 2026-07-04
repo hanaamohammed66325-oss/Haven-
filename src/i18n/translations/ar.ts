@@ -258,6 +258,7 @@ export const ar: Record<TranslationKey, string> = {
   attLegend_warn: "اقتراب من الحدّ — الغياب يقترب من النسبة المسموحة.",
   attLegend_danger: "خطر الحرمان — قد يؤدي الغياب إلى الحرمان من دخول الاختبار.",
   attLimitNote: "الحدّ ({limit}٪) هو عتبة الحرمان.",
+  attLimitShort: "الحدّ {n}٪",
   eachLecture: "كل محاضرة = {pct}٪",
   eachHour: "كل ساعة = {pct}٪",
 
@@ -272,6 +273,7 @@ export const ar: Record<TranslationKey, string> = {
   courseName: "اسم المقرر",
   courseNamePlaceholder: "مثال: تفاضل ١",
   creditHours: "الساعات المعتمدة",
+  courseLimitHint: "الحدّ المعتاد ٢٥٪ · وكليات الصحة غالبًا ٢٠٪.",
 
   // Component fields
   itemName: "الاسم",

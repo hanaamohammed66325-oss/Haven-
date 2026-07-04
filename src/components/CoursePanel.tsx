@@ -19,7 +19,7 @@ import type { Course, GradeComponent } from "@/types";
 
 export function CoursePanel({ course }: { course: Course }) {
   const { t, lang } = useT();
-  const { addComponent, updateComponent, deleteComponent, deleteCourse, updateCourse } = useStore();
+  const { semester, addComponent, updateComponent, deleteComponent, deleteCourse, updateCourse } = useStore();
   const [addingItem, setAddingItem] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<GradeComponent | null>(null);
@@ -182,7 +182,8 @@ export function CoursePanel({ course }: { course: Course }) {
         open={editing}
         onClose={() => setEditing(false)}
         onSubmit={(data) => updateCourse(course.id, data)}
-        initial={{ name: course.name, creditHours: course.creditHours }}
+        initial={{ name: course.name, creditHours: course.creditHours, attendanceLimit: course.attendanceLimit }}
+        defaultLimit={semester.withdrawalLimit}
       />
     </Card>
   );

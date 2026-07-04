@@ -145,7 +145,7 @@ interface StoreValue extends AppData {
    *  (profiles.preferences.taskOrder). Drives the Tasks page drag-to-reorder. */
   setTaskOrder: (order: string[]) => void;
   setSemester: (patch: Partial<Semester>) => void;
-  addCourse: (course: { name: string; creditHours: number }) => void;
+  addCourse: (course: { name: string; creditHours: number; attendanceLimit?: number }) => void;
   updateCourse: (
     id: string,
     data: Partial<Omit<Course, "id" | "components">>
@@ -298,6 +298,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               id: cc.id,
               name: cc.name,
               creditHours: cc.creditHours,
+              attendanceLimit: cc.attendanceLimit,
               sessions: sessionsByCourse.get(cc.id) ?? [],
               missedLectures: 0,
               missedSessions: absencesByCourse.get(cc.id) ?? [],
@@ -602,7 +603,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [persistPref]);
 
   const addCourse = useCallback(
-    async (course: { name: string; creditHours: number }) => {
+    async (course: { name: string; creditHours: number; attendanceLimit?: number }) => {
       if (!loggedInRef.current) return;
       try {
         // db.addCourse resolves the current user's active semester itself, so we
@@ -611,6 +612,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           name: course.name,
           creditHours: course.creditHours,
           position: coursesRef.current.length,
+          attendanceLimit: course.attendanceLimit,
         });
         setData((d) => ({
           ...d,
@@ -620,6 +622,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               id: row.id,
               name: row.name,
               creditHours: row.creditHours,
+              attendanceLimit: row.attendanceLimit,
               sessions: [],
               missedLectures: 0,
               missedSessions: [],
@@ -640,11 +643,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...d,
         courses: d.courses.map((c) => (c.id === id ? { ...c, ...patch } : c)),
       }));
-      // Only name / credits live in the cloud; sessions & attendance stay local.
-      if (loggedInRef.current && (patch.name !== undefined || patch.creditHours !== undefined)) {
+      // Name / credits / the per-course withdrawal limit live in the cloud.
+      if (
+        loggedInRef.current &&
+        (patch.name !== undefined ||
+          patch.creditHours !== undefined ||
+          patch.attendanceLimit !== undefined)
+      ) {
         db.updateCourse(id, {
           ...(patch.name !== undefined ? { name: patch.name } : {}),
           ...(patch.creditHours !== undefined ? { creditHours: patch.creditHours } : {}),
+          ...(patch.attendanceLimit !== undefined ? { attendanceLimit: patch.attendanceLimit } : {}),
         }).catch((e) => console.error("Haven: failed to update course", e));
       }
     },
@@ -978,6 +987,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           id: row.id,
           name: row.name,
           creditHours: row.creditHours,
+          attendanceLimit: row.attendanceLimit,
           sessions,
           missedLectures: 0,
           missedSessions,

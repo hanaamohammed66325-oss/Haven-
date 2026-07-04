@@ -1,7 +1,15 @@
 import type { Course, Semester } from "@/types";
 
-/** absence below this is "approaching" the limit; at/above the withdrawal limit is danger */
-export const APPROACHING_ABSENCE = 18;
+/** Status thresholds scale with each course's own limit: "approaching" starts at
+ *  70% of the limit, "withdrawal risk" at the limit itself. */
+export const APPROACHING_FRACTION = 0.7;
+
+/** The effective withdrawal limit (%) for a course: its own attendance_limit
+ *  when set, otherwise the semester's global default (fallback 25). */
+export function courseLimit(c: Course, sem?: Semester): number {
+  if (c.attendanceLimit && c.attendanceLimit > 0) return c.attendanceLimit;
+  return sem && sem.withdrawalLimit > 0 ? sem.withdrawalLimit : 25;
+}
 
 // Saudi 5.0 scale (default cutoffs; make editable later)
 export const SCALE = [
@@ -65,7 +73,10 @@ export interface AttendanceInfo {
 // in minutes, so a 2-hour class counts twice a 1-hour one. Compared against the withdrawal limit.
 export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null {
   const weeks = Math.max(1, Math.round(sem?.weeks ?? 15) || 15);
-  const limit = sem && sem.withdrawalLimit > 0 ? sem.withdrawalLimit : 25;
+  // Per-course withdrawal limit; thresholds scale with it so any university /
+  // college (25% standard, 20% health colleges, …) works automatically.
+  const limit = courseLimit(c, sem);
+  const approaching = APPROACHING_FRACTION * limit;
 
   const total = minutesPerWeek(c) * weeks; // total contact minutes for the term
   if (!total) return null;
@@ -75,11 +86,11 @@ export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null
     0
   );
 
-  const unit = (100 / total) * 60; // percent per hour
+  const unit = (100 / total) * 60; // percent per hour — same minutes-based total
   const absence = Math.min(100, (missed / total) * 100);
   const rate = 100 - absence;
   const status: "ok" | "warn" | "danger" =
-    absence >= limit ? "danger" : absence >= APPROACHING_ABSENCE ? "warn" : "ok";
+    absence >= limit ? "danger" : absence >= approaching ? "warn" : "ok";
 
   return { weeks, unit, absence, rate, limit, status };
 }

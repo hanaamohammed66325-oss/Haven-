@@ -40,6 +40,7 @@ export interface DbCourse {
   name: string;
   creditHours: number; // credits
   position: number;
+  attendanceLimit: number; // attendance_limit (per-course withdrawal % )
 }
 
 // ---------------------------------------------------------------------------
@@ -136,18 +137,22 @@ const mapCourse = (row: {
   name: string;
   credits: number;
   position: number;
+  attendance_limit: number | null;
 }): DbCourse => ({
   id: row.id,
   name: row.name,
   creditHours: Number(row.credits) || 0,
   position: row.position ?? 0,
+  attendanceLimit: Number(row.attendance_limit) || 0,
 });
+
+const COURSE_COLS = "id, name, credits, position, attendance_limit";
 
 export async function getCourses(semesterId: string): Promise<DbCourse[]> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("courses")
-    .select("id, name, credits, position")
+    .select(COURSE_COLS)
     .eq("user_id", userId)
     .eq("semester_id", semesterId)
     .order("position", { ascending: true });
@@ -156,7 +161,7 @@ export async function getCourses(semesterId: string): Promise<DbCourse[]> {
 }
 
 export async function addCourse(
-  course: { name: string; creditHours: number; position?: number }
+  course: { name: string; creditHours: number; position?: number; attendanceLimit?: number }
 ): Promise<DbCourse> {
   const userId = await currentUserId();
   // ALWAYS resolve the active semester fresh for THIS user at insert time.
@@ -179,8 +184,12 @@ export async function addCourse(
       name: course.name,
       credits: course.creditHours,
       position: course.position ?? 0,
+      // Seed the per-course limit (e.g. from the global default); omit → DB default.
+      ...(course.attendanceLimit != null && course.attendanceLimit > 0
+        ? { attendance_limit: course.attendanceLimit }
+        : {}),
     })
-    .select("id, name, credits, position")
+    .select(COURSE_COLS)
     .single();
   if (error) throw new Error(error.message);
   return mapCourse(data);
@@ -188,12 +197,13 @@ export async function addCourse(
 
 export async function updateCourse(
   id: string,
-  fields: Partial<{ name: string; creditHours: number; position: number }>
+  fields: Partial<{ name: string; creditHours: number; position: number; attendanceLimit: number }>
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
   if (fields.name !== undefined) patch.name = fields.name;
   if (fields.creditHours !== undefined) patch.credits = fields.creditHours;
   if (fields.position !== undefined) patch.position = fields.position;
+  if (fields.attendanceLimit !== undefined) patch.attendance_limit = fields.attendanceLimit;
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("courses").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
