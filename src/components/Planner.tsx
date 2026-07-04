@@ -5,7 +5,7 @@ import { StickyNote, X, Check, GraduationCap, ClipboardList } from "lucide-react
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
-import { formatShortDate, toISODate } from "@/lib/dates";
+import { addDays, formatShortDate, hijriParts, toISODate } from "@/lib/dates";
 import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -19,7 +19,12 @@ interface AutoItem {
   name: string;
   course: string;
   type: string;
+  /** weekday (0=Sun..6=Sat) derived from the item's due date */
+  day: number;
 }
+
+/** Local-midnight Date for an ISO date, so getDay() is timezone-stable. */
+const isoToLocalDate = (iso: string) => new Date(`${iso}T00:00:00`);
 
 interface Week {
   index: number;
@@ -70,7 +75,8 @@ export function Planner() {
     });
   }, [semester.startDate, weekCount]);
 
-  // Smart touch: exams/assignments shown in their matching week.
+  // Smart touch: exams/assignments shown in their matching week AND on their
+  // exact weekday (from the item's due date), not the whole-week row.
   const autoByWeek = useMemo(() => {
     const map: Record<number, AutoItem[]> = {};
     weeks.forEach((w) => (map[w.index] = []));
@@ -80,7 +86,10 @@ export function Planner() {
         const w = weeks.find(
           (wk) => wk.start && wk.end && comp.date! >= toISODate(wk.start) && comp.date! <= toISODate(wk.end)
         );
-        if (w) map[w.index].push({ id: comp.id, name: comp.name, course: c.name, type: comp.type });
+        if (w) {
+          const day = isoToLocalDate(comp.date).getDay(); // 0=Sun..6=Sat
+          map[w.index].push({ id: comp.id, name: comp.name, course: c.name, type: comp.type, day });
+        }
       })
     );
     return map;
@@ -116,6 +125,20 @@ export function Planner() {
     w.start && w.end
       ? `${formatShortDate(toISODate(w.start), lang, cal)} – ${formatShortDate(toISODate(w.end), lang, cal)}`
       : "";
+  // Compact day-of-month number for a date, in the active calendar (Hijri aware).
+  const dayNumber = (iso: string) => {
+    const d = isoToLocalDate(iso);
+    if (Number.isNaN(+d)) return "";
+    return cal === "hijri" ? String(hijriParts(d).day) : String(d.getDate());
+  };
+  // Calendar date shown against each weekday row (0=Sun..6=Sat) of a week,
+  // derived from the week's start date + the offset to that weekday.
+  const dayDatesFor = (w: Week): (string | null)[] => {
+    if (!w.start) return WEEKDAYS.map(() => null);
+    const base = isoToLocalDate(toISODate(w.start));
+    const baseDow = base.getDay();
+    return WEEKDAYS.map((d) => dayNumber(toISODate(addDays(base, (d - baseDow + 7) % 7))));
+  };
   const targetLabel = activeDay == null ? t("plannerWholeWeek") : t(`day${activeDay}` as TranslationKey);
 
   return (
@@ -157,6 +180,7 @@ export function Planner() {
             range={range(w)}
             notes={planner.notes.filter((n) => n.week === w.index + 1)}
             autoItems={autoByWeek[w.index] ?? []}
+            dayDates={dayDatesFor(w)}
             autoEdits={planner.autoEdits ?? {}}
             isActiveWeek={activeWeek === w.index}
             activeDay={activeWeek === w.index ? activeDay : undefined}
@@ -239,6 +263,7 @@ function WeekCard({
   range,
   notes,
   autoItems,
+  dayDates,
   autoEdits,
   isActiveWeek,
   activeDay,
@@ -254,6 +279,7 @@ function WeekCard({
   range: string;
   notes: PlannerNote[];
   autoItems: AutoItem[];
+  dayDates: (string | null)[];
   autoEdits: Record<string, PlannerAutoEdit>;
   isActiveWeek: boolean;
   activeDay: number | null | undefined;
@@ -398,7 +424,8 @@ function WeekCard({
         {range && <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{range}</div>}
       </button>
 
-      {/* Whole week: course-derived items + general notes + whole-week add */}
+      {/* Whole week: general (undated) notes + whole-week add. Dated items now
+          land on their exact day row below, never here. */}
       <div className="mb-3">
         <button
           type="button"
@@ -409,28 +436,31 @@ function WeekCard({
           {t("plannerWholeWeek")}
         </button>
         <div className="flex flex-wrap items-center gap-1.5 p-0.5" style={wholeWeekActive ? activeRing : undefined}>
-          {visibleAuto.map(renderAuto)}
           {general.map(renderNote)}
           <DayAddInput placeholder={t("plannerDayAdd")} onFocus={() => onSetTarget(null)} onAdd={(text) => onAdd(null, text)} />
         </div>
       </div>
 
-      {/* Days of the week */}
+      {/* Days of the week — each shows its calendar date + any items due that day */}
       <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-start">
         {WEEKDAYS.map((d) => {
           const dayNotes = notes.filter((n) => n.day === d);
+          const dayAuto = visibleAuto.filter((a) => a.day === d);
           const dayActive = isActiveWeek && activeDay === d;
+          const date = dayDates[d];
           return (
             <Fragment key={d}>
               <button
                 type="button"
                 onClick={() => onSetTarget(d)}
-                className="text-[11px] leading-6 pt-0.5 text-start"
+                className="text-[11px] leading-6 pt-0.5 text-start whitespace-nowrap"
                 style={{ color: dayActive ? "var(--color-primary)" : "var(--color-muted)", fontWeight: dayActive ? 600 : 400 }}
               >
                 {t(`day${d}` as TranslationKey)}
+                {date && <span className="ms-1 opacity-60">{date}</span>}
               </button>
               <div className="flex flex-wrap items-center gap-1.5 min-w-0 p-0.5" style={dayActive ? activeRing : undefined}>
+                {dayAuto.map(renderAuto)}
                 {dayNotes.map(renderNote)}
                 <DayAddInput placeholder={t("plannerDayAdd")} onFocus={() => onSetTarget(d)} onAdd={(text) => onAdd(d, text)} />
               </div>
