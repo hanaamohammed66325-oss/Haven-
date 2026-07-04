@@ -107,6 +107,7 @@ export interface PlannerStroke {
 export interface PlannerAutoEdit {
   hidden?: boolean; // removed from the planner view
   tag?: string; // re-tagged (changes the chip colour)
+  done?: boolean; // checked off in the planner (planner-view only)
 }
 
 export interface PlannerData {

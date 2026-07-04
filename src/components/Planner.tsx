@@ -189,6 +189,7 @@ export function Planner() {
             onUpdate={updateNote}
             onDelete={deleteNote}
             onToggleDone={toggleNoteDone}
+            onToggleAutoDone={(id) => setAutoEdit(id, { done: !(planner.autoEdits?.[id]?.done) })}
             onHideAuto={(id) => setAutoEdit(id, { hidden: true })}
             onRetagAuto={(id, tag) => setAutoEdit(id, { tag })}
           />
@@ -272,6 +273,7 @@ function WeekCard({
   onUpdate,
   onDelete,
   onToggleDone,
+  onToggleAutoDone,
   onHideAuto,
   onRetagAuto,
 }: {
@@ -288,6 +290,7 @@ function WeekCard({
   onUpdate: (id: string, patch: Partial<PlannerNote>) => void;
   onDelete: (id: string) => void;
   onToggleDone: (id: string) => void;
+  onToggleAutoDone: (id: string) => void;
   onHideAuto: (id: string) => void;
   onRetagAuto: (id: string, tag: string) => void;
 }) {
@@ -368,6 +371,7 @@ function WeekCard({
   const renderAuto = (a: AutoItem) => {
     const override = autoEdits[a.id]?.tag;
     const color = (override && tagColorOf(override)) || typeColor(a.type);
+    const autoDone = !!autoEdits[a.id]?.done;
     if (editAutoId === a.id) {
       return (
         <TagEditor
@@ -388,6 +392,16 @@ function WeekCard({
         style={{ background: `${color}14`, border: `1px dashed ${color}66` }}
         title={a.course}
       >
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleAutoDone(a.id); }}
+          aria-label={t("plannerToggleDone")}
+          aria-pressed={autoDone}
+          className="h-3.5 w-3.5 rounded-full shrink-0 inline-flex items-center justify-center transition-colors"
+          style={autoDone ? { background: color, border: `1px solid ${color}` } : { border: `1.5px solid ${color}` }}
+        >
+          {autoDone && <Check size={9} color="#fff" strokeWidth={3} />}
+        </button>
         {EXAM_TYPES.includes(a.type) ? (
           <GraduationCap size={11} style={{ color }} />
         ) : (
@@ -396,11 +410,11 @@ function WeekCard({
         <span
           onClick={(e) => { e.stopPropagation(); setEditAutoId(a.id); }}
           className="cursor-pointer"
-          style={{ color: "var(--color-ink)" }}
+          style={{ color: "var(--color-ink)", textDecoration: autoDone ? "line-through" : "none", opacity: autoDone ? 0.5 : 1 }}
         >
           {a.name}
         </span>
-        <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>· {a.course}</span>
+        <span className="text-[10px]" style={{ color: "var(--color-muted)", opacity: autoDone ? 0.5 : 1 }}>· {a.course}</span>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onHideAuto(a.id); }}
