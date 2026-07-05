@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
+import { ReminderToast } from "./ReminderToast";
 
 const STORAGE_KEY = "haven-sidebar-collapsed";
 
@@ -36,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+      <ReminderToast />
     </div>
   );
 }

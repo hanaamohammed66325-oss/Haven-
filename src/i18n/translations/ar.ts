@@ -352,6 +352,15 @@ export const ar: Record<TranslationKey, string> = {
   finalsWeeksLabel: "أسابيع النهائيات",
   weeksCustom: "مخصص",
   weeksSuggestion: "≈ {total} أسبوعًا إجمالًا ({teaching} تدريس + {finals} نهائيات)",
+
+  // Reminders
+  sectionReminders: "التذكيرات",
+  reminderDaysLabel: "نبّهني قبل الموعد بهذا العدد من الأيام",
+  reminderToastTitle: "قادم",
+  reminderToday: "اليوم: {title}",
+  reminderTomorrow: "بكرة: {title}",
+  reminderInDays: "بعد {n} يوم: {title}",
+
   sectionData: "البيانات",
 
   // Themes

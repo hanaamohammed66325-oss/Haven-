@@ -133,4 +133,6 @@ export interface AppData {
   /** course ids in the order the Tasks page sections are arranged.
    *  Cloud-backed per account via profiles.preferences.taskOrder. */
   taskOrder: string[];
+  /** how many days ahead the reminder toast looks (per account, default 2). */
+  reminderDays: number;
 }

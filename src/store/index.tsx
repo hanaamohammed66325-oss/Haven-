@@ -87,6 +87,7 @@ const initialData: AppData = {
   courses: [],
   planner: emptyPlanner,
   taskOrder: [],
+  reminderDays: 2,
 };
 
 // Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
@@ -144,6 +145,8 @@ interface StoreValue extends AppData {
   /** Set the Tasks page section order and persist it to the cloud per account
    *  (profiles.preferences.taskOrder). Drives the Tasks page drag-to-reorder. */
   setTaskOrder: (order: string[]) => void;
+  /** Reminder window (days ahead); persisted to profiles.preferences per account. */
+  setReminderDays: (days: number) => void;
   setSemester: (patch: Partial<Semester>) => void;
   addCourse: (course: { name: string; creditHours: number; attendanceLimit?: number }) => void;
   updateCourse: (
@@ -325,6 +328,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           taskOrder: Array.isArray(prefs.taskOrder)
             ? (prefs.taskOrder as unknown[]).filter((id): id is string => typeof id === "string")
             : [],
+          reminderDays:
+            typeof prefs.reminderDays === "number" && prefs.reminderDays > 0
+              ? Math.round(prefs.reminderDays)
+              : initialData.reminderDays,
           semester: {
             ...defaultSemester,
             name: sem.name,
@@ -571,6 +578,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (order: string[]) => {
       setData((d) => ({ ...d, taskOrder: order }));
       persistPref({ taskOrder: order });
+    },
+    [persistPref]
+  );
+
+  const setReminderDays = useCallback(
+    (days: number) => {
+      const n = Math.max(1, Math.round(Number(days) || 1));
+      setData((d) => ({ ...d, reminderDays: n }));
+      persistPref({ reminderDays: n });
     },
     [persistPref]
   );
@@ -1038,6 +1054,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLanguage,
     setTheme,
     setTaskOrder,
+    setReminderDays,
     setSemester,
     addCourse,
     updateCourse,

@@ -350,6 +350,15 @@ export const en = {
   finalsWeeksLabel: "Finals weeks",
   weeksCustom: "Custom",
   weeksSuggestion: "≈ {total} weeks total ({teaching} teaching + {finals} finals)",
+
+  // Reminders
+  sectionReminders: "Reminders",
+  reminderDaysLabel: "Notify me this many days ahead",
+  reminderToastTitle: "Upcoming",
+  reminderToday: "Today: {title}",
+  reminderTomorrow: "Tomorrow: {title}",
+  reminderInDays: "In {n} days: {title}",
+
   sectionData: "Data",
 
   // Themes
