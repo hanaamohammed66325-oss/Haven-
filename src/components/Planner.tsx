@@ -5,7 +5,8 @@ import { StickyNote, X, Check, GraduationCap, ClipboardList } from "lucide-react
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
-import { addDays, formatShortDate, hijriParts, toISODate } from "@/lib/dates";
+import { addDays, formatShortDate, formatTime, hijriParts, toISODate } from "@/lib/dates";
+import { REMINDER_TAGS } from "@/lib/reminders";
 import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -207,6 +208,9 @@ function TagEditor({
   onPick,
   onDone,
   onDelete,
+  showTime = false,
+  time = null,
+  onTime,
 }: {
   text: string;
   allowRename: boolean;
@@ -214,6 +218,10 @@ function TagEditor({
   onPick: (tag: string, color: string) => void;
   onDone: () => void;
   onDelete: () => void;
+  /** show an optional deadline time input (deadline-type chip on a specific day) */
+  showTime?: boolean;
+  time?: string | null;
+  onTime?: (v: string | null) => void;
 }) {
   const { t } = useT();
   return (
@@ -233,6 +241,18 @@ function TagEditor({
         />
       ) : (
         <div className="text-xs font-medium truncate" style={{ color: "var(--color-ink)" }}>{text}</div>
+      )}
+      {showTime && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>{t("plannerTimeLabel")}</span>
+          <input
+            type="time"
+            value={time ?? ""}
+            onChange={(e) => onTime?.(e.target.value || null)}
+            className="flex-1 rounded-lg border px-2 py-1 text-xs outline-none"
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+          />
+        </div>
       )}
       <div className="flex items-center gap-1.5">
         {TAGS.map((tg) => (
@@ -294,7 +314,7 @@ function WeekCard({
   onHideAuto: (id: string) => void;
   onRetagAuto: (id: string, tag: string) => void;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [editNoteId, setEditNoteId] = useState<string | null>(null);
   const [editAutoId, setEditAutoId] = useState<string | null>(null);
 
@@ -305,6 +325,8 @@ function WeekCard({
   const activeRing = { outline: "1px dashed var(--color-primary)", outlineOffset: 2, borderRadius: 8 };
 
   const renderNote = (n: PlannerNote) => {
+    // A deadline-type chip on a specific day can carry an optional time.
+    const canHaveTime = !!(n.tag && REMINDER_TAGS.has(n.tag) && n.day != null);
     if (editNoteId === n.id) {
       if (n.tag) {
         return (
@@ -316,6 +338,9 @@ function WeekCard({
             onPick={(tag, color) => onUpdate(n.id, { tag, color })}
             onDone={() => setEditNoteId(null)}
             onDelete={() => { onDelete(n.id); setEditNoteId(null); }}
+            showTime={canHaveTime}
+            time={n.dueTime ?? null}
+            onTime={(v) => onUpdate(n.id, { dueTime: v })}
           />
         );
       }
@@ -356,6 +381,14 @@ function WeekCard({
         >
           {n.text}
         </span>
+        {canHaveTime && n.dueTime && (
+          <span
+            className="shrink-0 text-[10px]"
+            style={{ color: "var(--color-muted)", textDecoration: done ? "line-through" : "none", opacity: done ? 0.5 : 1 }}
+          >
+            · {formatTime(n.dueTime, lang)}
+          </span>
+        )}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(n.id); }}

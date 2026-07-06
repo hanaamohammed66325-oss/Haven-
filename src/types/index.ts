@@ -85,13 +85,16 @@ export interface Semester {
 /** A typed note/task placed inside a planner week. */
 export interface PlannerNote {
   id: string;
-  week: number; // 0-based week index
+  week: number; // 1-based displayed week number (matches planner_items.week_number)
   day?: number; // 0 = Sunday … 6 = Saturday; undefined = whole-week / general
   text: string;
   color: string; // hex
   tag?: string; // tag key (exam/quiz/…) when it's a quick tag
   highlight?: boolean;
   done?: boolean; // task checked off
+  /** optional deadline time "HH:MM" (24h) for reminder-eligible dated chips;
+   *  null/undefined = all-day. Stored in planner_items.due_time. */
+  dueTime?: string | null;
 }
 
 /** A freehand pen stroke on the planner drawing layer. */

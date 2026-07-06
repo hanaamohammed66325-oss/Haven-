@@ -234,6 +234,7 @@ export const ar: Record<TranslationKey, string> = {
   plannerDayAdd: "إضافة…",
   plannerCustomColor: "لون مخصص",
   plannerToggleDone: "تبديل الإنجاز",
+  plannerTimeLabel: "الوقت",
   coursesHeading: "المقررات",
   viewAll: "عرض الكل",
   emptyTitle: "لا توجد مقررات بعد",
@@ -360,6 +361,9 @@ export const ar: Record<TranslationKey, string> = {
   reminderToday: "اليوم: {title}",
   reminderTomorrow: "بكرة: {title}",
   reminderInDays: "بعد {n} يوم: {title}",
+  reminderTodayAt: "اليوم الساعة {time}: {title}",
+  reminderTomorrowAt: "بكرة الساعة {time}: {title}",
+  reminderInDaysAt: "بعد {n} يوم الساعة {time}: {title}",
 
   sectionData: "البيانات",
 

@@ -645,15 +645,27 @@ export interface DbPlannerItem {
   tag: string | null;
   text: string;
   done: boolean;
+  dueTime: string | null; // due_time "HH:MM" (24h) or null
 }
 // planner_items.day_of_week is NOT NULL — sentinel for whole-week (general) notes.
 const PLANNER_WHOLE_WEEK = -1;
+
+// Normalize a time to "HH:MM" (24h) or null; guards the DB CHECK constraint.
+const cleanTime = (t?: string | null): string | null => {
+  if (!t) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return `${String(h).padStart(2, "0")}:${m[2]}`;
+};
 
 export async function getPlannerItems(): Promise<DbPlannerItem[]> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("planner_items")
-    .select("id, week_number, day_of_week, tag, note, done")
+    .select("id, week_number, day_of_week, tag, note, done, due_time")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
@@ -664,6 +676,7 @@ export async function getPlannerItems(): Promise<DbPlannerItem[]> {
     tag: r.tag ?? null,
     text: r.note ?? "",
     done: !!r.done,
+    dueTime: r.due_time ?? null,
   }));
 }
 
@@ -673,6 +686,7 @@ export async function addPlannerItem(item: {
   tag?: string | null;
   text: string;
   done?: boolean;
+  dueTime?: string | null;
 }): Promise<DbPlannerItem> {
   const userId = await currentUserId();
   const sem = await ensureActiveSemester();
@@ -686,8 +700,9 @@ export async function addPlannerItem(item: {
       tag: item.tag ?? null,
       note: item.text,
       done: item.done ?? false,
+      due_time: cleanTime(item.dueTime),
     })
-    .select("id, week_number, day_of_week, tag, note, done")
+    .select("id, week_number, day_of_week, tag, note, done, due_time")
     .single();
   if (error) throw new Error(error.message);
   return {
@@ -697,12 +712,20 @@ export async function addPlannerItem(item: {
     tag: data.tag ?? null,
     text: data.note ?? "",
     done: !!data.done,
+    dueTime: data.due_time ?? null,
   };
 }
 
 export async function updatePlannerItem(
   id: string,
-  fields: Partial<{ week: number; day: number | null; tag: string | null; text: string; done: boolean }>
+  fields: Partial<{
+    week: number;
+    day: number | null;
+    tag: string | null;
+    text: string;
+    done: boolean;
+    dueTime: string | null;
+  }>
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
   if (fields.week !== undefined) patch.week_number = fields.week;
@@ -710,6 +733,7 @@ export async function updatePlannerItem(
   if (fields.tag !== undefined) patch.tag = fields.tag;
   if (fields.text !== undefined) patch.note = fields.text;
   if (fields.done !== undefined) patch.done = fields.done;
+  if (fields.dueTime !== undefined) patch.due_time = cleanTime(fields.dueTime); // null when unset
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("planner_items").update(patch).eq("id", id);
   if (error) throw new Error(error.message);

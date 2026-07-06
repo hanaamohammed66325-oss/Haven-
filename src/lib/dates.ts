@@ -57,6 +57,20 @@ export function formatShortDate(
   }).format(d);
 }
 
+// Time "HH:MM" (24h) → locale 12h string, e.g. "8:00 PM" / "٨:٠٠ م".
+// Calendar mode is irrelevant to time; only the language affects formatting.
+export function formatTime(hhmm: string, lang: "en" | "ar"): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return hhmm;
+  const d = new Date();
+  d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  return new Intl.DateTimeFormat(lang === "ar" ? "ar" : "en", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+}
+
 // Full date with year (used for the Hijri caption under the date fields).
 export function formatLongDate(
   iso: string,

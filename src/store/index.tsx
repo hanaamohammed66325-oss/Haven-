@@ -120,6 +120,7 @@ function buildPlanner(
     color: colorForTag(it.tag),
     tag: it.tag ?? undefined,
     done: it.done,
+    dueTime: it.dueTime,
   }));
   const autoEdits =
     autoEditsPref && typeof autoEditsPref === "object"
@@ -478,6 +479,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         tag: note.tag ?? null,
         text: note.text,
         done: note.done ?? false,
+        dueTime: note.dueTime ?? null,
       });
       setData((d) => ({
         ...d,
@@ -493,6 +495,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               color: colorForTag(row.tag),
               tag: row.tag ?? undefined,
               done: row.done,
+              dueTime: row.dueTime,
             },
           ],
         },
@@ -520,6 +523,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.tag !== undefined) dbPatch.tag = patch.tag ?? null;
       if (patch.text !== undefined) dbPatch.text = patch.text;
       if (patch.done !== undefined) dbPatch.done = patch.done;
+      if (patch.dueTime !== undefined) dbPatch.dueTime = patch.dueTime ?? null;
       if (Object.keys(dbPatch).length) {
         db.updatePlannerItem(id, dbPatch).catch((e) =>
           console.error("Haven: failed to update planner note", e)

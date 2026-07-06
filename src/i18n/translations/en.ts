@@ -232,6 +232,7 @@ export const en = {
   plannerDayAdd: "Add…",
   plannerCustomColor: "Custom color",
   plannerToggleDone: "Toggle done",
+  plannerTimeLabel: "Time",
   coursesHeading: "Courses",
   viewAll: "View all",
   emptyTitle: "No courses yet",
@@ -358,6 +359,9 @@ export const en = {
   reminderToday: "Today: {title}",
   reminderTomorrow: "Tomorrow: {title}",
   reminderInDays: "In {n} days: {title}",
+  reminderTodayAt: "Today at {time}: {title}",
+  reminderTomorrowAt: "Tomorrow at {time}: {title}",
+  reminderInDaysAt: "In {n} days at {time}: {title}",
 
   sectionData: "Data",
 

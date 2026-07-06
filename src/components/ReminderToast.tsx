@@ -5,16 +5,20 @@ import { createPortal } from "react-dom";
 import { Bell, X } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
+import { formatTime } from "@/lib/dates";
+import { collectUpcoming } from "@/lib/reminders";
+import type { TranslationKey } from "@/i18n/translations/en";
 
 // One combined toast, shown once per app open, listing every dated item
-// (tasks / exams / assignments) due between today and today + reminderDays.
-// Auto-dismisses after ~10s; manual close; portaled to <body> so a transformed
-// ancestor can't break its fixed positioning. Day math is calendar-independent.
+// (tasks / exams / assignments) AND reminder-eligible planner deadlines due
+// between today and today + reminderDays. Auto-dismisses after ~10s; manual
+// close; portaled to <body> so a transformed ancestor can't break its fixed
+// positioning. Day math is calendar-independent; times are locale-formatted.
 const AUTO_DISMISS_MS = 10000;
 
 export function ReminderToast() {
-  const { t } = useT();
-  const { hydrated, courses, reminderDays } = useStore();
+  const { t, lang } = useT();
+  const { hydrated, courses, planner, semester, reminderDays } = useStore();
   const [lines, setLines] = useState<string[] | null>(null);
   const [mounted, setMounted] = useState(false);
   const firedRef = useRef(false);
@@ -27,34 +31,30 @@ export function ReminderToast() {
     if (!hydrated || firedRef.current) return;
     firedRef.current = true;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const days = Math.max(1, Math.round(Number(reminderDays) || 2));
-
-    const items: { diff: number; title: string }[] = [];
-    for (const c of courses) {
-      for (const comp of c.components) {
-        if (!comp.date) continue;
-        const due = new Date(`${comp.date}T00:00:00`); // local midnight, TZ-stable
-        if (Number.isNaN(+due)) continue;
-        const diff = Math.round((+due - +today) / 86400000);
-        if (diff >= 0 && diff <= days) items.push({ diff, title: comp.name });
-      }
-    }
+    const items = collectUpcoming(courses, planner, semester, reminderDays);
     if (!items.length) return;
 
-    items.sort((a, b) => a.diff - b.diff);
     setLines(
-      items.map((it) =>
-        it.diff === 0
-          ? t("reminderToday", { title: it.title })
+      items.map((it) => {
+        // Planner items show their tag (e.g. "موعد تسليم: <note>").
+        const label = it.tag ? `${t(it.tag as TranslationKey)}: ${it.title}` : it.title;
+        if (it.time) {
+          const time = formatTime(it.time, lang);
+          return it.diff === 0
+            ? t("reminderTodayAt", { time, title: label })
+            : it.diff === 1
+            ? t("reminderTomorrowAt", { time, title: label })
+            : t("reminderInDaysAt", { n: it.diff, time, title: label });
+        }
+        return it.diff === 0
+          ? t("reminderToday", { title: label })
           : it.diff === 1
-          ? t("reminderTomorrow", { title: it.title })
-          : t("reminderInDays", { n: it.diff, title: it.title })
-      )
+          ? t("reminderTomorrow", { title: label })
+          : t("reminderInDays", { n: it.diff, title: label });
+      })
     );
     timerRef.current = setTimeout(() => setLines(null), AUTO_DISMISS_MS);
-  }, [hydrated, courses, reminderDays, t]);
+  }, [hydrated, courses, planner, semester, reminderDays, t, lang]);
 
   useEffect(
     () => () => {
