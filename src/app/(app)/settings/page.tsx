@@ -8,6 +8,7 @@ import { useT } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
 import { DateField } from "@/components/DateField";
+import { DemoPlayer } from "@/components/DemoPlayer";
 import { signOut as clearSession } from "@/lib/auth";
 import type { CalendarType, ThemeId } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -65,9 +66,9 @@ export default function SettingsPage() {
   const { t, lang } = useT();
   const router = useRouter();
   const store = useStore();
-  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, reminderDays, setReminderDays, loadDemo, resetData } = store;
+  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, reminderDays, setReminderDays, resetData } = store;
   const [confirmReset, setConfirmReset] = useState(false);
-  const [demoDone, setDemoDone] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
 
   const pickTheme = (tm: ThemeMeta) => {
@@ -291,11 +292,11 @@ export default function SettingsPage() {
               <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{t("demoDesc")}</div>
             </div>
             <button
-              onClick={() => { loadDemo(); setDemoDone(true); setTimeout(() => setDemoDone(false), 2000); }}
+              onClick={() => setDemoOpen(true)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shrink-0 transition-colors"
               style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
             >
-              {demoDone ? <Check size={16} /> : <Sparkles size={16} />}
+              <Sparkles size={16} />
               {t("loadDemo")}
             </button>
           </div>
@@ -350,6 +351,8 @@ export default function SettingsPage() {
           </button>
         </div>
       </Modal>
+
+      <DemoPlayer open={demoOpen} onClose={() => setDemoOpen(false)} />
 
       <Modal open={premiumOpen} onClose={() => setPremiumOpen(false)} title={t("premiumSoonTitle")}>
         <p className="text-sm leading-relaxed" style={{ color: "var(--color-muted)" }}>

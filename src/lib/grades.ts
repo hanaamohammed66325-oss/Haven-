@@ -39,8 +39,14 @@ export function courseCurrentPct(course: Course): number | null {
   return s ? (w / s) * 100 : null;
 }
 
-// Semester GPA = Σ(points × credits) / Σ(credits)
-export function semesterGPA(courses: Course[]): number | null {
+// Semester GPA broken into its parts, so callers can reuse the graded credit
+// hours and quality points (e.g. to project a new cumulative GPA live).
+export interface SemesterGpaDetail {
+  gpa: number | null; // Σ(points × credits) / Σ(credits), or null if ungraded
+  points: number; // Σ(points × credits) over graded courses
+  credits: number; // Σ(credits) over graded courses
+}
+export function semesterGpaDetail(courses: Course[]): SemesterGpaDetail {
   let n = 0,
     d = 0;
   courses.forEach((c) => {
@@ -49,7 +55,28 @@ export function semesterGPA(courses: Course[]): number | null {
     n += pctToGrade(p).points * c.creditHours;
     d += c.creditHours;
   });
-  return d ? n / d : null;
+  return { gpa: d ? n / d : null, points: n, credits: d };
+}
+
+// Semester GPA = Σ(points × credits) / Σ(credits)
+export function semesterGPA(courses: Course[]): number | null {
+  return semesterGpaDetail(courses).gpa;
+}
+
+/** Projected new cumulative GPA: blends the entered current cumulative GPA
+ *  (over its completed hours) with this semester's live quality points. Capped
+ *  at the 5.0 scale. Returns null only when there's nothing to show at all. */
+export function projectedCumulativeGpa(
+  courses: Course[],
+  currentGpa: number,
+  completedHours: number
+): number | null {
+  const { points, credits } = semesterGpaDetail(courses);
+  const prevGpa = Math.max(0, Math.min(5, Number(currentGpa) || 0));
+  const prevHours = Math.max(0, Number(completedHours) || 0);
+  const totalHours = prevHours + credits;
+  if (totalHours <= 0) return prevHours > 0 ? prevGpa : null;
+  return Math.min(5, (prevGpa * prevHours + points) / totalHours);
 }
 
 export const weightsTotal = (c: Course) =>

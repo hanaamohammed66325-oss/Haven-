@@ -3,7 +3,7 @@ import type { TranslationKey } from "./en";
 export const ar: Record<TranslationKey, string> = {
   // Brand
   appName: "Haven",
-  tagline: "فصلك الدراسي بتركيز",
+  tagline: "كل فصلك في مكان واحد",
   metaTitle: "Haven | حاسبة المعدل ومتابعة الدرجات والحضور للطلاب الجامعيين",
   metaDescription:
     "رتّب فصلك الدراسي مع Haven: احسب معدلك الفصلي والتراكمي، تابع درجات موادك وحضورك، واعرف نسبة الحرمان قبل فوات الأوان — كل شيء في لوحة واحدة.",
@@ -57,9 +57,23 @@ export const ar: Record<TranslationKey, string> = {
   // Dashboard
   welcomeBack: "أهلًا من جديد 👋",
   welcomeBackNoName: "أهلًا من جديد 👋",
+  // تحية حسب الوقت (بالاسم / بدون اسم) — بصيغة محايدة
+  greetMorning: "صباح الخير، {name}",
+  greetEvening: "مساء الخير، {name}",
+  greetDefault: "أهلًا من جديد، {name}",
+  greetMorningNoName: "صباح الخير",
+  greetEveningNoName: "مساء الخير",
+  greetDefaultNoName: "أهلًا من جديد 👋",
   semesterProgress: "تقدّم الفصل",
   weekOf: "الأسبوع {current} من {total}",
   semesterGpa: "المعدل الفصلي",
+  // أوضاع بطاقة المعدل الحيّة
+  gpaModeSemester: "فصلي",
+  gpaModeCumulative: "تراكمي",
+  gpaCurrentCumulative: "معدلك التراكمي الحالي",
+  gpaCompletedHours: "الساعات المكتملة",
+  gpaProjectedCumulative: "التراكمي المتوقّع",
+  gpaEnterCumulative: "أدخل معدلك التراكمي الحالي ليُحسب مباشرة.",
   gpaHidden: "مخفي",
   clickReveal: "اضغط للعرض",
   clickHide: "اضغط للإخفاء",
@@ -118,6 +132,13 @@ export const ar: Record<TranslationKey, string> = {
   demoOpenHaven: "افتح Haven",
   demoPrev: "السابق",
   demoNext: "التالي",
+  demoSampleBadge: "بيانات تجريبية",
+  demoLiveTitle: "هذا Haven، وكل شيء جاهز",
+  demoLiveSubtitle: "استكشف الصفحات الحقيقية ببيانات تجريبية — لا يُحفظ شيء.",
+  demoDashboardCap: "كل فصلك بنظرة وحدة.",
+  demoCoursesCap: "كل مادة ودرجاتها وحضورها — قابلة للتعديل.",
+  demoTasksLiveCap: "المهام والاختبارات، مجمّعة حسب المقرر.",
+  demoScheduleCap: "خطّط أسبوعًا بأسبوع وتابع حصصك الأسبوعية.",
   demoT1: "لوحة بنظرة",
   demoC1: "لوحة فصلك بنظرة وحدة — معدلك، تقدّمك، وموادك في مكان واحد.",
   demoT2: "معدل لحظي",

@@ -1,7 +1,7 @@
 export const en = {
   // Brand
   appName: "Haven",
-  tagline: "Your focused semester",
+  tagline: "Your whole semester in one place",
   metaTitle: "Haven | GPA calculator, grade tracking & attendance for university students",
   metaDescription:
     "Plan your semester with Haven — calculate your GPA, track grades and attendance, and see your withdrawal risk before it's too late. Everything in one calm dashboard.",
@@ -55,9 +55,23 @@ export const en = {
   // Dashboard
   welcomeBack: "Welcome back 👋",
   welcomeBackNoName: "Welcome back 👋",
+  // Time-based greeting (with / without the profile name)
+  greetMorning: "Good morning, {name}",
+  greetEvening: "Good evening, {name}",
+  greetDefault: "Welcome back, {name}",
+  greetMorningNoName: "Good morning",
+  greetEveningNoName: "Good evening",
+  greetDefaultNoName: "Welcome back 👋",
   semesterProgress: "Semester progress",
   weekOf: "Week {current} of {total}",
   semesterGpa: "Semester GPA",
+  // Semester-GPA card live modes
+  gpaModeSemester: "Semester",
+  gpaModeCumulative: "Cumulative",
+  gpaCurrentCumulative: "Current cumulative GPA",
+  gpaCompletedHours: "Completed hours",
+  gpaProjectedCumulative: "Projected cumulative",
+  gpaEnterCumulative: "Enter your current cumulative GPA to project it live.",
   gpaHidden: "Hidden",
   clickReveal: "Click to reveal",
   clickHide: "Click to hide",
@@ -116,6 +130,13 @@ export const en = {
   demoOpenHaven: "Open Haven →",
   demoPrev: "Previous",
   demoNext: "Next",
+  demoSampleBadge: "Sample data",
+  demoLiveTitle: "This is Haven, fully loaded",
+  demoLiveSubtitle: "Explore the real pages with sample data — nothing is saved.",
+  demoDashboardCap: "Your whole semester at a glance.",
+  demoCoursesCap: "Every course, grade item, and attendance — all editable.",
+  demoTasksLiveCap: "Tasks and exams, grouped by course.",
+  demoScheduleCap: "Plan week by week and see your weekly classes.",
   demoT1: "Dashboard at a glance",
   demoC1: "Your whole semester at a glance — GPA, progress, and courses in one place.",
   demoT2: "Live GPA updates",

@@ -19,6 +19,7 @@ import type {
   PlannerNote,
   Semester,
   ThemeId,
+  GpaMode,
 } from "@/types";
 import { demoCourses } from "@/lib/demo";
 import { supabase } from "@/lib/supabase";
@@ -88,6 +89,9 @@ const initialData: AppData = {
   planner: emptyPlanner,
   taskOrder: [],
   reminderDays: 2,
+  gpaMode: "semester",
+  cumulativeGpa: 0,
+  cumulativeHours: 0,
 };
 
 // Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
@@ -129,7 +133,7 @@ function buildPlanner(
   return { notes, strokes: [], highlights: [], autoEdits };
 }
 
-interface StoreValue extends AppData {
+export interface StoreValue extends AppData {
   hydrated: boolean;
   setProfileName: (name: string) => void;
   setEmail: (email: string) => void;
@@ -148,6 +152,12 @@ interface StoreValue extends AppData {
   setTaskOrder: (order: string[]) => void;
   /** Reminder window (days ahead); persisted to profiles.preferences per account. */
   setReminderDays: (days: number) => void;
+  /** Semester-GPA card mode (semester / cumulative); persisted per account. */
+  setGpaMode: (mode: GpaMode) => void;
+  /** The user's current cumulative GPA (cumulative mode); persisted per account. */
+  setCumulativeGpa: (gpa: number) => void;
+  /** Completed credit hours behind the cumulative GPA; persisted per account. */
+  setCumulativeHours: (hours: number) => void;
   setSemester: (patch: Partial<Semester>) => void;
   addCourse: (course: { name: string; creditHours: number; attendanceLimit?: number }) => void;
   updateCourse: (
@@ -179,7 +189,7 @@ interface StoreValue extends AppData {
   resetData: () => void;
 }
 
-const StoreContext = createContext<StoreValue | null>(null);
+export const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
@@ -333,6 +343,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             typeof prefs.reminderDays === "number" && prefs.reminderDays > 0
               ? Math.round(prefs.reminderDays)
               : initialData.reminderDays,
+          gpaMode: prefs.gpaMode === "cumulative" ? "cumulative" : "semester",
+          cumulativeGpa: num(prefs.cumulativeGpa, initialData.cumulativeGpa),
+          cumulativeHours: num(prefs.cumulativeHours, initialData.cumulativeHours),
           semester: {
             ...defaultSemester,
             name: sem.name,
@@ -591,6 +604,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const n = Math.max(1, Math.round(Number(days) || 1));
       setData((d) => ({ ...d, reminderDays: n }));
       persistPref({ reminderDays: n });
+    },
+    [persistPref]
+  );
+
+  const setGpaMode = useCallback(
+    (mode: GpaMode) => {
+      const m: GpaMode = mode === "cumulative" ? "cumulative" : "semester";
+      setData((d) => ({ ...d, gpaMode: m }));
+      persistPref({ gpaMode: m });
+    },
+    [persistPref]
+  );
+
+  const setCumulativeGpa = useCallback(
+    (gpa: number) => {
+      const g = Math.max(0, Math.min(5, Number(gpa) || 0));
+      setData((d) => ({ ...d, cumulativeGpa: g }));
+      persistPref({ cumulativeGpa: g });
+    },
+    [persistPref]
+  );
+
+  const setCumulativeHours = useCallback(
+    (hours: number) => {
+      const h = Math.max(0, Math.round(Number(hours) || 0));
+      setData((d) => ({ ...d, cumulativeHours: h }));
+      persistPref({ cumulativeHours: h });
     },
     [persistPref]
   );
@@ -1059,6 +1099,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTheme,
     setTaskOrder,
     setReminderDays,
+    setGpaMode,
+    setCumulativeGpa,
+    setCumulativeHours,
     setSemester,
     addCourse,
     updateCourse,

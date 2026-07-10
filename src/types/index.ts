@@ -138,4 +138,14 @@ export interface AppData {
   taskOrder: string[];
   /** how many days ahead the reminder toast looks (per account, default 2). */
   reminderDays: number;
+  /** semester-GPA card mode: live semester GPA, or projected cumulative. */
+  gpaMode: GpaMode;
+  /** the user's current cumulative GPA (0–5), used by cumulative mode. */
+  cumulativeGpa: number;
+  /** completed credit hours behind the current cumulative GPA. */
+  cumulativeHours: number;
 }
+
+/** Semester-GPA card mode. "semester" = live GPA out of 5.0; "cumulative" =
+ *  projected new cumulative starting from the user's entered current GPA. */
+export type GpaMode = "semester" | "cumulative";

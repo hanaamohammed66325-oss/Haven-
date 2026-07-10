@@ -24,9 +24,11 @@ import {
   courseCurrentPct,
   attendanceInfo,
   weightsTotal,
+  projectedCumulativeGpa,
 } from "@/lib/grades";
 import { creditHoursLabel } from "@/lib/format";
 import type { Course } from "@/types";
+import type { TranslationKey } from "@/i18n/translations/en";
 
 const attStatusColor: Record<"ok" | "warn" | "danger", string> = {
   ok: "var(--color-success)",
@@ -37,12 +39,39 @@ const attStatusColor: Record<"ok" | "warn" | "danger", string> = {
 export default function DashboardPage() {
   const { t } = useT();
   const store = useStore();
-  const { hydrated, profileName, semester, courses } = store;
+  const {
+    hydrated,
+    profileName,
+    semester,
+    courses,
+    gpaMode,
+    cumulativeGpa,
+    cumulativeHours,
+    setGpaMode,
+    setCumulativeGpa,
+    setCumulativeHours,
+  } = store;
   const [revealGpa, setRevealGpa] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
 
   const progress = useMemo(() => semesterProgress(semester), [semester]);
   const gpa = useMemo(() => semesterGPA(courses), [courses]);
+  const projected = useMemo(
+    () => projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours),
+    [courses, cumulativeGpa, cumulativeHours]
+  );
+  const shownGpa = gpaMode === "cumulative" ? projected : gpa;
+
+  // Time-of-day greeting + the profile name (gender-neutral Arabic). Falls back
+  // to a name-less greeting when the profile has no name set.
+  const greeting = (() => {
+    const h = new Date().getHours();
+    const part = h < 5 || h >= 23 ? "Default" : h < 12 ? "Morning" : "Evening";
+    const name = profileName.trim();
+    return name
+      ? t(`greet${part}` as TranslationKey, { name })
+      : t(`greet${part}NoName` as TranslationKey);
+  })();
 
   const upcoming = useMemo(() => {
     const items = courses.flatMap((c) =>
@@ -76,9 +105,7 @@ export default function DashboardPage() {
             className="font-display text-[34px] leading-tight"
             style={{ color: "var(--color-ink)" }}
           >
-            {profileName
-              ? t("welcomeBack", { name: profileName })
-              : t("welcomeBackNoName")}
+            {greeting}
           </h1>
           <p className="text-[15px] mt-2.5" style={{ color: "var(--color-muted)" }}>
             {semester.name}
@@ -132,9 +159,9 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* GPA (hidden by default) */}
-              <div className="relative flex flex-col items-center justify-center p-8">
-                {/* Cumulative GPA calculator trigger */}
+              {/* GPA — live Semester / Cumulative modes, hidden by default */}
+              <div className="relative flex flex-col items-center justify-center gap-3 p-8">
+                {/* Cumulative GPA calculator trigger (one-time modal) */}
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setCalcOpen(true); }}
@@ -145,31 +172,95 @@ export default function DashboardPage() {
                 >
                   <Calculator size={16} />
                 </button>
+
+                {/* Live mode toggle: Semester (out of 5) vs Cumulative (from current) */}
+                <div className="inline-flex rounded-lg p-0.5" style={{ background: "var(--color-primary-soft)" }}>
+                  {(["semester", "cumulative"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setGpaMode(m)}
+                      aria-pressed={gpaMode === m}
+                      className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors"
+                      style={
+                        gpaMode === m
+                          ? { background: "var(--color-surface)", color: "var(--color-primary)", boxShadow: "var(--shadow-card)" }
+                          : { color: "var(--color-muted)" }
+                      }
+                    >
+                      {t(m === "semester" ? "gpaModeSemester" : "gpaModeCumulative")}
+                    </button>
+                  ))}
+                </div>
+
                 <button
                   onClick={() => setRevealGpa((v) => !v)}
-                  className="flex flex-col items-center justify-center gap-3 text-center"
+                  className="flex flex-col items-center justify-center gap-2 text-center"
                 >
-                <div className="haven-label">{t("semesterGpa")}</div>
-                {gpa == null ? (
-                  <>
-                    <div className="font-display text-4xl" style={{ color: "var(--color-muted)" }}>—</div>
-                    <div className="text-xs" style={{ color: "var(--color-muted)" }}>{t("noGradesYet")}</div>
-                  </>
-                ) : (
-                  <>
-                    <div className={revealGpa ? "haven-clear" : "haven-blur"}>
-                      <span className="font-display text-[40px] leading-none" style={{ color: "var(--color-brass)" }}>
-                        <CountUp value={gpa} decimals={2} />
-                      </span>
-                      <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
-                    </div>
-                    <div className="inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
-                      {revealGpa ? <EyeOff size={12} /> : <Eye size={12} />}
-                      {revealGpa ? t("clickHide") : t("clickReveal")}
-                    </div>
-                  </>
-                )}
+                  <div className="haven-label">
+                    {t(gpaMode === "cumulative" ? "gpaProjectedCumulative" : "semesterGpa")}
+                  </div>
+                  {shownGpa == null ? (
+                    <>
+                      <div className="font-display text-4xl" style={{ color: "var(--color-muted)" }}>—</div>
+                      <div className="text-xs max-w-[11rem]" style={{ color: "var(--color-muted)" }}>
+                        {gpaMode === "cumulative" ? t("gpaEnterCumulative") : t("noGradesYet")}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={revealGpa ? "haven-clear" : "haven-blur"}>
+                        <span className="font-display text-[40px] leading-none" style={{ color: "var(--color-brass)" }}>
+                          <CountUp value={shownGpa} decimals={2} />
+                        </span>
+                        <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
+                        {revealGpa ? <EyeOff size={12} /> : <Eye size={12} />}
+                        {revealGpa ? t("clickHide") : t("clickReveal")}
+                      </div>
+                    </>
+                  )}
                 </button>
+
+                {/* Cumulative inputs — the current GPA the projection starts from */}
+                {gpaMode === "cumulative" && (
+                  <div className="flex items-end justify-center gap-2">
+                    <label className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] leading-tight text-center" style={{ color: "var(--color-muted)" }}>
+                        {t("gpaCurrentCumulative")}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="5"
+                        step="0.01"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={cumulativeGpa || ""}
+                        onChange={(e) => setCumulativeGpa(Number(e.target.value) || 0)}
+                        className="w-20 rounded-lg border px-2 py-1 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
+                        style={{ borderColor: "var(--color-border)" }}
+                      />
+                    </label>
+                    <label className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] leading-tight text-center" style={{ color: "var(--color-muted)" }}>
+                        {t("gpaCompletedHours")}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={cumulativeHours || ""}
+                        onChange={(e) => setCumulativeHours(Number(e.target.value) || 0)}
+                        className="w-16 rounded-lg border px-2 py-1 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
+                        style={{ borderColor: "var(--color-border)" }}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Upcoming */}

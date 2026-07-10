@@ -37,7 +37,9 @@
       "Bash(curl -s \"https://api.github.com/repos/hanaamohammed66325-oss/Haven-/actions/runs/28383957248/jobs\")",
       "mcp__66b4250c-4297-46a4-b084-566a530ef0d3__get_project",
       "PowerShell(npm run build)",
-      "PowerShell(git push origin main)"
+      "PowerShell(git push origin main)",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\(JSON.stringify\\(p.scripts\\)\\)\")",
+      "Bash(cat .claude/launch.json)"
     ]
   }
 }

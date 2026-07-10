@@ -5,14 +5,17 @@ import { GraduationCap, ClipboardList, AlertTriangle } from "lucide-react";
 import { useT } from "@/i18n";
 import { formatShortDate } from "@/lib/dates";
 import type { Course, CalendarType } from "@/types";
+import type { TranslationKey } from "@/i18n/translations/en";
 
 interface UpItem {
   courseId: string;
   courseName: string;
   name: string;
   type: string;
-  date: string;
-  diffDays: number;
+  /** due date, or null when the item has no date set */
+  date: string | null;
+  /** whole days until due, or null when undated */
+  diffDays: number | null;
 }
 
 const EXAM_TYPES = ["quiz", "midterm", "final"];
@@ -32,33 +35,46 @@ export function UpcomingPanel({
   const todayStr = new Date().toISOString().slice(0, 10);
   const dayMs = 864e5;
 
+  // Every not-yet-graded item shows here, so tasks/exams the user adds always
+  // appear — including ones with no date set (they'd otherwise vanish). Past-due
+  // items drop off once their date passes; undated items stay until graded.
   const all: UpItem[] = courses.flatMap((c) =>
     c.components
-      .filter((comp) => comp.score == null && comp.date != null && comp.date >= todayStr)
+      .filter((comp) => comp.score == null && (comp.date == null || comp.date >= todayStr))
       .map((comp) => ({
         courseId: c.id,
         courseName: c.name,
         name: comp.name,
         type: comp.type,
-        date: comp.date as string,
-        diffDays: Math.round((+new Date(comp.date as string) - +todayMid) / dayMs),
+        date: comp.date,
+        diffDays:
+          comp.date == null ? null : Math.round((+new Date(comp.date) - +todayMid) / dayMs),
       }))
   );
-  const byDate = (a: UpItem, b: UpItem) => +new Date(a.date) - +new Date(b.date);
+  // Dated items first (soonest → latest), undated items after.
+  const byDate = (a: UpItem, b: UpItem) => {
+    if (a.date == null && b.date == null) return 0;
+    if (a.date == null) return 1;
+    if (b.date == null) return -1;
+    return +new Date(a.date) - +new Date(b.date);
+  };
   const exams = all.filter((i) => EXAM_TYPES.includes(i.type)).sort(byDate);
   const tasks = all.filter((i) => TASK_TYPES.includes(i.type)).sort(byDate);
 
-  // Soonest exam within ~3 days gets the alert icon.
-  const examAlert = exams[0] && exams[0].diffDays <= 3 ? exams[0] : undefined;
+  // Soonest dated exam within ~3 days gets the alert icon.
+  const examAlert = exams[0] && exams[0].diffDays != null && exams[0].diffDays <= 3 ? exams[0] : undefined;
 
-  const fmtDate = (d: string) => formatShortDate(d, lang, calendar);
+  const fmtDate = (d: string | null) => (d == null ? t("dateNotSpecified") : formatShortDate(d, lang, calendar));
 
-  const countdown = (n: number) => {
-    if (n < 0 || n > 7) return null;
+  const countdown = (n: number | null) => {
+    if (n == null || n < 0 || n > 7) return null;
     if (n === 0) return t("dueToday");
     if (n === 1) return t("dueTomorrow");
     return t("dueInDays", { n });
   };
+
+  // Clear per-item label so exams and tasks are told apart at a glance.
+  const typeLabel = (type: string) => t(`type_${type}` as TranslationKey);
 
   const Section = ({
     title,
@@ -82,7 +98,7 @@ export function UpcomingPanel({
         <div className="flex flex-col gap-2.5">
           {items.map((it, i) => {
             const cd = countdown(it.diffDays);
-            const urgent = it.diffDays >= 0 && it.diffDays <= 3;
+            const urgent = it.diffDays != null && it.diffDays >= 0 && it.diffDays <= 3;
             const isAlert = alertItem === it;
             return (
               <Link
@@ -98,8 +114,16 @@ export function UpcomingPanel({
                       {it.name}
                     </span>
                   </span>
-                  <span className="block text-xs truncate mt-0.5" style={{ color: "var(--color-muted)" }}>
-                    {it.courseName}
+                  <span className="flex items-center gap-1.5 mt-0.5">
+                    <span
+                      className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0"
+                      style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
+                    >
+                      {typeLabel(it.type)}
+                    </span>
+                    <span className="block text-xs truncate" style={{ color: "var(--color-muted)" }}>
+                      {it.courseName}
+                    </span>
                   </span>
                   {cd && (
                     <span
