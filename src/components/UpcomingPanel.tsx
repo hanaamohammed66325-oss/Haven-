@@ -1,25 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { GraduationCap, ClipboardList, AlertTriangle } from "lucide-react";
+import { GraduationCap, ClipboardList, AlertTriangle, Clock } from "lucide-react";
+import { useStore } from "@/store";
 import { useT } from "@/i18n";
-import { formatShortDate } from "@/lib/dates";
+import { formatShortDate, formatTime, toISODate } from "@/lib/dates";
+import { plannerItemDate, REMINDER_TAGS } from "@/lib/reminders";
 import type { Course, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface UpItem {
-  courseId: string;
-  courseName: string;
+  /** where clicking the row goes */
+  href: string;
+  /** small secondary line — course name, or "Planner" for planner chips */
+  subtitle: string;
   name: string;
-  type: string;
+  /** translation key for the type/tag badge */
+  labelKey: TranslationKey;
   /** due date, or null when the item has no date set */
   date: string | null;
+  /** "HH:MM" (24h) when the item carries a due time */
+  time?: string | null;
   /** whole days until due, or null when undated */
   diffDays: number | null;
+  bucket: "exam" | "task";
 }
 
 const EXAM_TYPES = ["quiz", "midterm", "final"];
 const TASK_TYPES = ["assignment", "project"];
+// Planner tags routed to each section (إجازة is never reminder-eligible).
+const PLANNER_EXAM_TAGS = new Set(["tagExam", "tagQuiz"]);
 
 export function UpcomingPanel({
   courses,
@@ -29,37 +39,78 @@ export function UpcomingPanel({
   calendar?: CalendarType;
 }) {
   const { t, lang } = useT();
+  const { planner, semester } = useStore();
 
   const todayMid = new Date();
   todayMid.setHours(0, 0, 0, 0);
   const todayStr = new Date().toISOString().slice(0, 10);
   const dayMs = 864e5;
+  const diffOf = (iso: string) => Math.round((+new Date(`${iso}T00:00:00`) - +todayMid) / dayMs);
 
-  // Every not-yet-graded item shows here, so tasks/exams the user adds always
-  // appear — including ones with no date set (they'd otherwise vanish). Past-due
-  // items drop off once their date passes; undated items stay until graded.
-  const all: UpItem[] = courses.flatMap((c) =>
+  const all: UpItem[] = [];
+  const seen = new Set<string>();
+  const add = (it: UpItem) => {
+    // De-dup by (date + title/note) across every source so nothing shows twice.
+    const key = `${it.date ?? "nodate"}|${it.name}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    all.push(it);
+  };
+
+  // Course-derived items — every not-yet-graded item, including undated ones
+  // (so tasks/exams the user adds always appear). Past-dated ones drop off.
+  courses.forEach((c) =>
     c.components
       .filter((comp) => comp.score == null && (comp.date == null || comp.date >= todayStr))
-      .map((comp) => ({
-        courseId: c.id,
-        courseName: c.name,
-        name: comp.name,
-        type: comp.type,
-        date: comp.date,
-        diffDays:
-          comp.date == null ? null : Math.round((+new Date(comp.date) - +todayMid) / dayMs),
-      }))
+      .forEach((comp) => {
+        if (!EXAM_TYPES.includes(comp.type) && !TASK_TYPES.includes(comp.type)) return;
+        add({
+          href: `/courses#${c.id}`,
+          subtitle: c.name,
+          name: comp.name,
+          labelKey: `type_${comp.type}` as TranslationKey,
+          date: comp.date,
+          diffDays: comp.date == null ? null : diffOf(comp.date),
+          bucket: EXAM_TYPES.includes(comp.type) ? "exam" : "task",
+        });
+      })
   );
-  // Dated items first (soonest → latest), undated items after.
+
+  // Planner deadline chips — reminder-eligible tag + a specific day (not -1).
+  // Their real date comes from the week's start date + weekday offset.
+  planner.notes.forEach((n) => {
+    if (!n.tag || !REMINDER_TAGS.has(n.tag)) return;
+    if (n.day == null) return;
+    const d = plannerItemDate(semester, n.week, n.day);
+    if (!d) return;
+    const iso = toISODate(d);
+    if (iso < todayStr) return; // only what's still upcoming
+    add({
+      href: "/schedule",
+      subtitle: t("tabPlanner"),
+      name: n.text,
+      labelKey: n.tag as TranslationKey,
+      date: iso,
+      time: n.dueTime ?? null,
+      diffDays: diffOf(iso),
+      bucket: PLANNER_EXAM_TAGS.has(n.tag) ? "exam" : "task",
+    });
+  });
+
+  // Dated items first (soonest → latest); undated after. Timed before untimed same day.
   const byDate = (a: UpItem, b: UpItem) => {
     if (a.date == null && b.date == null) return 0;
     if (a.date == null) return 1;
     if (b.date == null) return -1;
-    return +new Date(a.date) - +new Date(b.date);
+    if (a.date !== b.date) return +new Date(a.date) - +new Date(b.date);
+    const at = a.time ? 1 : 0;
+    const bt = b.time ? 1 : 0;
+    if (at !== bt) return bt - at;
+    if (a.time && b.time) return a.time < b.time ? -1 : 1;
+    return 0;
   };
-  const exams = all.filter((i) => EXAM_TYPES.includes(i.type)).sort(byDate);
-  const tasks = all.filter((i) => TASK_TYPES.includes(i.type)).sort(byDate);
+  const exams = all.filter((i) => i.bucket === "exam").sort(byDate);
+  const tasks = all.filter((i) => i.bucket === "task").sort(byDate);
 
   // Soonest dated exam within ~3 days gets the alert icon.
   const examAlert = exams[0] && exams[0].diffDays != null && exams[0].diffDays <= 3 ? exams[0] : undefined;
@@ -72,9 +123,6 @@ export function UpcomingPanel({
     if (n === 1) return t("dueTomorrow");
     return t("dueInDays", { n });
   };
-
-  // Clear per-item label so exams and tasks are told apart at a glance.
-  const typeLabel = (type: string) => t(`type_${type}` as TranslationKey);
 
   const Section = ({
     title,
@@ -102,8 +150,8 @@ export function UpcomingPanel({
             const isAlert = alertItem === it;
             return (
               <Link
-                key={`${it.courseId}-${it.name}-${i}`}
-                href={`/courses#${it.courseId}`}
+                key={`${it.href}-${it.name}-${i}`}
+                href={it.href}
                 className="group flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 -mx-1 transition-colors hover:bg-[var(--color-primary-soft)]"
                 style={isAlert ? { background: "#FEF3E2" } : undefined}
               >
@@ -119,10 +167,10 @@ export function UpcomingPanel({
                       className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0"
                       style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
                     >
-                      {typeLabel(it.type)}
+                      {t(it.labelKey)}
                     </span>
                     <span className="block text-xs truncate" style={{ color: "var(--color-muted)" }}>
-                      {it.courseName}
+                      {it.subtitle}
                     </span>
                   </span>
                   {cd && (
@@ -138,8 +186,16 @@ export function UpcomingPanel({
                     </span>
                   )}
                 </span>
-                <span className="text-xs whitespace-nowrap shrink-0 mt-0.5" style={{ color: "var(--color-muted)" }}>
-                  {fmtDate(it.date)}
+                <span className="flex flex-col items-end gap-1 shrink-0 mt-0.5">
+                  <span className="text-xs whitespace-nowrap" style={{ color: "var(--color-muted)" }}>
+                    {fmtDate(it.date)}
+                  </span>
+                  {it.time && (
+                    <span className="inline-flex items-center gap-1 text-[11px] whitespace-nowrap" style={{ color: "var(--color-primary)" }}>
+                      <Clock size={10} />
+                      {formatTime(it.time, lang)}
+                    </span>
+                  )}
                 </span>
               </Link>
             );

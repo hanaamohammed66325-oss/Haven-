@@ -5,6 +5,7 @@ import { StickyNote, X, Check, GraduationCap, ClipboardList } from "lucide-react
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
+import { TimeField } from "./TimeField";
 import { addDays, formatShortDate, formatTime, hijriParts, toISODate } from "@/lib/dates";
 import { REMINDER_TAGS } from "@/lib/reminders";
 import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
@@ -243,15 +244,9 @@ function TagEditor({
         <div className="text-xs font-medium truncate" style={{ color: "var(--color-ink)" }}>{text}</div>
       )}
       {showTime && (
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>{t("plannerTimeLabel")}</span>
-          <input
-            type="time"
-            value={time ?? ""}
-            onChange={(e) => onTime?.(e.target.value || null)}
-            className="flex-1 rounded-lg border px-2 py-1 text-xs outline-none"
-            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
-          />
+          <TimeField value={time ?? null} onChange={(v) => onTime?.(v)} />
         </div>
       )}
       <div className="flex items-center gap-1.5">

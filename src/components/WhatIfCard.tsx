@@ -6,11 +6,11 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { CountUp } from "./CountUp";
-import { courseCurrentPct, pctToGrade } from "@/lib/grades";
+import { courseCurrentPct, pctToGrade, projectedCumulativeFromParts } from "@/lib/grades";
 
 export function WhatIfCard() {
   const { t } = useT();
-  const { courses } = useStore();
+  const { courses, gpaMode, cumulativeGpa, cumulativeHours } = useStore();
 
   const buildInitial = useMemo(
     () => () =>
@@ -29,18 +29,27 @@ export function WhatIfCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseKey]);
 
+  // Project the GPA from the sliders, following the mode chosen on the GPA card:
+  //   • semester   → hypothetical semester GPA out of 5.0
+  //   • cumulative → blend the stored current cumulative GPA + completed hours
+  //     with the hypothetical semester results (same math as the GPA card).
   const gpa = useMemo(() => {
-    let n = 0;
-    let d = 0;
+    let points = 0;
+    let credits = 0;
     courses.forEach((c) => {
       const p = sim[c.id] ?? 75;
-      n += pctToGrade(p).points * c.creditHours;
-      d += c.creditHours;
+      points += pctToGrade(p).points * c.creditHours;
+      credits += c.creditHours;
     });
-    return d ? n / d : null;
-  }, [sim, courses]);
+    if (gpaMode === "cumulative") {
+      return projectedCumulativeFromParts(points, credits, cumulativeGpa, cumulativeHours);
+    }
+    return credits ? points / credits : null;
+  }, [sim, courses, gpaMode, cumulativeGpa, cumulativeHours]);
 
   if (!courses.length) return null;
+
+  const resultLabel = gpaMode === "cumulative" ? t("whatIfResultCumulative") : t("whatIfResult");
 
   return (
     <Card>
@@ -101,7 +110,7 @@ export function WhatIfCard() {
         className="mt-7 pt-6 border-t flex items-center justify-between gap-3"
         style={{ borderColor: "var(--color-border)" }}
       >
-        <span className="haven-label">{t("whatIfResult")}</span>
+        <span className="haven-label">{resultLabel}</span>
         <span className="font-display text-3xl" style={{ color: "var(--color-brass)" }}>
           {gpa != null ? <CountUp value={gpa} decimals={2} duration={500} /> : "—"}
           <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ 5.0</span>

@@ -131,7 +131,14 @@ const noteColors: Record<string, string> = {
 };
 
 function demoPlanner(): PlannerData {
-  const note = (week: number, day: number | undefined, text: string, tag?: string, done = false): PlannerNote => ({
+  const note = (
+    week: number,
+    day: number | undefined,
+    text: string,
+    tag?: string,
+    done = false,
+    dueTime: string | null = null
+  ): PlannerNote => ({
     id: uid(),
     week,
     day,
@@ -139,7 +146,23 @@ function demoPlanner(): PlannerData {
     tag,
     color: (tag && noteColors[tag]) || "#477680",
     done,
+    dueTime,
   });
+
+  // Place a chip on a real near-future date by mapping the offset back to its
+  // (1-based week, weekday) — so it lands in the Planner AND shows up as an
+  // upcoming deadline on the dashboard, exactly like a user-added one.
+  const start = new Date(`${demoSemester.startDate}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const soon = (offsetDays: number, text: string, tag: string, dueTime: string | null = null): PlannerNote => {
+    const target = new Date(today);
+    target.setDate(target.getDate() + offsetDays);
+    const daysSince = Math.round((+target - +start) / 86400000);
+    const week = Math.floor(daysSince / 7) + 1;
+    return note(week, target.getDay(), text, tag, false, dueTime);
+  };
+
   return {
     notes: [
       note(1, 0, "Review chapter 4", "tagQuiz"),
@@ -147,6 +170,9 @@ function demoPlanner(): PlannerData {
       note(1, undefined, "Group study — library", undefined),
       note(2, 3, "Presentation prep", "tagDeadline"),
       note(2, 1, "Physics past papers", "tagExam", true),
+      // Near-future deadlines (one timed) — these surface in Upcoming.
+      soon(2, "Submit CS project", "tagDeadline", "20:00"),
+      soon(1, "Statistics quiz", "tagQuiz", "09:30"),
     ],
     strokes: [],
     highlights: [],

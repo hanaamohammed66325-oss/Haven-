@@ -95,6 +95,7 @@ export const en = {
   whatIfTitle: "What if…",
   whatIfNote: "Hypothetical — your real grades aren't changed.",
   whatIfResult: "Projected GPA",
+  whatIfResultCumulative: "Projected GPA (cumulative)",
   reset: "Reset",
 
   // Cumulative GPA calculator
@@ -254,6 +255,12 @@ export const en = {
   plannerCustomColor: "Custom color",
   plannerToggleDone: "Toggle done",
   plannerTimeLabel: "Time",
+  timeAM: "AM",
+  timePM: "PM",
+  timeHour: "Hour",
+  timeMinute: "Minute",
+  timeClear: "Clear time",
+  timeNotSet: "No time",
   coursesHeading: "Courses",
   viewAll: "View all",
   emptyTitle: "No courses yet",

@@ -97,6 +97,7 @@ export const ar: Record<TranslationKey, string> = {
   whatIfTitle: "ماذا لو…",
   whatIfNote: "افتراضي — لا يغيّر الدرجات الفعلية.",
   whatIfResult: "المعدل المتوقّع",
+  whatIfResultCumulative: "المعدل المتوقّع (تراكمي)",
   reset: "إعادة تعيين",
 
   // Cumulative GPA calculator
@@ -256,6 +257,12 @@ export const ar: Record<TranslationKey, string> = {
   plannerCustomColor: "لون مخصص",
   plannerToggleDone: "تبديل الإنجاز",
   plannerTimeLabel: "الوقت",
+  timeAM: "ص",
+  timePM: "م",
+  timeHour: "الساعة",
+  timeMinute: "الدقيقة",
+  timeClear: "مسح الوقت",
+  timeNotSet: "بدون وقت",
   coursesHeading: "المقررات",
   viewAll: "عرض الكل",
   emptyTitle: "لا توجد مقررات بعد",

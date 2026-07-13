@@ -39,7 +39,7 @@ const localMidnight = (iso: string) => new Date(`${iso}T00:00:00`);
 /** Calendar date (local midnight) of a planner item at (1-based week, weekday
  *  0..6). Mirrors the Planner grid: week start = semester start + (week-1)*7,
  *  then the offset to that weekday within the week window. */
-function plannerItemDate(sem: Semester, week: number, day: number): Date | null {
+export function plannerItemDate(sem: Semester, week: number, day: number): Date | null {
   const start = new Date(sem.startDate);
   if (Number.isNaN(+start)) return null;
   const weekStart = localMidnight(toISODate(new Date(+start + (week - 1) * 7 * DAY_MS)));

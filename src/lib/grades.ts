@@ -63,6 +63,22 @@ export function semesterGPA(courses: Course[]): number | null {
   return semesterGpaDetail(courses).gpa;
 }
 
+/** Blend a set of semester quality points/credits with the entered current
+ *  cumulative GPA (over its completed hours). Shared by the live GPA card and
+ *  the What-If simulator so both project cumulative GPA identically. */
+export function projectedCumulativeFromParts(
+  points: number,
+  credits: number,
+  currentGpa: number,
+  completedHours: number
+): number | null {
+  const prevGpa = Math.max(0, Math.min(5, Number(currentGpa) || 0));
+  const prevHours = Math.max(0, Number(completedHours) || 0);
+  const totalHours = prevHours + credits;
+  if (totalHours <= 0) return prevHours > 0 ? prevGpa : null;
+  return Math.min(5, (prevGpa * prevHours + points) / totalHours);
+}
+
 /** Projected new cumulative GPA: blends the entered current cumulative GPA
  *  (over its completed hours) with this semester's live quality points. Capped
  *  at the 5.0 scale. Returns null only when there's nothing to show at all. */
@@ -72,11 +88,7 @@ export function projectedCumulativeGpa(
   completedHours: number
 ): number | null {
   const { points, credits } = semesterGpaDetail(courses);
-  const prevGpa = Math.max(0, Math.min(5, Number(currentGpa) || 0));
-  const prevHours = Math.max(0, Number(completedHours) || 0);
-  const totalHours = prevHours + credits;
-  if (totalHours <= 0) return prevHours > 0 ? prevGpa : null;
-  return Math.min(5, (prevGpa * prevHours + points) / totalHours);
+  return projectedCumulativeFromParts(points, credits, currentGpa, completedHours);
 }
 
 export const weightsTotal = (c: Course) =>
