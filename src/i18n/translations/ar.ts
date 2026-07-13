@@ -26,7 +26,6 @@ export const ar: Record<TranslationKey, string> = {
   premiumBenefit2: "مخطّط الفصل والجدول الأسبوعي",
   premiumBenefit3: "حاسبة المعدل التراكمي",
   premiumBenefit4: "حاسبة «المطلوب» في النهائي",
-  premiumBenefit6: "حفظ الفصول السابقة ومتابعة التقدّم",
   premiumPrice: "بـ ٤٠ ريال فقط في السنة",
   premiumCta: "اشترك الآن",
   planSemester: "فصل دراسي",

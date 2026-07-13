@@ -24,7 +24,6 @@ export const en = {
   premiumBenefit2: "Semester planner & weekly schedule",
   premiumBenefit3: "Cumulative GPA calculator",
   premiumBenefit4: '"What you need" final-exam calculator',
-  premiumBenefit6: "Save past semesters & track your progress",
   premiumPrice: "Only 40 SAR / year",
   premiumCta: "Upgrade now",
   planSemester: "Semester",
