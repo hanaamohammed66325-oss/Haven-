@@ -109,8 +109,12 @@ export function UpcomingPanel({
     if (a.time && b.time) return a.time < b.time ? -1 : 1;
     return 0;
   };
-  const exams = all.filter((i) => i.bucket === "exam").sort(byDate);
-  const tasks = all.filter((i) => i.bucket === "task").sort(byDate);
+  // Near-term windows: tasks within 7 days, exams within 14 days (both inclusive
+  // of today). Undated ungraded items have no due date to fall outside a window,
+  // so they stay visible. Anything dated further out is hidden from Upcoming.
+  const within = (i: UpItem, days: number) => i.diffDays == null || i.diffDays <= days;
+  const exams = all.filter((i) => i.bucket === "exam" && within(i, 14)).sort(byDate);
+  const tasks = all.filter((i) => i.bucket === "task" && within(i, 7)).sort(byDate);
 
   // Soonest dated exam within ~3 days gets the alert icon.
   const examAlert = exams[0] && exams[0].diffDays != null && exams[0].diffDays <= 3 ? exams[0] : undefined;
@@ -118,7 +122,7 @@ export function UpcomingPanel({
   const fmtDate = (d: string | null) => (d == null ? t("dateNotSpecified") : formatShortDate(d, lang, calendar));
 
   const countdown = (n: number | null) => {
-    if (n == null || n < 0 || n > 7) return null;
+    if (n == null || n < 0 || n > 14) return null;
     if (n === 0) return t("dueToday");
     if (n === 1) return t("dueTomorrow");
     return t("dueInDays", { n });

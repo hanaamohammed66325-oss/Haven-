@@ -46,7 +46,6 @@ const PREMIUM_BENEFITS: TranslationKey[] = [
   "premiumBenefit2",
   "premiumBenefit3",
   "premiumBenefit4",
-  "premiumBenefit5",
   "premiumBenefit6",
 ];
 
