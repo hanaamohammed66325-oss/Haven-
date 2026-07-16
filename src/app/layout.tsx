@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import HaviMascot from "@/components/HaviMascot";
 
 export const metadata: Metadata = {
   title: "Haven | GPA calculator, grade tracking & attendance for university students",
@@ -32,6 +33,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>{children}</Providers>
+        <HaviMascot />
       </body>
     </html>
   );

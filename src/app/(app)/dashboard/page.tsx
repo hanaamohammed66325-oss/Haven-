@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator } from "lucide-react";
 import { useStore } from "@/store";
@@ -35,6 +35,11 @@ const attStatusColor: Record<"ok" | "warn" | "danger", string> = {
   warn: "#C77E2E",
   danger: "var(--color-danger)",
 };
+
+// Havi "watch" trigger windows — mirror UpcomingPanel: exams within 14 days,
+// tasks within 7 days (both from today, dated + still ungraded).
+const HAVI_EXAM_TYPES = ["quiz", "midterm", "final"];
+const HAVI_TASK_TYPES = ["assignment", "project"];
 
 export default function DashboardPage() {
   const { t } = useT();
@@ -87,6 +92,31 @@ export default function DashboardPage() {
     return items;
   }, [courses]);
 
+  // Whether Havi should "watch" the Upcoming card: any dated, ungraded task
+  // within 7 days or exam within 14 days.
+  const hasNearDue = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayMs = 864e5;
+    return courses.some((c) =>
+      c.components.some((comp) => {
+        if (comp.score != null || !comp.date) return false;
+        const diff = Math.round((+new Date(`${comp.date}T00:00:00`) - +today) / dayMs);
+        if (diff < 0) return false;
+        if (HAVI_EXAM_TYPES.includes(comp.type)) return diff <= 14;
+        if (HAVI_TASK_TYPES.includes(comp.type)) return diff <= 7;
+        return false;
+      })
+    );
+  }, [courses]);
+
+  // Cards mount/unmount as courses load and change — nudge Havi to re-place.
+  useEffect(() => {
+    if (!hydrated) return;
+    const id = window.setTimeout(() => window.havi?.refresh(), 120);
+    return () => window.clearTimeout(id);
+  }, [hydrated, courses.length, hasNearDue]);
+
   if (!hydrated) {
     return <div className="h-40" />;
   }
@@ -129,6 +159,7 @@ export default function DashboardPage() {
             padding="p-0"
             className="haven-fade-up mb-12 overflow-hidden"
             style={{ animationDelay: "0.08s" }}
+            data-havi-role="generic"
           >
             <div
               className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x"
@@ -322,11 +353,14 @@ export default function DashboardPage() {
 
         {/* Right panel */}
         <aside className="haven-fade-up flex flex-col gap-6" style={{ animationDelay: "0.12s" }}>
-          <Card>
+          <Card data-havi-role="generic">
             <MiniCalendar calendar={semester.calendarType} />
           </Card>
           <GpaGoalCard />
-          <Card>
+          <Card
+            data-havi-role="upcoming"
+            data-havi-near-due={hasNearDue ? "true" : "false"}
+          >
             <h2 className="font-display text-lg mb-6" style={{ color: "var(--color-ink)" }}>
               {t("upcoming")}
             </h2>

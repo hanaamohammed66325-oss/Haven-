@@ -55,8 +55,14 @@ export function CoursePanel({ course }: { course: Course }) {
     }
   };
 
+  // Celebrate when a saved score lands within 3 points of full (ratio >= 0.9).
+  // Havi ignores anything below the threshold, so this can fire on every save.
+  const celebrateFor = (score: number | null | undefined, total: number) => {
+    if (score != null && total > 0) window.havi?.celebrate(score / total);
+  };
+
   return (
-    <Card padding="p-0" className="overflow-hidden">
+    <Card padding="p-0" className="overflow-hidden" data-havi-role="course">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 p-8 border-b" style={border}>
         <div className="min-w-0">
@@ -126,7 +132,10 @@ export function CoursePanel({ course }: { course: Course }) {
               <ComponentRow
                 key={comp.id}
                 comp={comp}
-                onScore={(score) => updateComponent(course.id, comp.id, { score })}
+                onScore={(score) => {
+                  updateComponent(course.id, comp.id, { score });
+                  celebrateFor(score, comp.total);
+                }}
                 onEdit={() => setEditingItem(comp)}
                 onDelete={() => deleteComponent(course.id, comp.id)}
               />
@@ -166,7 +175,10 @@ export function CoursePanel({ course }: { course: Course }) {
       <AddItemModal
         open={addingItem}
         onClose={() => setAddingItem(false)}
-        onSubmit={(c) => addComponent(course.id, c)}
+        onSubmit={(c) => {
+          addComponent(course.id, c);
+          celebrateFor(c.score, c.total);
+        }}
       />
 
       <AddItemModal
@@ -174,6 +186,7 @@ export function CoursePanel({ course }: { course: Course }) {
         onClose={() => setEditingItem(null)}
         onSubmit={(c) => {
           if (editingItem) updateComponent(course.id, editingItem.id, c);
+          celebrateFor(c.score, c.total);
         }}
         initial={editingItem ?? undefined}
       />

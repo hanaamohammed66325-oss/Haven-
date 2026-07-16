@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { StickyNote, X, Check, GraduationCap, ClipboardList } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
@@ -76,6 +76,21 @@ export function Planner() {
       return { index: i, start: ws, end: new Date(+ws + 6 * dayMs) };
     });
   }, [semester.startDate, weekCount]);
+
+  // The week today's date falls in — Havi "writes" on this one (data-havi-role).
+  // -1 when the semester hasn't started / has ended, so no week gets tagged.
+  const currentWeekIndex = useMemo(() => {
+    const todayIso = toISODate(new Date());
+    return weeks.findIndex(
+      (w) => w.start && w.end && todayIso >= toISODate(w.start) && todayIso <= toISODate(w.end)
+    );
+  }, [weeks]);
+
+  // The current-week card mounts once weeks render — nudge Havi to place on it.
+  useEffect(() => {
+    const id = window.setTimeout(() => window.havi?.refresh(), 120);
+    return () => window.clearTimeout(id);
+  }, [currentWeekIndex, weekCount]);
 
   // Smart touch: exams/assignments shown in their matching week AND on their
   // exact weekday (from the item's due date), not the whole-week row.
@@ -185,6 +200,7 @@ export function Planner() {
             dayDates={dayDatesFor(w)}
             autoEdits={planner.autoEdits ?? {}}
             isActiveWeek={activeWeek === w.index}
+            isCurrentWeek={currentWeekIndex === w.index}
             activeDay={activeWeek === w.index ? activeDay : undefined}
             onSetTarget={(day) => setTarget(w.index, day)}
             onAdd={(day, text) => addNote(w.index + 1, day ?? undefined, text, DEFAULT_NOTE_COLOR)}
@@ -282,6 +298,7 @@ function WeekCard({
   dayDates,
   autoEdits,
   isActiveWeek,
+  isCurrentWeek,
   activeDay,
   onSetTarget,
   onAdd,
@@ -299,6 +316,7 @@ function WeekCard({
   dayDates: (string | null)[];
   autoEdits: Record<string, PlannerAutoEdit>;
   isActiveWeek: boolean;
+  isCurrentWeek: boolean;
   activeDay: number | null | undefined;
   onSetTarget: (day: number | null) => void;
   onAdd: (day: number | null, text: string) => void;
@@ -460,6 +478,7 @@ function WeekCard({
       padding="p-6"
       className="min-h-[160px]"
       style={{ outline: isActiveWeek ? "2px solid var(--color-brass)" : "none", outlineOffset: 2 }}
+      {...(isCurrentWeek ? { "data-havi-role": "current-week" } : {})}
     >
       <button onClick={() => onSetTarget(null)} className="block w-full text-start mb-4">
         <div className="font-display text-base" style={{ color: "var(--color-ink)" }}>{label}</div>
