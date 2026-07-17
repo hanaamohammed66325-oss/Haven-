@@ -99,7 +99,7 @@ export default function ProfilePage() {
         {t("profileSubtitle")}
       </p>
 
-      <Card padding="p-8" className="haven-stagger">
+      <Card padding="p-8" className="haven-stagger" data-havi-role="profile">
         {/* Photo */}
         <div className="flex items-center gap-6 pb-8 border-b" style={border}>
           <span

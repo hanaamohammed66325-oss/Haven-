@@ -43,7 +43,11 @@
       "Bash(mkdir -p /c/Users/Hanaa/AppData/Local/Temp/claude/C--Users-Hanaa-Desktop-Haven/fbd77fb4-306d-4de5-8d5d-fbae7f15a8b2/scratchpad/havi)",
       "Bash(unzip -o files.zip -d /c/Users/Hanaa/AppData/Local/Temp/claude/C--Users-Hanaa-Desktop-Haven/fbd77fb4-306d-4de5-8d5d-fbae7f15a8b2/scratchpad/havi)",
       "Bash(cp \"/c/Users/Hanaa/AppData/Local/Temp/claude/C--Users-Hanaa-Desktop-Haven/fbd77fb4-306d-4de5-8d5d-fbae7f15a8b2/scratchpad/havi/HaviMascot.jsx\" \"/c/Users/Hanaa/Desktop/Haven/src/components/HaviMascot.jsx\" && ls -la \"/c/Users/Hanaa/Desktop/Haven/src/components/HaviMascot.jsx\")",
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "Bash(rm -rf /c/Users/Hanaa/AppData/Local/Temp/claude/C--Users-Hanaa-Desktop-Haven/fbd77fb4-306d-4de5-8d5d-fbae7f15a8b2/scratchpad/havi2)",
+      "Bash(mkdir -p /c/Users/Hanaa/AppData/Local/Temp/claude/C--Users-Hanaa-Desktop-Haven/fbd77fb4-306d-4de5-8d5d-fbae7f15a8b2/scratchpad/havi2)",
+      "Bash(unzip -o files.zip -d /c/Users/Hanaa/AppData/Local/Temp/claude/C--Users-Hanaa-Desktop-Haven/fbd77fb4-306d-4de5-8d5d-fbae7f15a8b2/scratchpad/havi2)",
+      "Bash(cp \"/c/Users/Hanaa/AppData/Local/Temp/claude/C--Users-Hanaa-Desktop-Haven/fbd77fb4-306d-4de5-8d5d-fbae7f15a8b2/scratchpad/havi2/HaviMascot.jsx\" \"/c/Users/Hanaa/Desktop/Haven/src/components/HaviMascot.jsx\" && git diff --stat src/components/HaviMascot.jsx)"
     ]
   }
 }

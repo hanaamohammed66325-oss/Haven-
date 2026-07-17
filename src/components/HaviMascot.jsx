@@ -223,10 +223,9 @@ const BUBBLES = {
 /* ------------------------------------------------------------------ */
 
 export default function HaviMascot({
-  size: sizeProp = 54,
+  size = 54,
   highGradeThreshold = 0.9, // >= 90% of max => celebrate (within 3 pts on /100)
   relocateEveryMs = 30000,
-  mobileSize = 40, // shrink on small screens so Havi never covers content
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -240,21 +239,10 @@ export default function HaviMascot({
   const [pos, setPos] = useState({ top: -9999, left: -9999 });
   const [bubble, setBubble] = useState(null);
   const [reduced, setReduced] = useState(false);
-  const [mobile, setMobile] = useState(false);
-  // Effective size: the smaller of the requested size / mobileSize on phones.
-  const size = mobile ? Math.min(sizeProp, mobileSize) : sizeProp;
+  const [visible, setVisible] = useState(false);
   const scale = Math.round(size / GRID_W) || 2;
   const canvasW = scale * GRID_W;
   const canvasH = scale * GRID_H;
-
-  /* shrink on small screens (matches the guide's "size ~40 on mobile") */
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 640px)");
-    setMobile(mq.matches);
-    const fn = () => setMobile(mq.matches);
-    mq.addEventListener?.("change", fn);
-    return () => mq.removeEventListener?.("change", fn);
-  }, []);
 
   /* respect reduced motion */
   useEffect(() => {
@@ -265,55 +253,58 @@ export default function HaviMascot({
     return () => mq.removeEventListener?.("change", fn);
   }, []);
 
-  /* find a card by role, return its bounding rect (viewport coords) */
-  const findCard = useCallback((role) => {
+  /* find a visible card element by role */
+  const findCardEl = useCallback((role) => {
     const els = Array.from(
       document.querySelectorAll(`[data-havi-role="${role}"]`)
-    ).filter((el) => el.offsetParent !== null); // visible only
+    ).filter((el) => el.offsetParent !== null && el.getBoundingClientRect().width > 0);
     if (!els.length) return null;
-    const el = els[Math.floor(Math.random() * els.length)];
-    return { el, rect: el.getBoundingClientRect() };
+    return els[Math.floor(Math.random() * els.length)];
   }, []);
 
-  /* position the frog on a card corner (or behind it for celebrate) */
+  /* store the element we're currently perched on so scroll/resize can re-read it */
+  const targetElRef = useRef(null);
+
+  /* compute fixed-viewport coords from the perched element and apply them */
+  const applyPosFromEl = useCallback(
+    (el, corner, behind) => {
+      if (!el || el.offsetParent === null) {
+        setVisible(false);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) {
+        setVisible(false);
+        return;
+      }
+      // sit ON the top edge of the card, in the chosen corner
+      const top = r.top - size * (behind ? 0.5 : 0.62);
+      const left =
+        corner === "left" ? r.left + 10 : r.right - size - 10;
+      setPos({ top, left });
+      setVisible(true);
+    },
+    [size]
+  );
+
+  /* perch on a card by role; falls back to generic; hides if nothing found */
   const perch = useCallback(
     (role, corner = "right", behind = false) => {
-      const found = findCard(role) || findCard("generic");
-      if (!found) return;
+      let el = findCardEl(role);
+      if (!el) el = findCardEl("generic");
+      if (!el) {
+        targetElRef.current = null;
+        setVisible(false);
+        return;
+      }
+      targetElRef.current = el;
       roleRef.current = role;
       cornerRef.current = corner;
       behindRef.current = behind;
-      const r = found.rect;
-      const yBase = window.scrollY + r.top;
-      const xLeft = window.scrollX + r.left;
-      const xRight = window.scrollX + r.right;
-      const top = behind ? yBase - size * 0.55 : yBase - size * 0.65;
-      const left =
-        corner === "left" ? xLeft + 8 : xRight - size - 8;
-      setPos({ top, left });
+      applyPosFromEl(el, corner, behind);
     },
-    [findCard, size]
+    [findCardEl, applyPosFromEl]
   );
-
-  /* decide default placement: near-due? else sleep on a generic card */
-  const placeDefault = useCallback(() => {
-    // Schedule page: write on the current week if present
-    const writeCard = findCard("current-week");
-    if (writeCard) {
-      setActivity("write");
-      perch("current-week", "right");
-      return;
-    }
-    const upcoming = document.querySelector('[data-havi-role="upcoming"][data-havi-near-due="true"]');
-    if (upcoming && upcoming.offsetParent !== null) {
-      setActivity("watch");
-      perch("upcoming", "right");
-      maybeBubble("watch");
-      return;
-    }
-    setActivity("sleep");
-    perch("generic", Math.random() > 0.5 ? "left" : "right");
-  }, [findCard, perch]);
 
   const maybeBubble = useCallback((kind) => {
     const arr = BUBBLES[kind];
@@ -322,54 +313,111 @@ export default function HaviMascot({
     setTimeout(() => setBubble(null), 4000);
   }, []);
 
-  /* celebrate trigger, exposed globally */
+  /* decide default placement: schedule? near-due? else sleep on a generic card */
+  const placeDefault = useCallback(() => {
+    // Schedule page: write on the current week if present
+    if (findCardEl("current-week")) {
+      setActivity("write");
+      perch("current-week", "right");
+      return;
+    }
+    // Upcoming with a near-due flag
+    const upcoming = document.querySelector(
+      '[data-havi-role="upcoming"][data-havi-near-due="true"]'
+    );
+    if (upcoming && upcoming.offsetParent !== null) {
+      setActivity("watch");
+      perch("upcoming", "right");
+      maybeBubble("watch");
+      return;
+    }
+    // Profile / settings style pages: if there's a generic card, watch on it
+    // (profile page should show the watching expression)
+    if (findCardEl("profile")) {
+      setActivity("watch");
+      perch("profile", Math.random() > 0.5 ? "left" : "right");
+      return;
+    }
+    // Default: sleep on a random generic card
+    if (findCardEl("generic")) {
+      setActivity("sleep");
+      perch("generic", Math.random() > 0.5 ? "left" : "right");
+    } else {
+      // no cards on this page -> hide entirely (prevents floating in empty space)
+      setVisible(false);
+    }
+  }, [findCardEl, perch, maybeBubble]);
+
+  /* celebrate trigger, exposed globally — robust: never errors if card missing */
   const celebrate = useCallback(
     (ratio) => {
       if (typeof ratio === "number" && ratio < highGradeThreshold) return;
+      // prefer the course card; fall back to any generic; if none, still celebrate in place
+      const el = findCardEl("course") || findCardEl("generic") || targetElRef.current;
       setActivity("celebrate");
-      perch("course", "right", true); // pop from behind the course card
+      if (el) {
+        targetElRef.current = el;
+        roleRef.current = "course";
+        cornerRef.current = "right";
+        behindRef.current = true;
+        applyPosFromEl(el, "right", true);
+      }
       maybeBubble("celebrate");
-      setTimeout(() => {
+      window.setTimeout(() => {
         placeDefault();
       }, 4500);
     },
-    [highGradeThreshold, perch, maybeBubble, placeDefault]
+    [highGradeThreshold, findCardEl, applyPosFromEl, maybeBubble, placeDefault]
   );
 
   /* expose window.havi API */
   useEffect(() => {
     window.havi = {
-      celebrate,             // window.havi.celebrate(0.95)
+      celebrate,
       sleep: () => { setActivity("sleep"); perch("generic"); },
       watch: () => { setActivity("watch"); perch("upcoming"); maybeBubble("watch"); },
       write: () => { setActivity("write"); perch("current-week"); },
-      refresh: placeDefault, // recompute placement after DOM changes
+      refresh: placeDefault,
     };
     return () => { try { delete window.havi; } catch (e) {} };
   }, [celebrate, perch, maybeBubble, placeDefault]);
 
-  /* initial placement + relocate timer + reposition on resize/scroll */
+  useEffect(() => { activityRef.current = activity; }, [activity]);
+
+  /* initial placement + relocate timer + reposition on scroll/resize */
   useEffect(() => {
-    const boot = setTimeout(placeDefault, 400); // let cards render first
+    const boot = setTimeout(placeDefault, 400);
     const relocate = setInterval(() => {
       if (activityRef.current === "sleep") placeDefault();
     }, relocateEveryMs);
+
+    // Reposition by re-reading the SAME element's live rect (no scroll math).
     const onMove = () => {
-      // keep glued to its card while scrolling/resizing
-      if (roleRef.current) perch(roleRef.current, cornerRef.current, behindRef.current);
+      if (targetElRef.current) {
+        applyPosFromEl(targetElRef.current, cornerRef.current, behindRef.current);
+      }
     };
     window.addEventListener("resize", onMove);
     window.addEventListener("scroll", onMove, true);
+
+    // If the page/route changes and cards differ, recompute after a tick.
+    const mo = new MutationObserver(() => {
+      // only re-place if our current target vanished
+      if (!targetElRef.current || targetElRef.current.offsetParent === null) {
+        placeDefault();
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
     return () => {
       clearTimeout(boot);
       clearInterval(relocate);
       window.removeEventListener("resize", onMove);
       window.removeEventListener("scroll", onMove, true);
+      mo.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relocateEveryMs]);
-
-  useEffect(() => { activityRef.current = activity; }, [activity]);
 
   /* animation loop */
   useEffect(() => {
@@ -377,36 +425,42 @@ export default function HaviMascot({
     let last = 0;
     const loop = (ts) => {
       raf = requestAnimationFrame(loop);
+      if (!canvasRef.current) return;
       if (reduced) {
-        // draw a single static frame
-        if (canvasRef.current) drawFrame(canvasRef.current, activity, 0);
+        drawFrame(canvasRef.current, activity, 0);
+        if (wrapRef.current) wrapRef.current.style.transform = "none";
         return;
       }
       if (ts - last < 130) return;
       last = ts;
       tRef.current++;
-      if (canvasRef.current) drawFrame(canvasRef.current, activity, tRef.current);
+      drawFrame(canvasRef.current, activity, tRef.current);
       if (wrapRef.current) {
         const t = tRef.current;
-        wrapRef.current.style.transform =
-          `translateY(${bobFor(activity, t)}px) rotate(${rotFor(activity, t)}deg)`;
+        // clamp the bob so it can never look like a glitch
+        const b = Math.max(-6, Math.min(6, bobFor(activity, t)));
+        const rot = rotFor(activity, t);
+        wrapRef.current.style.transform = `translateY(${b}px) rotate(${rot}deg)`;
       }
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [activity, reduced]);
 
+  if (!visible) return null;
+
   return (
     <div
       style={{
-        position: "absolute",
+        position: "fixed",
         top: pos.top,
         left: pos.left,
         width: size,
         height: size,
         zIndex: 40,
-        pointerEvents: "none", // never block card buttons
-        transition: "top .5s ease, left .5s ease",
+        pointerEvents: "none",
+        transition: "top .45s ease, left .45s ease",
+        willChange: "top, left",
       }}
       aria-hidden="true"
     >
