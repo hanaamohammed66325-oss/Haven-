@@ -57,8 +57,9 @@ export function CoursePanel({ course }: { course: Course }) {
 
   // Celebrate when a saved score lands within 3 points of full (ratio >= 0.9).
   // Havi ignores anything below the threshold, so this can fire on every save.
+  // v3 accepts { score, max } and normalizes it internally.
   const celebrateFor = (score: number | null | undefined, total: number) => {
-    if (score != null && total > 0) window.havi?.celebrate(score / total);
+    if (score != null && total > 0) window.havi?.celebrate({ score, max: total });
   };
 
   return (

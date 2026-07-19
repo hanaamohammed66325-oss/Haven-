@@ -7,8 +7,11 @@ export {};
 declare global {
   interface Window {
     havi?: {
-      /** celebrate if ratio >= threshold (default 0.9) */
-      celebrate: (ratio?: number) => void;
+      /**
+       * Celebrate if the grade is within 3 points of full (>= threshold, default 0.9).
+       * v3 accepts any form: ratio 0.95, percentage 95, { score, max }, or no argument.
+       */
+      celebrate: (input?: number | { score: number; max: number }) => void;
       sleep: () => void;
       watch: () => void;
       write: () => void;

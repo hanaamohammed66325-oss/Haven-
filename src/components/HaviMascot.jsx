@@ -127,14 +127,21 @@ function drawFrame(canvas, activity, t) {
     ctx.fillText("z", 22 * s, (6 - (t % 6) * 0.35) * s + s);
   } else if (activity === "watch") {
     px(ctx, s, 12, 13, 4, 1, COL.k); // mouth
-    // eyes dart left -> right -> forward
-    const cyc = Math.floor(t / 6) % 3;
+    // phone held in front
+    px(ctx, s, 10, 18, 8, 3, COL.N);
+    // cycle: look LEFT -> look RIGHT -> look DOWN at phone (x2)
+    const cyc = Math.floor(t / 6) % 4;
     let ox = 0;
+    let oy = 0;
     if (cyc === 0) ox = -1;
     else if (cyc === 1) ox = 1;
-    else ox = 0;
-    px(ctx, s, 8 + ox, 9, 2, 2, COL.k);
-    px(ctx, s, 17 + ox, 9, 2, 2, COL.k);
+    else oy = 1; // looking down at the phone
+    px(ctx, s, 8 + ox, 9 + oy, 2, 2, COL.k);
+    px(ctx, s, 17 + ox, 9 + oy, 2, 2, COL.k);
+    // screen glows only while looking down
+    if (cyc >= 2) {
+      px(ctx, s, 11, 19, 6, 1, t % 2 === 0 ? COL.L : "#c9e3fb");
+    }
   } else if (activity === "write") {
     // studying: writes for a while, then rests (هجد)
     const cyc = t % 30;
@@ -277,10 +284,12 @@ export default function HaviMascot({
         setVisible(false);
         return;
       }
-      // sit ON the top edge of the card, in the chosen corner
-      const top = r.top - size * (behind ? 0.5 : 0.62);
+      // DOCUMENT coordinates (not viewport) so the mascot scrolls WITH the card
+      const top = r.top + window.scrollY - size * (behind ? 0.5 : 0.62);
       const left =
-        corner === "left" ? r.left + 10 : r.right - size - 10;
+        corner === "left"
+          ? r.left + window.scrollX + 10
+          : r.right + window.scrollX - size - 10;
       setPos({ top, left });
       setVisible(true);
     },
@@ -351,7 +360,17 @@ export default function HaviMascot({
   /* celebrate trigger, exposed globally — robust: never errors if card missing */
   const celebrate = useCallback(
     (ratio) => {
-      if (typeof ratio === "number" && ratio < highGradeThreshold) return;
+      // Accept: celebrate(0.95) | celebrate(95) | celebrate({score, max}) | celebrate()
+      let r = ratio;
+      if (r && typeof r === "object") {
+        const sc = Number(r.score);
+        const mx = Number(r.max);
+        r = mx > 0 ? sc / mx : undefined;
+      }
+      if (typeof r === "string") r = Number(r);
+      if (typeof r === "number" && r > 1) r = r / 100; // percentage form
+      if (typeof r === "number" && !Number.isNaN(r) && r < highGradeThreshold) return;
+
       // prefer the course card; fall back to any generic; if none, still celebrate in place
       const el = findCardEl("course") || findCardEl("generic") || targetElRef.current;
       setActivity("celebrate");
@@ -370,7 +389,7 @@ export default function HaviMascot({
     [highGradeThreshold, findCardEl, applyPosFromEl, maybeBubble, placeDefault]
   );
 
-  /* expose window.havi API */
+  /* expose window.havi API + a global event fallback */
   useEffect(() => {
     window.havi = {
       celebrate,
@@ -379,7 +398,14 @@ export default function HaviMascot({
       write: () => { setActivity("write"); perch("current-week"); },
       refresh: placeDefault,
     };
-    return () => { try { delete window.havi; } catch (e) {} };
+    // Alternative trigger — works even if window.havi isn't reachable from a module:
+    //   window.dispatchEvent(new CustomEvent("havi:celebrate", { detail: { score, max } }))
+    const onEvt = (e) => celebrate(e?.detail);
+    window.addEventListener("havi:celebrate", onEvt);
+    return () => {
+      window.removeEventListener("havi:celebrate", onEvt);
+      try { delete window.havi; } catch (e) {}
+    };
   }, [celebrate, perch, maybeBubble, placeDefault]);
 
   useEffect(() => { activityRef.current = activity; }, [activity]);
@@ -391,14 +417,14 @@ export default function HaviMascot({
       if (activityRef.current === "sleep") placeDefault();
     }, relocateEveryMs);
 
-    // Reposition by re-reading the SAME element's live rect (no scroll math).
+    // Only reposition on RESIZE. No scroll listener: with document coordinates
+    // the mascot scrolls along with its card automatically and stays glued to it.
     const onMove = () => {
       if (targetElRef.current) {
         applyPosFromEl(targetElRef.current, cornerRef.current, behindRef.current);
       }
     };
     window.addEventListener("resize", onMove);
-    window.addEventListener("scroll", onMove, true);
 
     // If the page/route changes and cards differ, recompute after a tick.
     const mo = new MutationObserver(() => {
@@ -413,7 +439,6 @@ export default function HaviMascot({
       clearTimeout(boot);
       clearInterval(relocate);
       window.removeEventListener("resize", onMove);
-      window.removeEventListener("scroll", onMove, true);
       mo.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -452,15 +477,13 @@ export default function HaviMascot({
   return (
     <div
       style={{
-        position: "fixed",
+        position: "absolute",
         top: pos.top,
         left: pos.left,
         width: size,
         height: size,
         zIndex: 40,
         pointerEvents: "none",
-        transition: "top .45s ease, left .45s ease",
-        willChange: "top, left",
       }}
       aria-hidden="true"
     >
