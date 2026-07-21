@@ -57,13 +57,20 @@ export function CoursePanel({ course }: { course: Course }) {
 
   // Celebrate when a saved score lands within 3 points of full (ratio >= 0.9).
   // Havi ignores anything below the threshold, so this can fire on every save.
-  // v3 accepts { score, max } and normalizes it internally.
+  // Pass courseId so v5 targets THIS course's card, not the first one.
   const celebrateFor = (score: number | null | undefined, total: number) => {
-    if (score != null && total > 0) window.havi?.celebrate({ score, max: total });
+    if (score != null && total > 0) {
+      window.havi?.celebrate({ score, max: total, courseId: course.id });
+    }
   };
 
   return (
-    <Card padding="p-0" className="overflow-hidden" data-havi-role="course">
+    <Card
+      padding="p-0"
+      className="overflow-hidden"
+      data-havi-role="course"
+      data-havi-course-id={course.id}
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 p-8 border-b" style={border}>
         <div className="min-w-0">

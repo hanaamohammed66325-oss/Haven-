@@ -147,6 +147,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
   return (
     <aside
+      data-havi-role="nav"
       className="haven-sidebar shrink-0 sticky top-0 h-dvh flex flex-col z-30"
       style={{
         width: collapsed ? 76 : 272,
