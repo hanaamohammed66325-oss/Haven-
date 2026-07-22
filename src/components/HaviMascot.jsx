@@ -747,6 +747,15 @@ export default function HaviMascot({
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
+      version: "v8",
+      features: [
+        "behaviour-engine",      // chained: sleep→wake→watch→walk→jump→sleep
+        "rise-entrance",         // enters by rising from behind a card
+        "celebrate-10s",         // 10s, interruptible
+        "squish-on-click",       // fast squash reaction
+        "perpendicular-jump",    // vertical jumps bow sideways
+        "auto-detect-cards",     // works on untagged pages
+      ],
       celebrate,
       poke,
       goTo: (elOrSelector) => {
