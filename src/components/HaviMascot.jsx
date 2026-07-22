@@ -1,37 +1,39 @@
 "use client";
 
 /**
- * HaviMascot — a single context-aware pixel-art frog mascot for Haven.
+ * HaviMascot — a living pixel-art frog that behaves like it inhabits the app.
  *
- * ONE frog at a time. Its position + expression depend on context:
- *   - CELEBRATE : pops up from BEHIND the full course card when a high grade
- *                 is saved (>= 90% of max, i.e. within 3 points of full on a /100 scale;
- *                 the trigger passes a normalized ratio so any max works).
- *   - WATCH     : sits on the Upcoming card corner when a task/exam is near-due.
- *   - WRITE     : sits on top of the CURRENT week card on the Schedule page.
- *   - SLEEP     : default. Perches on a random "generic" card and sleeps (with blanket).
+ * Instead of isolated animations triggered by commands, Havi runs a small
+ * BEHAVIOUR ENGINE: every action is a "phase" with a duration, and phases are
+ * chained into natural sequences. Example: he doesn't teleport when relocating —
+ * he wakes up, looks around, walks to the edge of the card, jumps, lands, then
+ * settles back to sleep.
  *
- * The frog art is drawn on a <canvas> pixel grid so it exactly matches the
- * designs you approved (same body, eyes, mouth, flower, blanket, confetti, etc).
+ * Key behaviours
+ *  - relocating      : sleep -> wake -> watch -> walk -> jump -> land -> settle
+ *  - page navigation : rises from behind a card -> walks in -> settles
+ *  - high grade      : celebrates 10s, interruptible by any user action
+ *  - clicked on      : yelps in pain -> gets angry -> huffs -> back to normal
  *
- * HOW TO USE — see the block comment at the bottom of this file.
+ * Everything is canvas pixels — no images needed.
+ * See integration-guide.md for wiring.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
-/* ------------------------------------------------------------------ */
-/*  Pixel art definitions                                              */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/*  PIXEL ART                                                          */
+/* ================================================================== */
 
 const COL = {
-  k: "#111111", // outline / eyes
-  G: "#a8d98a", // body green
-  f: "#e88bb5", // flower pink
-  y: "#f2d94e", // flower yellow center
-  b: "#3b6ea5", // pen / accents
-  L: "#85b7eb", // light blue
-  N: "#2b3245", // dark navy
-  W: "#ffffff",
+  k: "#111111",
+  G: "#a8d98a",
+  d: "#93c974",
+  f: "#e88bb5",
+  y: "#f2d94e",
+  b: "#3b6ea5",
+  L: "#85b7eb",
+  N: "#2b3245",
   paper: "#f7f5ee",
   ink: "#8a8780",
   tongue: "#e88bb5",
@@ -42,9 +44,11 @@ const COL = {
   blanketSh: "#5f8ec0",
   snore: "#c9d6f0",
   zzz: "#7f77dd",
+  angry: "#d94f3d",
+  steam: "#cfd8e3",
 };
 
-// 28 wide x 21 tall base body (no eyes/mouth baked in). "." = transparent.
+// 28 x 21 body, no face baked in. "." = transparent
 const BODY = [
   "............................",
   ".............kk.............",
@@ -72,10 +76,6 @@ const BODY = [
 const GRID_W = 28;
 const GRID_H = 21;
 
-/* ------------------------------------------------------------------ */
-/*  Canvas drawing helpers                                            */
-/* ------------------------------------------------------------------ */
-
 function px(ctx, s, x, y, w, h, fill) {
   ctx.fillStyle = fill;
   ctx.fillRect(x * s, y * s, w * s, h * s);
@@ -92,175 +92,190 @@ function paintBody(ctx, s) {
 }
 
 /**
- * Draw one animation frame for a given activity onto the canvas.
- * t = frame counter (increments ~ every 130ms).
+ * Draw one frame.
+ * @param extra { riseP?: 0..1 }  riseP clips the body for "rising from behind a card"
  */
-function drawFrame(canvas, activity, t) {
+function drawFrame(canvas, activity, t, extra) {
   const ctx = canvas.getContext("2d");
-  const s = canvas.width / GRID_W; // pixel scale
+  const s = canvas.width / GRID_W;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.imageSmoothingEnabled = false;
 
   paintBody(ctx, s);
 
-  if (activity === "sleep") {
-    // closed eyes
-    px(ctx, s, 7, 10, 4, 1, COL.k);
-    px(ctx, s, 16, 10, 4, 1, COL.k);
-    // breathing mouth
-    if (t % 12 < 6) px(ctx, s, 12, 13, 4, 2, COL.k);
-    else px(ctx, s, 12, 13, 4, 1, COL.k);
-    // blanket over lower body with wavy top edge
-    const by = 15;
-    px(ctx, s, 1, by + 1, 23, 5, COL.blanket);
-    for (let x = 1; x < 24; x += 2) px(ctx, s, x, by, 1, 1, COL.blanket);
-    px(ctx, s, 1, by + 1, 23, 1, COL.blanketHi);
-    px(ctx, s, 6, by + 3, 1, 2, COL.blanketSh);
-    px(ctx, s, 14, by + 3, 1, 2, COL.blanketSh);
-    px(ctx, s, 19, by + 3, 1, 2, COL.blanketSh);
-    // snore bubble
-    const size = 1 + (t % 12 < 6 ? 1 : 0);
-    px(ctx, s, 20, 12, size, size, COL.snore);
-    // Zzz
-    ctx.fillStyle = COL.zzz;
-    ctx.font = `${Math.round(s * 2.2)}px sans-serif`;
-    ctx.fillText("z", 22 * s, (6 - (t % 6) * 0.35) * s + s);
-  } else if (activity === "watch") {
-    px(ctx, s, 12, 13, 4, 1, COL.k); // mouth
-    // phone held in front
-    px(ctx, s, 10, 18, 8, 3, COL.N);
-    // cycle: look LEFT -> look RIGHT -> look DOWN at phone (x2)
-    const cyc = Math.floor(t / 6) % 4;
-    let ox = 0;
-    let oy = 0;
-    if (cyc === 0) ox = -1;
-    else if (cyc === 1) ox = 1;
-    else oy = 1; // looking down at the phone
-    px(ctx, s, 8 + ox, 9 + oy, 2, 2, COL.k);
-    px(ctx, s, 17 + ox, 9 + oy, 2, 2, COL.k);
-    // screen glows only while looking down
-    if (cyc >= 2) {
-      px(ctx, s, 11, 19, 6, 1, t % 2 === 0 ? COL.L : "#c9e3fb");
+  switch (activity) {
+    case "sleep": {
+      px(ctx, s, 7, 10, 4, 1, COL.k); // closed eyes
+      px(ctx, s, 16, 10, 4, 1, COL.k);
+      if (t % 12 < 6) px(ctx, s, 12, 13, 4, 2, COL.k);
+      else px(ctx, s, 12, 13, 4, 1, COL.k);
+      const by = 15; // blanket
+      px(ctx, s, 1, by + 1, 23, 5, COL.blanket);
+      for (let x = 1; x < 24; x += 2) px(ctx, s, x, by, 1, 1, COL.blanket);
+      px(ctx, s, 1, by + 1, 23, 1, COL.blanketHi);
+      px(ctx, s, 6, by + 3, 1, 2, COL.blanketSh);
+      px(ctx, s, 14, by + 3, 1, 2, COL.blanketSh);
+      px(ctx, s, 19, by + 3, 1, 2, COL.blanketSh);
+      px(ctx, s, 20, 12, 1 + (t % 12 < 6 ? 1 : 0), 1 + (t % 12 < 6 ? 1 : 0), COL.snore);
+      ctx.fillStyle = COL.zzz;
+      ctx.font = `${Math.round(s * 2.2)}px sans-serif`;
+      ctx.fillText("z", 22 * s, (6 - (t % 6) * 0.35) * s + s);
+      break;
     }
-  } else if (activity === "write") {
-    // studying: writes for a while, then rests (هجد)
-    const cyc = t % 30;
-    const writing = cyc < 18;
-    // paper
-    px(ctx, s, 7, 19, 9, 3, COL.paper);
-    if (writing) {
-      px(ctx, s, 8, 10, 2, 2, COL.k); // eyes down
-      px(ctx, s, 17, 10, 2, 2, COL.k);
-      const penX = 8 + (cyc % 9);
-      px(ctx, s, 15, 17, 2, 2, COL.G); // little arm
-      px(ctx, s, penX, 16, 1, 3, COL.b); // pen
-      px(ctx, s, penX, 15, 1, 1, COL.mouthRed); // pen tip
-      for (let m = 0; m < cyc % 9; m++) px(ctx, s, 8 + m, 20, 1, 1, COL.ink);
-    } else {
-      px(ctx, s, 7, 10, 3, 1, COL.k); // half-lidded
-      px(ctx, s, 16, 10, 3, 1, COL.k);
-      px(ctx, s, 15, 18, 2, 1, COL.G); // arm resting
-      px(ctx, s, 8, 20, 7, 1, COL.ink); // finished text
+    case "wake": {
+      // eyelids lifting, a stretch
+      const open = Math.min(3, 1 + Math.floor((t % 8) / 3));
+      px(ctx, s, 8, 10, 2, open, COL.k);
+      px(ctx, s, 17, 10, 2, open, COL.k);
+      px(ctx, s, 12, 13, 4, 2, COL.k); // yawn
+      px(ctx, s, 13, 14, 2, 1, "#5a3b45");
+      px(ctx, s, 3, 8, 2, 3, COL.G); // stretching arms
+      px(ctx, s, 22, 8, 2, 3, COL.G);
+      break;
     }
-    px(ctx, s, 12, 13, 4, 1, COL.k); // mouth
-  } else if (activity === "celebrate") {
-    // triangle happy eyes
-    px(ctx, s, 8, 11, 1, 1, COL.k);
-    px(ctx, s, 9, 10, 1, 1, COL.k);
-    px(ctx, s, 10, 11, 1, 1, COL.k);
-    px(ctx, s, 17, 11, 1, 1, COL.k);
-    px(ctx, s, 18, 10, 1, 1, COL.k);
-    px(ctx, s, 19, 11, 1, 1, COL.k);
-    // open smile + tongue
-    px(ctx, s, 11, 13, 6, 1, COL.k);
-    px(ctx, s, 12, 14, 4, 1, COL.mouthRed);
-    px(ctx, s, 13, 15, 2, 1, COL.tongue);
-    // cheeks
-    px(ctx, s, 6, 12, 1, 1, COL.cheek);
-    px(ctx, s, 20, 12, 1, 1, COL.cheek);
-    // confetti
-    const cols = [COL.f, COL.y, "#8bc34a", COL.zzz];
-    for (let i = 0; i < 4; i++) {
-      const cx = 3 + i * 6;
-      const cy = (t * 0.6 + i * 4) % 20;
-      px(ctx, s, cx, Math.floor(cy), 1, 1, cols[i % 4]);
+    case "watch": {
+      px(ctx, s, 12, 13, 4, 1, COL.k);
+      px(ctx, s, 10, 18, 8, 3, COL.N); // phone
+      const cyc = Math.floor(t / 6) % 4;
+      let ox = 0,
+        oy = 0;
+      if (cyc === 0) ox = -1;
+      else if (cyc === 1) ox = 1;
+      else oy = 1;
+      px(ctx, s, 8 + ox, 9 + oy, 2, 2, COL.k);
+      px(ctx, s, 17 + ox, 9 + oy, 2, 2, COL.k);
+      if (cyc >= 2) px(ctx, s, 11, 19, 6, 1, t % 2 === 0 ? COL.L : "#c9e3fb");
+      break;
     }
-  } else if (activity === "hang") {
-    // SITTING on the card edge, legs dangling and swinging, eyes WATCHING around.
-    const look = Math.floor(t / 6) % 3;
-    const ex = look === 0 ? -1 : look === 1 ? 1 : 0;
-    px(ctx, s, 8 + ex, 9, 2, 3, COL.k); // eyes dart left / right / forward
-    px(ctx, s, 17 + ex, 9, 2, 3, COL.k);
-    px(ctx, s, 12, 13, 4, 1, COL.k); // mouth
-    const sw = Math.round(Math.sin(t / 5)); // swing
-    px(ctx, s, 8 + sw, 20, 2, 4, COL.G); // dangling legs
-    px(ctx, s, 8 + sw, 24, 2, 1, COL.d); // feet
-    px(ctx, s, 16 - sw, 20, 2, 4, COL.G);
-    px(ctx, s, 16 - sw, 24, 2, 1, COL.d);
-  } else if (activity === "walk") {
-    // WALKING — alternating feet, small head bob
-    px(ctx, s, 9, 9, 2, 3, COL.k); // eyes look forward
-    px(ctx, s, 18, 9, 2, 3, COL.k);
-    px(ctx, s, 12, 13, 4, 1, COL.k);
-    const step = Math.floor(t / 2) % 2;
-    px(ctx, s, 7, 19, 3, 2, step ? COL.G : COL.d);
-    px(ctx, s, 16, 19, 3, 2, step ? COL.d : COL.G);
-  } else if (activity === "peek") {
-    // PEEKING from behind the card — head, eyes AND mouth stay above the edge
-    px(ctx, s, 8, 9, 2, 3, COL.k); // eyes
-    px(ctx, s, 17, 9, 2, 3, COL.k);
-    px(ctx, s, 12, 13, 4, 1, COL.k); // mouth (kept above the cut)
-    // fingers gripping the edge
-    px(ctx, s, 7, 15, 2, 1, COL.G);
-    px(ctx, s, 18, 15, 2, 1, COL.G);
-    // hide everything below the edge so he reads as being behind the card
-    ctx.clearRect(0, 16 * s, canvas.width, canvas.height);
-  } else if (activity === "books") {
-    // CARRYING BOOKS — a colorful stack held in front
-    px(ctx, s, 8, 9, 2, 3, COL.k); // eyes
-    px(ctx, s, 17, 9, 2, 3, COL.k);
-    px(ctx, s, 11, 13, 6, 1, COL.k); // small smile
-    px(ctx, s, 12, 14, 4, 1, COL.k);
-    const bob = Math.abs(Math.sin(t / 5)) > 0.5 ? 1 : 0;
-    px(ctx, s, 5, 17 - bob, 16, 2, "#c0563f"); // red book
-    px(ctx, s, 6, 19 - bob, 14, 2, COL.b); // blue book
-    px(ctx, s, 5, 21 - bob, 16, 2, "#6a9c5a"); // green book
-    px(ctx, s, 5, 18 - bob, 1, 1, COL.paper); // page edges
-    px(ctx, s, 6, 20 - bob, 1, 1, COL.paper);
-    px(ctx, s, 5, 22 - bob, 1, 1, COL.paper);
-    px(ctx, s, 3, 17 - bob, 2, 3, COL.G); // arms holding
-    px(ctx, s, 21, 17 - bob, 2, 3, COL.G);
-  } else if (activity === "enter") {
-    // ENTERING a page — walking forward (fade + shrink handled by the loop)
-    px(ctx, s, 9, 9, 2, 3, COL.k); // eyes looking ahead
-    px(ctx, s, 18, 9, 2, 3, COL.k);
-    px(ctx, s, 12, 13, 4, 1, COL.k);
-    const st = Math.floor(t / 2) % 2;
-    px(ctx, s, 7, 19, 3, 2, st ? COL.G : COL.d);
-    px(ctx, s, 16, 19, 3, 2, st ? COL.d : COL.G);
-  } else if (activity === "jump") {
-    // JUMP pose — eyes wide, legs tucked under
-    px(ctx, s, 8, 9, 2, 3, COL.k);
-    px(ctx, s, 17, 9, 2, 3, COL.k);
-    px(ctx, s, 12, 13, 4, 1, COL.k);
-    px(ctx, s, 7, 18, 3, 2, COL.G); // tucked legs
-    px(ctx, s, 17, 18, 3, 2, COL.G);
-  } else {
-    // idle: plain open-eyed frog
-    px(ctx, s, 8, 9, 2, 3, COL.k);
-    px(ctx, s, 17, 9, 2, 3, COL.k);
-    px(ctx, s, 12, 13, 4, 1, COL.k);
+    case "write": {
+      const cyc = t % 30;
+      const writing = cyc < 18;
+      px(ctx, s, 7, 19, 9, 3, COL.paper);
+      if (writing) {
+        px(ctx, s, 8, 10, 2, 2, COL.k);
+        px(ctx, s, 17, 10, 2, 2, COL.k);
+        const penX = 8 + (cyc % 9);
+        px(ctx, s, 15, 17, 2, 2, COL.G);
+        px(ctx, s, penX, 16, 1, 3, COL.b);
+        px(ctx, s, penX, 15, 1, 1, COL.mouthRed);
+        for (let m = 0; m < cyc % 9; m++) px(ctx, s, 8 + m, 20, 1, 1, COL.ink);
+      } else {
+        px(ctx, s, 7, 10, 3, 1, COL.k);
+        px(ctx, s, 16, 10, 3, 1, COL.k);
+        px(ctx, s, 15, 18, 2, 1, COL.G);
+        px(ctx, s, 8, 20, 7, 1, COL.ink);
+      }
+      px(ctx, s, 12, 13, 4, 1, COL.k);
+      break;
+    }
+    case "celebrate": {
+      px(ctx, s, 8, 11, 1, 1, COL.k); // triangle eyes
+      px(ctx, s, 9, 10, 1, 1, COL.k);
+      px(ctx, s, 10, 11, 1, 1, COL.k);
+      px(ctx, s, 17, 11, 1, 1, COL.k);
+      px(ctx, s, 18, 10, 1, 1, COL.k);
+      px(ctx, s, 19, 11, 1, 1, COL.k);
+      px(ctx, s, 11, 13, 6, 1, COL.k);
+      px(ctx, s, 12, 14, 4, 1, COL.mouthRed);
+      px(ctx, s, 13, 15, 2, 1, COL.tongue);
+      px(ctx, s, 6, 12, 1, 1, COL.cheek);
+      px(ctx, s, 20, 12, 1, 1, COL.cheek);
+      const cols = [COL.f, COL.y, "#8bc34a", COL.zzz];
+      for (let i = 0; i < 4; i++) {
+        const cx = 3 + i * 6;
+        const cy = (t * 0.6 + i * 4) % 20;
+        px(ctx, s, cx, Math.floor(cy), 1, 1, cols[i % 4]);
+      }
+      break;
+    }
+    case "hang": {
+      const look = Math.floor(t / 6) % 3;
+      const ex = look === 0 ? -1 : look === 1 ? 1 : 0;
+      px(ctx, s, 8 + ex, 9, 2, 3, COL.k);
+      px(ctx, s, 17 + ex, 9, 2, 3, COL.k);
+      px(ctx, s, 12, 13, 4, 1, COL.k);
+      const sw = Math.round(Math.sin(t / 5));
+      px(ctx, s, 8 + sw, 20, 2, 4, COL.G);
+      px(ctx, s, 8 + sw, 24, 2, 1, COL.d);
+      px(ctx, s, 16 - sw, 20, 2, 4, COL.G);
+      px(ctx, s, 16 - sw, 24, 2, 1, COL.d);
+      break;
+    }
+    case "walk": {
+      px(ctx, s, 9, 9, 2, 3, COL.k);
+      px(ctx, s, 18, 9, 2, 3, COL.k);
+      px(ctx, s, 12, 13, 4, 1, COL.k);
+      const st = Math.floor(t / 2) % 2;
+      px(ctx, s, 7, 19, 3, 2, st ? COL.G : COL.d);
+      px(ctx, s, 16, 19, 3, 2, st ? COL.d : COL.G);
+      break;
+    }
+    case "peek": {
+      px(ctx, s, 8, 9, 2, 3, COL.k);
+      px(ctx, s, 17, 9, 2, 3, COL.k);
+      px(ctx, s, 12, 13, 4, 1, COL.k);
+      px(ctx, s, 7, 15, 2, 1, COL.G);
+      px(ctx, s, 18, 15, 2, 1, COL.G);
+      ctx.clearRect(0, 16 * s, canvas.width, canvas.height);
+      break;
+    }
+    case "books": {
+      px(ctx, s, 8, 9, 2, 3, COL.k);
+      px(ctx, s, 17, 9, 2, 3, COL.k);
+      px(ctx, s, 11, 13, 6, 1, COL.k);
+      px(ctx, s, 12, 14, 4, 1, COL.k);
+      const bob = Math.abs(Math.sin(t / 5)) > 0.5 ? 1 : 0;
+      px(ctx, s, 5, 17 - bob, 16, 2, "#c0563f");
+      px(ctx, s, 6, 19 - bob, 14, 2, COL.b);
+      px(ctx, s, 5, 21 - bob, 16, 2, "#6a9c5a");
+      px(ctx, s, 5, 18 - bob, 1, 1, COL.paper);
+      px(ctx, s, 6, 20 - bob, 1, 1, COL.paper);
+      px(ctx, s, 5, 22 - bob, 1, 1, COL.paper);
+      px(ctx, s, 3, 17 - bob, 2, 3, COL.G);
+      px(ctx, s, 21, 17 - bob, 2, 3, COL.G);
+      break;
+    }
+    case "jump": {
+      px(ctx, s, 8, 9, 2, 3, COL.k);
+      px(ctx, s, 17, 9, 2, 3, COL.k);
+      px(ctx, s, 12, 13, 4, 1, COL.k);
+      px(ctx, s, 7, 18, 3, 2, COL.G); // tucked legs
+      px(ctx, s, 17, 18, 3, 2, COL.G);
+      break;
+    }
+    case "squish": {
+      // Being pressed: eyes squeezed shut, mouth open. The flattening itself
+      // is a transform driven every frame in the loop (see squishRef).
+      px(ctx, s, 7, 10, 4, 1, COL.k);
+      px(ctx, s, 8, 9, 1, 1, COL.k);
+      px(ctx, s, 10, 9, 1, 1, COL.k);
+      px(ctx, s, 16, 10, 4, 1, COL.k);
+      px(ctx, s, 17, 9, 1, 1, COL.k);
+      px(ctx, s, 19, 9, 1, 1, COL.k);
+      px(ctx, s, 12, 13, 4, 2, COL.k);
+      px(ctx, s, 13, 14, 2, 1, COL.mouthRed);
+      break;
+    }
+    default: {
+      px(ctx, s, 8, 9, 2, 3, COL.k);
+      px(ctx, s, 17, 9, 2, 3, COL.k);
+      px(ctx, s, 12, 13, 4, 1, COL.k);
+    }
+  }
+
+  // "rising from behind a card": reveal the body gradually from the top
+  if (extra && typeof extra.riseP === "number" && extra.riseP < 1) {
+    const visible = Math.max(2, Math.round(GRID_H * extra.riseP));
+    ctx.clearRect(0, visible * s, canvas.width, canvas.height);
   }
 }
-
-/* ------------------------------------------------------------------ */
-/*  Vertical bob per activity (returns px offset)                     */
-/* ------------------------------------------------------------------ */
 
 function bobFor(activity, t) {
   switch (activity) {
     case "sleep":
       return Math.sin(t / 9) * 2;
+    case "wake":
+      return Math.sin(t / 4) * 2;
     case "celebrate":
       return Math.abs(Math.sin(t / 2.5)) * -6;
     case "watch":
@@ -268,73 +283,74 @@ function bobFor(activity, t) {
     case "write":
       return Math.abs(Math.sin(t / 6)) * -2;
     case "hang":
-      return Math.sin(t / 5) * 1.5; // gentle sway while hanging
+      return Math.sin(t / 5) * 1.5;
     case "walk":
-      return Math.floor(t / 2) % 2 ? -2 : 0; // step bounce
+      return Math.floor(t / 2) % 2 ? -2 : 0;
     case "peek":
-      return Math.abs(Math.sin(t / 8)) * -3; // rises and lowers while peeking
+      return Math.abs(Math.sin(t / 8)) * -3;
     case "books":
       return Math.abs(Math.sin(t / 5)) * -1.5;
-    case "jump":
-      return 0; // the arc itself handles movement
+    case "squish":
+      return 0; // the squash transform handles it
     default:
       return Math.abs(Math.sin(t / 6)) * -2;
   }
 }
 
 function rotFor(activity, t) {
-  return activity === "celebrate" ? Math.sin(t / 2.5) * 3 : 0;
+  if (activity === "celebrate") return Math.sin(t / 2.5) * 3;
+  return 0;
 }
-
-/* ------------------------------------------------------------------ */
-/*  Speech bubbles                                                    */
-/* ------------------------------------------------------------------ */
 
 const BUBBLES = {
   watch: ["ترا قربت! 👀", "لا تنسى! ⏰", "عندك شي قريب!"],
   celebrate: ["برااافو! 🎉", "يا سلام عليك! 🌟", "درجة حلوة! 👏"],
+  squish: ["آي! 😖", "أوووه!", "بس! 😣", "لا تضغط! 😤"],
 };
 
-/* ------------------------------------------------------------------ */
-/*  Main component                                                    */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/*  COMPONENT                                                          */
+/* ================================================================== */
 
 export default function HaviMascot({
   size = 54,
-  highGradeThreshold = 0.9, // >= 90% of max => celebrate (within 3 pts on /100)
-  celebrateMs = 60000, // how long the celebration lasts (default 1 minute)
-  relocateEveryMs = 30000,
+  highGradeThreshold = 0.9,
+  celebrateMs = 10000, // celebration lasts 10s, interruptible
+  restMinMs = 14000, // how long he rests before wanting to move
+  restMaxMs = 26000,
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
-  const tRef = useRef(0);
-  /* refs to read latest state inside intervals without re-binding */
-  const activityRef = useRef("sleep");
-  const roleRef = useRef("generic");
-  const cornerRef = useRef("right");
-  const behindRef = useRef(false);
-  const celebratingRef = useRef(false);
-  const celebrateTimerRef = useRef(null);
   const containerRef = useRef(null);
-  const jumpRef = useRef(null); // {fromTop,fromLeft,toTop,toLeft,start,dur,dir}
-  const posRef = useRef({ top: -9999, left: -9999 });
-  const placeDefaultRef = useRef(null);
-  const enterRef = useRef(null); // {start, dur, phase}
-  const doorRef = useRef(null); // small glowing doorway element
-  const jumpToRef = useRef(null);
-  const showDoorRef = useRef(null);
-  const perchHomeRef = useRef(null);
-  const enterPageRef = useRef(null);
+
   const [activity, setActivity] = useState("sleep");
   const [pos, setPos] = useState({ top: -9999, left: -9999 });
+  const [visible, setVisible] = useState(false);
   const [bubble, setBubble] = useState(null);
   const [reduced, setReduced] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const scale = Math.round(size / GRID_W) || 2;
+
+  const tRef = useRef(0);
+  const posRef = useRef({ top: -9999, left: -9999 });
+  const targetElRef = useRef(null);
+  const cornerRef = useRef("right");
+
+  // behaviour engine
+  const queueRef = useRef([]); // upcoming phases
+  const phaseEndRef = useRef(0); // when the current phase finishes
+  const jumpRef = useRef(null);
+  const walkRef = useRef(null); // {dir, speed}
+  const riseRef = useRef(null); // {start, dur}
+  const squishRef = useRef(null); // {start, dur} — fast press reaction
+  const celebrateUntilRef = useRef(0);
+  const busyRef = useRef(false); // hurt/celebrate lock
+  const restedRef = useRef(false); // alternates rest <-> relocate
+  const bubbleTimerRef = useRef(null);
+
+  const scale = Math.max(2, Math.round(size / GRID_W));
   const canvasW = scale * GRID_W;
   const canvasH = scale * GRID_H;
 
-  /* respect reduced motion */
+  /* ---------------- reduced motion ---------------- */
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReduced(mq.matches);
@@ -343,7 +359,7 @@ export default function HaviMascot({
     return () => mq.removeEventListener?.("change", fn);
   }, []);
 
-  /* find a visible card element by role */
+  /* ---------------- finding cards ---------------- */
   const findCardEl = useCallback((role) => {
     const els = Array.from(
       document.querySelectorAll(`[data-havi-role="${role}"]`)
@@ -352,272 +368,90 @@ export default function HaviMascot({
     return els[Math.floor(Math.random() * els.length)];
   }, []);
 
-  /**
-   * AUTO-DETECT cards on pages that have no data-havi-role tags.
-   * Looks for card-like boxes: visible, rounded corners, own background,
-   * reasonable size, and not merely a wrapper around other cards.
-   */
-  const autoDetectCard = useCallback(() => {
+  const allCards = useCallback(() => {
+    const tagged = Array.from(
+      document.querySelectorAll("[data-havi-role], [data-havi-card], [data-havi-course-id]")
+    ).filter((el) => el.offsetParent !== null);
+    if (tagged.length) return tagged;
+
+    // auto-detect card-like boxes on untagged pages
     const vw = window.innerWidth;
-    const candidates = [];
+    const out = [];
     const nodes = document.querySelectorAll(
       "main div, main section, main article, div[class*='card'], section, article"
     );
     for (const el of nodes) {
       if (el.offsetParent === null) continue;
       const r = el.getBoundingClientRect();
-      if (r.width < 180 || r.height < 70) continue;      // too small
-      if (r.width > vw * 0.96) continue;                  // full-width wrapper
-      if (r.height > window.innerHeight * 1.5) continue;  // page-level container
+      if (r.width < 180 || r.height < 70) continue;
+      if (r.width > vw * 0.96) continue;
+      if (r.height > window.innerHeight * 1.5) continue;
       const cs = window.getComputedStyle(el);
-      const radius = parseFloat(cs.borderRadius) || 0;
+      if ((parseFloat(cs.borderRadius) || 0) < 8) continue;
       const bg = cs.backgroundColor;
-      const hasBg = bg && bg !== "transparent" && !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(bg);
-      const hasBorder = parseFloat(cs.borderWidth) > 0;
-      const hasShadow = cs.boxShadow && cs.boxShadow !== "none";
-      if (radius < 8) continue;                           // cards are rounded
-      if (!hasBg && !hasBorder && !hasShadow) continue;    // needs a visible surface
-      candidates.push(el);
+      const hasBg = bg && !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(bg) && bg !== "transparent";
+      if (!hasBg && !(parseFloat(cs.borderWidth) > 0) && cs.boxShadow === "none") continue;
+      out.push(el);
     }
-    if (!candidates.length) return null;
-    // prefer innermost cards (drop any element that contains another candidate)
-    const leaves = candidates.filter(
-      (el) => !candidates.some((other) => other !== el && el.contains(other))
-    );
-    const pool = leaves.length ? leaves : candidates;
-    return pool[Math.floor(Math.random() * pool.length)];
+    // prefer innermost
+    const leaves = out.filter((el) => !out.some((o) => o !== el && el.contains(o)));
+    return leaves.length ? leaves : out;
   }, []);
 
-  /* store the element we're currently perched on so scroll/resize can re-read it */
-  const targetElRef = useRef(null);
-
-  /* compute fixed-viewport coords from the perched element and apply them */
-  const applyPosFromEl = useCallback(
-    (el, corner, behind) => {
-      if (!el || el.offsetParent === null) {
-        setVisible(false);
-        return;
-      }
+  /* only cards currently on screen — so he never acts off-view */
+  const visibleCards = useCallback(() => {
+    return allCards().filter((el) => {
       const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) {
-        setVisible(false);
-        return;
-      }
-      // DOCUMENT coordinates (not viewport) so the mascot scrolls WITH the card
-      const top = r.top + window.scrollY - size * (behind ? 0.5 : 0.62);
-      const left =
-        corner === "left"
-          ? r.left + window.scrollX + 10
-          : r.right + window.scrollX - size - 10;
-      setPos({ top, left });
-      posRef.current = { top, left };
-      setVisible(true);
+      return r.bottom > 60 && r.top < window.innerHeight - 40;
+    });
+  }, [allCards]);
+
+  const randomCard = useCallback(() => {
+    const pool = visibleCards();
+    if (!pool.length) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }, [visibleCards]);
+
+  /* ---------------- positioning ---------------- */
+  const setPosition = useCallback((top, left) => {
+    posRef.current = { top, left };
+    setPos({ top, left });
+    if (containerRef.current) {
+      containerRef.current.style.top = `${top}px`;
+      containerRef.current.style.left = `${left}px`;
+    }
+  }, []);
+
+  const coordsFor = useCallback(
+    (el, corner) => {
+      const r = el.getBoundingClientRect();
+      return {
+        top: r.top + window.scrollY - size * 0.62,
+        left:
+          corner === "left"
+            ? r.left + window.scrollX + 10
+            : r.right + window.scrollX - size - 10,
+      };
     },
     [size]
   );
 
-  /* perch on a card by role; falls back to generic; hides if nothing found */
   const perch = useCallback(
-    (role, corner = "right", behind = false) => {
-      let el = findCardEl(role);
-      if (!el) el = findCardEl("generic");
-      if (!el) el = autoDetectCard(); // works on untagged pages
-      if (!el) {
-        targetElRef.current = null;
-        setVisible(false);
-        return;
-      }
-      targetElRef.current = el;
-      roleRef.current = role;
-      cornerRef.current = corner;
-      behindRef.current = behind;
-      applyPosFromEl(el, corner, behind);
-    },
-    [findCardEl, autoDetectCard, applyPosFromEl]
-  );
-
-  const bubbleTimerRef = useRef(null);
-  /**
-   * JUMP to a card with a frog-like arc (a V that leans left or right
-   * depending on travel direction).
-   */
-  const jumpTo = useCallback(
     (el, corner) => {
-      if (!el || el.offsetParent === null) return;
-      const r = el.getBoundingClientRect();
-      if (r.width === 0) return;
-
-      // where we're going
-      const useCorner =
-        corner || (Math.random() > 0.5 ? "left" : "right");
-      const toTop = r.top + window.scrollY - size * 0.62;
-      const toLeft =
-        useCorner === "left"
-          ? r.left + window.scrollX + 10
-          : r.right + window.scrollX - size - 10;
-
-      const from = posRef.current;
-      // if we've never been placed, just appear there
-      if (from.top < -9000) {
-        targetElRef.current = el;
-        cornerRef.current = useCorner;
-        behindRef.current = false;
-        applyPosFromEl(el, useCorner, false);
-        return;
-      }
-
-      const dx = toLeft - from.left;
-      const dy = toTop - from.top;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 4) return; // already there
-
+      if (!el || el.offsetParent === null) return false;
+      const c = corner || (Math.random() > 0.5 ? "left" : "right");
+      const { top, left } = coordsFor(el, c);
       targetElRef.current = el;
-      cornerRef.current = useCorner;
-      behindRef.current = false;
-
-      // Cards stack vertically and the page scrolls up/down, so the arc must
-      // bow PERPENDICULAR to the direction of travel:
-      //   - horizontal move  -> arc lifts upward
-      //   - vertical move    -> arc bulges out to the side
-      const vertical = Math.abs(dy) > Math.abs(dx);
-      const side = from.left > window.innerWidth / 2 ? -1 : 1; // bulge inward
-
-      jumpRef.current = {
-        fromTop: from.top,
-        fromLeft: from.left,
-        toTop,
-        toLeft,
-        start: performance.now(),
-        dur: Math.min(950, 400 + dist * 0.32),
-        dir: vertical ? side : dx >= 0 ? 1 : -1, // lean direction
-        vertical,
-        side,
-        bulge: Math.min(90, 30 + dist * 0.22), // sideways opening (vertical jumps)
-        lift: Math.min(70, 22 + dist * 0.16), // upward hop
-      };
-      setActivity("jump");
+      cornerRef.current = c;
+      setPosition(top, left);
       setVisible(true);
+      return true;
     },
-    [size, applyPosFromEl]
+    [coordsFor, setPosition]
   );
 
-  /* Click anywhere on a card -> Havi hops over to it */
-  useEffect(() => {
-    const CARD_SEL =
-      '[data-havi-role], [data-havi-card], [data-havi-course-id]';
-    const onClick = (e) => {
-      if (celebratingRef.current) return; // don't interrupt the party
-      let el = e.target instanceof Element ? e.target.closest(CARD_SEL) : null;
-      // untagged pages: walk up to the nearest card-like box
-      if (!el && e.target instanceof Element) {
-        let p = e.target;
-        while (p && p !== document.body) {
-          const rect = p.getBoundingClientRect();
-          const cs = window.getComputedStyle(p);
-          if (
-            rect.width >= 180 &&
-            rect.height >= 70 &&
-            rect.width <= window.innerWidth * 0.96 &&
-            (parseFloat(cs.borderRadius) || 0) >= 8
-          ) {
-            el = p;
-            break;
-          }
-          p = p.parentElement;
-        }
-      }
-      if (!el) return;
-      if (el === targetElRef.current) return; // already sitting there
-      jumpTo(el);
-    };
-    document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
-  }, [jumpTo]);
-
-  /* Find the sidebar / nav menu (Havi's home base lives at its bottom) */
-  const findNavEl = useCallback(() => {
-    const explicit = document.querySelector('[data-havi-role="nav"]');
-    if (explicit && explicit.offsetParent !== null) return explicit;
-    const guesses = document.querySelectorAll("nav, aside, [role='navigation']");
-    let best = null;
-    for (const el of guesses) {
-      if (el.offsetParent === null) continue;
-      const r = el.getBoundingClientRect();
-      // a sidebar is tall and narrow
-      if (r.height > window.innerHeight * 0.5 && r.width < window.innerWidth * 0.35) {
-        if (!best || r.height > best.getBoundingClientRect().height) best = el;
-      }
-    }
-    return best;
-  }, []);
-
-  /* HOME BASE — bottom of the sidebar, near the account section */
-  const perchHome = useCallback(() => {
-    const nav = findNavEl();
-    if (!nav) return false;
-    const r = nav.getBoundingClientRect();
-    if (r.width === 0) return false;
-    const top = r.bottom + window.scrollY - size * 1.35;
-    const left = r.left + window.scrollX + r.width / 2 - size / 2;
-    targetElRef.current = nav;
-    roleRef.current = "nav";
-    cornerRef.current = "right";
-    behindRef.current = false;
-    setPos({ top, left });
-    posRef.current = { top, left };
-    setVisible(true);
-    return true;
-  }, [findNavEl, size]);
-
-  /* Show a small glowing doorway on the nav while Havi steps through */
-  const showDoor = useCallback((show) => {
-    if (!show) {
-      if (doorRef.current) {
-        doorRef.current.remove();
-        doorRef.current = null;
-      }
-      return;
-    }
-    const nav = findNavEl();
-    if (!nav) return;
-    const r = nav.getBoundingClientRect();
-    const d = document.createElement("div");
-    // deliberately SMALL — just a slot, not a full-width panel
-    const w = Math.min(26, r.width * 0.28);
-    d.style.cssText = `
-      position:absolute;
-      top:${r.bottom + window.scrollY - size * 1.15}px;
-      left:${r.left + window.scrollX + r.width / 2 - w / 2}px;
-      width:${w}px; height:${w}px;
-      border-radius:6px;
-      background:radial-gradient(circle, rgba(133,183,235,.85), rgba(133,183,235,.15));
-      pointer-events:none; z-index:39;
-      transition:opacity .25s ease;
-    `;
-    document.body.appendChild(d);
-    doorRef.current = d;
-  }, [findNavEl, size]);
-
-  /**
-   * ENTER A PAGE — hop to the nav, walk into a small doorway (shrink + fade),
-   * vanish for a beat, then reappear at the home base.
-   */
-  const enterPage = useCallback(() => {
-    if (celebratingRef.current) return;
-    const nav = findNavEl();
-    if (!nav) return;
-    // 1) hop over to the menu
-    jumpToRef.current?.(nav, "right");
-    // 2) after the hop, walk into the doorway
-    window.setTimeout(() => {
-      perchHome();
-      showDoor(true);
-      setActivity("enter");
-      enterRef.current = { start: performance.now(), dur: 900 };
-    }, 950);
-  }, [findNavEl, perchHome, showDoor]);
-
-  const maybeBubble = useCallback((kind, ms = 4000) => {
+  /* ---------------- bubbles ---------------- */
+  const say = useCallback((kind, ms = 3500) => {
     const arr = BUBBLES[kind];
     if (!arr) return;
     setBubble(arr[Math.floor(Math.random() * arr.length)]);
@@ -625,57 +459,150 @@ export default function HaviMascot({
     bubbleTimerRef.current = setTimeout(() => setBubble(null), ms);
   }, []);
 
-  /* decide default placement: schedule? near-due? else sleep on a generic card */
-  const placeDefault = useCallback(() => {
-    // Never interrupt an ongoing celebration
-    if (celebratingRef.current) return;
+  /* ================= BEHAVIOUR ENGINE ================= */
 
-    // Schedule page: write / hang / walk on the current week
+  /** what he does when resting, based on which page he's on */
+  const restingActivity = useCallback(() => {
     if (findCardEl("current-week")) {
-      const moves = ["write", "hang", "walk"];
-      setActivity(moves[Math.floor(Math.random() * moves.length)]);
-      perch("current-week", Math.random() > 0.5 ? "left" : "right");
-      return;
+      return ["write", "hang", "walk"][Math.floor(Math.random() * 3)];
     }
-    // Upcoming with a near-due flag
-    const upcoming = document.querySelector(
+    const nearDue = document.querySelector(
       '[data-havi-role="upcoming"][data-havi-near-due="true"]'
     );
-    if (upcoming && upcoming.offsetParent !== null) {
-      setActivity("watch");
-      perch("upcoming", "right");
-      maybeBubble("watch");
-      return;
-    }
-    // COURSES PAGE: watch / peek / books on a course card
+    if (nearDue && nearDue.offsetParent !== null) return "watch";
     if (findCardEl("course")) {
-      const moves = ["watch", "peek", "books"];
-      setActivity(moves[Math.floor(Math.random() * moves.length)]);
-      perch("course", Math.random() > 0.5 ? "left" : "right");
-      return;
+      return ["watch", "peek", "books"][Math.floor(Math.random() * 3)];
     }
-    // Profile / settings style pages: if there's a generic card, watch on it
-    // (profile page should show the watching expression)
-    if (findCardEl("profile")) {
-      setActivity("watch");
-      perch("profile", Math.random() > 0.5 ? "left" : "right");
-      return;
-    }
-    // Default: sleep on a random card (tagged, or auto-detected on untagged pages)
-    if (findCardEl("generic") || autoDetectCard()) {
-      setActivity("sleep");
-      perch("generic", Math.random() > 0.5 ? "left" : "right");
-    } else {
-      // no cards on this page -> go home (bottom of the sidebar)
-      if (!perchHomeRef.current?.()) setVisible(false);
-      else setActivity("watch");
-    }
-  }, [findCardEl, autoDetectCard, perch, maybeBubble]);
+    return Math.random() > 0.35 ? "sleep" : "watch";
+  }, [findCardEl]);
 
-  /* celebrate trigger, exposed globally — robust: never errors if card missing */
+  /** push a sequence of phases; the engine plays them in order */
+  const queue = useCallback((steps) => {
+    queueRef.current = steps;
+    phaseEndRef.current = 0; // advance immediately on next tick
+  }, []);
+
+  /** settle into a resting phase on the current card */
+  const settle = useCallback(() => {
+    busyRef.current = false;
+    const el = targetElRef.current;
+    if (!el || el.offsetParent === null) {
+      const c = randomCard();
+      if (!c) {
+        setVisible(false);
+        phaseEndRef.current = performance.now() + 3000;
+        return;
+      }
+      perch(c);
+    }
+    // near-due reminder gets a nudge
+    const act = restingActivity();
+    setActivity(act);
+    if (act === "watch") {
+      const nearDue = document.querySelector(
+        '[data-havi-role="upcoming"][data-havi-near-due="true"]'
+      );
+      if (nearDue && Math.random() > 0.5) say("watch");
+    }
+    phaseEndRef.current =
+      performance.now() + restMinMs + Math.random() * (restMaxMs - restMinMs);
+  }, [perch, randomCard, restingActivity, say, restMinMs, restMaxMs]);
+
+  /** the full "I want to move somewhere else" sequence */
+  const relocate = useCallback(
+    (target) => {
+      const dest = target || randomCard();
+      if (!dest || dest === targetElRef.current) {
+        settle();
+        return;
+      }
+      const from = posRef.current;
+      const to = coordsFor(dest, Math.random() > 0.5 ? "left" : "right");
+      const goingRight = to.left >= from.left;
+
+      const steps = [];
+      // if he's asleep, he has to wake up first
+      if (activity === "sleep") steps.push({ act: "wake", ms: 900 });
+      steps.push({ act: "watch", ms: 1400 }); // look around
+      steps.push({
+        act: "walk",
+        ms: 900,
+        onStart: () => {
+          walkRef.current = { dir: goingRight ? 1 : -1, speed: 0.9 };
+        },
+        onEnd: () => {
+          walkRef.current = null;
+        },
+      });
+      steps.push({
+        act: "jump",
+        ms: 0, // duration comes from the jump itself
+        onStart: () => startJump(dest, to),
+      });
+      queue(steps);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activity, randomCard, coordsFor, settle, queue]
+  );
+
+  /** launch the arc; perpendicular bow so vertical moves work */
+  const startJump = useCallback(
+    (destEl, toCoords) => {
+      const from = posRef.current;
+      const to = toCoords || coordsFor(destEl, cornerRef.current);
+      const dx = to.left - from.left;
+      const dy = to.top - from.top;
+      const dist = Math.hypot(dx, dy) || 1;
+      const vertical = Math.abs(dy) > Math.abs(dx);
+      const side = from.left > window.innerWidth / 2 ? -1 : 1;
+
+      targetElRef.current = destEl;
+      jumpRef.current = {
+        fromTop: from.top,
+        fromLeft: from.left,
+        toTop: to.top,
+        toLeft: to.left,
+        start: performance.now(),
+        dur: Math.min(950, 420 + dist * 0.3),
+        vertical,
+        side,
+        dir: vertical ? side : dx >= 0 ? 1 : -1,
+        bulge: Math.min(90, 30 + dist * 0.22),
+        lift: Math.min(70, 24 + dist * 0.16),
+      };
+      setVisible(true);
+    },
+    [coordsFor]
+  );
+
+  /** entrance: rise up from behind a visible card, walk a little, then settle */
+  const enterFromCard = useCallback(() => {
+    const card = randomCard();
+    if (!card) {
+      setVisible(false);
+      return;
+    }
+    perch(card);
+    setVisible(true);
+    riseRef.current = { start: performance.now(), dur: 700 };
+    queue([
+      { act: "peek", ms: 700 }, // rising (clip handled by riseRef)
+      {
+        act: "walk",
+        ms: 800,
+        onStart: () => {
+          walkRef.current = { dir: Math.random() > 0.5 ? 1 : -1, speed: 0.7 };
+        },
+        onEnd: () => {
+          walkRef.current = null;
+        },
+      },
+    ]);
+  }, [randomCard, perch, queue]);
+
+  /* ---------------- celebrate ---------------- */
   const celebrate = useCallback(
     (arg) => {
-      // Accept: celebrate(0.95) | celebrate(95) | celebrate({score, max, courseId|el|selector}) | celebrate()
       const detail = arg && typeof arg === "object" ? arg : null;
       let r = detail ? undefined : arg;
       if (detail) {
@@ -685,258 +612,330 @@ export default function HaviMascot({
         else if (detail.ratio !== undefined) r = Number(detail.ratio);
       }
       if (typeof r === "string") r = Number(r);
-      if (typeof r === "number" && r > 1) r = r / 100; // percentage form
+      if (typeof r === "number" && r > 1) r = r / 100;
       if (typeof r === "number" && !Number.isNaN(r) && r < highGradeThreshold) return;
 
-      /* ---- Find the RIGHT card: the course the grade belongs to ---- */
-      const CARD_SEL =
-        '[data-havi-role="course"], [data-havi-course-id], [data-havi-card]';
+      // which card? the one whose grade field you were just in
+      const SEL = '[data-havi-role="course"], [data-havi-course-id], [data-havi-card]';
       let el = null;
-
-      // 1) explicit element passed in
       if (detail?.el instanceof Element) el = detail.el;
-      // 2) CSS selector passed in
       if (!el && detail?.selector) el = document.querySelector(detail.selector);
-      // 3) course id passed in -> match the card carrying that id
-      if (!el && detail?.courseId != null) {
+      if (!el && detail?.courseId != null)
         el =
           document.querySelector(`[data-havi-course-id="${detail.courseId}"]`) ||
           document.querySelector(`[data-course-id="${detail.courseId}"]`);
-      }
-      // 4) SMART FALLBACK: the field you just typed the grade into tells us
-      //    which course card we're in — no wiring needed.
       if (!el) {
-        const focused = document.activeElement;
-        if (focused && focused !== document.body) {
-          el = focused.closest(CARD_SEL) || null;
-          if (!el) {
-            // walk up to the nearest auto-detected card-like ancestor
-            let p = focused.parentElement;
-            while (p && p !== document.body) {
-              const rect = p.getBoundingClientRect();
-              const cs = window.getComputedStyle(p);
-              if (
-                rect.width >= 180 &&
-                rect.height >= 70 &&
-                (parseFloat(cs.borderRadius) || 0) >= 8
-              ) {
-                el = p;
-                break;
-              }
-              p = p.parentElement;
-            }
-          }
-        }
+        const f = document.activeElement;
+        if (f && f !== document.body) el = f.closest(SEL);
       }
-      // 5) last resorts
-      if (!el) el = findCardEl("course") || findCardEl("generic") || autoDetectCard();
-      if (!el) el = targetElRef.current;
+      if (!el) el = findCardEl("course") || randomCard() || targetElRef.current;
+      if (!el) return;
 
+      queueRef.current = [];
+      jumpRef.current = null;
+      walkRef.current = null;
+      busyRef.current = true;
+      perch(el, "right");
       setActivity("celebrate");
-      celebratingRef.current = true;
-      if (el) {
-        targetElRef.current = el;
-        roleRef.current = "course";
-        cornerRef.current = "right";
-        behindRef.current = true;
-        applyPosFromEl(el, "right", true);
-        // make sure the party is actually visible on screen
-        try {
-          el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        } catch (e) {}
-      }
-      maybeBubble("celebrate", Math.min(celebrateMs, 8000));
-
-      // stay celebrating for a good while (default 60s)
-      if (celebrateTimerRef.current) clearTimeout(celebrateTimerRef.current);
-      celebrateTimerRef.current = window.setTimeout(() => {
-        celebratingRef.current = false;
-        placeDefault();
-      }, celebrateMs);
+      say("celebrate", Math.min(celebrateMs, 5000));
+      celebrateUntilRef.current = performance.now() + celebrateMs;
+      phaseEndRef.current = celebrateUntilRef.current;
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (e) {}
     },
-    [
-      highGradeThreshold,
-      celebrateMs,
-      findCardEl,
-      autoDetectCard,
-      applyPosFromEl,
-      maybeBubble,
-      placeDefault,
-    ]
+    [highGradeThreshold, celebrateMs, findCardEl, randomCard, perch, say]
   );
 
-  /* expose window.havi API + a global event fallback */
+  /** any user action cuts the party short and he re-enters naturally */
+  const interruptCelebration = useCallback(() => {
+    if (!busyRef.current || activity !== "celebrate") return;
+    celebrateUntilRef.current = 0;
+    busyRef.current = false;
+    setBubble(null);
+    enterFromCard();
+  }, [activity, enterFromCard]);
+
+  /* ---------------- poke reaction ---------------- */
+  const poke = useCallback(() => {
+    if (squishRef.current) return; // already squishing
+    jumpRef.current = null;
+    walkRef.current = null;
+    busyRef.current = true;
+    squishRef.current = { start: performance.now(), dur: 420 }; // fast & snappy
+    queueRef.current = [{ act: "squish", ms: 420 }];
+    phaseEndRef.current = 0;
+    say("squish", 1100);
+  }, [say]);
+
+  /* ---------------- refs used inside the loop ---------------- */
+  const settleRef = useRef(null);
+  const relocateRef = useRef(null);
+  const enterRef2 = useRef(null);
+  useEffect(() => {
+    settleRef.current = settle;
+  }, [settle]);
+  useEffect(() => {
+    relocateRef.current = relocate;
+  }, [relocate]);
+  useEffect(() => {
+    enterRef2.current = enterFromCard;
+  }, [enterFromCard]);
+
+  /* ---------------- clicks ---------------- */
+  useEffect(() => {
+    const onClick = (e) => {
+      const el = e.target;
+      if (!(el instanceof Element)) return;
+      // clicking Havi himself is handled by his own handler
+      if (containerRef.current && containerRef.current.contains(el)) return;
+
+      // any click during a celebration ends it gracefully
+      if (busyRef.current && activity === "celebrate") {
+        interruptCelebration();
+        return;
+      }
+      if (busyRef.current) return; // hurt/angry: let him finish
+
+      // clicking a card -> he goes there properly (walk + jump)
+      let card = el.closest(
+        '[data-havi-role], [data-havi-card], [data-havi-course-id]'
+      );
+      if (!card) {
+        let p = el;
+        while (p && p !== document.body) {
+          const r = p.getBoundingClientRect();
+          const cs = window.getComputedStyle(p);
+          if (
+            r.width >= 180 &&
+            r.height >= 70 &&
+            r.width <= window.innerWidth * 0.96 &&
+            (parseFloat(cs.borderRadius) || 0) >= 8
+          ) {
+            card = p;
+            break;
+          }
+          p = p.parentElement;
+        }
+      }
+      if (card && card !== targetElRef.current) relocateRef.current?.(card);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [activity, interruptCelebration]);
+
+  /* ---------------- route changes ---------------- */
+  useEffect(() => {
+    let lastPath = window.location.pathname;
+    const id = setInterval(() => {
+      if (window.location.pathname === lastPath) return;
+      lastPath = window.location.pathname;
+      // a page change cancels whatever he was doing
+      queueRef.current = [];
+      jumpRef.current = null;
+      walkRef.current = null;
+      busyRef.current = false;
+      celebrateUntilRef.current = 0;
+      setBubble(null);
+      setVisible(false);
+      // let the new page render, then he rises from behind a card
+      setTimeout(() => enterRef2.current?.(), 500);
+    }, 400);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
       celebrate,
-      sleep: () => { setActivity("sleep"); perch("generic"); },
-      watch: () => { setActivity("watch"); perch("upcoming"); maybeBubble("watch"); },
-      write: () => { setActivity("write"); perch("current-week"); },
-      jumpTo: (elOrSelector, corner) => {
+      poke,
+      goTo: (elOrSelector) => {
         const el =
           typeof elOrSelector === "string"
             ? document.querySelector(elOrSelector)
             : elOrSelector;
-        jumpTo(el, corner);
+        if (el) relocateRef.current?.(el);
       },
-      refresh: placeDefault,
-      enterPage: () => enterPageRef.current?.(),
-      goHome: () => { perchHomeRef.current?.(); setActivity("watch"); },
+      refresh: () => enterRef2.current?.(),
     };
-    // Alternative trigger — works even if window.havi isn't reachable from a module:
-    //   window.dispatchEvent(new CustomEvent("havi:celebrate", { detail: { score, max } }))
     const onEvt = (e) => celebrate(e?.detail);
     window.addEventListener("havi:celebrate", onEvt);
     return () => {
       window.removeEventListener("havi:celebrate", onEvt);
-      try { delete window.havi; } catch (e) {}
+      try {
+        delete window.havi;
+      } catch (e) {}
     };
-  }, [celebrate, perch, maybeBubble, placeDefault, jumpTo]);
+  }, [celebrate, poke]);
 
-  useEffect(() => { activityRef.current = activity; }, [activity]);
-  useEffect(() => { placeDefaultRef.current = placeDefault; }, [placeDefault]);
-  useEffect(() => { jumpToRef.current = jumpTo; }, [jumpTo]);
-  useEffect(() => { showDoorRef.current = showDoor; }, [showDoor]);
-  useEffect(() => { perchHomeRef.current = perchHome; }, [perchHome]);
-  useEffect(() => { enterPageRef.current = enterPage; }, [enterPage]);
-
-  /* initial placement + relocate timer + reposition on scroll/resize */
+  /* ---------------- boot + keep glued on resize ---------------- */
   useEffect(() => {
-    const boot = setTimeout(placeDefault, 400);
-    const relocate = setInterval(() => {
-      if (activityRef.current === "sleep") placeDefault();
-    }, relocateEveryMs);
-
-    // Only reposition on RESIZE. No scroll listener: with document coordinates
-    // the mascot scrolls along with its card automatically and stays glued to it.
-    const onMove = () => {
-      if (targetElRef.current) {
-        applyPosFromEl(targetElRef.current, cornerRef.current, behindRef.current);
+    const boot = setTimeout(() => enterRef2.current?.(), 600);
+    const onResize = () => {
+      const el = targetElRef.current;
+      if (el && el.offsetParent !== null && !jumpRef.current) {
+        const { top, left } = coordsFor(el, cornerRef.current);
+        setPosition(top, left);
       }
     };
-    window.addEventListener("resize", onMove);
-
-    // If the page/route changes and cards differ, recompute after a tick.
-    const mo = new MutationObserver(() => {
-      // only re-place if our current target vanished
-      if (!targetElRef.current || targetElRef.current.offsetParent === null) {
-        placeDefault();
-      }
-    });
-    mo.observe(document.body, { childList: true, subtree: true });
-
-    // Re-place on client-side route changes (Next.js navigation doesn't reload)
-    let lastPath = window.location.pathname;
-    const routeCheck = setInterval(() => {
-      if (window.location.pathname !== lastPath) {
-        lastPath = window.location.pathname;
-        targetElRef.current = null;
-        // Havi "walks into" the new page from the menu, then settles on it
-        setTimeout(() => {
-          if (!celebratingRef.current) enterPageRef.current?.();
-        }, 200);
-      }
-    }, 500);
-
+    window.addEventListener("resize", onResize);
     return () => {
       clearTimeout(boot);
-      clearInterval(relocate);
-      clearInterval(routeCheck);
-      window.removeEventListener("resize", onMove);
-      if (doorRef.current) { doorRef.current.remove(); doorRef.current = null; }
-      mo.disconnect();
+      window.removeEventListener("resize", onResize);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [relocateEveryMs]);
+  }, [coordsFor, setPosition]);
 
-  /* animation loop */
+  /* ================= MAIN LOOP ================= */
   useEffect(() => {
     let raf;
     let last = 0;
-    const loop = (ts) => {
-      raf = requestAnimationFrame(loop);
-      if (!canvasRef.current) return;
-      if (reduced) {
-        drawFrame(canvasRef.current, activity, 0);
-        if (wrapRef.current) wrapRef.current.style.transform = "none";
+
+    const currentStepRef = { step: null };
+    const advance = () => {
+      // finish the step that just ended
+      if (currentStepRef.step?.onEnd) currentStepRef.step.onEnd();
+      currentStepRef.step = null;
+
+      const q = queueRef.current;
+      if (q.length) {
+        const step = q.shift();
+        currentStepRef.step = step;
+        step.onStart?.();
+        setActivity(step.act);
+        phaseEndRef.current =
+          step.ms > 0 ? performance.now() + step.ms : Number.MAX_SAFE_INTEGER;
         return;
       }
-      /* ---- JUMP ARC — runs EVERY frame for smoothness ---- */
-      /* ---- ENTERING A PAGE: shrink + fade into the small doorway ---- */
-      const en = enterRef.current;
-      if (en && containerRef.current) {
-        const p = Math.min(1, (ts - en.start) / en.dur);
-        const sc = 1 - 0.75 * p;
-        containerRef.current.style.opacity = String(Math.max(0, 1 - p));
-        containerRef.current.style.transform = `scale(${sc.toFixed(3)})`;
-        containerRef.current.style.transformOrigin = "50% 100%";
+
+      // Queue is empty. Alternate between resting and moving somewhere new,
+      // so he naturally cycles: rest -> wake/look/walk/jump -> rest -> ...
+      if (restedRef.current) {
+        restedRef.current = false;
+        relocateRef.current?.();
+      } else {
+        restedRef.current = true;
+        settleRef.current?.();
+      }
+    };
+
+    const loop = (ts) => {
+      raf = requestAnimationFrame(loop);
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      /* --- rising from behind a card --- */
+      let riseP = 1;
+      const ri = riseRef.current;
+      if (ri) {
+        riseP = Math.min(1, (ts - ri.start) / ri.dur);
+        if (riseP >= 1) riseRef.current = null;
+      }
+
+      /* --- squish reaction: flatten fast, spring back --- */
+      const sq = squishRef.current;
+      if (sq && wrapRef.current) {
+        const p = Math.min(1, (ts - sq.start) / sq.dur);
+        let sy;
+        if (p < 0.22) sy = 1 - (p / 0.22) * 0.45; // slam down to 0.55
+        else if (p < 0.55) sy = 0.55 + ((p - 0.22) / 0.33) * 0.6; // spring to 1.15
+        else if (p < 0.8) sy = 1.15 - ((p - 0.55) / 0.25) * 0.22; // settle to 0.93
+        else sy = 0.93 + ((p - 0.8) / 0.2) * 0.07; // back to 1
+        const sx = 1 + (1 - sy) * 0.35; // widen as it flattens
+        wrapRef.current.style.transformOrigin = "50% 100%";
+        wrapRef.current.style.transform = `scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
         if (p >= 1) {
-          enterRef.current = null;
-          setVisible(false);
-          showDoorRef.current?.(false);
-          // gone for a beat, then reappear at the home base
-          window.setTimeout(() => {
-            if (containerRef.current) {
-              containerRef.current.style.opacity = "1";
-              containerRef.current.style.transform = "";
-            }
-            perchHomeRef.current?.();
-            placeDefaultRef.current?.();
-          }, 450);
+          squishRef.current = null;
+          wrapRef.current.style.transform = "";
+          wrapRef.current.style.transformOrigin = "";
         }
       }
 
+      /* --- jump arc --- */
       const j = jumpRef.current;
       if (j && containerRef.current) {
         const p = Math.min(1, (ts - j.start) / j.dur);
-        const wave = Math.sin(Math.PI * p); // 0 -> 1 -> 0
+        const wave = Math.sin(Math.PI * p);
         let x = j.fromLeft + (j.toLeft - j.fromLeft) * p;
         let y = j.fromTop + (j.toTop - j.fromTop) * p;
         if (j.vertical) {
-          x += j.side * j.bulge * wave; // arc opens sideways
-          y -= j.lift * wave * 0.45; // small hop
+          x += j.side * j.bulge * wave;
+          y -= j.lift * wave * 0.45;
         } else {
-          y -= j.lift * wave; // classic upward arc
+          y -= j.lift * wave;
         }
         containerRef.current.style.top = `${y}px`;
         containerRef.current.style.left = `${x}px`;
         if (wrapRef.current) {
-          const rot = j.dir * 9 * wave;
-          const sy = 1 + 0.15 * wave; // stretch airborne
-          wrapRef.current.style.transform = `rotate(${rot}deg) scaleY(${sy.toFixed(3)})`;
+          wrapRef.current.style.transform = `rotate(${(j.dir * 9 * wave).toFixed(
+            2
+          )}deg) scaleY(${(1 + 0.15 * wave).toFixed(3)})`;
         }
         if (p >= 1) {
           jumpRef.current = null;
           posRef.current = { top: j.toTop, left: j.toLeft };
           setPos({ top: j.toTop, left: j.toLeft });
-          // little squash on landing
           if (wrapRef.current) {
-            wrapRef.current.style.transform = "scaleY(0.88)";
+            wrapRef.current.style.transform = "scaleY(0.88)"; // landing squash
             setTimeout(() => {
               if (wrapRef.current && !jumpRef.current)
                 wrapRef.current.style.transform = "";
-            }, 110);
+            }, 120);
           }
-          placeDefaultRef.current?.(); // settle into this page's activity
+          phaseEndRef.current = 0; // move on
         }
       }
 
-      if (ts - last < 130) return;
+      /* --- walking along a card --- */
+      const w = walkRef.current;
+      if (w && containerRef.current && !j) {
+        const el = targetElRef.current;
+        let nx = posRef.current.left + w.dir * w.speed;
+        if (el) {
+          const r = el.getBoundingClientRect();
+          const minX = r.left + window.scrollX + 6;
+          const maxX = r.right + window.scrollX - size - 6;
+          nx = Math.max(minX, Math.min(maxX, nx));
+        }
+        posRef.current = { ...posRef.current, left: nx };
+        containerRef.current.style.left = `${nx}px`;
+      }
+
+      /* --- phase scheduler --- */
+      if (!jumpRef.current && ts >= phaseEndRef.current) {
+        if (activity === "celebrate" && celebrateUntilRef.current) {
+          // party's over -> re-enter the page naturally
+          celebrateUntilRef.current = 0;
+          busyRef.current = false;
+          queueRef.current = [];
+          enterRef2.current?.();
+        } else {
+          advance();
+        }
+      }
+
+      /* --- draw --- */
+      if (reduced) {
+        drawFrame(canvas, activity, 0, { riseP });
+        if (wrapRef.current) wrapRef.current.style.transform = "none";
+        return;
+      }
+      if (ts - last < 120) return;
       last = ts;
       tRef.current++;
-      drawFrame(canvasRef.current, activity, tRef.current);
-
-      if (wrapRef.current && !jumpRef.current) {
+      drawFrame(canvas, activity, tRef.current, { riseP });
+      if (wrapRef.current && !jumpRef.current && !squishRef.current) {
         const t = tRef.current;
-        // clamp the bob so it can never look like a glitch
         const b = Math.max(-6, Math.min(6, bobFor(activity, t)));
-        const rot = rotFor(activity, t);
-        wrapRef.current.style.transform = `translateY(${b}px) rotate(${rot}deg)`;
+        wrapRef.current.style.transform = `translateY(${b}px) rotate(${rotFor(
+          activity,
+          t
+        )}deg)`;
       }
     };
+
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [activity, reduced]);
+  }, [activity, reduced, size]);
 
   if (!visible) return null;
 
@@ -952,7 +951,6 @@ export default function HaviMascot({
         zIndex: 40,
         pointerEvents: "none",
       }}
-      aria-hidden="true"
     >
       {bubble && (
         <div
@@ -979,12 +977,20 @@ export default function HaviMascot({
           ref={canvasRef}
           width={canvasW}
           height={canvasH}
+          onClick={(e) => {
+            e.stopPropagation();
+            poke();
+          }}
           style={{
             width: size,
             height: size,
             imageRendering: "pixelated",
             display: "block",
+            pointerEvents: "auto", // he can be poked
+            cursor: "pointer",
           }}
+          aria-label="Havi"
+          role="img"
         />
       </div>
     </div>
