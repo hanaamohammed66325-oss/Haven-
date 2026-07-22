@@ -13,7 +13,7 @@
  *  - relocating      : sleep -> wake -> watch -> walk -> jump -> land -> settle
  *  - page navigation : rises from behind a card -> walks in -> settles
  *  - high grade      : celebrates 10s, interruptible by any user action
- *  - clicked on      : yelps in pain -> gets angry -> huffs -> back to normal
+ *  - clicked on      : squishes flat under the press and springs back (fast)
  *
  * Everything is canvas pixels — no images needed.
  * See integration-guide.md for wiring.
