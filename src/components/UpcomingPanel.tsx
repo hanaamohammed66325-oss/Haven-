@@ -57,8 +57,8 @@ export function UpcomingPanel({
     all.push(it);
   };
 
-  // Course-derived items — every not-yet-graded item, including undated ones
-  // (so tasks/exams the user adds always appear). Past-dated ones drop off.
+  // Course-derived items — every not-yet-graded item. Undated ones are collected
+  // here but filtered out below by the near-term window. Past-dated ones drop off.
   courses.forEach((c) =>
     c.components
       .filter((comp) => comp.score == null && (comp.date == null || comp.date >= todayStr))
@@ -110,9 +110,10 @@ export function UpcomingPanel({
     return 0;
   };
   // Near-term windows: tasks within 7 days, exams within 14 days (both inclusive
-  // of today). Undated ungraded items have no due date to fall outside a window,
-  // so they stay visible. Anything dated further out is hidden from Upcoming.
-  const within = (i: UpItem, days: number) => i.diffDays == null || i.diffDays <= days;
+  // of today). An item must have an actual date to appear — undated items are
+  // hidden entirely — and anything dated beyond its window is hidden too.
+  const within = (i: UpItem, days: number) =>
+    i.diffDays != null && i.diffDays >= 0 && i.diffDays <= days;
   const exams = all.filter((i) => i.bucket === "exam" && within(i, 14)).sort(byDate);
   const tasks = all.filter((i) => i.bucket === "task" && within(i, 7)).sort(byDate);
 
