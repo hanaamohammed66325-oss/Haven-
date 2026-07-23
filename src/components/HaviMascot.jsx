@@ -347,6 +347,7 @@ export default function HaviMascot({
   const forcedActRef = useRef(null); // manually chosen animation
   const forcedIdxRef = useRef(-1);
   const isValidCardRef = useRef(null);
+  const isStillValidRef = useRef(null);
   const coordsForRef = useRef(null);
   const lastResyncRef = useRef(0);
   const spotIsBlockedRef = useRef(null);
@@ -365,6 +366,18 @@ export default function HaviMascot({
   }, []);
 
   /* ---------------- finding cards ---------------- */
+  /**
+   * Looser check: is he still legitimately sitting on this card?
+   * Deliberately does NOT require the card to be on screen — otherwise he
+   * would hop to a new card every time you scrolled, i.e. follow you down
+   * the page. He should stay where he is and scroll away with his card.
+   */
+  const isStillValid = useCallback((el) => {
+    if (!el || !el.isConnected || el.offsetParent === null) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }, []);
+
   /** Is this element a legitimate place to perch? */
   const isValidCard = useCallback((el) => {
     if (!el || el.offsetParent === null) return false;
@@ -787,6 +800,9 @@ export default function HaviMascot({
     isValidCardRef.current = isValidCard;
   }, [isValidCard]);
   useEffect(() => {
+    isStillValidRef.current = isStillValid;
+  }, [isStillValid]);
+  useEffect(() => {
     coordsForRef.current = coordsFor;
   }, [coordsFor]);
   useEffect(() => {
@@ -840,6 +856,65 @@ export default function HaviMascot({
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
   }, [activity, interruptCelebration]);
+
+  /* ---------------- come over when you're actually working ---------------- */
+  useEffect(() => {
+    const CARD_SEL =
+      "[data-havi-role], [data-havi-card], [data-havi-course-id]";
+
+    /** find the card that contains the element being interacted with */
+    const cardOf = (el) => {
+      if (!(el instanceof Element)) return null;
+      const tagged = el.closest(CARD_SEL);
+      if (tagged) return tagged;
+      let p = el;
+      while (p && p !== document.body) {
+        const r = p.getBoundingClientRect();
+        const cs = window.getComputedStyle(p);
+        if (
+          r.width >= 180 &&
+          r.height >= 70 &&
+          r.width <= window.innerWidth * 0.96 &&
+          (parseFloat(cs.borderRadius) || 0) >= 8
+        ) {
+          return p;
+        }
+        p = p.parentElement;
+      }
+      return null;
+    };
+
+    const comeOver = (el) => {
+      if (busyRef.current) return; // don't interrupt a celebration/squish
+      const card = cardOf(el);
+      if (!card) return;
+      if (card === targetElRef.current) return; // already there
+      relocateRef.current?.(card);
+    };
+
+    // typing / focusing a field
+    const onFocus = (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (!t.matches("input, textarea, select, [contenteditable='true']")) return;
+      comeOver(t);
+    };
+    // pressing an add / save style button
+    const onPress = (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      const btn = t.closest("button, [role='button']");
+      if (!btn) return;
+      comeOver(btn);
+    };
+
+    document.addEventListener("focusin", onFocus, true);
+    document.addEventListener("click", onPress, true);
+    return () => {
+      document.removeEventListener("focusin", onFocus, true);
+      document.removeEventListener("click", onPress, true);
+    };
+  }, []);
 
   /* ---------------- route changes (instant, no polling lag) ---------------- */
   useEffect(() => {
@@ -898,7 +973,7 @@ export default function HaviMascot({
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
-      version: "v13",
+      version: "v14",
       features: [
         "behaviour-engine",      // chained: sleep→wake→watch→walk→jump→sleep
         "rise-entrance",         // enters by rising from behind a card
@@ -917,6 +992,8 @@ export default function HaviMascot({
         "no-landing-page",       // excluded from marketing pages
         "decisive",              // commits to one activity, no flickering
         "symmetric",             // eyes/limbs perfectly mirrored
+        "stays-put",             // doesn't follow you when you scroll
+        "comes-on-interaction",  // moves to where you're typing/adding
       ],
       celebrate,
       poke,
@@ -977,15 +1054,10 @@ export default function HaviMascot({
         return;
       }
 
-      // Queue is empty. Alternate between resting and moving somewhere new,
-      // so he naturally cycles: rest -> wake/look/walk/jump -> rest -> ...
-      if (restedRef.current) {
-        restedRef.current = false;
-        relocateRef.current?.();
-      } else {
-        restedRef.current = true;
-        settleRef.current?.();
-      }
+      // Queue is empty. He stays put on his card by default — he only moves
+      // when you actually do something (add/type/click a card). Wandering on
+      // his own made him feel like he was following you around.
+      settleRef.current?.();
     };
 
     const loop = (ts) => {
@@ -1033,8 +1105,8 @@ export default function HaviMascot({
         visible
       ) {
         const el = targetElRef.current;
-        if (!el || el.offsetParent === null || !isValidCardRef.current?.(el)) {
-          // his card vanished or scrolled out of range -> go find a new one
+        if (!el || !isStillValidRef.current?.(el)) {
+          // his card was actually removed from the page -> find a new one
           if (ts - lastResyncRef.current > 400) {
             lastResyncRef.current = ts;
             targetElRef.current = null;
