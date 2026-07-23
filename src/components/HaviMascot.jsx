@@ -73,7 +73,8 @@ const BODY = [
 ];
 
 const GRID_W = 28;
-const GRID_H = 21;
+const GRID_H = 21;      // the body itself
+const DRAW_H = 23;      // canvas rows: body + room for dangling legs
 
 function px(ctx, s, x, y, w, h, fill) {
   ctx.fillStyle = fill;
@@ -194,11 +195,11 @@ function drawFrame(canvas, activity, t, extra) {
       px(ctx, s, 8 + ex, 9, 2, 3, COL.k);
       px(ctx, s, 18 + ex, 9, 2, 3, COL.k);
       px(ctx, s, 12, 13, 4, 1, COL.k);
+      // simple flat legs hanging over the card edge, gently swinging
       const sw = Math.round(Math.sin(t / 5));
-      px(ctx, s, 8 + sw, 20, 2, 4, COL.G);
-      px(ctx, s, 8 + sw, 24, 2, 1, COL.d);
-      px(ctx, s, 18 - sw, 20, 2, 4, COL.G);
-      px(ctx, s, 18 - sw, 24, 2, 1, COL.d);
+      const stH = Math.floor(t / 3) % 2;
+      px(ctx, s, 7 + sw, 20, 3, 3, stH ? COL.G : COL.d);
+      px(ctx, s, 18 - sw, 20, 3, 3, stH ? COL.d : COL.G);
       break;
     }
     case "walk": {
@@ -294,6 +295,18 @@ function rotFor(activity, t) {
   return 0;
 }
 
+/**
+ * Extra vertical shift per activity, in fractions of the body height.
+ * When he's dangling he must SIT ON the card's edge: the base of his body
+ * (grid row 19 of 21) needs to line up with the edge so only his legs hang
+ * below it. The normal perch buries a third of him behind the card, which
+ * read as standing on it / sinking into it rather than sitting.
+ */
+function offsetFor(activity) {
+  if (activity === "hang") return -0.28; // lift him up onto the edge
+  return 0;
+}
+
 /** Order used when the user clicks him 3x to switch animation */
 const CYCLE_ACTS = ["sleep", "watch", "hang", "books", "peek", "write"];
 
@@ -345,7 +358,14 @@ export default function HaviMascot({
 
   const scale = Math.max(2, Math.round(size / GRID_W));
   const canvasW = scale * GRID_W;
-  const canvasH = scale * GRID_H;
+  const canvasH = scale * DRAW_H;
+  /* `size` is his WIDTH. Pixels must stay square, so the displayed height is
+     derived from the grid — previously the canvas was squashed into a square
+     and he came out stretched by a third. */
+  const dispW = size;
+  const dispH = (size * DRAW_H) / GRID_W;
+  const bodyH = (size * GRID_H) / GRID_W; // displayed height of the body
+  const perchOff = bodyH * 0.62;          // how far above the card edge he sits
 
   /* ---------------- reduced motion ---------------- */
   useEffect(() => {
@@ -424,9 +444,11 @@ export default function HaviMascot({
       if (!hasBg && !(parseFloat(cs.borderWidth) > 0) && cs.boxShadow === "none") continue;
       out.push(el);
     }
-    // prefer innermost
-    const leaves = out.filter((el) => !out.some((o) => o !== el && el.contains(o)));
-    return leaves.length ? leaves : out;
+    /* Prefer the OUTERMOST card-like boxes. Preferring innermost meant he sat
+       on inner rows (a form row inside a card), which looked like he was
+       floating in the middle of the card instead of on its edge. */
+    const tops = out.filter((el) => !out.some((o) => o !== el && o.contains(el)));
+    return tops.length ? tops : out;
   }, [isValidCard]);
 
   /* only cards currently on screen — so he never acts off-view */
@@ -457,7 +479,7 @@ export default function HaviMascot({
   const spotIsBlocked = useCallback(
     (top, left) => {
       const cx = left - window.scrollX + size / 2;
-      const cy = top - window.scrollY + size * 0.8; // his feet
+      const cy = top - window.scrollY + bodyH * 0.8; // his feet
       if (cx < 0 || cy < 0 || cx > window.innerWidth || cy > window.innerHeight)
         return true;
       const hit = document.elementFromPoint(cx, cy);
@@ -466,13 +488,13 @@ export default function HaviMascot({
         "button, a, input, select, textarea, [role='button'], [role='tab'], label"
       );
     },
-    [size]
+    [size, bodyH]
   );
 
   const coordsFor = useCallback(
     (el, corner, clamp = true) => {
       const r = el.getBoundingClientRect();
-      let top = r.top + window.scrollY - size * 0.62;
+      let top = r.top + window.scrollY - perchOff;
       let left =
         corner === "left"
           ? r.left + window.scrollX + 10
@@ -493,7 +515,7 @@ export default function HaviMascot({
       }
       return { top, left };
     },
-    [size]
+    [size, perchOff]
   );
 
   /** Choose the corner that doesn't sit on top of a button/input */
@@ -540,7 +562,8 @@ export default function HaviMascot({
 
     // Page-flavoured pools, but every pool is varied so ALL animations get seen.
     let pool;
-    if (findCardEl("current-week")) pool = ["write", "hang", "sleep", "watch", "books"];
+    // Week cards on the schedule read best with him dangling off the edge.
+    if (findCardEl("current-week")) pool = ["hang", "hang", "write", "sleep", "watch"];
     else if (findCardEl("course")) pool = ["peek", "books", "watch", "hang", "sleep"];
     else pool = ["sleep", "watch", "hang", "books", "peek", "write"];
 
@@ -644,10 +667,10 @@ export default function HaviMascot({
         cardTopDoc,
         left,
         // how far above the card edge he ends up (his normal perch)
-        finalRise: size * 0.62,
+        finalRise: perchOff,
         // how far up he goes for the peek — his eyes (grid rows 9-11) must
         // clear the card edge, with the rest of him still hidden behind it
-        peekRise: size * 0.58,
+        peekRise: bodyH * 0.58,
       };
       // start fully behind the card
       setPosition(cardTopDoc, left);
@@ -656,7 +679,7 @@ export default function HaviMascot({
       queueRef.current = [];
       phaseEndRef.current = Number.MAX_SAFE_INTEGER; // the emergence drives it
     },
-    [randomCard, bestCorner, size, setPosition]
+    [randomCard, bestCorner, size, perchOff, bodyH, setPosition]
   );
 
   /** entrance: rise up from behind a visible card, walk a little, then settle */
@@ -947,7 +970,7 @@ export default function HaviMascot({
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
-      version: "v16",
+      version: "v17",
       features: [
         "behaviour-engine",      // chained, natural phases
         "rise-entrance",         // enters by rising from behind a card
@@ -1141,7 +1164,7 @@ export default function HaviMascot({
 
         // Clip at the card's real top edge so he is genuinely behind it.
         if (emergeRef.current) {
-          clipRow = (rise / size) * GRID_H;
+          clipRow = (rise / bodyH) * GRID_H;
           // while he's still low, show the watchful face
           if (rise < em.finalRise - 1) {
             const look = Math.floor(tRef.current / 6) % 3;
@@ -1220,17 +1243,19 @@ export default function HaviMascot({
       drawFrame(canvas, activity, tRef.current, { clipRow });
       if (wrapRef.current && !emergeRef.current && !squishRef.current) {
         const t = tRef.current;
+        // clamp the bob so it can never look like a glitch
         const b = Math.max(-6, Math.min(6, bobFor(activity, t)));
-        wrapRef.current.style.transform = `translateY(${b}px) rotate(${rotFor(
-          activity,
-          t
-        )}deg)`;
+        // plus a fixed per-activity shift (sitting on a card edge, etc.)
+        const off = offsetFor(activity) * bodyH;
+        wrapRef.current.style.transform = `translateY(${(b + off).toFixed(
+          1
+        )}px) rotate(${rotFor(activity, t)}deg)`;
       }
     };
 
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [activity, reduced, size]);
+  }, [activity, reduced, size, bodyH]);
 
   if (!visible) return null;
 
@@ -1241,13 +1266,13 @@ export default function HaviMascot({
         position: "absolute",
         top: pos.top,
         left: pos.left,
-        width: size,
-        height: size,
+        width: dispW,
+        height: dispH,
         zIndex: 40,
         pointerEvents: "none",
       }}
     >
-      <div ref={wrapRef} style={{ width: size, height: size }}>
+      <div ref={wrapRef} style={{ width: dispW, height: dispH }}>
         <canvas
           ref={canvasRef}
           width={canvasW}
@@ -1257,8 +1282,8 @@ export default function HaviMascot({
             poke();
           }}
           style={{
-            width: size,
-            height: size,
+            width: dispW,
+            height: dispH,
             imageRendering: "pixelated",
             display: "block",
             pointerEvents: "auto", // he can be poked
