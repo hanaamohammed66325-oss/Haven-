@@ -479,7 +479,7 @@ export default function HaviMascot({
   );
 
   const coordsFor = useCallback(
-    (el, corner) => {
+    (el, corner, clamp = true) => {
       const r = el.getBoundingClientRect();
       let top = r.top + window.scrollY - size * 0.62;
       let left =
@@ -487,13 +487,19 @@ export default function HaviMascot({
           ? r.left + window.scrollX + 10
           : r.right + window.scrollX - size - 10;
 
-      // CLAMP to the visible page so he can never be half cut off
-      const minTop = window.scrollY + 8;
-      const maxTop = window.scrollY + window.innerHeight - size - 8;
-      const minLeft = window.scrollX + 8;
-      const maxLeft = window.scrollX + window.innerWidth - size - 8;
-      top = Math.max(minTop, Math.min(maxTop, top));
-      left = Math.max(minLeft, Math.min(maxLeft, left));
+      /* Clamp only when CHOOSING a spot, so he isn't placed half off-screen.
+         It must NOT be applied while he's already sitting on a card: the clamp
+         is relative to the current scroll position, so re-applying it every
+         frame pinned him to the edge of the viewport and he appeared to stick
+         to the screen instead of scrolling away with his card. */
+      if (clamp) {
+        const minTop = window.scrollY + 8;
+        const maxTop = window.scrollY + window.innerHeight - size - 8;
+        const minLeft = window.scrollX + 8;
+        const maxLeft = window.scrollX + window.innerWidth - size - 8;
+        top = Math.max(minTop, Math.min(maxTop, top));
+        left = Math.max(minLeft, Math.min(maxLeft, left));
+      }
       return { top, left };
     },
     [size]
@@ -578,8 +584,8 @@ export default function HaviMascot({
       }
       perch(c);
     } else {
-      // re-snap exactly onto the card edge (fixes drifting into empty space)
-      const { top, left } = coordsFor(el, cornerRef.current);
+      // re-snap exactly onto the card edge (no clamp — he stays with his card)
+      const { top, left } = coordsFor(el, cornerRef.current, false);
       setPosition(top, left);
     }
     // Choose ONE activity and commit to it for the full rest period.
@@ -973,7 +979,7 @@ export default function HaviMascot({
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
-      version: "v14",
+      version: "v15",
       features: [
         "behaviour-engine",      // chained: sleep→wake→watch→walk→jump→sleep
         "rise-entrance",         // enters by rising from behind a card
@@ -1022,7 +1028,7 @@ export default function HaviMascot({
     const onResize = () => {
       const el = targetElRef.current;
       if (el && el.offsetParent !== null && !jumpRef.current) {
-        const { top, left } = coordsFor(el, cornerRef.current);
+        const { top, left } = coordsFor(el, cornerRef.current, false);
         setPosition(top, left);
       }
     };
@@ -1113,7 +1119,7 @@ export default function HaviMascot({
             enterRef2.current?.();
           }
         } else {
-          const want = coordsForRef.current?.(el, cornerRef.current);
+          const want = coordsForRef.current?.(el, cornerRef.current, false);
           if (want) {
             const dx = Math.abs(want.left - posRef.current.left);
             const dy = Math.abs(want.top - posRef.current.top);
