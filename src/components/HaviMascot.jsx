@@ -6,11 +6,10 @@
  * Instead of isolated animations triggered by commands, Havi runs a small
  * BEHAVIOUR ENGINE: every action is a "phase" with a duration, and phases are
  * chained into natural sequences. Example: he doesn't teleport when relocating —
- * he wakes up, looks around, walks to the edge of the card, jumps, lands, then
- * settles back to sleep.
+ * he emerges from behind a card, peers around, then settles into an activity.
  *
  * Key behaviours
- *  - relocating      : sleep -> wake -> watch -> walk -> jump -> land -> settle
+ *  - relocating      : duck away -> rise from behind the new card -> watch -> settle
  *  - page navigation : rises from behind a card -> walks in -> settles
  *  - high grade      : celebrates 10s, interruptible by any user action
  *  - clicked on      : squishes flat under the press and springs back (fast)
@@ -93,7 +92,8 @@ function paintBody(ctx, s) {
 
 /**
  * Draw one frame.
- * @param extra { riseP?: 0..1 }  riseP clips the body for "rising from behind a card"
+ * @param extra { clipRow?: number }  hide everything below this grid row,
+ *        so the card genuinely occludes him while he emerges from behind it.
  */
 function drawFrame(canvas, activity, t, extra) {
   const ctx = canvas.getContext("2d");
@@ -235,14 +235,6 @@ function drawFrame(canvas, activity, t, extra) {
       px(ctx, s, 22, 17 - bob, 2, 3, COL.G);
       break;
     }
-    case "jump": {
-      px(ctx, s, 8, 9, 2, 3, COL.k);
-      px(ctx, s, 18, 9, 2, 3, COL.k);
-      px(ctx, s, 12, 13, 4, 1, COL.k);
-      px(ctx, s, 7, 18, 3, 2, COL.G); // tucked legs
-      px(ctx, s, 18, 18, 3, 2, COL.G);
-      break;
-    }
     case "squish": {
       // Being pressed: eyes squeezed shut, mouth open. The flattening itself
       // is a transform driven every frame in the loop (see squishRef).
@@ -263,10 +255,10 @@ function drawFrame(canvas, activity, t, extra) {
     }
   }
 
-  // "rising from behind a card": reveal the body gradually from the top
-  if (extra && typeof extra.riseP === "number" && extra.riseP < 1) {
-    const visible = Math.max(2, Math.round(GRID_H * extra.riseP));
-    ctx.clearRect(0, visible * s, canvas.width, canvas.height);
+  // Emerging from behind a card: erase everything below the card's real edge.
+  if (extra && typeof extra.clipRow === "number") {
+    const cut = Math.max(0, extra.clipRow) * s;
+    if (cut < canvas.height) ctx.clearRect(0, cut, canvas.width, canvas.height);
   }
 }
 
@@ -334,9 +326,8 @@ export default function HaviMascot({
   // behaviour engine
   const queueRef = useRef([]); // upcoming phases
   const phaseEndRef = useRef(0); // when the current phase finishes
-  const jumpRef = useRef(null);
+  const emergeRef = useRef(null); // emerging from behind a card
   const walkRef = useRef(null); // {dir, speed}
-  const riseRef = useRef(null); // {start, dur}
   const squishRef = useRef(null); // {start, dur} — fast press reaction
   const celebrateUntilRef = useRef(0);
   const busyRef = useRef(false); // hurt/celebrate lock
@@ -572,7 +563,7 @@ export default function HaviMascot({
   const settle = useCallback(() => {
     busyRef.current = false;
     walkRef.current = null; // never keep walking while resting/asleep
-    jumpRef.current = null;
+    emergeRef.current = null;
     // the card he's on must still be valid, otherwise find a new one
     const el = targetElRef.current;
     if (!isValidCard(el)) {
@@ -612,81 +603,60 @@ export default function HaviMascot({
         settle();
         return;
       }
-      const from = posRef.current;
-      const to = coordsFor(dest, Math.random() > 0.5 ? "left" : "right");
-
-      const steps = [];
-      // if he's asleep, he has to wake up first
-      if (activity === "sleep") steps.push({ act: "wake", ms: 900 });
-      steps.push({ act: "watch", ms: 1400 }); // look around, decide
-
-      /* Walk INWARD, away from the edge he's perched on. Previously he walked
-         towards the edge he was already standing on, so "reached the edge"
-         fired on the very first frame and the walk flickered past in an
-         instant — that was the hesitation. */
-      const el = targetElRef.current;
-      if (el) {
-        const r = el.getBoundingClientRect();
-        const minX = r.left + window.scrollX + 6;
-        const maxX = r.right + window.scrollX - size - 6;
-        const roomLeft = from.left - minX;
-        const roomRight = maxX - from.left;
-        const dir = roomRight >= roomLeft ? 1 : -1; // head for the roomier side
-        const room = Math.max(roomLeft, roomRight);
-        // only bother walking if there's somewhere to actually walk to
-        if (room > 45) {
-          steps.push({
-            act: "walk",
-            ms: Math.min(1400, 500 + room * 4),
-            onStart: () => {
-              walkRef.current = { dir, speed: 0.9 };
-            },
-            onEnd: () => {
-              walkRef.current = null;
-            },
-          });
-        }
-      }
-
-      steps.push({
-        act: "jump",
-        ms: 1600, // hard safety cap — the arc normally ends it much sooner
-        onStart: () => startJump(dest, to),
-      });
-      queue(steps);
+      /* No more jumping. He ducks out of sight and re-emerges from behind the
+         destination card — which reads far better and can't glitch mid-air. */
+      queueRef.current = [];
+      walkRef.current = null;
+      emergeAtRef.current?.(dest);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activity, randomCard, coordsFor, settle, queue, size]
+    [randomCard, settle]
   );
 
-  /** launch the arc; perpendicular bow so vertical moves work */
-  const startJump = useCallback(
-    (destEl, toCoords) => {
-      const from = posRef.current;
-      const to = toCoords || coordsFor(destEl, cornerRef.current);
-      const dx = to.left - from.left;
-      const dy = to.top - from.top;
-      const dist = Math.hypot(dx, dy) || 1;
-      const vertical = Math.abs(dy) > Math.abs(dx);
-      const side = from.left > window.innerWidth / 2 ? -1 : 1;
+  /**
+   * EMERGE FROM BEHIND A CARD.
+   * He starts fully hidden behind the card's top edge, rises until just his
+   * head and eyes clear it, watches for a moment, then climbs the rest of the
+   * way out and carries on normally. The "hidden" part is real: the canvas is
+   * clipped at the card's actual top edge every frame, so it works wherever
+   * the card is and however the page scrolls.
+   */
+  const emergeAt = useCallback(
+    (card) => {
+      const el = card || randomCard();
+      if (!el) {
+        setVisible(false);
+        return;
+      }
+      const corner = bestCorner(el, Math.random() > 0.5 ? "left" : "right");
+      targetElRef.current = el;
+      cornerRef.current = corner;
 
-      targetElRef.current = destEl;
-      jumpRef.current = {
-        fromTop: from.top,
-        fromLeft: from.left,
-        toTop: to.top,
-        toLeft: to.left,
+      const r = el.getBoundingClientRect();
+      const left =
+        corner === "left"
+          ? r.left + window.scrollX + 10
+          : r.right + window.scrollX - size - 10;
+      const cardTopDoc = r.top + window.scrollY;
+
+      emergeRef.current = {
         start: performance.now(),
-        dur: Math.min(950, 420 + dist * 0.3),
-        vertical,
-        side,
-        dir: vertical ? side : dx >= 0 ? 1 : -1,
-        bulge: Math.min(90, 30 + dist * 0.22),
-        lift: Math.min(70, 24 + dist * 0.16),
+        cardTopDoc,
+        left,
+        // how far above the card edge he ends up (his normal perch)
+        finalRise: size * 0.62,
+        // how far up he goes for the peek — his eyes (grid rows 9-11) must
+        // clear the card edge, with the rest of him still hidden behind it
+        peekRise: size * 0.58,
       };
+      // start fully behind the card
+      setPosition(cardTopDoc, left);
+      setActivity("peek");
       setVisible(true);
+      queueRef.current = [];
+      phaseEndRef.current = Number.MAX_SAFE_INTEGER; // the emergence drives it
     },
-    [coordsFor]
+    [randomCard, bestCorner, size, setPosition]
   );
 
   /** entrance: rise up from behind a visible card, walk a little, then settle */
@@ -702,15 +672,9 @@ export default function HaviMascot({
       setVisible(false);
       return;
     }
-    perch(card);
-    setVisible(true);
-    riseRef.current = { start: performance.now(), dur: 700 };
-    /* Rise, then commit to ONE activity and hold it. He used to take a brief
-       walk here that ended almost instantly (he was already at the card edge),
-       which read as hesitation. */
-    restedRef.current = true; // next thing after this rest is a proper move
-    queue([{ act: "peek", ms: 700 }]);
-  }, [randomCard, perch, queue, excludePaths]);
+    // Rise up from behind a card, watch, then carry on.
+    emergeAtRef.current?.(card);
+  }, [randomCard, excludePaths]);
 
   /* ---------------- celebrate ---------------- */
   const celebrate = useCallback(
@@ -744,7 +708,7 @@ export default function HaviMascot({
       if (!el) return;
 
       queueRef.current = [];
-      jumpRef.current = null;
+      emergeRef.current = null;
       walkRef.current = null;
       busyRef.current = true;
       perch(el, "right");
@@ -779,7 +743,7 @@ export default function HaviMascot({
 
     const switching = clickCountRef.current % 3 === 0;
 
-    jumpRef.current = null;
+    emergeRef.current = null;
     walkRef.current = null;
     busyRef.current = true;
     squishRef.current = { start: performance.now(), dur: 420 }; // fast & snappy
@@ -798,6 +762,7 @@ export default function HaviMascot({
   /* ---------------- refs used inside the loop ---------------- */
   const settleRef = useRef(null);
   const relocateRef = useRef(null);
+  const emergeAtRef = useRef(null);
   const enterRef2 = useRef(null);
   useEffect(() => {
     settleRef.current = settle;
@@ -818,6 +783,9 @@ export default function HaviMascot({
     relocateRef.current = relocate;
   }, [relocate]);
   useEffect(() => {
+    emergeAtRef.current = emergeAt;
+  }, [emergeAt]);
+  useEffect(() => {
     enterRef2.current = enterFromCard;
   }, [enterFromCard]);
 
@@ -836,7 +804,7 @@ export default function HaviMascot({
       }
       if (busyRef.current) return; // hurt/angry: let him finish
 
-      // clicking a card -> he goes there properly (walk + jump)
+      // clicking a card -> he re-emerges from behind that card
       let card = el.closest(
         '[data-havi-role], [data-havi-card], [data-havi-course-id]'
       );
@@ -926,7 +894,7 @@ export default function HaviMascot({
   useEffect(() => {
     const reset = () => {
       queueRef.current = [];
-      jumpRef.current = null;
+      emergeRef.current = null;
       walkRef.current = null;
       squishRef.current = null;
       busyRef.current = false;
@@ -979,19 +947,18 @@ export default function HaviMascot({
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
-      version: "v15",
+      version: "v16",
       features: [
-        "behaviour-engine",      // chained: sleep→wake→watch→walk→jump→sleep
+        "behaviour-engine",      // chained, natural phases
         "rise-entrance",         // enters by rising from behind a card
         "celebrate-10s",         // 10s, interruptible
         "squish-on-click",       // fast squash reaction
-        "perpendicular-jump",    // vertical jumps bow sideways
         "auto-detect-cards",     // works on untagged pages
         "click3-cycle",          // 3 clicks switches animation
         "viewport-clamped",      // never clipped or on the sidebar
         "avoids-buttons",        // never perches over a button or input
         "instant-nav",           // hides immediately on navigation
-        "polished-jump",         // crouch, gravity arc, landing squash
+        "emerge-from-cards",     // no jumping; rises from behind cards
         "no-speech-bubbles",     // silent — no text popups
         "sticks-to-card",        // re-syncs every frame through layout shifts
         "skips-controls",        // won't stand on buttons or inputs
@@ -1027,7 +994,7 @@ export default function HaviMascot({
     const boot = setTimeout(() => enterRef2.current?.(), 600);
     const onResize = () => {
       const el = targetElRef.current;
-      if (el && el.offsetParent !== null && !jumpRef.current) {
+      if (el && el.offsetParent !== null && !emergeRef.current) {
         const { top, left } = coordsFor(el, cornerRef.current, false);
         setPosition(top, left);
       }
@@ -1071,14 +1038,6 @@ export default function HaviMascot({
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      /* --- rising from behind a card --- */
-      let riseP = 1;
-      const ri = riseRef.current;
-      if (ri) {
-        riseP = Math.min(1, (ts - ri.start) / ri.dur);
-        if (riseP >= 1) riseRef.current = null;
-      }
-
       /* --- squish reaction: flatten fast, spring back --- */
       const sq = squishRef.current;
       if (sq && wrapRef.current) {
@@ -1098,13 +1057,12 @@ export default function HaviMascot({
         }
       }
 
-      /* --- jump arc --- */
       /* --- keep him glued to his card, every frame ---
          Layout shifts (sidebar collapsing, images loading, content changing)
          used to strand him in empty space because his position was only
          computed once when he sat down. Now it's re-verified continuously. */
       if (
-        !jumpRef.current &&
+        !emergeRef.current &&
         !walkRef.current &&
         !squishRef.current &&
         containerRef.current &&
@@ -1132,80 +1090,70 @@ export default function HaviMascot({
         }
       }
 
-      const j = jumpRef.current;
-      if (j && containerRef.current) {
-        const raw = Math.min(1, (ts - j.start) / j.dur);
-
-        // --- 1. ANTICIPATION: he crouches in place before launching ---
-        const CROUCH = 0.14;
-        if (raw < CROUCH) {
-          const c = raw / CROUCH;
-          if (wrapRef.current) {
-            const sy = 1 - 0.22 * Math.sin((c * Math.PI) / 2); // compress down
-            wrapRef.current.style.transformOrigin = "50% 100%";
-            wrapRef.current.style.transform = `scale(${(1 + (1 - sy) * 0.3).toFixed(
-              3
-            )}, ${sy.toFixed(3)})`;
-          }
-        } else {
-          // --- 2. FLIGHT ---
-          const p = (raw - CROUCH) / (1 - CROUCH);
-          // horizontal: launches fast, eases as it lands
-          const ph = 1 - Math.pow(1 - p, 1.4);
-          // vertical: true parabola (gravity), apex slightly before halfway
-          const pv = Math.pow(p, 0.92);
-          const arc = 4 * pv * (1 - pv);
-
-          let x = j.fromLeft + (j.toLeft - j.fromLeft) * ph;
-          let y = j.fromTop + (j.toTop - j.fromTop) * ph;
-          if (j.vertical) {
-            x += j.side * j.bulge * arc;
-            y -= j.lift * arc * 0.5;
-          } else {
-            y -= j.lift * arc;
-          }
-          containerRef.current.style.top = `${y}px`;
-          containerRef.current.style.left = `${x}px`;
-
-          if (wrapRef.current) {
-            // stretched on the way up, squashing as he comes down to land
-            const stretch = p < 0.5 ? 1 + 0.2 * (1 - p * 2) : 1 - 0.1 * ((p - 0.5) * 2);
-            const rot = j.dir * 11 * Math.sin(Math.PI * p);
-            wrapRef.current.style.transformOrigin = "50% 100%";
-            wrapRef.current.style.transform = `rotate(${rot.toFixed(
-              2
-            )}deg) scale(${(2 - stretch).toFixed(3)}, ${stretch.toFixed(3)})`;
-          }
+      /* ---- EMERGING FROM BEHIND A CARD ---- */
+      let clipRow = null; // grid row below which he's hidden by the card
+      const em = emergeRef.current;
+      if (em && containerRef.current) {
+        const el = targetElRef.current;
+        // follow the card if the page moves under us
+        if (el && el.isConnected) {
+          const rr = el.getBoundingClientRect();
+          em.cardTopDoc = rr.top + window.scrollY;
+          em.left =
+            cornerRef.current === "left"
+              ? rr.left + window.scrollX + 10
+              : rr.right + window.scrollX - size - 10;
         }
 
-        if (raw >= 1) {
-          jumpRef.current = null;
-          posRef.current = { top: j.toTop, left: j.toLeft };
-          setPos({ top: j.toTop, left: j.toLeft });
-          containerRef.current.style.top = `${j.toTop}px`;
-          containerRef.current.style.left = `${j.toLeft}px`;
-          // --- 3. LANDING: squash, then settle back ---
-          if (wrapRef.current) {
-            const wr = wrapRef.current;
-            wr.style.transformOrigin = "50% 100%";
-            wr.style.transform = "scale(1.16, 0.8)";
-            setTimeout(() => {
-              if (wr && !jumpRef.current) wr.style.transform = "scale(0.96, 1.06)";
-            }, 90);
-            setTimeout(() => {
-              if (wr && !jumpRef.current) {
-                wr.style.transform = "";
-                wr.style.transformOrigin = "";
-              }
-            }, 190);
-          }
+        const el2 = ts - em.start;
+        const HIDDEN = 260; // beat fully out of sight
+        const RISE = 620; // creeping up until his eyes clear the edge
+        const WATCH = 1900; // peering around from behind the card
+        const OUT = 520; // climbing the rest of the way out
+
+        let rise;
+        if (el2 < HIDDEN) {
+          rise = 0; // completely behind the card
+        } else if (el2 < HIDDEN + RISE) {
+          const p = (el2 - HIDDEN) / RISE;
+          const eased = 1 - Math.pow(1 - p, 2); // ease-out, like peeking up
+          rise = em.peekRise * eased;
+        } else if (el2 < HIDDEN + RISE + WATCH) {
+          // hold at peek height, with a tiny curious bob
+          const w = (el2 - HIDDEN - RISE) / WATCH;
+          rise = em.peekRise + Math.sin(w * Math.PI * 3) * 1.5;
+        } else if (el2 < HIDDEN + RISE + WATCH + OUT) {
+          const p = (el2 - HIDDEN - RISE - WATCH) / OUT;
+          const eased = 1 - Math.pow(1 - p, 2);
+          rise = em.peekRise + (em.finalRise - em.peekRise) * eased;
+        } else {
+          // done — hand over to normal behaviour
+          emergeRef.current = null;
+          setPosition(em.cardTopDoc - em.finalRise, em.left);
           phaseEndRef.current = 0;
+          rise = em.finalRise;
+        }
+
+        const top = em.cardTopDoc - rise;
+        posRef.current = { top, left: em.left };
+        containerRef.current.style.top = `${top}px`;
+        containerRef.current.style.left = `${em.left}px`;
+
+        // Clip at the card's real top edge so he is genuinely behind it.
+        if (emergeRef.current) {
+          clipRow = (rise / size) * GRID_H;
+          // while he's still low, show the watchful face
+          if (rise < em.finalRise - 1) {
+            const look = Math.floor(tRef.current / 6) % 3;
+            emergeRef.current.look = look;
+          }
         }
       }
 
+
       /* --- walking along a card --- */
       const w = walkRef.current;
-      if (w && containerRef.current && !j) {
+      if (w && containerRef.current && !emergeRef.current) {
         const el = targetElRef.current;
         // No valid card to walk along -> stop immediately. (Without this he
         // walked off into empty space forever.)
@@ -1248,7 +1196,7 @@ export default function HaviMascot({
       }
 
       /* --- phase scheduler --- */
-      if (!jumpRef.current && ts >= phaseEndRef.current) {
+      if (!emergeRef.current && ts >= phaseEndRef.current) {
         if (activity === "celebrate" && celebrateUntilRef.current) {
           // party's over -> re-enter the page naturally
           celebrateUntilRef.current = 0;
@@ -1262,15 +1210,15 @@ export default function HaviMascot({
 
       /* --- draw --- */
       if (reduced) {
-        drawFrame(canvas, activity, 0, { riseP });
+        drawFrame(canvas, activity, 0, { clipRow });
         if (wrapRef.current) wrapRef.current.style.transform = "none";
         return;
       }
       if (ts - last < 120) return;
       last = ts;
       tRef.current++;
-      drawFrame(canvas, activity, tRef.current, { riseP });
-      if (wrapRef.current && !jumpRef.current && !squishRef.current) {
+      drawFrame(canvas, activity, tRef.current, { clipRow });
+      if (wrapRef.current && !emergeRef.current && !squishRef.current) {
         const t = tRef.current;
         const b = Math.max(-6, Math.min(6, bobFor(activity, t)));
         wrapRef.current.style.transform = `translateY(${b}px) rotate(${rotFor(
