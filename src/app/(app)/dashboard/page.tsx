@@ -14,6 +14,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { CountUp } from "@/components/CountUp";
 import { MiniCalendar } from "@/components/MiniCalendar";
 import { UpcomingPanel } from "@/components/UpcomingPanel";
+import { buildUpcoming } from "@/lib/upcoming";
 import { GpaGoalCard } from "@/components/GpaGoalCard";
 import { WhatIfCard } from "@/components/WhatIfCard";
 import { NeedsAttentionCard } from "@/components/NeedsAttentionCard";
@@ -36,11 +37,6 @@ const attStatusColor: Record<"ok" | "warn" | "danger", string> = {
   danger: "var(--color-danger)",
 };
 
-// Havi "watch" trigger windows — mirror UpcomingPanel: exams within 14 days,
-// tasks within 7 days (both from today, dated + still ungraded).
-const HAVI_EXAM_TYPES = ["quiz", "midterm", "final"];
-const HAVI_TASK_TYPES = ["assignment", "project"];
-
 export default function DashboardPage() {
   const { t } = useT();
   const store = useStore();
@@ -49,6 +45,7 @@ export default function DashboardPage() {
     profileName,
     semester,
     courses,
+    planner,
     gpaMode,
     cumulativeGpa,
     cumulativeHours,
@@ -78,37 +75,17 @@ export default function DashboardPage() {
       : t(`greet${part}NoName` as TranslationKey);
   })();
 
-  const upcoming = useMemo(() => {
-    const items = courses.flatMap((c) =>
-      c.components
-        .filter((comp) => comp.score == null)
-        .map((comp) => ({ course: c.name, comp }))
-    );
-    items.sort((a, b) => {
-      const da = a.comp.date ? +new Date(a.comp.date) : Infinity;
-      const db = b.comp.date ? +new Date(b.comp.date) : Infinity;
-      return da - db;
-    });
-    return items;
-  }, [courses]);
+  // The SAME builder the Upcoming card renders from, so this count always
+  // matches the rows in that list (real date required; exams within 14 days,
+  // tasks within 7; undated items never counted).
+  const upcoming = useMemo(
+    () => buildUpcoming(courses, planner, semester),
+    [courses, planner, semester]
+  );
 
-  // Whether Havi should "watch" the Upcoming card: any dated, ungraded task
-  // within 7 days or exam within 14 days.
-  const hasNearDue = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dayMs = 864e5;
-    return courses.some((c) =>
-      c.components.some((comp) => {
-        if (comp.score != null || !comp.date) return false;
-        const diff = Math.round((+new Date(`${comp.date}T00:00:00`) - +today) / dayMs);
-        if (diff < 0) return false;
-        if (HAVI_EXAM_TYPES.includes(comp.type)) return diff <= 14;
-        if (HAVI_TASK_TYPES.includes(comp.type)) return diff <= 7;
-        return false;
-      })
-    );
-  }, [courses]);
+  // Whether Havi should "watch" the Upcoming card — true when it has anything
+  // near-due, i.e. exactly when the list above is non-empty.
+  const hasNearDue = upcoming.length > 0;
 
   // Cards mount/unmount as courses load and change — nudge Havi to re-place.
   useEffect(() => {
@@ -303,7 +280,9 @@ export default function DashboardPage() {
                 <div className="inline-flex items-center gap-1.5 text-xs px-2" style={{ color: "var(--color-muted)" }}>
                   <CalendarClock size={12} />
                   {upcoming.length
-                    ? t("upcomingNearest", { name: `${upcoming[0].course} · ${upcoming[0].comp.name}` })
+                    ? t("upcomingNearest", {
+                        name: `${upcoming[0].courseName ?? t("tabPlanner")} · ${upcoming[0].name}`,
+                      })
                     : t("noUpcoming")}
                 </div>
               </div>

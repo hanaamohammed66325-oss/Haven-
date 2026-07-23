@@ -4,8 +4,8 @@ import Link from "next/link";
 import { GraduationCap, ClipboardList, AlertTriangle, Clock } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
-import { formatShortDate, formatTime, toISODate } from "@/lib/dates";
-import { plannerItemDate, REMINDER_TAGS } from "@/lib/reminders";
+import { formatShortDate, formatTime } from "@/lib/dates";
+import { buildUpcoming, type UpcomingEntry } from "@/lib/upcoming";
 import type { Course, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -17,19 +17,14 @@ interface UpItem {
   name: string;
   /** translation key for the type/tag badge */
   labelKey: TranslationKey;
-  /** due date, or null when the item has no date set */
-  date: string | null;
+  /** due date — always set; undated items never reach the list */
+  date: string;
   /** "HH:MM" (24h) when the item carries a due time */
   time?: string | null;
-  /** whole days until due, or null when undated */
-  diffDays: number | null;
+  /** whole days until due */
+  diffDays: number;
   bucket: "exam" | "task";
 }
-
-const EXAM_TYPES = ["quiz", "midterm", "final"];
-const TASK_TYPES = ["assignment", "project"];
-// Planner tags routed to each section (إجازة is never reminder-eligible).
-const PLANNER_EXAM_TAGS = new Set(["tagExam", "tagQuiz"]);
 
 export function UpcomingPanel({
   courses,
@@ -41,89 +36,32 @@ export function UpcomingPanel({
   const { t, lang } = useT();
   const { planner, semester } = useStore();
 
-  const todayMid = new Date();
-  todayMid.setHours(0, 0, 0, 0);
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const dayMs = 864e5;
-  const diffOf = (iso: string) => Math.round((+new Date(`${iso}T00:00:00`) - +todayMid) / dayMs);
+  // One shared builder feeds BOTH this list and the dashboard's UPCOMING count,
+  // so the number and the rows can never disagree. It already applies the rule
+  // (real date required; exams within 14 days, tasks within 7) and sorts.
+  const entries = buildUpcoming(courses, planner, semester);
 
-  const all: UpItem[] = [];
-  const seen = new Set<string>();
-  const add = (it: UpItem) => {
-    // De-dup by (date + title/note) across every source so nothing shows twice.
-    const key = `${it.date ?? "nodate"}|${it.name}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    all.push(it);
-  };
-
-  // Course-derived items — every not-yet-graded item. Undated ones are collected
-  // here but filtered out below by the near-term window. Past-dated ones drop off.
-  courses.forEach((c) =>
-    c.components
-      .filter((comp) => comp.score == null && (comp.date == null || comp.date >= todayStr))
-      .forEach((comp) => {
-        if (!EXAM_TYPES.includes(comp.type) && !TASK_TYPES.includes(comp.type)) return;
-        add({
-          href: `/courses#${c.id}`,
-          subtitle: c.name,
-          name: comp.name,
-          labelKey: `type_${comp.type}` as TranslationKey,
-          date: comp.date,
-          diffDays: comp.date == null ? null : diffOf(comp.date),
-          bucket: EXAM_TYPES.includes(comp.type) ? "exam" : "task",
-        });
-      })
-  );
-
-  // Planner deadline chips — reminder-eligible tag + a specific day (not -1).
-  // Their real date comes from the week's start date + weekday offset.
-  planner.notes.forEach((n) => {
-    if (!n.tag || !REMINDER_TAGS.has(n.tag)) return;
-    if (n.day == null) return;
-    const d = plannerItemDate(semester, n.week, n.day);
-    if (!d) return;
-    const iso = toISODate(d);
-    if (iso < todayStr) return; // only what's still upcoming
-    add({
-      href: "/schedule",
-      subtitle: t("tabPlanner"),
-      name: n.text,
-      labelKey: n.tag as TranslationKey,
-      date: iso,
-      time: n.dueTime ?? null,
-      diffDays: diffOf(iso),
-      bucket: PLANNER_EXAM_TAGS.has(n.tag) ? "exam" : "task",
-    });
+  const toItem = (e: UpcomingEntry): UpItem => ({
+    href: e.href,
+    subtitle: e.courseName ?? t("tabPlanner"),
+    name: e.name,
+    labelKey: (e.source === "course" ? `type_${e.kind}` : e.kind) as TranslationKey,
+    date: e.date,
+    time: e.time,
+    diffDays: e.diffDays,
+    bucket: e.bucket,
   });
 
-  // Dated items first (soonest → latest); undated after. Timed before untimed same day.
-  const byDate = (a: UpItem, b: UpItem) => {
-    if (a.date == null && b.date == null) return 0;
-    if (a.date == null) return 1;
-    if (b.date == null) return -1;
-    if (a.date !== b.date) return +new Date(a.date) - +new Date(b.date);
-    const at = a.time ? 1 : 0;
-    const bt = b.time ? 1 : 0;
-    if (at !== bt) return bt - at;
-    if (a.time && b.time) return a.time < b.time ? -1 : 1;
-    return 0;
-  };
-  // Near-term windows: tasks within 7 days, exams within 14 days (both inclusive
-  // of today). An item must have an actual date to appear — undated items are
-  // hidden entirely — and anything dated beyond its window is hidden too.
-  const within = (i: UpItem, days: number) =>
-    i.diffDays != null && i.diffDays >= 0 && i.diffDays <= days;
-  const exams = all.filter((i) => i.bucket === "exam" && within(i, 14)).sort(byDate);
-  const tasks = all.filter((i) => i.bucket === "task" && within(i, 7)).sort(byDate);
+  const exams = entries.filter((e) => e.bucket === "exam").map(toItem);
+  const tasks = entries.filter((e) => e.bucket === "task").map(toItem);
 
-  // Soonest dated exam within ~3 days gets the alert icon.
-  const examAlert = exams[0] && exams[0].diffDays != null && exams[0].diffDays <= 3 ? exams[0] : undefined;
+  // Soonest exam within ~3 days gets the alert icon.
+  const examAlert = exams[0] && exams[0].diffDays <= 3 ? exams[0] : undefined;
 
-  const fmtDate = (d: string | null) => (d == null ? t("dateNotSpecified") : formatShortDate(d, lang, calendar));
+  const fmtDate = (d: string) => formatShortDate(d, lang, calendar);
 
-  const countdown = (n: number | null) => {
-    if (n == null || n < 0 || n > 14) return null;
+  const countdown = (n: number) => {
+    if (n < 0 || n > 14) return null;
     if (n === 0) return t("dueToday");
     if (n === 1) return t("dueTomorrow");
     return t("dueInDays", { n });
@@ -151,7 +89,7 @@ export function UpcomingPanel({
         <div className="flex flex-col gap-2.5">
           {items.map((it, i) => {
             const cd = countdown(it.diffDays);
-            const urgent = it.diffDays != null && it.diffDays >= 0 && it.diffDays <= 3;
+            const urgent = it.diffDays >= 0 && it.diffDays <= 3;
             const isAlert = alertItem === it;
             return (
               <Link
