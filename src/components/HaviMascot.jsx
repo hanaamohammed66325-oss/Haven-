@@ -306,7 +306,11 @@ const BUBBLES = {
   watch: ["ترا قربت! 👀", "لا تنسى! ⏰", "عندك شي قريب!"],
   celebrate: ["برااافو! 🎉", "يا سلام عليك! 🌟", "درجة حلوة! 👏"],
   squish: ["آي! 😖", "أوووه!", "بس! 😣", "لا تضغط! 😤"],
+  switch: ["طيب طيب! 😅", "خلاص بغيّر 🙃", "شوف كذا 😌"],
 };
+
+/** Order used when the user clicks him 3x to switch animation */
+const CYCLE_ACTS = ["sleep", "watch", "hang", "books", "peek", "write"];
 
 /* ================================================================== */
 /*  COMPONENT                                                          */
@@ -344,6 +348,11 @@ export default function HaviMascot({
   const celebrateUntilRef = useRef(0);
   const busyRef = useRef(false); // hurt/celebrate lock
   const restedRef = useRef(false); // alternates rest <-> relocate
+  const lastRestRef = useRef(null); // avoid repeating the same idle twice
+  const clickCountRef = useRef(0); // 3 clicks -> switch animation
+  const clickTimerRef = useRef(null);
+  const forcedActRef = useRef(null); // manually chosen animation
+  const forcedIdxRef = useRef(-1);
   const bubbleTimerRef = useRef(null);
 
   const scale = Math.max(2, Math.round(size / GRID_W));
@@ -360,32 +369,45 @@ export default function HaviMascot({
   }, []);
 
   /* ---------------- finding cards ---------------- */
-  const findCardEl = useCallback((role) => {
-    const els = Array.from(
-      document.querySelectorAll(`[data-havi-role="${role}"]`)
-    ).filter((el) => el.offsetParent !== null && el.getBoundingClientRect().width > 0);
-    if (!els.length) return null;
-    return els[Math.floor(Math.random() * els.length)];
+  /** Is this element a legitimate place to perch? */
+  const isValidCard = useCallback((el) => {
+    if (!el || el.offsetParent === null) return false;
+    // never sit on navigation chrome — that's how he ended up over the logo
+    if (el.closest("nav, aside, header, footer, [role='navigation'], [data-havi-avoid]"))
+      return false;
+    const r = el.getBoundingClientRect();
+    if (r.width < 160 || r.height < 60) return false;
+    if (r.width > window.innerWidth * 0.97) return false;
+    // must sit comfortably inside the viewport, with room above him
+    if (r.top < 70) return false; // too close to the top -> he'd get clipped
+    if (r.top > window.innerHeight - 60) return false;
+    if (r.bottom < 90) return false;
+    return true;
   }, []);
+
+  const findCardEl = useCallback(
+    (role) => {
+      const els = Array.from(
+        document.querySelectorAll(`[data-havi-role="${role}"]`)
+      ).filter(isValidCard);
+      if (!els.length) return null;
+      return els[Math.floor(Math.random() * els.length)];
+    },
+    [isValidCard]
+  );
 
   const allCards = useCallback(() => {
     const tagged = Array.from(
       document.querySelectorAll("[data-havi-role], [data-havi-card], [data-havi-course-id]")
-    ).filter((el) => el.offsetParent !== null);
+    ).filter(isValidCard);
     if (tagged.length) return tagged;
 
     // auto-detect card-like boxes on untagged pages
-    const vw = window.innerWidth;
     const out = [];
-    const nodes = document.querySelectorAll(
-      "main div, main section, main article, div[class*='card'], section, article"
-    );
+    const scope = document.querySelector("main") || document.body;
+    const nodes = scope.querySelectorAll("div, section, article");
     for (const el of nodes) {
-      if (el.offsetParent === null) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 180 || r.height < 70) continue;
-      if (r.width > vw * 0.96) continue;
-      if (r.height > window.innerHeight * 1.5) continue;
+      if (!isValidCard(el)) continue;
       const cs = window.getComputedStyle(el);
       if ((parseFloat(cs.borderRadius) || 0) < 8) continue;
       const bg = cs.backgroundColor;
@@ -396,7 +418,7 @@ export default function HaviMascot({
     // prefer innermost
     const leaves = out.filter((el) => !out.some((o) => o !== el && el.contains(o)));
     return leaves.length ? leaves : out;
-  }, []);
+  }, [isValidCard]);
 
   /* only cards currently on screen — so he never acts off-view */
   const visibleCards = useCallback(() => {
@@ -425,13 +447,20 @@ export default function HaviMascot({
   const coordsFor = useCallback(
     (el, corner) => {
       const r = el.getBoundingClientRect();
-      return {
-        top: r.top + window.scrollY - size * 0.62,
-        left:
-          corner === "left"
-            ? r.left + window.scrollX + 10
-            : r.right + window.scrollX - size - 10,
-      };
+      let top = r.top + window.scrollY - size * 0.62;
+      let left =
+        corner === "left"
+          ? r.left + window.scrollX + 10
+          : r.right + window.scrollX - size - 10;
+
+      // CLAMP to the visible page so he can never be half cut off
+      const minTop = window.scrollY + 8;
+      const maxTop = window.scrollY + window.innerHeight - size - 8;
+      const minLeft = window.scrollX + 8;
+      const maxLeft = window.scrollX + window.innerWidth - size - 8;
+      top = Math.max(minTop, Math.min(maxTop, top));
+      left = Math.max(minLeft, Math.min(maxLeft, left));
+      return { top, left };
     },
     [size]
   );
@@ -463,17 +492,28 @@ export default function HaviMascot({
 
   /** what he does when resting, based on which page he's on */
   const restingActivity = useCallback(() => {
-    if (findCardEl("current-week")) {
-      return ["write", "hang", "walk"][Math.floor(Math.random() * 3)];
-    }
+    // a manually chosen activity (from clicking him 3x) wins until cleared
+    if (forcedActRef.current) return forcedActRef.current;
+
+    // an urgent reminder always takes priority
     const nearDue = document.querySelector(
       '[data-havi-role="upcoming"][data-havi-near-due="true"]'
     );
-    if (nearDue && nearDue.offsetParent !== null) return "watch";
-    if (findCardEl("course")) {
-      return ["watch", "peek", "books"][Math.floor(Math.random() * 3)];
-    }
-    return Math.random() > 0.35 ? "sleep" : "watch";
+    if (nearDue && nearDue.offsetParent !== null && Math.random() > 0.4) return "watch";
+
+    // Page-flavoured pools, but every pool is varied so ALL animations get seen.
+    let pool;
+    if (findCardEl("current-week")) pool = ["write", "hang", "sleep", "watch", "books"];
+    else if (findCardEl("course")) pool = ["peek", "books", "watch", "hang", "sleep"];
+    else pool = ["sleep", "watch", "hang", "books", "peek", "write"];
+
+    // avoid repeating the same one twice in a row
+    const choices = pool.filter((a) => a !== lastRestRef.current);
+    const pick = (choices.length ? choices : pool)[
+      Math.floor(Math.random() * (choices.length ? choices.length : pool.length))
+    ];
+    lastRestRef.current = pick;
+    return pick;
   }, [findCardEl]);
 
   /** push a sequence of phases; the engine plays them in order */
@@ -485,8 +525,11 @@ export default function HaviMascot({
   /** settle into a resting phase on the current card */
   const settle = useCallback(() => {
     busyRef.current = false;
+    walkRef.current = null; // never keep walking while resting/asleep
+    jumpRef.current = null;
+    // the card he's on must still be valid, otherwise find a new one
     const el = targetElRef.current;
-    if (!el || el.offsetParent === null) {
+    if (!isValidCard(el)) {
       const c = randomCard();
       if (!c) {
         setVisible(false);
@@ -494,6 +537,10 @@ export default function HaviMascot({
         return;
       }
       perch(c);
+    } else {
+      // re-snap exactly onto the card edge (fixes drifting into empty space)
+      const { top, left } = coordsFor(el, cornerRef.current);
+      setPosition(top, left);
     }
     // near-due reminder gets a nudge
     const act = restingActivity();
@@ -506,7 +553,17 @@ export default function HaviMascot({
     }
     phaseEndRef.current =
       performance.now() + restMinMs + Math.random() * (restMaxMs - restMinMs);
-  }, [perch, randomCard, restingActivity, say, restMinMs, restMaxMs]);
+  }, [
+    perch,
+    randomCard,
+    restingActivity,
+    say,
+    restMinMs,
+    restMaxMs,
+    isValidCard,
+    coordsFor,
+    setPosition,
+  ]);
 
   /** the full "I want to move somewhere else" sequence */
   const relocate = useCallback(
@@ -536,7 +593,7 @@ export default function HaviMascot({
       });
       steps.push({
         act: "jump",
-        ms: 0, // duration comes from the jump itself
+        ms: 1600, // hard safety cap — the arc normally ends it much sooner
         onStart: () => startJump(dest, to),
       });
       queue(steps);
@@ -659,13 +716,32 @@ export default function HaviMascot({
   /* ---------------- poke reaction ---------------- */
   const poke = useCallback(() => {
     if (squishRef.current) return; // already squishing
+
+    /* count clicks — every 3rd one switches to the next animation */
+    clickCountRef.current += 1;
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      clickCountRef.current = 0; // clicks must be within ~1.5s of each other
+    }, 1500);
+
+    const switching = clickCountRef.current % 3 === 0;
+
     jumpRef.current = null;
     walkRef.current = null;
     busyRef.current = true;
     squishRef.current = { start: performance.now(), dur: 420 }; // fast & snappy
-    queueRef.current = [{ act: "squish", ms: 420 }];
+
+    if (switching) {
+      forcedIdxRef.current = (forcedIdxRef.current + 1) % CYCLE_ACTS.length;
+      const next = CYCLE_ACTS[forcedIdxRef.current];
+      forcedActRef.current = next;
+      queueRef.current = [{ act: "squish", ms: 420 }, { act: next, ms: 9000 }];
+      say("switch", 1400);
+    } else {
+      queueRef.current = [{ act: "squish", ms: 420 }];
+      say("squish", 1100);
+    }
     phaseEndRef.current = 0;
-    say("squish", 1100);
   }, [say]);
 
   /* ---------------- refs used inside the loop ---------------- */
@@ -736,6 +812,8 @@ export default function HaviMascot({
       walkRef.current = null;
       busyRef.current = false;
       celebrateUntilRef.current = 0;
+      forcedActRef.current = null; // back to normal behaviour on a new page
+      clickCountRef.current = 0;
       setBubble(null);
       setVisible(false);
       // let the new page render, then he rises from behind a card
@@ -747,7 +825,7 @@ export default function HaviMascot({
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
-      version: "v8",
+      version: "v9",
       features: [
         "behaviour-engine",      // chained: sleep→wake→watch→walk→jump→sleep
         "rise-entrance",         // enters by rising from behind a card
@@ -755,6 +833,8 @@ export default function HaviMascot({
         "squish-on-click",       // fast squash reaction
         "perpendicular-jump",    // vertical jumps bow sideways
         "auto-detect-cards",     // works on untagged pages
+        "click3-cycle",          // 3 clicks switches animation
+        "viewport-clamped",      // never clipped or on the sidebar
       ],
       celebrate,
       poke,
@@ -811,8 +891,7 @@ export default function HaviMascot({
         currentStepRef.step = step;
         step.onStart?.();
         setActivity(step.act);
-        phaseEndRef.current =
-          step.ms > 0 ? performance.now() + step.ms : Number.MAX_SAFE_INTEGER;
+        phaseEndRef.current = performance.now() + (step.ms > 0 ? step.ms : 800);
         return;
       }
 
@@ -899,14 +978,27 @@ export default function HaviMascot({
       if (w && containerRef.current && !j) {
         const el = targetElRef.current;
         let nx = posRef.current.left + w.dir * w.speed;
+        let hitEdge = false;
         if (el) {
           const r = el.getBoundingClientRect();
           const minX = r.left + window.scrollX + 6;
           const maxX = r.right + window.scrollX - size - 6;
-          nx = Math.max(minX, Math.min(maxX, nx));
+          if (nx <= minX) {
+            nx = minX;
+            hitEdge = true;
+          } else if (nx >= maxX) {
+            nx = maxX;
+            hitEdge = true;
+          }
         }
         posRef.current = { ...posRef.current, left: nx };
         containerRef.current.style.left = `${nx}px`;
+        // Reached the end of the card: stop walking and move on immediately,
+        // instead of marching in place forever.
+        if (hitEdge) {
+          walkRef.current = null;
+          phaseEndRef.current = 0;
+        }
       }
 
       /* --- phase scheduler --- */
