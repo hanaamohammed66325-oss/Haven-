@@ -315,6 +315,7 @@ export default function HaviMascot({
   celebrateMs = 10000, // celebration lasts 10s, interruptible
   restMinMs = 14000, // how long he rests before wanting to move
   restMaxMs = 26000,
+  excludePaths = ["/"], // pages he should never appear on (the landing page)
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -345,6 +346,10 @@ export default function HaviMascot({
   const clickTimerRef = useRef(null);
   const forcedActRef = useRef(null); // manually chosen animation
   const forcedIdxRef = useRef(-1);
+  const isValidCardRef = useRef(null);
+  const coordsForRef = useRef(null);
+  const lastResyncRef = useRef(0);
+  const spotIsBlockedRef = useRef(null);
 
   const scale = Math.max(2, Math.round(size / GRID_W));
   const canvasW = scale * GRID_W;
@@ -366,6 +371,15 @@ export default function HaviMascot({
     // never sit on navigation chrome — that's how he ended up over the logo
     if (el.closest("nav, aside, header, footer, [role='navigation'], [data-havi-avoid]"))
       return false;
+    // never sit inside decorative artwork / marketing mockups
+    if (
+      el.closest(
+        "figure, picture, svg, canvas, [aria-hidden='true'], [data-hero], [class*='hero'], [class*='mockup'], [class*='preview'], [class*='illustration']"
+      )
+    )
+      return false;
+    const cs0 = window.getComputedStyle(el);
+    if (cs0.pointerEvents === "none") return false; // decorative layer
     const r = el.getBoundingClientRect();
     if (r.width < 160 || r.height < 60) return false;
     if (r.width > window.innerWidth * 0.97) return false;
@@ -555,7 +569,7 @@ export default function HaviMascot({
       const { top, left } = coordsFor(el, cornerRef.current);
       setPosition(top, left);
     }
-    // near-due reminder gets a nudge
+    // Choose ONE activity and commit to it for the full rest period.
     const act = restingActivity();
     setActivity(act);
     phaseEndRef.current =
@@ -581,22 +595,40 @@ export default function HaviMascot({
       }
       const from = posRef.current;
       const to = coordsFor(dest, Math.random() > 0.5 ? "left" : "right");
-      const goingRight = to.left >= from.left;
 
       const steps = [];
       // if he's asleep, he has to wake up first
       if (activity === "sleep") steps.push({ act: "wake", ms: 900 });
-      steps.push({ act: "watch", ms: 1400 }); // look around
-      steps.push({
-        act: "walk",
-        ms: 900,
-        onStart: () => {
-          walkRef.current = { dir: goingRight ? 1 : -1, speed: 0.9 };
-        },
-        onEnd: () => {
-          walkRef.current = null;
-        },
-      });
+      steps.push({ act: "watch", ms: 1400 }); // look around, decide
+
+      /* Walk INWARD, away from the edge he's perched on. Previously he walked
+         towards the edge he was already standing on, so "reached the edge"
+         fired on the very first frame and the walk flickered past in an
+         instant — that was the hesitation. */
+      const el = targetElRef.current;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        const minX = r.left + window.scrollX + 6;
+        const maxX = r.right + window.scrollX - size - 6;
+        const roomLeft = from.left - minX;
+        const roomRight = maxX - from.left;
+        const dir = roomRight >= roomLeft ? 1 : -1; // head for the roomier side
+        const room = Math.max(roomLeft, roomRight);
+        // only bother walking if there's somewhere to actually walk to
+        if (room > 45) {
+          steps.push({
+            act: "walk",
+            ms: Math.min(1400, 500 + room * 4),
+            onStart: () => {
+              walkRef.current = { dir, speed: 0.9 };
+            },
+            onEnd: () => {
+              walkRef.current = null;
+            },
+          });
+        }
+      }
+
       steps.push({
         act: "jump",
         ms: 1600, // hard safety cap — the arc normally ends it much sooner
@@ -605,7 +637,7 @@ export default function HaviMascot({
       queue(steps);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activity, randomCard, coordsFor, settle, queue]
+    [activity, randomCard, coordsFor, settle, queue, size]
   );
 
   /** launch the arc; perpendicular bow so vertical moves work */
@@ -640,6 +672,12 @@ export default function HaviMascot({
 
   /** entrance: rise up from behind a visible card, walk a little, then settle */
   const enterFromCard = useCallback(() => {
+    // never show up on excluded pages (e.g. the public landing page)
+    const path = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (excludePaths.some((p) => (p.replace(/\/+$/, "") || "/") === path)) {
+      setVisible(false);
+      return;
+    }
     const card = randomCard();
     if (!card) {
       setVisible(false);
@@ -648,20 +686,12 @@ export default function HaviMascot({
     perch(card);
     setVisible(true);
     riseRef.current = { start: performance.now(), dur: 700 };
-    queue([
-      { act: "peek", ms: 700 }, // rising (clip handled by riseRef)
-      {
-        act: "walk",
-        ms: 800,
-        onStart: () => {
-          walkRef.current = { dir: Math.random() > 0.5 ? 1 : -1, speed: 0.7 };
-        },
-        onEnd: () => {
-          walkRef.current = null;
-        },
-      },
-    ]);
-  }, [randomCard, perch, queue]);
+    /* Rise, then commit to ONE activity and hold it. He used to take a brief
+       walk here that ended almost instantly (he was already at the card edge),
+       which read as hesitation. */
+    restedRef.current = true; // next thing after this rest is a proper move
+    queue([{ act: "peek", ms: 700 }]);
+  }, [randomCard, perch, queue, excludePaths]);
 
   /* ---------------- celebrate ---------------- */
   const celebrate = useCallback(
@@ -753,6 +783,15 @@ export default function HaviMascot({
   useEffect(() => {
     settleRef.current = settle;
   }, [settle]);
+  useEffect(() => {
+    isValidCardRef.current = isValidCard;
+  }, [isValidCard]);
+  useEffect(() => {
+    coordsForRef.current = coordsFor;
+  }, [coordsFor]);
+  useEffect(() => {
+    spotIsBlockedRef.current = spotIsBlocked;
+  }, [spotIsBlocked]);
   useEffect(() => {
     relocateRef.current = relocate;
   }, [relocate]);
@@ -859,7 +898,7 @@ export default function HaviMascot({
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
-      version: "v10",
+      version: "v12",
       features: [
         "behaviour-engine",      // chained: sleep→wake→watch→walk→jump→sleep
         "rise-entrance",         // enters by rising from behind a card
@@ -873,6 +912,10 @@ export default function HaviMascot({
         "instant-nav",           // hides immediately on navigation
         "polished-jump",         // crouch, gravity arc, landing squash
         "no-speech-bubbles",     // silent — no text popups
+        "sticks-to-card",        // re-syncs every frame through layout shifts
+        "skips-controls",        // won't stand on buttons or inputs
+        "no-landing-page",       // excluded from marketing pages
+        "decisive",              // commits to one activity, no flickering
       ],
       celebrate,
       poke,
@@ -977,6 +1020,39 @@ export default function HaviMascot({
       }
 
       /* --- jump arc --- */
+      /* --- keep him glued to his card, every frame ---
+         Layout shifts (sidebar collapsing, images loading, content changing)
+         used to strand him in empty space because his position was only
+         computed once when he sat down. Now it's re-verified continuously. */
+      if (
+        !jumpRef.current &&
+        !walkRef.current &&
+        !squishRef.current &&
+        containerRef.current &&
+        visible
+      ) {
+        const el = targetElRef.current;
+        if (!el || el.offsetParent === null || !isValidCardRef.current?.(el)) {
+          // his card vanished or scrolled out of range -> go find a new one
+          if (ts - lastResyncRef.current > 400) {
+            lastResyncRef.current = ts;
+            targetElRef.current = null;
+            enterRef2.current?.();
+          }
+        } else {
+          const want = coordsForRef.current?.(el, cornerRef.current);
+          if (want) {
+            const dx = Math.abs(want.left - posRef.current.left);
+            const dy = Math.abs(want.top - posRef.current.top);
+            if (dx > 1 || dy > 1) {
+              posRef.current = want;
+              containerRef.current.style.top = `${want.top}px`;
+              containerRef.current.style.left = `${want.left}px`;
+            }
+          }
+        }
+      }
+
       const j = jumpRef.current;
       if (j && containerRef.current) {
         const raw = Math.min(1, (ts - j.start) / j.dur);
@@ -1072,10 +1148,21 @@ export default function HaviMascot({
           }
           posRef.current = { ...posRef.current, left: nx };
           containerRef.current.style.left = `${nx}px`;
-          // Reached the end of the card: stop and move on instead of
-          // marching in place forever.
-          if (hitEdge) {
+
+          // Don't come to rest on top of a control. If the next step would put
+          // him over a button/input, stop here instead of standing on it.
+          const blocked = spotIsBlockedRef.current?.(posRef.current.top, nx);
+
+          // Reached the end of the card, or hit a control: stop and move on
+          // instead of marching in place forever.
+          if (hitEdge || blocked) {
             walkRef.current = null;
+            if (blocked && !hitEdge) {
+              // back off a little so he isn't left standing on the control
+              const back = nx - w.dir * 26;
+              posRef.current = { ...posRef.current, left: back };
+              containerRef.current.style.left = `${back}px`;
+            }
             phaseEndRef.current = 0;
           }
         }
