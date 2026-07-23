@@ -302,13 +302,6 @@ function rotFor(activity, t) {
   return 0;
 }
 
-const BUBBLES = {
-  watch: ["ترا قربت! 👀", "لا تنسى! ⏰", "عندك شي قريب!"],
-  celebrate: ["برااافو! 🎉", "يا سلام عليك! 🌟", "درجة حلوة! 👏"],
-  squish: ["آي! 😖", "أوووه!", "بس! 😣", "لا تضغط! 😤"],
-  switch: ["طيب طيب! 😅", "خلاص بغيّر 🙃", "شوف كذا 😌"],
-};
-
 /** Order used when the user clicks him 3x to switch animation */
 const CYCLE_ACTS = ["sleep", "watch", "hang", "books", "peek", "write"];
 
@@ -330,7 +323,6 @@ export default function HaviMascot({
   const [activity, setActivity] = useState("sleep");
   const [pos, setPos] = useState({ top: -9999, left: -9999 });
   const [visible, setVisible] = useState(false);
-  const [bubble, setBubble] = useState(null);
   const [reduced, setReduced] = useState(false);
 
   const tRef = useRef(0);
@@ -353,7 +345,6 @@ export default function HaviMascot({
   const clickTimerRef = useRef(null);
   const forcedActRef = useRef(null); // manually chosen animation
   const forcedIdxRef = useRef(-1);
-  const bubbleTimerRef = useRef(null);
 
   const scale = Math.max(2, Math.round(size / GRID_W));
   const canvasW = scale * GRID_W;
@@ -444,6 +435,22 @@ export default function HaviMascot({
     }
   }, []);
 
+  /** Is anything interactive under this spot? (buttons, inputs, links) */
+  const spotIsBlocked = useCallback(
+    (top, left) => {
+      const cx = left - window.scrollX + size / 2;
+      const cy = top - window.scrollY + size * 0.8; // his feet
+      if (cx < 0 || cy < 0 || cx > window.innerWidth || cy > window.innerHeight)
+        return true;
+      const hit = document.elementFromPoint(cx, cy);
+      if (!hit) return false;
+      return !!hit.closest(
+        "button, a, input, select, textarea, [role='button'], [role='tab'], label"
+      );
+    },
+    [size]
+  );
+
   const coordsFor = useCallback(
     (el, corner) => {
       const r = el.getBoundingClientRect();
@@ -465,10 +472,25 @@ export default function HaviMascot({
     [size]
   );
 
+  /** Choose the corner that doesn't sit on top of a button/input */
+  const bestCorner = useCallback(
+    (el, preferred) => {
+      const order =
+        preferred === "left" ? ["left", "right"] : ["right", "left"];
+      for (const c of order) {
+        const { top, left } = coordsFor(el, c);
+        if (!spotIsBlocked(top, left)) return c;
+      }
+      return order[0]; // both blocked — take the preferred one anyway
+    },
+    [coordsFor, spotIsBlocked]
+  );
+
   const perch = useCallback(
     (el, corner) => {
       if (!el || el.offsetParent === null) return false;
-      const c = corner || (Math.random() > 0.5 ? "left" : "right");
+      const wanted = corner || (Math.random() > 0.5 ? "left" : "right");
+      const c = bestCorner(el, wanted); // avoid covering buttons/inputs
       const { top, left } = coordsFor(el, c);
       targetElRef.current = el;
       cornerRef.current = c;
@@ -476,17 +498,8 @@ export default function HaviMascot({
       setVisible(true);
       return true;
     },
-    [coordsFor, setPosition]
+    [coordsFor, bestCorner, setPosition]
   );
-
-  /* ---------------- bubbles ---------------- */
-  const say = useCallback((kind, ms = 3500) => {
-    const arr = BUBBLES[kind];
-    if (!arr) return;
-    setBubble(arr[Math.floor(Math.random() * arr.length)]);
-    if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
-    bubbleTimerRef.current = setTimeout(() => setBubble(null), ms);
-  }, []);
 
   /* ================= BEHAVIOUR ENGINE ================= */
 
@@ -545,19 +558,12 @@ export default function HaviMascot({
     // near-due reminder gets a nudge
     const act = restingActivity();
     setActivity(act);
-    if (act === "watch") {
-      const nearDue = document.querySelector(
-        '[data-havi-role="upcoming"][data-havi-near-due="true"]'
-      );
-      if (nearDue && Math.random() > 0.5) say("watch");
-    }
     phaseEndRef.current =
       performance.now() + restMinMs + Math.random() * (restMaxMs - restMinMs);
   }, [
     perch,
     randomCard,
     restingActivity,
-    say,
     restMinMs,
     restMaxMs,
     isValidCard,
@@ -694,14 +700,13 @@ export default function HaviMascot({
       busyRef.current = true;
       perch(el, "right");
       setActivity("celebrate");
-      say("celebrate", Math.min(celebrateMs, 5000));
       celebrateUntilRef.current = performance.now() + celebrateMs;
       phaseEndRef.current = celebrateUntilRef.current;
       try {
         el.scrollIntoView({ behavior: "smooth", block: "nearest" });
       } catch (e) {}
     },
-    [highGradeThreshold, celebrateMs, findCardEl, randomCard, perch, say]
+    [highGradeThreshold, celebrateMs, findCardEl, randomCard, perch]
   );
 
   /** any user action cuts the party short and he re-enters naturally */
@@ -709,7 +714,6 @@ export default function HaviMascot({
     if (!busyRef.current || activity !== "celebrate") return;
     celebrateUntilRef.current = 0;
     busyRef.current = false;
-    setBubble(null);
     enterFromCard();
   }, [activity, enterFromCard]);
 
@@ -736,13 +740,11 @@ export default function HaviMascot({
       const next = CYCLE_ACTS[forcedIdxRef.current];
       forcedActRef.current = next;
       queueRef.current = [{ act: "squish", ms: 420 }, { act: next, ms: 9000 }];
-      say("switch", 1400);
     } else {
       queueRef.current = [{ act: "squish", ms: 420 }];
-      say("squish", 1100);
     }
     phaseEndRef.current = 0;
-  }, [say]);
+  }, []);
 
   /* ---------------- refs used inside the loop ---------------- */
   const settleRef = useRef(null);
@@ -800,32 +802,64 @@ export default function HaviMascot({
     return () => document.removeEventListener("click", onClick, true);
   }, [activity, interruptCelebration]);
 
-  /* ---------------- route changes ---------------- */
+  /* ---------------- route changes (instant, no polling lag) ---------------- */
   useEffect(() => {
-    let lastPath = window.location.pathname;
-    const id = setInterval(() => {
-      if (window.location.pathname === lastPath) return;
-      lastPath = window.location.pathname;
-      // a page change cancels whatever he was doing
+    const reset = () => {
       queueRef.current = [];
       jumpRef.current = null;
       walkRef.current = null;
+      squishRef.current = null;
       busyRef.current = false;
       celebrateUntilRef.current = 0;
-      forcedActRef.current = null; // back to normal behaviour on a new page
+      forcedActRef.current = null;
       clickCountRef.current = 0;
-      setBubble(null);
-      setVisible(false);
-      // let the new page render, then he rises from behind a card
-      setTimeout(() => enterRef2.current?.(), 500);
-    }, 400);
-    return () => clearInterval(id);
+      targetElRef.current = null;
+      setVisible(false); // hide IMMEDIATELY — no lingering on the old page
+    };
+
+    const onNavigate = () => {
+      reset();
+      // let the new page paint, then he rises from behind a card
+      setTimeout(() => enterRef2.current?.(), 420);
+    };
+
+    // 1) hide the instant a nav link is clicked, before the route even changes
+    const onLinkClick = (e) => {
+      const a = e.target instanceof Element ? e.target.closest("a[href]") : null;
+      if (!a) return;
+      const href = a.getAttribute("href") || "";
+      if (href.startsWith("#") || a.target === "_blank") return;
+      reset();
+    };
+    document.addEventListener("click", onLinkClick, true);
+
+    // 2) patch history so Next.js client navigation fires immediately
+    const origPush = history.pushState;
+    const origReplace = history.replaceState;
+    history.pushState = function (...args) {
+      const r = origPush.apply(this, args);
+      onNavigate();
+      return r;
+    };
+    history.replaceState = function (...args) {
+      const r = origReplace.apply(this, args);
+      onNavigate();
+      return r;
+    };
+    window.addEventListener("popstate", onNavigate);
+
+    return () => {
+      document.removeEventListener("click", onLinkClick, true);
+      history.pushState = origPush;
+      history.replaceState = origReplace;
+      window.removeEventListener("popstate", onNavigate);
+    };
   }, []);
 
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
-      version: "v9",
+      version: "v10",
       features: [
         "behaviour-engine",      // chained: sleep→wake→watch→walk→jump→sleep
         "rise-entrance",         // enters by rising from behind a card
@@ -835,6 +869,10 @@ export default function HaviMascot({
         "auto-detect-cards",     // works on untagged pages
         "click3-cycle",          // 3 clicks switches animation
         "viewport-clamped",      // never clipped or on the sidebar
+        "avoids-buttons",        // never perches over a button or input
+        "instant-nav",           // hides immediately on navigation
+        "polished-jump",         // crouch, gravity arc, landing squash
+        "no-speech-bubbles",     // silent — no text popups
       ],
       celebrate,
       poke,
@@ -941,35 +979,72 @@ export default function HaviMascot({
       /* --- jump arc --- */
       const j = jumpRef.current;
       if (j && containerRef.current) {
-        const p = Math.min(1, (ts - j.start) / j.dur);
-        const wave = Math.sin(Math.PI * p);
-        let x = j.fromLeft + (j.toLeft - j.fromLeft) * p;
-        let y = j.fromTop + (j.toTop - j.fromTop) * p;
-        if (j.vertical) {
-          x += j.side * j.bulge * wave;
-          y -= j.lift * wave * 0.45;
+        const raw = Math.min(1, (ts - j.start) / j.dur);
+
+        // --- 1. ANTICIPATION: he crouches in place before launching ---
+        const CROUCH = 0.14;
+        if (raw < CROUCH) {
+          const c = raw / CROUCH;
+          if (wrapRef.current) {
+            const sy = 1 - 0.22 * Math.sin((c * Math.PI) / 2); // compress down
+            wrapRef.current.style.transformOrigin = "50% 100%";
+            wrapRef.current.style.transform = `scale(${(1 + (1 - sy) * 0.3).toFixed(
+              3
+            )}, ${sy.toFixed(3)})`;
+          }
         } else {
-          y -= j.lift * wave;
+          // --- 2. FLIGHT ---
+          const p = (raw - CROUCH) / (1 - CROUCH);
+          // horizontal: launches fast, eases as it lands
+          const ph = 1 - Math.pow(1 - p, 1.4);
+          // vertical: true parabola (gravity), apex slightly before halfway
+          const pv = Math.pow(p, 0.92);
+          const arc = 4 * pv * (1 - pv);
+
+          let x = j.fromLeft + (j.toLeft - j.fromLeft) * ph;
+          let y = j.fromTop + (j.toTop - j.fromTop) * ph;
+          if (j.vertical) {
+            x += j.side * j.bulge * arc;
+            y -= j.lift * arc * 0.5;
+          } else {
+            y -= j.lift * arc;
+          }
+          containerRef.current.style.top = `${y}px`;
+          containerRef.current.style.left = `${x}px`;
+
+          if (wrapRef.current) {
+            // stretched on the way up, squashing as he comes down to land
+            const stretch = p < 0.5 ? 1 + 0.2 * (1 - p * 2) : 1 - 0.1 * ((p - 0.5) * 2);
+            const rot = j.dir * 11 * Math.sin(Math.PI * p);
+            wrapRef.current.style.transformOrigin = "50% 100%";
+            wrapRef.current.style.transform = `rotate(${rot.toFixed(
+              2
+            )}deg) scale(${(2 - stretch).toFixed(3)}, ${stretch.toFixed(3)})`;
+          }
         }
-        containerRef.current.style.top = `${y}px`;
-        containerRef.current.style.left = `${x}px`;
-        if (wrapRef.current) {
-          wrapRef.current.style.transform = `rotate(${(j.dir * 9 * wave).toFixed(
-            2
-          )}deg) scaleY(${(1 + 0.15 * wave).toFixed(3)})`;
-        }
-        if (p >= 1) {
+
+        if (raw >= 1) {
           jumpRef.current = null;
           posRef.current = { top: j.toTop, left: j.toLeft };
           setPos({ top: j.toTop, left: j.toLeft });
+          containerRef.current.style.top = `${j.toTop}px`;
+          containerRef.current.style.left = `${j.toLeft}px`;
+          // --- 3. LANDING: squash, then settle back ---
           if (wrapRef.current) {
-            wrapRef.current.style.transform = "scaleY(0.88)"; // landing squash
+            const wr = wrapRef.current;
+            wr.style.transformOrigin = "50% 100%";
+            wr.style.transform = "scale(1.16, 0.8)";
             setTimeout(() => {
-              if (wrapRef.current && !jumpRef.current)
-                wrapRef.current.style.transform = "";
-            }, 120);
+              if (wr && !jumpRef.current) wr.style.transform = "scale(0.96, 1.06)";
+            }, 90);
+            setTimeout(() => {
+              if (wr && !jumpRef.current) {
+                wr.style.transform = "";
+                wr.style.transformOrigin = "";
+              }
+            }, 190);
           }
-          phaseEndRef.current = 0; // move on
+          phaseEndRef.current = 0;
         }
       }
 
@@ -977,9 +1052,14 @@ export default function HaviMascot({
       const w = walkRef.current;
       if (w && containerRef.current && !j) {
         const el = targetElRef.current;
-        let nx = posRef.current.left + w.dir * w.speed;
-        let hitEdge = false;
-        if (el) {
+        // No valid card to walk along -> stop immediately. (Without this he
+        // walked off into empty space forever.)
+        if (!el || el.offsetParent === null) {
+          walkRef.current = null;
+          phaseEndRef.current = 0;
+        } else {
+          let nx = posRef.current.left + w.dir * w.speed;
+          let hitEdge = false;
           const r = el.getBoundingClientRect();
           const minX = r.left + window.scrollX + 6;
           const maxX = r.right + window.scrollX - size - 6;
@@ -990,14 +1070,14 @@ export default function HaviMascot({
             nx = maxX;
             hitEdge = true;
           }
-        }
-        posRef.current = { ...posRef.current, left: nx };
-        containerRef.current.style.left = `${nx}px`;
-        // Reached the end of the card: stop walking and move on immediately,
-        // instead of marching in place forever.
-        if (hitEdge) {
-          walkRef.current = null;
-          phaseEndRef.current = 0;
+          posRef.current = { ...posRef.current, left: nx };
+          containerRef.current.style.left = `${nx}px`;
+          // Reached the end of the card: stop and move on instead of
+          // marching in place forever.
+          if (hitEdge) {
+            walkRef.current = null;
+            phaseEndRef.current = 0;
+          }
         }
       }
 
@@ -1053,26 +1133,6 @@ export default function HaviMascot({
         pointerEvents: "none",
       }}
     >
-      {bubble && (
-        <div
-          dir="rtl"
-          style={{
-            position: "absolute",
-            bottom: size - 4,
-            right: 0,
-            background: "#fff",
-            border: "1px solid #e3e3dd",
-            borderRadius: 10,
-            padding: "4px 10px",
-            fontSize: 12,
-            whiteSpace: "nowrap",
-            boxShadow: "0 2px 8px rgba(0,0,0,.08)",
-            color: "#2c2c2a",
-          }}
-        >
-          {bubble}
-        </div>
-      )}
       <div ref={wrapRef} style={{ width: size, height: size }}>
         <canvas
           ref={canvasRef}
