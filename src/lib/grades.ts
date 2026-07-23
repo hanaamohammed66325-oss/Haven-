@@ -94,6 +94,55 @@ export function projectedCumulativeGpa(
 export const weightsTotal = (c: Course) =>
   c.components.reduce((s, x) => s + (Number(x.weight) || 0), 0);
 
+/* ------------------------------------------------------------------ */
+/*  Numeric field validation — ONE rule for every score / weight input  */
+/* ------------------------------------------------------------------ */
+
+/** Percentage fields (item weights) always run 0…100. */
+export const MAX_PERCENT = 100;
+
+/** `max` = value is above the allowed maximum; `min` = value is negative. */
+export type RangeError = "max" | "min" | null;
+
+export interface BoundedValue {
+  /** the value safe to SAVE — null means empty ("not graded yet"), never 0 */
+  value: number | null;
+  /** when set, the input is out of range and the caller must NOT save */
+  error: RangeError;
+  /** the in-range value to snap back to on blur */
+  clamped: number | null;
+}
+
+/** Clamp a number into [0, max]. */
+export function clampToRange(n: number, max: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(max, Math.max(0, n));
+}
+
+/**
+ * Parse a raw input string against an upper bound (an item's full mark, or 100
+ * for percentages). This is the single place the rule lives:
+ *
+ *  - empty stays empty (null) — "not graded yet", and must never become 0
+ *  - decimals are preserved (18.5 out of 20 is valid)
+ *  - above `max` or below 0 reports an error and yields NO value to save;
+ *    `clamped` carries what to snap back to when the field loses focus
+ *
+ * `max` is optional: omit it for a field with no meaningful ceiling (a weight
+ * expressed in points), and only negatives are rejected.
+ */
+export function parseBounded(raw: string, max?: number): BoundedValue {
+  const s = String(raw).trim();
+  if (s === "") return { value: null, error: null, clamped: null };
+  const n = Number(s);
+  // Unparseable (a lone "-" or "." mid-typing) is treated like empty.
+  if (!Number.isFinite(n)) return { value: null, error: null, clamped: null };
+  if (n < 0) return { value: null, error: "min", clamped: 0 };
+  if (max != null && Number.isFinite(max) && n > max)
+    return { value: null, error: "max", clamped: max };
+  return { value: n, error: null, clamped: n };
+}
+
 export const sessionsPerWeek = (c: Course) => c.sessions.length;
 export const minutesPerWeek = (c: Course) =>
   c.sessions.reduce((s, x) => s + (Number(x.minutes) || 0), 0);

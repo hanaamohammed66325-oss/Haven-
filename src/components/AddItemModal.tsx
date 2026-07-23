@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
 import { DateField } from "./DateField";
+import { BoundedNumberInput } from "./BoundedNumberInput";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
+import { clampToRange, MAX_PERCENT } from "@/lib/grades";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
 
 const COMPONENT_TYPES: ComponentType[] = ["quiz", "midterm", "final", "project", "assignment"];
@@ -35,6 +37,10 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
 
   const border = { borderColor: "var(--color-border)" };
 
+  // The score can only be bounded once we know the item's full mark.
+  const totalNum = Number(total);
+  const scoreMax = total.trim() !== "" && Number.isFinite(totalNum) && totalNum > 0 ? totalNum : undefined;
+
   // Prefill on open (edit) or reset to defaults (add).
   useEffect(() => {
     if (!open) return;
@@ -64,13 +70,16 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
     const w = Number(weight);
     const tot = Number(total);
     if (!name.trim() || !w || w <= 0 || !tot || tot <= 0) return;
+    // Defensive clamp: covers switching points -> percent while a >100 weight
+    // is still in the field, and any value that reached state another way.
+    const safeWeight = unit === "percent" ? clampToRange(w, MAX_PERCENT) : Math.max(0, w);
     onSubmit({
       name: name.trim(),
       type,
-      weight: w,
+      weight: safeWeight,
       unit,
       total: tot,
-      score: score.trim() === "" ? null : Number(score),
+      score: score.trim() === "" ? null : clampToRange(Number(score), tot),
       date: dateMode === "specific" && date ? date : null,
     });
     onClose();
@@ -113,7 +122,17 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemWeight")}</label>
           <div className="flex gap-2">
-            <input className={field} style={border} type="number" min="0" step="any" value={weight} onChange={(e) => setWeight(e.target.value)} />
+            {/* Percentages are capped at 100; points have no meaningful ceiling. */}
+            <BoundedNumberInput
+              align="start"
+              className={field}
+              style={border}
+              placeholder=""
+              ariaLabel={t("itemWeight")}
+              value={weight.trim() === "" ? null : Number(weight)}
+              max={unit === "percent" ? MAX_PERCENT : undefined}
+              onCommit={(v) => setWeight(v == null ? "" : String(v))}
+            />
             <div className="inline-flex rounded-xl p-1 shrink-0" style={{ background: "var(--color-primary-soft)" }}>
               {(["percent", "points"] as const).map((u) => (
                 <button
@@ -168,7 +187,17 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
             {t("itemScore")} <span style={{ opacity: 0.7 }}>({t("optional")})</span>
           </label>
-          <input className={field} style={border} type="number" min="0" step="any" value={score} onChange={(e) => setScore(e.target.value)} />
+          {/* Bounded by this item's full mark, so 27/20 can never be saved. */}
+          <BoundedNumberInput
+            align="start"
+            className={field}
+            style={border}
+            placeholder=""
+            ariaLabel={t("itemScore")}
+            value={score.trim() === "" ? null : Number(score)}
+            max={scoreMax}
+            onCommit={(v) => setScore(v == null ? "" : String(v))}
+          />
         </div>
       </form>
     </Modal>

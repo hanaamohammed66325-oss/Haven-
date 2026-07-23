@@ -7,6 +7,7 @@ import { GradeBadge } from "./GradeBadge";
 import { AttendanceSection } from "./AttendanceSection";
 import { AddItemModal } from "./AddItemModal";
 import { AddCourseModal } from "./AddCourseModal";
+import { BoundedNumberInput } from "./BoundedNumberInput";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import {
@@ -80,10 +81,13 @@ export function CoursePanel({ course }: { course: Course }) {
           <div className="flex items-center gap-2 mt-2.5 text-[13px]" style={{ color: "var(--color-muted)" }}>
             <span>{creditHoursLabel(course.creditHours, lang)}</span>
             <span>·</span>
-            <span>
-              {used < 100
-                ? t("weightsUnassigned", { used: round(used), left: round(left) })
-                : t("weightsComplete", { used: round(used) })}
+            {/* Weights that don't add up to 100% are a warning, never a block. */}
+            <span style={used > 100 ? { color: "var(--color-danger)" } : undefined}>
+              {used > 100
+                ? t("weightsOver", { used: round(used) })
+                : used < 100
+                  ? t("weightsUnassigned", { used: round(used), left: round(left) })
+                  : t("weightsComplete", { used: round(used) })}
             </span>
           </div>
         </div>
@@ -235,13 +239,11 @@ function ComponentRow({
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <input
-          type="number"
-          min="0"
-          step="any"
-          value={comp.score ?? ""}
-          placeholder="—"
-          onChange={(e) => onScore(e.target.value === "" ? null : Number(e.target.value))}
+        <BoundedNumberInput
+          value={comp.score}
+          max={comp.total}
+          onCommit={onScore}
+          ariaLabel={t("itemScore")}
           className="w-14 rounded-lg border px-2 py-1 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
           style={{ borderColor: "var(--color-border)" }}
         />
