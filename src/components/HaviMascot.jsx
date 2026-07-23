@@ -106,7 +106,7 @@ function drawFrame(canvas, activity, t, extra) {
   switch (activity) {
     case "sleep": {
       px(ctx, s, 7, 10, 4, 1, COL.k); // closed eyes
-      px(ctx, s, 16, 10, 4, 1, COL.k);
+      px(ctx, s, 17, 10, 4, 1, COL.k);
       if (t % 12 < 6) px(ctx, s, 12, 13, 4, 2, COL.k);
       else px(ctx, s, 12, 13, 4, 1, COL.k);
       const by = 15; // blanket
@@ -126,11 +126,11 @@ function drawFrame(canvas, activity, t, extra) {
       // eyelids lifting, a stretch
       const open = Math.min(3, 1 + Math.floor((t % 8) / 3));
       px(ctx, s, 8, 10, 2, open, COL.k);
-      px(ctx, s, 17, 10, 2, open, COL.k);
+      px(ctx, s, 18, 10, 2, open, COL.k);
       px(ctx, s, 12, 13, 4, 2, COL.k); // yawn
       px(ctx, s, 13, 14, 2, 1, "#5a3b45");
       px(ctx, s, 3, 8, 2, 3, COL.G); // stretching arms
-      px(ctx, s, 22, 8, 2, 3, COL.G);
+      px(ctx, s, 23, 8, 2, 3, COL.G);
       break;
     }
     case "watch": {
@@ -143,7 +143,7 @@ function drawFrame(canvas, activity, t, extra) {
       else if (cyc === 1) ox = 1;
       else oy = 1;
       px(ctx, s, 8 + ox, 9 + oy, 2, 2, COL.k);
-      px(ctx, s, 17 + ox, 9 + oy, 2, 2, COL.k);
+      px(ctx, s, 18 + ox, 9 + oy, 2, 2, COL.k);
       if (cyc >= 2) px(ctx, s, 11, 19, 6, 1, t % 2 === 0 ? COL.L : "#c9e3fb");
       break;
     }
@@ -153,7 +153,7 @@ function drawFrame(canvas, activity, t, extra) {
       px(ctx, s, 7, 19, 9, 3, COL.paper);
       if (writing) {
         px(ctx, s, 8, 10, 2, 2, COL.k);
-        px(ctx, s, 17, 10, 2, 2, COL.k);
+        px(ctx, s, 18, 10, 2, 2, COL.k);
         const penX = 8 + (cyc % 9);
         px(ctx, s, 15, 17, 2, 2, COL.G);
         px(ctx, s, penX, 16, 1, 3, COL.b);
@@ -161,7 +161,7 @@ function drawFrame(canvas, activity, t, extra) {
         for (let m = 0; m < cyc % 9; m++) px(ctx, s, 8 + m, 20, 1, 1, COL.ink);
       } else {
         px(ctx, s, 7, 10, 3, 1, COL.k);
-        px(ctx, s, 16, 10, 3, 1, COL.k);
+        px(ctx, s, 18, 10, 3, 1, COL.k);
         px(ctx, s, 15, 18, 2, 1, COL.G);
         px(ctx, s, 8, 20, 7, 1, COL.ink);
       }
@@ -179,7 +179,7 @@ function drawFrame(canvas, activity, t, extra) {
       px(ctx, s, 12, 14, 4, 1, COL.mouthRed);
       px(ctx, s, 13, 15, 2, 1, COL.tongue);
       px(ctx, s, 6, 12, 1, 1, COL.cheek);
-      px(ctx, s, 20, 12, 1, 1, COL.cheek);
+      px(ctx, s, 21, 12, 1, 1, COL.cheek);
       const cols = [COL.f, COL.y, "#8bc34a", COL.zzz];
       for (let i = 0; i < 4; i++) {
         const cx = 3 + i * 6;
@@ -192,13 +192,13 @@ function drawFrame(canvas, activity, t, extra) {
       const look = Math.floor(t / 6) % 3;
       const ex = look === 0 ? -1 : look === 1 ? 1 : 0;
       px(ctx, s, 8 + ex, 9, 2, 3, COL.k);
-      px(ctx, s, 17 + ex, 9, 2, 3, COL.k);
+      px(ctx, s, 18 + ex, 9, 2, 3, COL.k);
       px(ctx, s, 12, 13, 4, 1, COL.k);
       const sw = Math.round(Math.sin(t / 5));
       px(ctx, s, 8 + sw, 20, 2, 4, COL.G);
       px(ctx, s, 8 + sw, 24, 2, 1, COL.d);
-      px(ctx, s, 16 - sw, 20, 2, 4, COL.G);
-      px(ctx, s, 16 - sw, 24, 2, 1, COL.d);
+      px(ctx, s, 18 - sw, 20, 2, 4, COL.G);
+      px(ctx, s, 18 - sw, 24, 2, 1, COL.d);
       break;
     }
     case "walk": {
@@ -207,40 +207,40 @@ function drawFrame(canvas, activity, t, extra) {
       px(ctx, s, 12, 13, 4, 1, COL.k);
       const st = Math.floor(t / 2) % 2;
       px(ctx, s, 7, 19, 3, 2, st ? COL.G : COL.d);
-      px(ctx, s, 16, 19, 3, 2, st ? COL.d : COL.G);
+      px(ctx, s, 18, 19, 3, 2, st ? COL.d : COL.G);
       break;
     }
     case "peek": {
       px(ctx, s, 8, 9, 2, 3, COL.k);
-      px(ctx, s, 17, 9, 2, 3, COL.k);
+      px(ctx, s, 18, 9, 2, 3, COL.k);
       px(ctx, s, 12, 13, 4, 1, COL.k);
       px(ctx, s, 7, 15, 2, 1, COL.G);
-      px(ctx, s, 18, 15, 2, 1, COL.G);
+      px(ctx, s, 19, 15, 2, 1, COL.G);
       ctx.clearRect(0, 16 * s, canvas.width, canvas.height);
       break;
     }
     case "books": {
       px(ctx, s, 8, 9, 2, 3, COL.k);
-      px(ctx, s, 17, 9, 2, 3, COL.k);
-      px(ctx, s, 11, 13, 6, 1, COL.k);
-      px(ctx, s, 12, 14, 4, 1, COL.k);
+      px(ctx, s, 18, 9, 2, 3, COL.k);
+      // short, simple mouth — reads cleanly at this pixel size
+      px(ctx, s, 13, 13, 2, 1, COL.k);
       const bob = Math.abs(Math.sin(t / 5)) > 0.5 ? 1 : 0;
-      px(ctx, s, 5, 17 - bob, 16, 2, "#c0563f");
-      px(ctx, s, 6, 19 - bob, 14, 2, COL.b);
-      px(ctx, s, 5, 21 - bob, 16, 2, "#6a9c5a");
-      px(ctx, s, 5, 18 - bob, 1, 1, COL.paper);
-      px(ctx, s, 6, 20 - bob, 1, 1, COL.paper);
-      px(ctx, s, 5, 22 - bob, 1, 1, COL.paper);
-      px(ctx, s, 3, 17 - bob, 2, 3, COL.G);
-      px(ctx, s, 21, 17 - bob, 2, 3, COL.G);
+      px(ctx, s, 6, 17 - bob, 16, 2, "#c0563f"); // red book
+      px(ctx, s, 7, 19 - bob, 14, 2, COL.b); // blue book
+      px(ctx, s, 6, 21 - bob, 16, 2, "#6a9c5a"); // green book
+      px(ctx, s, 6, 18 - bob, 1, 1, COL.paper); // page edges
+      px(ctx, s, 7, 20 - bob, 1, 1, COL.paper);
+      px(ctx, s, 6, 22 - bob, 1, 1, COL.paper);
+      px(ctx, s, 4, 17 - bob, 2, 3, COL.G); // arms holding
+      px(ctx, s, 22, 17 - bob, 2, 3, COL.G);
       break;
     }
     case "jump": {
       px(ctx, s, 8, 9, 2, 3, COL.k);
-      px(ctx, s, 17, 9, 2, 3, COL.k);
+      px(ctx, s, 18, 9, 2, 3, COL.k);
       px(ctx, s, 12, 13, 4, 1, COL.k);
       px(ctx, s, 7, 18, 3, 2, COL.G); // tucked legs
-      px(ctx, s, 17, 18, 3, 2, COL.G);
+      px(ctx, s, 18, 18, 3, 2, COL.G);
       break;
     }
     case "squish": {
@@ -249,7 +249,7 @@ function drawFrame(canvas, activity, t, extra) {
       px(ctx, s, 7, 10, 4, 1, COL.k);
       px(ctx, s, 8, 9, 1, 1, COL.k);
       px(ctx, s, 10, 9, 1, 1, COL.k);
-      px(ctx, s, 16, 10, 4, 1, COL.k);
+      px(ctx, s, 17, 10, 4, 1, COL.k);
       px(ctx, s, 17, 9, 1, 1, COL.k);
       px(ctx, s, 19, 9, 1, 1, COL.k);
       px(ctx, s, 12, 13, 4, 2, COL.k);
@@ -258,7 +258,7 @@ function drawFrame(canvas, activity, t, extra) {
     }
     default: {
       px(ctx, s, 8, 9, 2, 3, COL.k);
-      px(ctx, s, 17, 9, 2, 3, COL.k);
+      px(ctx, s, 18, 9, 2, 3, COL.k);
       px(ctx, s, 12, 13, 4, 1, COL.k);
     }
   }
@@ -898,7 +898,7 @@ export default function HaviMascot({
   /* ---------------- public API ---------------- */
   useEffect(() => {
     window.havi = {
-      version: "v12",
+      version: "v13",
       features: [
         "behaviour-engine",      // chained: sleep→wake→watch→walk→jump→sleep
         "rise-entrance",         // enters by rising from behind a card
@@ -916,6 +916,7 @@ export default function HaviMascot({
         "skips-controls",        // won't stand on buttons or inputs
         "no-landing-page",       // excluded from marketing pages
         "decisive",              // commits to one activity, no flickering
+        "symmetric",             // eyes/limbs perfectly mirrored
       ],
       celebrate,
       poke,
