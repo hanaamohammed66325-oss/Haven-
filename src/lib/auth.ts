@@ -9,6 +9,12 @@
 
 import { supabase, WELCOME_URL } from "./supabase";
 
+// localStorage flag written when a signup starts on THIS device (value = the
+// email). The email-confirmation landing page reads it to tell "same device"
+// (keep the session, go to the dashboard) from "a different device opened the
+// link" (sign out so no stray session is left there).
+export const PENDING_SIGNUP_KEY = "haven_pending_signup";
+
 export interface HavenUser {
   id: string;
   name: string;
@@ -83,6 +89,24 @@ export async function resendConfirmation(email: string): Promise<AuthResult> {
       type: "signup",
       email: email.trim(),
       options: { emailRedirectTo: WELCOME_URL },
+    });
+    if (error) return { ok: false, error: "invalid", message: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// Verify the 6-digit signup code (OTP) that Supabase puts in the email as
+// {{ .Token }}. The user types it on the device where they signed up; on success
+// Supabase establishes a session HERE — which is the whole point of the code
+// path, since it works even when the email link was opened on another device.
+export async function verifySignupOtp(email: string, token: string): Promise<AuthResult> {
+  try {
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type: "signup",
     });
     if (error) return { ok: false, error: "invalid", message: error.message };
     return { ok: true };

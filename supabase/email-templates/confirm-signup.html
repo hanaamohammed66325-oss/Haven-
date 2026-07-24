@@ -1,0 +1,37 @@
+<!--
+  Haven — "Confirm signup" email template.
+
+  Paste this into the Supabase dashboard:
+    Authentication → Emails → Templates → Confirm signup
+  (If you keep separate Arabic and English templates, use this same markup for
+  both — it is already bilingual and shows BOTH ways to confirm.)
+
+  Supabase template variables used:
+    {{ .ConfirmationURL }} — the one-tap confirm link (button).
+    {{ .Token }}           — the 6-digit code (OTP) typed on the signup device.
+-->
+<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #243640;">
+  <h2 style="margin: 0 0 4px; font-size: 20px;">تأكيد حسابك في Haven</h2>
+  <p style="margin: 0 0 20px; color: #5b6b73; font-size: 14px;">Confirm your Haven account</p>
+
+  <!-- One-tap button: works on THIS device -->
+  <a href="{{ .ConfirmationURL }}"
+     style="display: block; text-align: center; background: #477680; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 15px;">
+    تأكيد البريد · Confirm email
+  </a>
+
+  <!-- 6-digit code: typed on the device where you signed up -->
+  <p style="margin: 24px 0 8px; text-align: center; color: #5b6b73; font-size: 13px;">
+    أو أدخل هذا الرمز · or enter this code
+  </p>
+  <div style="text-align: center; font-size: 30px; font-weight: 700; letter-spacing: 10px; color: #243640;">
+    {{ .Token }}
+  </div>
+
+  <!-- Which one to use -->
+  <p style="margin: 24px 0 0; color: #5b6b73; font-size: 13px; line-height: 1.7;">
+    استخدم الزر على هذا الجهاز، أو اكتب الرمز في الصفحة على الجهاز الذي سجّلت منه.
+    <br />
+    Use the button on this device, or type the code on the device where you signed up.
+  </p>
+</div>

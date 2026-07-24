@@ -194,9 +194,20 @@ export const en = {
   authResending: "Sending…",
   authResendSent: "New confirmation link sent — check your inbox.",
   authEmailRegistered: "This email is already registered — please sign in.",
+  // 6-digit code (OTP) on the signup screen
+  authOtpLabel: "Enter the 6-digit code",
+  authOtpHint: "Open the email and type the code here — on this device — to finish signing in.",
+  authOtpVerify: "Verify code",
+  authOtpVerifying: "Verifying…",
+  authOtpError: "That code is incorrect or expired. Check the email, or resend it.",
+  authResendCode: "Resend code",
+  authResendCooldown: "Resend code in {n}s",
+  authWaitingTimeout: "Not confirmed yet — refresh the page or sign in manually.",
 
   // Welcome / email-confirmation landing page
   welcomeChecking: "Confirming your email…",
+  welcomeOtherDeviceTitle: "✅ Your email is confirmed.",
+  welcomeOtherDeviceSubtitle: "You can close this page and go back to the device where you signed up.",
   welcomeConfirmedTitle: "✅ Your email is confirmed — welcome to Haven!",
   welcomeRedirecting: "Taking you to your dashboard…",
   welcomeGoToDashboard: "Go to dashboard now",

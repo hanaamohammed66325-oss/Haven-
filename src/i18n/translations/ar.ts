@@ -196,9 +196,20 @@ export const ar: Record<TranslationKey, string> = {
   authResending: "جارٍ الإرسال…",
   authResendSent: "تم إرسال رابط تأكيد جديد — تحقّق من بريدك.",
   authEmailRegistered: "هذا البريد مسجّل مسبقًا — سجّلي الدخول",
+  // الرمز المكوّن من 6 أرقام في شاشة التسجيل
+  authOtpLabel: "أدخل الرمز المكوّن من 6 أرقام",
+  authOtpHint: "افتح البريد واكتب الرمز هنا — على هذا الجهاز — لإكمال تسجيل الدخول.",
+  authOtpVerify: "تأكيد الرمز",
+  authOtpVerifying: "جارٍ التحقق…",
+  authOtpError: "الرمز غير صحيح أو منتهي الصلاحية. تحقّق من البريد أو أعد الإرسال.",
+  authResendCode: "إعادة إرسال الرمز",
+  authResendCooldown: "إعادة الإرسال خلال {n} ثانية",
+  authWaitingTimeout: "لم يتم التأكيد بعد — حدّث الصفحة أو سجّل الدخول يدوياً.",
 
   // Welcome / email-confirmation landing page
   welcomeChecking: "نتحقّق من بريدك…",
+  welcomeOtherDeviceTitle: "✅ تم تأكيد بريدك.",
+  welcomeOtherDeviceSubtitle: "يمكنك إغلاق هذه الصفحة والعودة إلى جهازك الآخر.",
   welcomeConfirmedTitle: "✅ تم تأكيد بريدك — أهلًا بك في Haven",
   welcomeRedirecting: "نوجّهك إلى لوحتك…",
   welcomeGoToDashboard: "الذهاب إلى اللوحة الآن",
