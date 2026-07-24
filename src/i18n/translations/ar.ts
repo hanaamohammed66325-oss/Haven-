@@ -417,6 +417,13 @@ export const ar: Record<TranslationKey, string> = {
   resetData: "إعادة تعيين كل البيانات",
   resetConfirm: "حذف جميع المقررات والدرجات؟ لا يمكن التراجع عن ذلك.",
   signOut: "تسجيل الخروج",
+  deleteAccount: "حذف",
+  deleteAccountTitle: "هل أنت متأكد؟",
+  deleteAccountBody:
+    "سيتم حذف حسابك وجميع بياناتك نهائياً — المقررات والدرجات والحضور والمهام والجدول. لا يمكن التراجع عن هذا الإجراء.",
+  deleteAccountConfirm: "حذف الحساب",
+  deleteAccountLoading: "جارٍ الحذف...",
+  deleteAccountError: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
 
   // Coming soon page
   comingSoonTitle: "قريبًا",

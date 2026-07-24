@@ -10,6 +10,7 @@ import { Modal } from "@/components/Modal";
 import { DateField } from "@/components/DateField";
 import { DemoPlayer } from "@/components/DemoPlayer";
 import { signOut as clearSession } from "@/lib/auth";
+import { useDeleteAccount } from "@/lib/useDeleteAccount";
 import type { CalendarType, ThemeId } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -68,8 +69,16 @@ export default function SettingsPage() {
   const store = useStore();
   const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, reminderDays, setReminderDays, resetData } = store;
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
+  const { deleteAccount, loading: deleting, error: deleteError, reset: resetDeleteError } = useDeleteAccount();
+
+  const closeDelete = () => {
+    if (deleting) return; // don't let a click-away cancel a deletion in progress
+    setConfirmDelete(false);
+    resetDeleteError();
+  };
 
   const pickTheme = (tm: ThemeMeta) => {
     if (tm.free || UNLOCK_ALL_THEMES) setTheme(tm.id);
@@ -317,8 +326,8 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* Sign out */}
-      <div className="mt-12 pt-8 border-t" style={{ borderColor: "var(--color-border)" }}>
+      {/* Sign out / Delete account */}
+      <div className="mt-12 pt-8 border-t flex flex-col gap-3 sm:flex-row sm:items-center" style={{ borderColor: "var(--color-border)" }}>
         <button
           onClick={signOut}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-medium transition-colors hover:bg-[var(--color-primary-soft)] sm:w-auto"
@@ -326,6 +335,14 @@ export default function SettingsPage() {
         >
           <LogOut size={16} className="rtl:rotate-180" />
           {t("signOut")}
+        </button>
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors sm:w-auto"
+          style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
+        >
+          <Trash2 size={16} />
+          {t("deleteAccount")}
         </button>
       </div>
       </div>
@@ -348,6 +365,35 @@ export default function SettingsPage() {
             style={{ background: "var(--color-danger)" }}
           >
             {t("resetData")}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={confirmDelete} onClose={closeDelete} title={t("deleteAccountTitle")}>
+        <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
+          {t("deleteAccountBody")}
+        </p>
+        {deleteError && (
+          <p className="text-sm mb-4" style={{ color: "var(--color-danger)" }}>
+            {t("deleteAccountError")}
+          </p>
+        )}
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={closeDelete}
+            disabled={deleting}
+            className="px-4 py-2 rounded-xl text-sm font-medium border disabled:opacity-60"
+            style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
+          >
+            {t("cancel")}
+          </button>
+          <button
+            onClick={deleteAccount}
+            disabled={deleting}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-70"
+            style={{ background: "var(--color-danger)" }}
+          >
+            {deleting ? t("deleteAccountLoading") : t("deleteAccountConfirm")}
           </button>
         </div>
       </Modal>

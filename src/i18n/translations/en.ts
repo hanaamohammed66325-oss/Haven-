@@ -415,6 +415,13 @@ export const en = {
   resetData: "Reset all data",
   resetConfirm: "Delete all courses and grades? This cannot be undone.",
   signOut: "Sign out",
+  deleteAccount: "Delete",
+  deleteAccountTitle: "Are you sure?",
+  deleteAccountBody:
+    "Your account and all your data will be permanently deleted — courses, grades, attendance, tasks, and schedule. This action cannot be undone.",
+  deleteAccountConfirm: "Delete account",
+  deleteAccountLoading: "Deleting…",
+  deleteAccountError: "Something went wrong. Please try again.",
 
   // Coming soon page
   comingSoonTitle: "Coming soon",
