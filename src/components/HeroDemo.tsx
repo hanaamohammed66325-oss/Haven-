@@ -10,6 +10,7 @@ import {
   Check,
 } from "lucide-react";
 import { useT } from "@/i18n";
+import { HaviDemo } from "./HaviDemo";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 /* ---------------- helpers ---------------- */
@@ -77,6 +78,9 @@ export function HeroDemo() {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
+      {/* Premium feature preview — Havi perched on the card, playing idle poses */}
+      <HaviDemo />
+
       <div
         className="surface-card rounded-3xl p-6 md:p-7"
         style={{ boxShadow: "var(--shadow-card-hover)" }}

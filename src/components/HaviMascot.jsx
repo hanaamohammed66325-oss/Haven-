@@ -19,6 +19,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { usePremium } from "@/lib/usePremium";
 
 /* ================================================================== */
 /*  PIXEL ART                                                          */
@@ -310,6 +311,11 @@ function offsetFor(activity) {
 /** Order used when the user clicks him 3x to switch animation */
 const CYCLE_ACTS = ["sleep", "watch", "hang", "books", "peek", "write"];
 
+// Reusable drawing primitives so a contained, non-roaming instance (the landing
+// page demo — see HaviDemo) can render the exact same pixel art and idle
+// animations without duplicating the artwork or the behaviour engine.
+export { GRID_W, DRAW_H, GRID_H, drawFrame, bobFor, rotFor, offsetFor };
+
 /* ================================================================== */
 /*  COMPONENT                                                          */
 /* ================================================================== */
@@ -322,6 +328,10 @@ export default function HaviMascot({
   restMaxMs = 26000,
   excludePaths = ["/"], // pages he should never appear on (the landing page)
 }) {
+  // Premium gate: Havi is a Premium feature. While the subscription state is
+  // still loading, `premium` is false so he renders nothing (no flash-then-remove).
+  const { premium } = usePremium();
+
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
   const containerRef = useRef(null);
@@ -1257,7 +1267,8 @@ export default function HaviMascot({
     return () => cancelAnimationFrame(raf);
   }, [activity, reduced, size, bodyH]);
 
-  if (!visible) return null;
+  // Free users (and while premium is still loading) never see him.
+  if (!visible || !premium) return null;
 
   return (
     <div

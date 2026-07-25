@@ -26,6 +26,56 @@ async function currentUserId(): Promise<string> {
   return id;
 }
 
+// ---------------------------------------------------------------------------
+// Subscription / premium entitlement (public.subscriptions)
+// ---------------------------------------------------------------------------
+
+export interface DbSubscription {
+  plan: string; // 'free' | a paid plan id
+  status: string; // 'trialing' | 'active' | 'canceled' | 'past_due' | ...
+  billingCycle: string | null;
+  trialEndsAt: string | null;
+  expiresAt: string | null;
+}
+
+/** The current user's subscription row, or null if none / not signed in.
+ *  Unlike the academic reads, this does NOT throw when signed out — callers
+ *  (e.g. the mascot gate) just treat "no session" as "not premium". */
+export async function getSubscription(): Promise<DbSubscription | null> {
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("plan, status, billing_cycle, trial_ends_at, expires_at")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return {
+    plan: data.plan,
+    status: data.status,
+    billingCycle: data.billing_cycle ?? null,
+    trialEndsAt: data.trial_ends_at ?? null,
+    expiresAt: data.expires_at ?? null,
+  };
+}
+
+/**
+ * Does this subscription grant ACTIVE premium access?
+ * Premium = a paid plan (not 'free') whose status is live and not past its end
+ * date: an 'active' plan before expires_at, or a 'trialing' plan before
+ * trial_ends_at. Everything else (free, canceled, past_due, expired) is not.
+ */
+export function isActivePremium(sub: DbSubscription | null): boolean {
+  if (!sub || sub.plan === "free") return false;
+  const inFuture = (d: string | null) => !d || new Date(d).getTime() > Date.now();
+  if (sub.status === "active") return inFuture(sub.expiresAt);
+  if (sub.status === "trialing") return inFuture(sub.trialEndsAt);
+  return false;
+}
+
 // --- app-facing shapes (already in the app's field names) -------------------
 
 export interface DbSemester {

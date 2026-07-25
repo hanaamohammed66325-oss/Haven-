@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
   Sparkles,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { Modal } from "./Modal";
@@ -46,6 +47,7 @@ const PREMIUM_BENEFITS: TranslationKey[] = [
   "premiumBenefit2",
   "premiumBenefit3",
   "premiumBenefit4",
+  "premiumBenefit5",
 ];
 
 function Tooltip({ children }: { children: React.ReactNode }) {
@@ -120,6 +122,27 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const { language, setLanguage, profileName, email, profilePhoto } = useStore();
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [plan, setPlan] = useState<"semester" | "annual">("annual");
+  // Collapsible Go Premium card. Default expanded; once the user collapses it we
+  // remember that per browser so it stays a compact pill next time.
+  const [premiumCardOpen, setPremiumCardOpen] = useState(true);
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("haven_premium_card_open");
+      if (v !== null) setPremiumCardOpen(v === "1");
+    } catch {
+      // ignore — default expanded
+    }
+  }, []);
+  const togglePremiumCard = () =>
+    setPremiumCardOpen((open) => {
+      const next = !open;
+      try {
+        localStorage.setItem("haven_premium_card_open", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
 
   const initial = (profileName || "?").trim().charAt(0).toUpperCase();
 
@@ -230,71 +253,102 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             <Tooltip>{t("premiumTitle")}</Tooltip>
           </button>
         ) : (
-          <div className="haven-premium-card relative overflow-hidden rounded-2xl p-4">
-            <span
-              aria-hidden
-              className="haven-premium-glow pointer-events-none absolute h-24 w-24 rounded-full"
-              style={{ top: -34, insetInlineEnd: -34 }}
-            />
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Sparkles size={15} style={{ color: "var(--color-brass)" }} />
-                <span className="font-display text-[15px] text-white leading-tight">{t("premiumTitle")}</span>
-              </div>
-              <p className="text-[11.5px] leading-relaxed mb-3" style={{ color: "rgba(231,239,240,0.62)" }}>
-                {t("premiumSubtitle")}
-              </p>
+          // Expanded sidebar: collapsible Go Premium card. The brass pill is
+          // always the header/toggle; the full card body drops down beneath it
+          // with a grid-rows height animation (the global reduced-motion rule
+          // snaps it instantly). Collapsed = just the pill, nothing else.
+          <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={togglePremiumCard}
+              aria-expanded={premiumCardOpen}
+              aria-label={premiumCardOpen ? t("premiumCollapse") : t("premiumExpand")}
+              className="haven-upgrade-btn flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"
+            >
+              <Sparkles size={16} />
+              <span>{t("premiumTitle")}</span>
+              {premiumCardOpen && (
+                <ChevronDown
+                  size={15}
+                  className="transition-transform duration-300"
+                  style={{ transform: "rotate(180deg)" }}
+                />
+              )}
+            </button>
 
-              {/* Plan toggle */}
-              <div className="flex w-full rounded-lg p-0.5 mb-2.5" style={{ background: "rgba(255,255,255,0.08)" }}>
-                {(["semester", "annual"] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPlan(p)}
-                    aria-pressed={plan === p}
-                    className="flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors"
-                    style={plan === p ? { background: "var(--color-brass)", color: "#1a1410" } : { color: "rgba(231,239,240,0.7)" }}
-                  >
-                    {p === "semester" ? t("planSemester") : t("planAnnual")}
-                  </button>
-                ))}
-              </div>
+            <div
+              aria-hidden={!premiumCardOpen}
+              style={{
+                display: "grid",
+                gridTemplateRows: premiumCardOpen ? "1fr" : "0fr",
+                transition: "grid-template-rows 0.3s cubic-bezier(0.22,1,0.36,1)",
+              }}
+            >
+              <div style={{ overflow: "hidden", minHeight: 0 }}>
+                <div className="haven-premium-card relative overflow-hidden rounded-2xl p-4 mt-3">
+                  <span
+                    aria-hidden
+                    className="haven-premium-glow pointer-events-none absolute h-24 w-24 rounded-full"
+                    style={{ top: -34, insetInlineEnd: -34 }}
+                  />
+                  <div className="relative">
+                    <p className="text-[11.5px] leading-relaxed mb-3" style={{ color: "rgba(231,239,240,0.62)" }}>
+                      {t("premiumSubtitle")}
+                    </p>
 
-              {/* Price (updates with the toggle) */}
-              <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-3">
-                <span className="font-semibold text-[14px]" style={{ color: "var(--color-brass)" }}>
-                  {plan === "semester" ? t("priceSemester") : t("priceAnnual")}
-                </span>
-                {plan === "annual" && (
-                  <>
-                    <span
-                      className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
-                      style={{ background: "var(--color-brass)", color: "#1a1410" }}
+                    {/* Plan toggle */}
+                    <div className="flex w-full rounded-lg p-0.5 mb-2.5" style={{ background: "rgba(255,255,255,0.08)" }}>
+                      {(["semester", "annual"] as const).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setPlan(p)}
+                          aria-pressed={plan === p}
+                          className="flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors"
+                          style={plan === p ? { background: "var(--color-brass)", color: "#1a1410" } : { color: "rgba(231,239,240,0.7)" }}
+                        >
+                          {p === "semester" ? t("planSemester") : t("planAnnual")}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Price (updates with the toggle) */}
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-3">
+                      <span className="font-semibold text-[14px]" style={{ color: "var(--color-brass)" }}>
+                        {plan === "semester" ? t("priceSemester") : t("priceAnnual")}
+                      </span>
+                      {plan === "annual" && (
+                        <>
+                          <span
+                            className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                            style={{ background: "var(--color-brass)", color: "#1a1410" }}
+                          >
+                            {t("bestValue")}
+                          </span>
+                          <span className="w-full text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
+                            {t("saveAnnual")}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    <ul className="flex flex-col gap-1.5 mb-3.5">
+                      {PREMIUM_BENEFITS.map((b) => (
+                        <li key={b} className="flex items-start gap-2 text-[11.5px] leading-snug" style={{ color: "rgba(231,239,240,0.85)" }}>
+                          <Check size={12} className="shrink-0 mt-0.5" style={{ color: "var(--color-brass)" }} />
+                          <span>{t(b)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => setPremiumOpen(true)}
+                      className="haven-upgrade-btn w-full rounded-xl py-2.5 text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"
                     >
-                      {t("bestValue")}
-                    </span>
-                    <span className="w-full text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
-                      {t("saveAnnual")}
-                    </span>
-                  </>
-                )}
+                      {t("premiumCta")}
+                    </button>
+                  </div>
+                </div>
               </div>
-
-              <ul className="flex flex-col gap-1.5 mb-3.5">
-                {PREMIUM_BENEFITS.map((b) => (
-                  <li key={b} className="flex items-start gap-2 text-[11.5px] leading-snug" style={{ color: "rgba(231,239,240,0.85)" }}>
-                    <Check size={12} className="shrink-0 mt-0.5" style={{ color: "var(--color-brass)" }} />
-                    <span>{t(b)}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => setPremiumOpen(true)}
-                className="haven-upgrade-btn w-full rounded-xl py-2.5 text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"
-              >
-                {t("premiumCta")}
-              </button>
             </div>
           </div>
         )}
