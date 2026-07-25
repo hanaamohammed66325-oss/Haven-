@@ -2,23 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { GRID_W, GRID_H, DRAW_H, drawFrame, bobFor, rotFor, offsetFor } from "./HaviMascot";
-import { useT } from "@/i18n";
 
 /**
  * A deliberately-placed, NON-roaming Havi for the landing page demo mockup.
  *
  * The real HaviMascot roams the app and is (a) excluded from the landing page
  * and (b) gated behind Premium. This is a marketing preview: it reuses the exact
- * same pixel art + idle animations, but simply perches on the demo card's edge
- * and loops through a few calm idle poses so visitors can see the feature before
- * signing up. Purely decorative → pointer-events-none, aria-hidden.
+ * same pixel art + idle animations, looping through a few calm idle poses so
+ * visitors can see the feature before signing up. Purely decorative
+ * (pointer-events-none, aria-hidden).
+ *
+ * It renders ONLY the mascot at its natural size — the caller positions it
+ * (perched on a demo card) and supplies the caption. See HeroDemo's
+ * DashboardScene for the single place it's mounted.
  */
 
 const IDLE_CYCLE = ["sleep", "watch", "hang"] as const;
 const PHASE_MS = 4200;
 
-export function HaviDemo({ size = 46 }: { size?: number }) {
-  const { t } = useT();
+export function HaviDemo({ size = 44 }: { size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [reduced, setReduced] = useState(false);
@@ -87,33 +89,17 @@ export function HaviDemo({ size = 46 }: { size?: number }) {
   }, [activity, reduced, bodyH]);
 
   return (
-    <>
-      {/* caption — introduces the feature, sits in the empty space above the card */}
-      <div
-        className="haven-fade-in surface-card pointer-events-none absolute z-20 hidden max-w-[220px] rounded-xl px-3 py-2 text-[11px] font-medium leading-snug sm:block"
-        style={{ top: -46, insetInlineStart: 8, color: "var(--color-muted)" }}
-        role="note"
-      >
-        {t("haviDemoCaption")}
+    <div className="pointer-events-none" style={{ width: dispW, height: dispH }} aria-hidden="true">
+      <div ref={wrapRef} style={{ width: dispW, height: dispH }}>
+        <canvas
+          ref={canvasRef}
+          width={canvasW}
+          height={canvasH}
+          style={{ width: dispW, height: dispH, imageRendering: "pixelated", display: "block" }}
+          role="img"
+          aria-label="Havi"
+        />
       </div>
-
-      {/* Havi perched on the top edge of the demo card */}
-      <div
-        className="pointer-events-none absolute z-20"
-        style={{ top: -Math.round(dispH * 0.78), insetInlineEnd: 34, width: dispW, height: dispH }}
-        aria-hidden="true"
-      >
-        <div ref={wrapRef} style={{ width: dispW, height: dispH }}>
-          <canvas
-            ref={canvasRef}
-            width={canvasW}
-            height={canvasH}
-            style={{ width: dispW, height: dispH, imageRendering: "pixelated", display: "block" }}
-            role="img"
-            aria-label="Havi"
-          />
-        </div>
-      </div>
-    </>
+    </div>
   );
 }
