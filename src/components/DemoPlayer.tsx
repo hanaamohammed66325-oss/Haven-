@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { DemoStoreProvider } from "./DemoStore";
+import HaviMascot from "./HaviMascot";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n/translations/en";
 import DashboardPage from "@/app/(app)/dashboard/page";
@@ -160,9 +161,29 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
               <div key={idx} className="haven-fade-in p-4 sm:p-8 min-h-full">
                 <Current />
               </div>
+              {/* Havi — a separate instance scoped to this scroll container so he
+                  perches on the real demo cards without escaping onto the page
+                  behind. Shown to everyone (demoMode), no auth/premium needed. */}
+              <HaviMascot scopeRef={scrollRef} demoMode excludePaths={[]} size={46} />
             </div>
           </div>
         </DemoStoreProvider>
+
+        {/* Havi caption bubble — introduces the feature, pinned inside the demo */}
+        <div
+          className="pointer-events-none absolute z-20 hidden sm:block max-w-[240px] rounded-xl px-3 py-2 text-[11px] font-medium leading-snug"
+          style={{
+            insetInlineStart: 16,
+            bottom: 88,
+            background: "var(--color-surface)",
+            color: "var(--color-muted)",
+            border: "1px solid var(--color-border)",
+            boxShadow: "var(--shadow-card)",
+          }}
+          role="note"
+        >
+          {t("haviDemoCaption")}
+        </div>
 
         {/* Controls */}
         <div className="shrink-0 border-t px-4 sm:px-6 py-3" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>

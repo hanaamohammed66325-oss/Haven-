@@ -8,10 +8,8 @@ import {
   AlertTriangle,
   CalendarCheck,
   Check,
-  Sparkles,
 } from "lucide-react";
 import { useT } from "@/i18n";
-import { HaviDemo } from "./HaviDemo";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 /* ---------------- helpers ---------------- */
@@ -229,13 +227,7 @@ function DashboardScene({ active, reduced }: { active: boolean; reduced: boolean
           </div>
         </div>
       </div>
-      <div className="relative rounded-2xl border p-4" style={{ borderColor: "var(--color-border)" }}>
-        {/* Havi — the ONLY place he appears on the public site: perched on the
-            GPA card, inside the demo mockup, playing his idle animations. */}
-        <div className="pointer-events-none absolute z-20" style={{ top: -30, insetInlineEnd: 14 }}>
-          <HaviDemo />
-        </div>
-
+      <div className="rounded-2xl border p-4" style={{ borderColor: "var(--color-border)" }}>
         <div className="flex items-center justify-between mb-3">
           <span className="haven-label" style={{ fontSize: 11 }}>{t("semesterGpa")}</span>
           <span className="font-display text-2xl leading-none" style={{ color: "var(--color-brass)" }}>{gpa.toFixed(2)}</span>
@@ -249,16 +241,6 @@ function DashboardScene({ active, reduced }: { active: boolean; reduced: boolean
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Caption introducing Havi — stays with him inside the demo (same scene). */}
-      <div
-        className="flex items-center gap-1.5 text-[10.5px] font-medium leading-snug"
-        style={{ color: "var(--color-muted)" }}
-        role="note"
-      >
-        <Sparkles size={12} className="shrink-0" style={{ color: "var(--color-brass)" }} />
-        <span>{t("haviDemoCaption")}</span>
       </div>
     </div>
   );

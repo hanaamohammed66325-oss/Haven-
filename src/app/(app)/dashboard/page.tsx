@@ -137,6 +137,7 @@ export default function DashboardPage() {
             className="haven-fade-up mb-12 overflow-hidden"
             style={{ animationDelay: "0.08s" }}
             data-havi-role="generic"
+            data-havi-card
           >
             <div
               className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x"

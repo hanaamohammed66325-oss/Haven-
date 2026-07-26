@@ -19,7 +19,6 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { usePremium } from "@/lib/usePremium";
 
 /* ================================================================== */
 /*  PIXEL ART                                                          */
@@ -311,15 +310,22 @@ function offsetFor(activity) {
 /** Order used when the user clicks him 3x to switch animation */
 const CYCLE_ACTS = ["sleep", "watch", "hang", "books", "peek", "write"];
 
-// Reusable drawing primitives so a contained, non-roaming instance (the landing
-// page demo — see HaviDemo) can render the exact same pixel art and idle
-// animations without duplicating the artwork or the behaviour engine.
-export { GRID_W, DRAW_H, GRID_H, drawFrame, bobFor, rotFor, offsetFor };
-
 /* ================================================================== */
 /*  COMPONENT                                                          */
 /* ================================================================== */
 
+/**
+ * @param {{
+ *   size?: number,
+ *   highGradeThreshold?: number,
+ *   celebrateMs?: number,
+ *   restMinMs?: number,
+ *   restMaxMs?: number,
+ *   excludePaths?: string[],
+ *   scopeRef?: import("react").RefObject<HTMLElement | null> | null,
+ *   demoMode?: boolean,
+ * }} [props]
+ */
 export default function HaviMascot({
   size = 54,
   highGradeThreshold = 0.9,
@@ -327,11 +333,14 @@ export default function HaviMascot({
   restMinMs = 14000, // how long he rests before wanting to move
   restMaxMs = 26000,
   excludePaths = ["/"], // pages he should never appear on (the landing page)
+  // Demo mode: a second, self-contained instance that lives INSIDE a scroll
+  // container (the "see how it works" modal). `scopeRef` points at that
+  // container — all card queries and geometry are measured relative to it so he
+  // can't escape onto the page behind, and global side-effects (the window.havi
+  // API, history patching) are skipped so the two instances don't collide.
+  scopeRef = null,
+  demoMode = false,
 }) {
-  // Premium gate: Havi is a Premium feature. While the subscription state is
-  // still loading, `premium` is false so he renders nothing (no flash-then-remove).
-  const { premium } = usePremium();
-
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
   const containerRef = useRef(null);
@@ -377,6 +386,32 @@ export default function HaviMascot({
   const bodyH = (size * GRID_H) / GRID_W; // displayed height of the body
   const perchOff = bodyH * 0.62;          // how far above the card edge he sits
 
+  /* ---------------- scope (global page vs. demo container) ----------------
+     When `scopeRef` is set, everything is measured relative to that scrolling
+     container instead of the document/window, so the demo instance lives inside
+     the modal and can't wander onto the page behind it. With no scope these
+     collapse to the original document/window behaviour, so the app instance is
+     unchanged. */
+  const qroot = useCallback(() => scopeRef?.current || document, [scopeRef]);
+  const metrics = useCallback(() => {
+    const el = scopeRef?.current;
+    if (el) {
+      const rr = el.getBoundingClientRect();
+      // ox/oy: the container's top-left in viewport coords.
+      // sx/sy: its scroll offset. vw/vh: its inner (visible) size.
+      return { ox: rr.left, oy: rr.top, sx: el.scrollLeft, sy: el.scrollTop, vw: el.clientWidth, vh: el.clientHeight };
+    }
+    return { ox: 0, oy: 0, sx: window.scrollX, sy: window.scrollY, vw: window.innerWidth, vh: window.innerHeight };
+  }, [scopeRef]);
+
+  /** Current page is on the never-show list (e.g. the public landing page).
+      Checked at ACTION time — not just on entrance — so no trigger (a click
+      relocating him, a celebrate event) can sneak him onto an excluded page. */
+  const isExcluded = useCallback(() => {
+    const path = window.location.pathname.replace(/\/+$/, "") || "/";
+    return excludePaths.some((p) => (p.replace(/\/+$/, "") || "/") === path);
+  }, [excludePaths]);
+
   /* ---------------- reduced motion ---------------- */
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -416,34 +451,36 @@ export default function HaviMascot({
     if (cs0.pointerEvents === "none") return false; // decorative layer
     const r = el.getBoundingClientRect();
     if (r.width < 160 || r.height < 60) return false;
-    if (r.width > window.innerWidth * 0.97) return false;
-    // must sit comfortably inside the viewport, with room above him
-    if (r.top < 70) return false; // too close to the top -> he'd get clipped
-    if (r.top > window.innerHeight - 60) return false;
-    if (r.bottom < 90) return false;
+    const m = metrics();
+    if (r.width > m.vw * 0.97) return false;
+    // must sit comfortably inside the (scope) viewport, with room above him
+    if (r.top < m.oy + 70) return false; // too close to the top -> he'd get clipped
+    if (r.top > m.oy + m.vh - 60) return false;
+    if (r.bottom < m.oy + 90) return false;
     return true;
-  }, []);
+  }, [metrics]);
 
   const findCardEl = useCallback(
     (role) => {
       const els = Array.from(
-        document.querySelectorAll(`[data-havi-role="${role}"]`)
+        qroot().querySelectorAll(`[data-havi-role="${role}"]`)
       ).filter(isValidCard);
       if (!els.length) return null;
       return els[Math.floor(Math.random() * els.length)];
     },
-    [isValidCard]
+    [isValidCard, qroot]
   );
 
   const allCards = useCallback(() => {
     const tagged = Array.from(
-      document.querySelectorAll("[data-havi-role], [data-havi-card], [data-havi-course-id]")
+      qroot().querySelectorAll("[data-havi-role], [data-havi-card], [data-havi-course-id]")
     ).filter(isValidCard);
     if (tagged.length) return tagged;
 
     // auto-detect card-like boxes on untagged pages
     const out = [];
-    const scope = document.querySelector("main") || document.body;
+    const root = qroot();
+    const scope = (root.querySelector && root.querySelector("main")) || root;
     const nodes = scope.querySelectorAll("div, section, article");
     for (const el of nodes) {
       if (!isValidCard(el)) continue;
@@ -459,15 +496,16 @@ export default function HaviMascot({
        floating in the middle of the card instead of on its edge. */
     const tops = out.filter((el) => !out.some((o) => o !== el && o.contains(el)));
     return tops.length ? tops : out;
-  }, [isValidCard]);
+  }, [isValidCard, qroot]);
 
   /* only cards currently on screen — so he never acts off-view */
   const visibleCards = useCallback(() => {
+    const m = metrics();
     return allCards().filter((el) => {
       const r = el.getBoundingClientRect();
-      return r.bottom > 60 && r.top < window.innerHeight - 40;
+      return r.bottom > m.oy + 60 && r.top < m.oy + m.vh - 40;
     });
-  }, [allCards]);
+  }, [allCards, metrics]);
 
   const randomCard = useCallback(() => {
     const pool = visibleCards();
@@ -488,9 +526,11 @@ export default function HaviMascot({
   /** Is anything interactive under this spot? (buttons, inputs, links) */
   const spotIsBlocked = useCallback(
     (top, left) => {
-      const cx = left - window.scrollX + size / 2;
-      const cy = top - window.scrollY + bodyH * 0.8; // his feet
-      if (cx < 0 || cy < 0 || cx > window.innerWidth || cy > window.innerHeight)
+      const m = metrics();
+      // top/left are in scroll-content coords; convert to viewport for the hit test.
+      const cx = left - m.sx + m.ox + size / 2;
+      const cy = top - m.sy + m.oy + bodyH * 0.8; // his feet
+      if (cx < m.ox || cy < m.oy || cx > m.ox + m.vw || cy > m.oy + m.vh)
         return true;
       const hit = document.elementFromPoint(cx, cy);
       if (!hit) return false;
@@ -498,17 +538,20 @@ export default function HaviMascot({
         "button, a, input, select, textarea, [role='button'], [role='tab'], label"
       );
     },
-    [size, bodyH]
+    [size, bodyH, metrics]
   );
 
   const coordsFor = useCallback(
     (el, corner, clamp = true) => {
       const r = el.getBoundingClientRect();
-      let top = r.top + window.scrollY - perchOff;
+      const m = metrics();
+      // Position in the scroll-content coord space of the root (document or the
+      // demo container), so he stays glued to his card as that root scrolls.
+      let top = (r.top - m.oy) + m.sy - perchOff;
       let left =
         corner === "left"
-          ? r.left + window.scrollX + 10
-          : r.right + window.scrollX - size - 10;
+          ? (r.left - m.ox) + m.sx + 10
+          : (r.right - m.ox) + m.sx - size - 10;
 
       /* Clamp only when CHOOSING a spot, so he isn't placed half off-screen.
          It must NOT be applied while he's already sitting on a card: the clamp
@@ -516,16 +559,16 @@ export default function HaviMascot({
          frame pinned him to the edge of the viewport and he appeared to stick
          to the screen instead of scrolling away with his card. */
       if (clamp) {
-        const minTop = window.scrollY + 8;
-        const maxTop = window.scrollY + window.innerHeight - size - 8;
-        const minLeft = window.scrollX + 8;
-        const maxLeft = window.scrollX + window.innerWidth - size - 8;
+        const minTop = m.sy + 8;
+        const maxTop = m.sy + m.vh - size - 8;
+        const minLeft = m.sx + 8;
+        const maxLeft = m.sx + m.vw - size - 8;
         top = Math.max(minTop, Math.min(maxTop, top));
         left = Math.max(minLeft, Math.min(maxLeft, left));
       }
       return { top, left };
     },
-    [size, perchOff]
+    [size, perchOff, metrics]
   );
 
   /** Choose the corner that doesn't sit on top of a button/input */
@@ -565,7 +608,7 @@ export default function HaviMascot({
     if (forcedActRef.current) return forcedActRef.current;
 
     // an urgent reminder always takes priority
-    const nearDue = document.querySelector(
+    const nearDue = qroot().querySelector(
       '[data-havi-role="upcoming"][data-havi-near-due="true"]'
     );
     if (nearDue && nearDue.offsetParent !== null && Math.random() > 0.4) return "watch";
@@ -584,7 +627,7 @@ export default function HaviMascot({
     ];
     lastRestRef.current = pick;
     return pick;
-  }, [findCardEl]);
+  }, [findCardEl, qroot]);
 
   /** push a sequence of phases; the engine plays them in order */
   const queue = useCallback((steps) => {
@@ -656,6 +699,11 @@ export default function HaviMascot({
    */
   const emergeAt = useCallback(
     (card) => {
+      // never surface on an excluded page, whatever triggered this
+      if (isExcluded()) {
+        setVisible(false);
+        return;
+      }
       const el = card || randomCard();
       if (!el) {
         setVisible(false);
@@ -666,11 +714,12 @@ export default function HaviMascot({
       cornerRef.current = corner;
 
       const r = el.getBoundingClientRect();
+      const m = metrics();
       const left =
         corner === "left"
-          ? r.left + window.scrollX + 10
-          : r.right + window.scrollX - size - 10;
-      const cardTopDoc = r.top + window.scrollY;
+          ? (r.left - m.ox) + m.sx + 10
+          : (r.right - m.ox) + m.sx - size - 10;
+      const cardTopDoc = (r.top - m.oy) + m.sy;
 
       emergeRef.current = {
         start: performance.now(),
@@ -689,14 +738,13 @@ export default function HaviMascot({
       queueRef.current = [];
       phaseEndRef.current = Number.MAX_SAFE_INTEGER; // the emergence drives it
     },
-    [randomCard, bestCorner, size, perchOff, bodyH, setPosition]
+    [randomCard, bestCorner, size, perchOff, bodyH, setPosition, metrics, isExcluded]
   );
 
   /** entrance: rise up from behind a visible card, walk a little, then settle */
   const enterFromCard = useCallback(() => {
     // never show up on excluded pages (e.g. the public landing page)
-    const path = window.location.pathname.replace(/\/+$/, "") || "/";
-    if (excludePaths.some((p) => (p.replace(/\/+$/, "") || "/") === path)) {
+    if (isExcluded()) {
       setVisible(false);
       return;
     }
@@ -707,7 +755,7 @@ export default function HaviMascot({
     }
     // Rise up from behind a card, watch, then carry on.
     emergeAtRef.current?.(card);
-  }, [randomCard, excludePaths]);
+  }, [randomCard, isExcluded]);
 
   /* ---------------- celebrate ---------------- */
   const celebrate = useCallback(
@@ -824,6 +872,7 @@ export default function HaviMascot({
 
   /* ---------------- clicks ---------------- */
   useEffect(() => {
+    if (demoMode) return; // demo Havi just perches & idles; no click-to-relocate
     const onClick = (e) => {
       const el = e.target;
       if (!(el instanceof Element)) return;
@@ -862,10 +911,11 @@ export default function HaviMascot({
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [activity, interruptCelebration]);
+  }, [activity, interruptCelebration, demoMode]);
 
   /* ---------------- come over when you're actually working ---------------- */
   useEffect(() => {
+    if (demoMode) return; // no interaction-follow in the demo
     const CARD_SEL =
       "[data-havi-role], [data-havi-card], [data-havi-course-id]";
 
@@ -921,10 +971,11 @@ export default function HaviMascot({
       document.removeEventListener("focusin", onFocus, true);
       document.removeEventListener("click", onPress, true);
     };
-  }, []);
+  }, [demoMode]);
 
   /* ---------------- route changes (instant, no polling lag) ---------------- */
   useEffect(() => {
+    if (demoMode) return; // the demo swaps pages by state, and must not patch history
     const reset = () => {
       queueRef.current = [];
       emergeRef.current = null;
@@ -975,10 +1026,11 @@ export default function HaviMascot({
       history.replaceState = origReplace;
       window.removeEventListener("popstate", onNavigate);
     };
-  }, []);
+  }, [demoMode]);
 
   /* ---------------- public API ---------------- */
   useEffect(() => {
+    if (demoMode) return; // don't register the global window.havi API for the demo
     window.havi = {
       version: "v17",
       features: [
@@ -1020,7 +1072,7 @@ export default function HaviMascot({
         delete window.havi;
       } catch (e) {}
     };
-  }, [celebrate, poke]);
+  }, [celebrate, poke, demoMode]);
 
   /* ---------------- boot + keep glued on resize ---------------- */
   useEffect(() => {
@@ -1131,11 +1183,12 @@ export default function HaviMascot({
         // follow the card if the page moves under us
         if (el && el.isConnected) {
           const rr = el.getBoundingClientRect();
-          em.cardTopDoc = rr.top + window.scrollY;
+          const m = metrics();
+          em.cardTopDoc = (rr.top - m.oy) + m.sy;
           em.left =
             cornerRef.current === "left"
-              ? rr.left + window.scrollX + 10
-              : rr.right + window.scrollX - size - 10;
+              ? (rr.left - m.ox) + m.sx + 10
+              : (rr.right - m.ox) + m.sx - size - 10;
         }
 
         const el2 = ts - em.start;
@@ -1265,10 +1318,9 @@ export default function HaviMascot({
 
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [activity, reduced, size, bodyH]);
+  }, [activity, reduced, size, bodyH, metrics]);
 
-  // Free users (and while premium is still loading) never see him.
-  if (!visible || !premium) return null;
+  if (!visible) return null;
 
   return (
     <div
