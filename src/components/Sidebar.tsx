@@ -45,9 +45,24 @@ const ACCOUNT: NavItem[] = [
 const PREMIUM_BENEFITS: TranslationKey[] = [
   "premiumBenefit1",
   "premiumBenefit2",
-  "premiumBenefit3",
   "premiumBenefit4",
   "premiumBenefit5",
+];
+
+// Duration-based billing options (months). Values mirror premium.js so the
+// gating can be wired against the same plans later. 12-month is the default.
+type PlanId = "4" | "6" | "12";
+interface PlanOption {
+  id: PlanId;
+  labelKey: TranslationKey;
+  priceKey: TranslationKey;
+  perMonthKey: TranslationKey;
+  tagKey?: TranslationKey;
+}
+const PLANS: PlanOption[] = [
+  { id: "4", labelKey: "planDur4", priceKey: "planPrice4", perMonthKey: "planPerMo4" },
+  { id: "6", labelKey: "planDur6", priceKey: "planPrice6", perMonthKey: "planPerMo6", tagKey: "betterValue" },
+  { id: "12", labelKey: "planDur12", priceKey: "planPrice12", perMonthKey: "planPerMo12", tagKey: "bestValue" },
 ];
 
 function Tooltip({ children }: { children: React.ReactNode }) {
@@ -121,7 +136,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const { t, lang } = useT();
   const { language, setLanguage, profileName, email, profilePhoto } = useStore();
   const [premiumOpen, setPremiumOpen] = useState(false);
-  const [plan, setPlan] = useState<"semester" | "annual">("annual");
+  const [plan, setPlan] = useState<PlanId>("12");
   // Collapsible Go Premium card. Default expanded; once the user collapses it we
   // remember that per browser so it stays a compact pill next time.
   const [premiumCardOpen, setPremiumCardOpen] = useState(true);
@@ -296,43 +311,48 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                       {t("premiumSubtitle")}
                     </p>
 
-                    {/* Plan toggle */}
-                    <div className="flex w-full rounded-lg p-0.5 mb-2.5" style={{ background: "rgba(255,255,255,0.08)" }}>
-                      {(["semester", "annual"] as const).map((p) => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => setPlan(p)}
-                          aria-pressed={plan === p}
-                          className="flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors"
-                          style={plan === p ? { background: "var(--color-brass)", color: "#1a1410" } : { color: "rgba(231,239,240,0.7)" }}
-                        >
-                          {p === "semester" ? t("planSemester") : t("planAnnual")}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Price (updates with the toggle) */}
-                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-3">
-                      <span className="font-semibold text-[14px]" style={{ color: "var(--color-brass)" }}>
-                        {plan === "semester" ? t("priceSemester") : t("priceAnnual")}
-                      </span>
-                      {plan === "annual" && (
-                        <>
-                          <span
-                            className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
-                            style={{ background: "var(--color-brass)", color: "#1a1410" }}
+                    {/* Plan selector — duration-based (months), defaults to 12 */}
+                    <div role="radiogroup" aria-label={t("premiumTitle")} className="flex flex-col gap-1.5 mb-3">
+                      {PLANS.map((p) => {
+                        const selected = plan === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => setPlan(p.id)}
+                            className="w-full rounded-xl px-3 py-2 text-start transition-colors"
+                            style={{
+                              border: selected ? "1px solid var(--color-brass)" : "1px solid rgba(255,255,255,0.12)",
+                              background: selected ? "rgba(255,255,255,0.1)" : "transparent",
+                            }}
                           >
-                            {t("bestValue")}
-                          </span>
-                          <span className="w-full text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
-                            {t("saveAnnual")}
-                          </span>
-                        </>
-                      )}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-[12.5px] font-semibold text-white truncate">{t(p.labelKey)}</span>
+                                {p.tagKey && (
+                                  <span
+                                    className="shrink-0 rounded-full px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide"
+                                    style={{ background: "var(--color-brass)", color: "#1a1410" }}
+                                  >
+                                    {t(p.tagKey)}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="shrink-0 text-[13px] font-semibold" style={{ color: "var(--color-brass)" }}>
+                                {t(p.priceKey)}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
+                              {t(p.perMonthKey)}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
 
-                    <ul className="flex flex-col gap-1.5 mb-3.5">
+                    <ul className="flex flex-col gap-1.5 mb-2.5">
                       {PREMIUM_BENEFITS.map((b) => (
                         <li key={b} className="flex items-start gap-2 text-[11.5px] leading-snug" style={{ color: "rgba(231,239,240,0.85)" }}>
                           <Check size={12} className="shrink-0 mt-0.5" style={{ color: "var(--color-brass)" }} />
@@ -340,6 +360,12 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                         </li>
                       ))}
                     </ul>
+
+                    {/* GPA calculator is free for everyone — shown as a note, not a premium bullet */}
+                    <p className="flex items-start gap-2 text-[10.5px] leading-snug mb-3.5" style={{ color: "rgba(231,239,240,0.55)" }}>
+                      <Check size={11} className="shrink-0 mt-0.5" style={{ color: "rgba(231,239,240,0.55)" }} />
+                      <span>{t("premiumFreeNote")}</span>
+                    </p>
                     <button
                       onClick={() => setPremiumOpen(true)}
                       className="haven-upgrade-btn w-full rounded-xl py-2.5 text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"
