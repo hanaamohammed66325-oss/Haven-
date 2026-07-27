@@ -328,23 +328,24 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                               background: selected ? "rgba(255,255,255,0.1)" : "transparent",
                             }}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="flex items-center gap-1.5 min-w-0">
-                                <span className="text-[12.5px] font-semibold text-white truncate">{t(p.labelKey)}</span>
-                                {p.tagKey && (
-                                  <span
-                                    className="shrink-0 rounded-full px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide"
-                                    style={{ background: "var(--color-brass)", color: "#1a1410" }}
-                                  >
-                                    {t(p.tagKey)}
-                                  </span>
-                                )}
-                              </span>
+                            <div className="flex items-start justify-between gap-2">
+                              {/* Line 1: full plan name (never truncated) + price */}
+                              <span className="text-[12.5px] font-semibold text-white leading-snug">{t(p.labelKey)}</span>
                               <span className="shrink-0 text-[13px] font-semibold" style={{ color: "var(--color-brass)" }}>
                                 {t(p.priceKey)}
                               </span>
                             </div>
-                            <div className="mt-0.5 text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
+                            {/* Badge on its own line, below the name */}
+                            {p.tagKey && (
+                              <span
+                                className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide"
+                                style={{ background: "var(--color-brass)", color: "#1a1410" }}
+                              >
+                                {t(p.tagKey)}
+                              </span>
+                            )}
+                            {/* Line 2: per-month equivalent */}
+                            <div className="mt-1 text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
                               {t(p.perMonthKey)}
                             </div>
                           </button>
@@ -352,7 +353,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                       })}
                     </div>
 
-                    <ul className="flex flex-col gap-1.5 mb-2.5">
+                    <ul className="flex flex-col gap-1.5 mb-3.5">
                       {PREMIUM_BENEFITS.map((b) => (
                         <li key={b} className="flex items-start gap-2 text-[11.5px] leading-snug" style={{ color: "rgba(231,239,240,0.85)" }}>
                           <Check size={12} className="shrink-0 mt-0.5" style={{ color: "var(--color-brass)" }} />
@@ -360,12 +361,6 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                         </li>
                       ))}
                     </ul>
-
-                    {/* GPA calculator is free for everyone — shown as a note, not a premium bullet */}
-                    <p className="flex items-start gap-2 text-[10.5px] leading-snug mb-3.5" style={{ color: "rgba(231,239,240,0.55)" }}>
-                      <Check size={11} className="shrink-0 mt-0.5" style={{ color: "rgba(231,239,240,0.55)" }} />
-                      <span>{t("premiumFreeNote")}</span>
-                    </p>
                     <button
                       onClick={() => setPremiumOpen(true)}
                       className="haven-upgrade-btn w-full rounded-xl py-2.5 text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"
