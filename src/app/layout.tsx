@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import HaviMascot from "@/components/HaviMascot";
+import { SubscriptionProvider } from "@/lib/subscription";
 
 export const metadata: Metadata = {
   title: "Haven | GPA calculator, grade tracking & attendance for university students",
@@ -32,8 +33,13 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
-        <HaviMascot />
+        {/* One subscription read near the top, shared by the app AND the global
+            Havi mascot (which lives outside Providers) so every premium gate
+            evaluates the same source. */}
+        <SubscriptionProvider>
+          <Providers>{children}</Providers>
+          <HaviMascot />
+        </SubscriptionProvider>
       </body>
     </html>
   );

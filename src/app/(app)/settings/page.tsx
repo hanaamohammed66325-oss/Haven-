@@ -11,6 +11,8 @@ import { DateField } from "@/components/DateField";
 import { DemoPlayer } from "@/components/DemoPlayer";
 import { signOut as clearSession } from "@/lib/auth";
 import { useDeleteAccount } from "@/lib/useDeleteAccount";
+import { useSubscription } from "@/lib/subscription";
+import { canUseTheme } from "@/lib/premium";
 import type { CalendarType, ThemeId } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -25,9 +27,8 @@ interface ThemeMeta {
   brass: string;
 }
 
-// Testing flag: premium themes are selectable until payments go live.
-// Flip to false to re-lock the premium themes behind the "coming soon" modal.
-const UNLOCK_ALL_THEMES = true;
+// Theme access is decided by premium.js (canUseTheme). While ENFORCE_PREMIUM is
+// off, canUseTheme returns true for every theme, so all themes stay selectable.
 
 const THEMES: ThemeMeta[] = [
   { id: "haven", nameKey: "theme_haven", free: true, surface: "#fcfbf9", sidebar: "#0f3a40", primary: "#477680", brass: "#b8975a" },
@@ -72,6 +73,7 @@ export default function SettingsPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
+  const { sub } = useSubscription();
   const { deleteAccount, loading: deleting, error: deleteError, reset: resetDeleteError } = useDeleteAccount();
 
   const closeDelete = () => {
@@ -81,7 +83,7 @@ export default function SettingsPage() {
   };
 
   const pickTheme = (tm: ThemeMeta) => {
-    if (tm.free || UNLOCK_ALL_THEMES) setTheme(tm.id);
+    if (canUseTheme(tm.id, sub)) setTheme(tm.id);
     else setPremiumOpen(true);
   };
 
@@ -143,7 +145,7 @@ export default function SettingsPage() {
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {THEMES.map((tm) => (
-            <ThemeCard key={tm.id} theme={tm} active={theme === tm.id} onSelect={() => pickTheme(tm)} />
+            <ThemeCard key={tm.id} theme={tm} active={theme === tm.id} locked={!canUseTheme(tm.id, sub)} onSelect={() => pickTheme(tm)} />
           ))}
         </div>
       </Section>
@@ -414,10 +416,9 @@ export default function SettingsPage() {
   );
 }
 
-function ThemeCard({ theme, active, onSelect }: { theme: ThemeMeta; active: boolean; onSelect: () => void }) {
+function ThemeCard({ theme, active, locked, onSelect }: { theme: ThemeMeta; active: boolean; locked: boolean; onSelect: () => void }) {
   const { t } = useT();
   const isPremium = !theme.free;
-  const locked = isPremium && !UNLOCK_ALL_THEMES;
   return (
     <button
       type="button"

@@ -5,13 +5,24 @@ import { Plus, BookOpen } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "@/components/Card";
+import { Modal } from "@/components/Modal";
 import { CoursePanel } from "@/components/CoursePanel";
 import { AddCourseModal } from "@/components/AddCourseModal";
+import { useSubscription } from "@/lib/subscription";
+import { courseLimit } from "@/lib/premium";
 
 export default function CoursesPage() {
   const { t } = useT();
   const { hydrated, courses, semester, addCourse } = useStore();
+  const { sub } = useSubscription();
   const [adding, setAdding] = useState(false);
+  const [limitNudge, setLimitNudge] = useState(false);
+
+  // Course creation is gated by the plan. When ENFORCE_PREMIUM is off this is
+  // Infinity, so nothing is blocked. Courses already created beyond the limit
+  // still render (read-only view is unaffected) — only *adding* is blocked.
+  const limit = courseLimit(sub);
+  const atLimit = courses.length >= limit;
 
   // When arriving from Assignments via /courses#<courseId>, scroll to that course.
   useEffect(() => {
@@ -37,7 +48,7 @@ export default function CoursesPage() {
           {t("nav_courses")}
         </h1>
         <button
-          onClick={() => setAdding(true)}
+          onClick={() => (atLimit ? setLimitNudge(true) : setAdding(true))}
           className="haven-btn shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium"
         >
           <Plus size={17} />
@@ -75,6 +86,18 @@ export default function CoursesPage() {
         onSubmit={addCourse}
         defaultLimit={semester.withdrawalLimit}
       />
+
+      {/* Upgrade nudge shown when a free user hits the course limit */}
+      <Modal open={limitNudge} onClose={() => setLimitNudge(false)} title={t("premiumUpgradeTitle")}>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--color-muted)" }}>
+          {t("premiumCoursesLimit", { n: limit })}
+        </p>
+        <div className="flex justify-end mt-6">
+          <button onClick={() => setLimitNudge(false)} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium">
+            {t("close")}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -22,6 +22,7 @@ import { Logo } from "./Logo";
 import { Modal } from "./Modal";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
+import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface NavItem {
@@ -42,28 +43,11 @@ const ACCOUNT: NavItem[] = [
   { href: "/settings", labelKey: "nav_settings", icon: Settings },
 ];
 
-const PREMIUM_BENEFITS: TranslationKey[] = [
-  "premiumBenefit1",
-  "premiumBenefit2",
-  "premiumBenefit4",
-  "premiumBenefit5",
-];
-
-// Duration-based billing options (months). Values mirror premium.js so the
-// gating can be wired against the same plans later. 12-month is the default.
-type PlanId = "4" | "6" | "12";
-interface PlanOption {
-  id: PlanId;
-  labelKey: TranslationKey;
-  priceKey: TranslationKey;
-  perMonthKey: TranslationKey;
-  tagKey?: TranslationKey;
-}
-const PLANS: PlanOption[] = [
-  { id: "4", labelKey: "planDur4", priceKey: "planPrice4", perMonthKey: "planPerMo4" },
-  { id: "6", labelKey: "planDur6", priceKey: "planPrice6", perMonthKey: "planPerMo6", tagKey: "betterValue" },
-  { id: "12", labelKey: "planDur12", priceKey: "planPrice12", perMonthKey: "planPerMo12", tagKey: "bestValue" },
-];
+// Plans and the premium feature list both come from premium.js (the single
+// source of truth) so marketing and gating can never drift apart.
+const PREMIUM_BENEFITS: TranslationKey[] = PREMIUM_LIST.map(
+  (key: string) => (FEATURES as Record<string, { labelKey?: string }>)[key]?.labelKey as TranslationKey
+).filter(Boolean);
 
 function Tooltip({ children }: { children: React.ReactNode }) {
   return (
@@ -136,7 +120,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const { t, lang } = useT();
   const { language, setLanguage, profileName, email, profilePhoto } = useStore();
   const [premiumOpen, setPremiumOpen] = useState(false);
-  const [plan, setPlan] = useState<PlanId>("12");
+  const [plan, setPlan] = useState<string>(DEFAULT_PLAN_ID);
   // Collapsible Go Premium card. Default expanded; once the user collapses it we
   // remember that per browser so it stays a compact pill next time.
   const [premiumCardOpen, setPremiumCardOpen] = useState(true);
@@ -330,9 +314,9 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                           >
                             <div className="flex items-start justify-between gap-2">
                               {/* Line 1: full plan name (never truncated) + price */}
-                              <span className="text-[12.5px] font-semibold text-white leading-snug">{t(p.labelKey)}</span>
+                              <span className="text-[12.5px] font-semibold text-white leading-snug">{t(p.labelKey as TranslationKey)}</span>
                               <span className="shrink-0 text-[13px] font-semibold" style={{ color: "var(--color-brass)" }}>
-                                {t(p.priceKey)}
+                                {t(p.priceKey as TranslationKey)}
                               </span>
                             </div>
                             {/* Badge on its own line, below the name */}
@@ -341,12 +325,12 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                                 className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide"
                                 style={{ background: "var(--color-brass)", color: "#1a1410" }}
                               >
-                                {t(p.tagKey)}
+                                {t(p.tagKey as TranslationKey)}
                               </span>
                             )}
                             {/* Line 2: per-month equivalent */}
                             <div className="mt-1 text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
-                              {t(p.perMonthKey)}
+                              {t(p.perMonthKey as TranslationKey)}
                             </div>
                           </button>
                         );

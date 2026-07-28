@@ -19,6 +19,8 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useSubscription } from "@/lib/subscription";
+import { canUse } from "@/lib/premium";
 
 /* ================================================================== */
 /*  PIXEL ART                                                          */
@@ -341,6 +343,12 @@ export default function HaviMascot({
   scopeRef = null,
   demoMode = false,
 }) {
+  // Premium gate. In the "see how it works" demo (demoMode) he is always shown,
+  // regardless of subscription. In the real app he renders only if the plan
+  // allows "havi"; while the subscription row is still loading we render nothing
+  // (handled at the return below) so he never flashes in then out.
+  const { sub, loading: subLoading } = useSubscription();
+
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
   const containerRef = useRef(null);
@@ -1320,6 +1328,11 @@ export default function HaviMascot({
     return () => cancelAnimationFrame(raf);
   }, [activity, reduced, size, bodyH, metrics]);
 
+  // Gate (skipped in the always-on demo): nothing while loading, then premium-only.
+  if (!demoMode) {
+    if (subLoading) return null;
+    if (!canUse("havi", sub)) return null;
+  }
   if (!visible) return null;
 
   return (
