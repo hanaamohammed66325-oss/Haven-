@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, Trash2, Check, Lock, LogOut } from "lucide-react";
 import { useStore } from "@/store";
-import { useT } from "@/i18n";
+import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
 import { DateField } from "@/components/DateField";
@@ -66,6 +66,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 export default function SettingsPage() {
   const { t, lang } = useT();
+  usePageTitle("nav_settings");
   const router = useRouter();
   const store = useStore();
   const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, reminderDays, setReminderDays, resetData } = store;

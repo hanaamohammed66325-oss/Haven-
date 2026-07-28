@@ -2,9 +2,9 @@ export const en = {
   // Brand
   appName: "Haven",
   tagline: "Your whole semester in one place",
-  metaTitle: "Haven | GPA calculator, grade tracking & attendance for university students",
+  metaTitle: "Haven — organize your semester",
   metaDescription:
-    "Plan your semester with Haven — calculate your GPA, track grades and attendance, and see your withdrawal risk before it's too late. Everything in one calm dashboard.",
+    "Haven helps university students track their GPA, grades, attendance, and deadlines in one place.",
 
   // Nav
   nav_dashboard: "Dashboard",

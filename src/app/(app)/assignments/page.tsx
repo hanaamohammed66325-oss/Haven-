@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, ChevronRight, GripVertical } from "lucide-react";
 import { useStore } from "@/store";
-import { useT } from "@/i18n";
+import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { formatShortDate } from "@/lib/dates";
 import type { Course } from "@/types";
@@ -21,6 +21,7 @@ interface Task {
 
 export default function TasksPage() {
   const { t, lang } = useT();
+  usePageTitle("nav_assignments");
   const { hydrated, courses, semester, taskOrder, setTaskOrder } = useStore();
 
   const [dragId, setDragId] = useState<string | null>(null);

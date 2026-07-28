@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { NotebookPen, CalendarRange } from "lucide-react";
 import { useStore } from "@/store";
-import { useT } from "@/i18n";
+import { useT, usePageTitle } from "@/i18n";
 import { Planner } from "@/components/Planner";
 import { Timetable } from "@/components/Timetable";
 import { Card } from "@/components/Card";
@@ -14,6 +14,7 @@ type Tab = "planner" | "timetable";
 
 export default function SchedulePage() {
   const { t } = useT();
+  usePageTitle("nav_schedule");
   const { hydrated } = useStore();
   const { sub } = useSubscription();
   const [tab, setTab] = useState<Tab>("planner");

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Plus, BookOpen } from "lucide-react";
 import { useStore } from "@/store";
-import { useT } from "@/i18n";
+import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
 import { CoursePanel } from "@/components/CoursePanel";
@@ -13,6 +13,7 @@ import { courseLimit } from "@/lib/premium";
 
 export default function CoursesPage() {
   const { t } = useT();
+  usePageTitle("nav_courses");
   const { hydrated, courses, semester, addCourse } = useStore();
   const { sub } = useSubscription();
   const [adding, setAdding] = useState(false);

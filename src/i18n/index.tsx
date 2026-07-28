@@ -36,8 +36,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const el = document.documentElement;
     el.lang = language;
     el.dir = dir;
-    // Keep the tab title + meta description in the active language.
-    document.title = dictionaries[language].metaTitle;
+    // Keep the meta description in the active language. The tab <title> is set
+    // per-page by usePageTitle so each page reads specifically, still branded.
     const desc = document.querySelector('meta[name="description"]');
     if (desc) desc.setAttribute("content", dictionaries[language].metaDescription);
   }, [language, dir]);
@@ -56,4 +56,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
 export function useT() {
   return useContext(I18nContext);
+}
+
+// Sets the browser tab <title> for a page, in the active locale. By default the
+// label is branded with the "· Haven" suffix (matching the metadata template);
+// pass { absolute: true } for the homepage brand title, which stands alone.
+export function usePageTitle(key: TranslationKey, opts?: { absolute?: boolean }) {
+  const { t, lang } = useT();
+  const absolute = opts?.absolute ?? false;
+  useEffect(() => {
+    const label = t(key);
+    document.title = absolute ? label : `${label} · Haven`;
+  }, [t, lang, key, absolute]);
 }

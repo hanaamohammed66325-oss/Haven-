@@ -18,7 +18,7 @@ import { HeroDemo } from "@/components/HeroDemo";
 import { DemoPlayer } from "@/components/DemoPlayer";
 import { FeedbackForm } from "@/components/FeedbackForm";
 import { useStore } from "@/store";
-import { useT } from "@/i18n";
+import { useT, usePageTitle } from "@/i18n";
 
 // TODO: swap the placeholder "#" hrefs for the real Instagram / WhatsApp / Email
 // links once they exist.
@@ -57,6 +57,7 @@ const socialIcons = [
 
 export default function LandingPage() {
   const { t, lang } = useT();
+  usePageTitle("metaTitle", { absolute: true }); // homepage brand title (no "· Haven" suffix)
   const { language, setLanguage } = useStore();
   const [demoOpen, setDemoOpen] = useState(false);
 

@@ -4,12 +4,38 @@ import { Providers } from "@/components/Providers";
 import HaviMascot from "@/components/HaviMascot";
 import { SubscriptionProvider } from "@/lib/subscription";
 
+// Homepage/default SEO (Arabic — the site's primary locale). Per-page browser
+// titles are set client-side per the active locale (see usePageTitle); this
+// static metadata is what crawlers and link-preview bots (Google, WhatsApp,
+// Twitter) read, so it uses the "%s · Haven" template + the Arabic defaults.
+const SITE_TITLE = "Haven — نظّم فصلك الدراسي";
+const SITE_DESCRIPTION =
+  "Haven يساعد طلاب الجامعات على تتبّع المعدل والدرجات والحضور والمواعيد في مكان واحد.";
+const OG_IMAGE = "/icons/icon-512.png";
+
 export const metadata: Metadata = {
-  title: "Haven | GPA calculator, grade tracking & attendance for university students",
-  description:
-    "Plan your semester with Haven — calculate your GPA, track grades and attendance, and see your withdrawal risk before it's too late. Everything in one calm dashboard.",
+  metadataBase: new URL("https://havenstudent.com"),
+  title: {
+    default: SITE_TITLE,
+    template: "%s · Haven",
+  },
+  description: SITE_DESCRIPTION,
   icons: {
     icon: "/favicon.svg",
+  },
+  openGraph: {
+    type: "website",
+    locale: "ar_SA",
+    siteName: "Haven",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [{ url: OG_IMAGE, width: 512, height: 512, alt: "Haven" }],
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [OG_IMAGE],
   },
 };
 
@@ -19,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning>
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link

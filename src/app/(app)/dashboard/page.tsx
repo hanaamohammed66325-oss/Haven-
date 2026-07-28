@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator } from "lucide-react";
 import { useStore } from "@/store";
-import { useT } from "@/i18n";
+import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { CircularProgress } from "@/components/CircularProgress";
 import { InfoPopover } from "@/components/InfoPopover";
@@ -39,6 +39,7 @@ const attStatusColor: Record<"ok" | "warn" | "danger", string> = {
 
 export default function DashboardPage() {
   const { t } = useT();
+  usePageTitle("nav_dashboard");
   const store = useStore();
   const {
     hydrated,
