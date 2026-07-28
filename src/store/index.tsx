@@ -37,6 +37,13 @@ import type { Session } from "@supabase/supabase-js";
 //     live in Supabase too — see src/lib/db.ts.
 // localStorage is device-scoped, so it is wiped on account switch / sign out.
 const STORAGE_KEY = "haven-data";
+// Tiny pre-paint cache: the last-applied theme + language, mirrored to
+// localStorage so the blocking boot script in the root <head> can apply them
+// BEFORE first paint — even for signed-in users whose real prefs live in the
+// cloud (a DB round-trip is far too slow for pre-paint). Starts with "haven" so
+// clearHavenLocalStorage() wipes it on sign-out (→ logged-out falls back to the
+// default theme). Keep this key in sync with the boot script in src/app/layout.tsx.
+const BOOT_CACHE_KEY = "haven-boot";
 
 /** Remove every Haven localStorage key (called on sign-out / account switch so
  *  one account never inherits another's device-local data). */
@@ -438,10 +445,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [data, hydrated]);
 
-  // Reflect the active theme onto <html> so CSS variables cascade everywhere.
+  // Reflect the active theme onto <html> so CSS variables cascade everywhere,
+  // and mirror theme + language into the pre-paint cache so the next load can
+  // apply them before first paint (see BOOT_CACHE_KEY / the boot script).
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", data.theme);
-  }, [data.theme]);
+    try {
+      window.localStorage.setItem(
+        BOOT_CACHE_KEY,
+        JSON.stringify({ theme: data.theme, lang: data.language })
+      );
+    } catch {
+      // storage full / unavailable — ignore
+    }
+  }, [data.theme, data.language]);
 
   // Persist a per-account preference patch to the cloud. No-op when signed out
   // (anonymous prefs are written to localStorage by the persist effect above).

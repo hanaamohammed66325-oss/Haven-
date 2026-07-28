@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import HaviMascot from "@/components/HaviMascot";
@@ -47,6 +48,16 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
+        {/* Pre-paint boot script — runs synchronously BEFORE the body paints to
+            apply the correct theme + language and avoid a flash (FOUC). It reads
+            the same localStorage cache the store writes (haven-boot). Logged-out
+            users always get the default theme; logged-in users get their saved
+            theme instantly. Wrapped in try/catch so storage errors never block
+            rendering. beforeInteractive injects it into <head> before hydration.
+            Keep the keys in sync with src/store/index.tsx. */}
+        <Script id="haven-theme-boot" strategy="beforeInteractive">
+          {`(function(){try{var d=document.documentElement;var boot={};try{boot=JSON.parse(localStorage.getItem("haven-boot")||"{}")||{};}catch(e){}var loggedIn=false;try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("sb-")===0&&k.indexOf("-auth-token")>0){var v=localStorage.getItem(k);if(v&&v!=="null"&&v!=="undefined"){loggedIn=true;break;}}}}catch(e){}var theme=(loggedIn&&boot.theme)?boot.theme:"haven";d.setAttribute("data-theme",theme);var lang=(boot.lang==="ar"||boot.lang==="en")?boot.lang:"en";d.setAttribute("lang",lang);d.setAttribute("dir",lang==="ar"?"rtl":"ltr");}catch(e){}})();`}
+        </Script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
