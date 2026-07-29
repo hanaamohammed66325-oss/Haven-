@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { ClipboardList, ChevronRight, GripVertical } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { formatShortDate } from "@/lib/dates";
+import { usePointerReorder, type PointerReorder } from "@/lib/usePointerReorder";
 import type { Course } from "@/types";
 
 interface Task {
@@ -24,8 +25,6 @@ export default function TasksPage() {
   usePageTitle("nav_assignments");
   const { hydrated, courses, semester, taskOrder, setTaskOrder } = useStore();
 
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
 
   // Courses that actually have tasks, arranged by the saved order
   // (unknown courses keep their natural order at the end).
@@ -38,6 +37,14 @@ export default function TasksPage() {
     return [...withTasks].sort((a, b) => pos(a.id) - pos(b.id));
   }, [courses, taskOrder]);
 
+  /* Pointer-based reorder — works with mouse AND touch. HTML5 `draggable`
+     never fires for touch in iOS Safari, so the handle did nothing on iPad. */
+  const orderedIds = useMemo(() => ordered.map((c) => c.id), [ordered]);
+  const { dragId, overId, registerEl, handleProps } = usePointerReorder(
+    orderedIds,
+    setTaskOrder
+  );
+
   if (!hydrated) return <div className="h-40" />;
 
   const fmtDate = (d: string | null) =>
@@ -45,17 +52,6 @@ export default function TasksPage() {
   const fmtWeight = (w: number, unit: "percent" | "points") =>
     unit === "percent" ? `${w}${t("unitPercent")}` : `${w} ${t("unitPoints")}`;
 
-  const reorder = (targetId: string) => {
-    if (!dragId || dragId === targetId) return;
-    const ids = ordered.map((c) => c.id);
-    const from = ids.indexOf(dragId);
-    const to = ids.indexOf(targetId);
-    if (from === -1 || to === -1) return;
-    const next = [...ids];
-    next.splice(from, 1);
-    next.splice(to, 0, dragId);
-    setTaskOrder(next);
-  };
 
   return (
     <div className="haven-fade-in">
@@ -88,12 +84,10 @@ export default function TasksPage() {
               <CourseSection
                 key={course.id}
                 course={course}
+                registerEl={registerEl}
+                handleProps={handleProps(course.id)}
                 dragging={dragId === course.id}
                 over={overId === course.id && dragId !== course.id}
-                onDragStart={() => setDragId(course.id)}
-                onDragEnter={() => setOverId(course.id)}
-                onDragEnd={() => { setDragId(null); setOverId(null); }}
-                onDrop={() => { reorder(course.id); setDragId(null); setOverId(null); }}
                 fmtDate={fmtDate}
                 fmtWeight={fmtWeight}
               />
@@ -107,22 +101,18 @@ export default function TasksPage() {
 
 function CourseSection({
   course,
+  registerEl,
+  handleProps,
   dragging,
   over,
-  onDragStart,
-  onDragEnter,
-  onDragEnd,
-  onDrop,
   fmtDate,
   fmtWeight,
 }: {
   course: Course;
+  registerEl: (id: string, el: HTMLElement | null) => void;
+  handleProps: ReturnType<PointerReorder["handleProps"]>;
   dragging: boolean;
   over: boolean;
-  onDragStart: () => void;
-  onDragEnter: () => void;
-  onDragEnd: () => void;
-  onDrop: () => void;
   fmtDate: (d: string | null) => string;
   fmtWeight: (w: number, u: "percent" | "points") => string;
 }) {
@@ -134,8 +124,7 @@ function CourseSection({
 
   return (
     <section
-      onDragOver={(e) => { e.preventDefault(); onDragEnter(); }}
-      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      ref={(el) => registerEl(course.id, el)}
       style={{ opacity: dragging ? 0.5 : 1 }}
     >
       <Card
@@ -143,13 +132,20 @@ function CourseSection({
         className="overflow-hidden"
         style={over ? { outline: "2px dashed var(--color-primary)", outlineOffset: 2 } : undefined}
       >
-        {/* draggable header */}
+        {/* Drag handle. handleProps carries `touch-action: none`, which is what
+            makes this work on iPad — without it Safari claims the gesture as a
+            page scroll and never delivers pointermove. It's scoped to the
+            handle only, so the rest of the page still scrolls normally. */}
         <div
-          draggable
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
+          {...handleProps}
+          data-havi-avoid
+          data-drag-handle={course.id}
           className="flex items-center gap-2 px-5 py-4 border-b cursor-grab active:cursor-grabbing select-none"
-          style={{ borderColor: "var(--color-border)", background: "var(--color-primary-soft)" }}
+          style={{
+            borderColor: "var(--color-border)",
+            background: "var(--color-primary-soft)",
+            ...handleProps.style,
+          }}
         >
           <GripVertical size={16} style={{ color: "var(--color-muted)" }} />
           <h2 className="font-display text-lg flex-1 truncate" style={{ color: "var(--color-ink)" }}>
