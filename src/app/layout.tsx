@@ -20,10 +20,9 @@ const SITE_DESCRIPTION =
 const OG_TITLE = "Haven — نظّم فصلك الدراسي";
 const OG_DESCRIPTION =
   "Haven يساعد طلاب الجامعات على تتبّع المعدل والدرجات والحضور والمواعيد في مكان واحد.";
-// The Haven house/book logo — kept as the social-preview image. The PWA icon
-// set (/icons/icon-*.png) is the Havi sprite on brand navy, which is right for
-// a home-screen icon but would change every existing share card.
-const OG_IMAGE = "/icons/og-haven-logo.png";
+// The PWA icon set and the share card are the same Haven house/book logo on
+// brand navy, so one file serves both.
+const OG_IMAGE = "/icons/icon-512.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://havenstudent.com"),
