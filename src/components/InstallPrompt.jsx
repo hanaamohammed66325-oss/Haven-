@@ -1,7 +1,11 @@
 "use client";
 
 /**
- * InstallPrompt — "ثبّت هيفن" button + platform-aware instructions.
+ * InstallPrompt — "ثبّت Haven" button + platform-aware instructions.
+ *
+ * Copy rules: the brand is always written "Haven" in Latin script, never
+ * transliterated, and all instructions use gender-neutral (masculine-default)
+ * verb forms so they read naturally for any student.
  *
  * Why this exists: Chrome/Android fires a `beforeinstallprompt` event we can
  * trigger from a button. Safari on iPad/iPhone fires nothing at all — the user
@@ -107,7 +111,7 @@ export default function InstallPrompt({ variant = "floating" }) {
       {variant === "floating" ? (
         <div style={S.pill} dir="rtl">
           <button onClick={install} style={S.pillBtn}>
-            ثبّت هيفن على جهازك
+            ثبّت Haven على جهازك
           </button>
           <button onClick={dismiss} style={S.pillX} aria-label="إخفاء">
             ✕
@@ -115,7 +119,7 @@ export default function InstallPrompt({ variant = "floating" }) {
         </div>
       ) : (
         <button onClick={install} style={S.inlineBtn} dir="rtl">
-          ثبّت هيفن على جهازك
+          ثبّت Haven على جهازك
         </button>
       )}
 
@@ -124,23 +128,23 @@ export default function InstallPrompt({ variant = "floating" }) {
           <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
             <h3 style={S.title}>
               {platform === "ipad"
-                ? "ثبّت هيفن على الآيباد"
+                ? "ثبّت Haven على الآيباد"
                 : platform === "iphone"
-                ? "ثبّت هيفن على الآيفون"
-                : "ثبّت هيفن"}
+                ? "ثبّت Haven على الآيفون"
+                : "ثبّت Haven"}
             </h3>
 
             {isApple ? (
               <>
                 <ol style={S.list}>
                   <li style={S.li}>
-                    <b>افتحي هيفن في Safari</b>
+                    <b>افتح Haven في Safari</b>
                     <span style={S.hint}>
                       التثبيت ما يشتغل من Chrome أو أي متصفح ثاني على أجهزة Apple
                     </span>
                   </li>
                   <li style={S.li}>
-                    اضغطي زر المشاركة <ShareGlyph />
+                    اضغط زر المشاركة <ShareGlyph />
                     <span style={S.hint}>
                       {platform === "ipad"
                         ? "في الشريط العلوي من Safari"
@@ -148,25 +152,25 @@ export default function InstallPrompt({ variant = "floating" }) {
                     </span>
                   </li>
                   <li style={S.li}>
-                    اختاري <b>«إضافة إلى الشاشة الرئيسية»</b>
-                    <span style={S.hint}>انزلي في القائمة لين تلقينها</span>
+                    اختر <b>«إضافة إلى الشاشة الرئيسية»</b>
+                    <span style={S.hint}>انزل في القائمة لين تلقاها</span>
                   </li>
                   <li style={S.li}>
-                    اضغطي <b>«إضافة»</b> — بيصير هيفن أيقونة على شاشتك
+                    اضغط <b>«إضافة»</b> — بيصير Haven أيقونة على شاشتك
                   </li>
                 </ol>
                 <p style={S.note}>
-                  بعد التثبيت تقدرين تستقبلين تنبيهات المواعيد، ويشتغل الموقع حتى
+                  بعد التثبيت تقدر تستقبل تنبيهات المواعيد، ويشتغل الموقع حتى
                   لو الشبكة ضعيفة.
                 </p>
               </>
             ) : (
               <ol style={S.list}>
                 <li style={S.li}>
-                  افتحي قائمة المتصفح <b>⋮</b>
+                  افتح قائمة المتصفح <b>⋮</b>
                 </li>
                 <li style={S.li}>
-                  اختاري <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>
+                  اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>
                 </li>
               </ol>
             )}
