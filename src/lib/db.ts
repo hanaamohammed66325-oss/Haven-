@@ -167,12 +167,23 @@ export async function ensureActiveSemester(settings?: {
 
 export async function updateSemester(
   id: string,
-  fields: Partial<{ name: string; weeks: number; finalsWeeks: number }>
+  fields: Partial<{
+    name: string;
+    weeks: number;
+    finalsWeeks: number;
+    // startDate/endDate mirror the same values still written to
+    // profiles.preferences; the DATE columns feed notification scheduling.
+    // An empty string means "cleared" and is stored as NULL — never a fallback.
+    startDate: string;
+    endDate: string;
+  }>
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
   if (fields.name !== undefined) patch.name = fields.name;
   if (fields.weeks !== undefined) patch.teaching_weeks = fields.weeks;
   if (fields.finalsWeeks !== undefined) patch.finals_weeks = fields.finalsWeeks;
+  if (fields.startDate !== undefined) patch.start_date = fields.startDate.trim() || null;
+  if (fields.endDate !== undefined) patch.end_date = fields.endDate.trim() || null;
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("semesters").update(patch).eq("id", id);
   if (error) throw new Error(error.message);

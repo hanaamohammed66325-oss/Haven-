@@ -445,10 +445,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [data, hydrated]);
 
-  // Reflect the active theme onto <html> so CSS variables cascade everywhere,
-  // and mirror theme + language into the pre-paint cache so the next load can
-  // apply them before first paint (see BOOT_CACHE_KEY / the boot script).
+  // Reflect the active theme onto <html> and mirror theme + language into the
+  // pre-paint cache (see BOOT_CACHE_KEY / the boot script).
+  //
+  // CRITICAL: do NOTHING until `hydrated`. Before the real data loads, `data` is
+  // still `initialData` (theme "haven", language "en"). The pre-paint boot script
+  // has already applied the user's real theme/language to <html>; touching it
+  // here with the defaults would clobber that and cause the exact flash we're
+  // fixing. Once hydrated, `data` holds the real values, so we apply + cache them.
   useEffect(() => {
+    if (!hydrated) return;
     document.documentElement.setAttribute("data-theme", data.theme);
     try {
       window.localStorage.setItem(
@@ -458,7 +464,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {
       // storage full / unavailable — ignore
     }
-  }, [data.theme, data.language]);
+  }, [data.theme, data.language, hydrated]);
 
   // Persist a per-account preference patch to the cloud. No-op when signed out
   // (anonymous prefs are written to localStorage by the persist effect above).
@@ -654,13 +660,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setSemester = useCallback((patch: Partial<Semester>) => {
     setData((d) => ({ ...d, semester: { ...d.semester, ...patch } }));
-    // Mirror the cloud-backed fields (name / weeks / finals) to the semesters row.
+    // Mirror the cloud-backed fields to the active semesters row. name/weeks/
+    // finals have always lived there; start/end date are ALSO written to the new
+    // semesters.start_date/end_date columns (in the same save) for notification
+    // scheduling, while still going to profiles.preferences below for backward
+    // compatibility. semesterIdRef is the active semester, so update-by-id is the
+    // RLS-safe equivalent of "user_id = auth.uid() AND is_active = true".
     const id = semesterIdRef.current;
     if (loggedInRef.current && id) {
       const cloudPatch: Parameters<typeof db.updateSemester>[1] = {};
       if (patch.name !== undefined) cloudPatch.name = patch.name;
       if (patch.weeks !== undefined) cloudPatch.weeks = patch.weeks;
       if (patch.finalsWeeks !== undefined) cloudPatch.finalsWeeks = patch.finalsWeeks;
+      if (patch.startDate !== undefined) cloudPatch.startDate = patch.startDate;
+      if (patch.endDate !== undefined) cloudPatch.endDate = patch.endDate;
       if (Object.keys(cloudPatch).length) {
         db.updateSemester(id, cloudPatch).catch((e) =>
           console.error("Haven: failed to update semester", e)
