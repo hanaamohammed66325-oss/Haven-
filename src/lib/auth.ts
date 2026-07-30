@@ -7,7 +7,7 @@
 // clicks the confirmation link emailed to them.
 // ---------------------------------------------------------------------------
 
-import { supabase, WELCOME_URL } from "./supabase";
+import { supabase, SITE_URL, WELCOME_URL } from "./supabase";
 
 // localStorage flag written when a signup starts on THIS device (value = the
 // email). The email-confirmation landing page reads it to tell "same device"
@@ -108,6 +108,46 @@ export async function verifySignupOtp(email: string, token: string): Promise<Aut
       token: token.trim(),
       type: "signup",
     });
+    if (error) return { ok: false, error: "invalid", message: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// Send a password-reset email.
+//
+// The link lands on /reset-password/, which reads the recovery tokens the
+// Supabase client finds in the URL hash (implicit flow — this site is a static
+// export, so there is no server to exchange a code). `lang` is carried through
+// as a query param so the page opens in the language the user asked from, even
+// on a device where the app hasn't loaded their profile yet.
+//
+// Like signUp above, this deliberately reveals nothing about whether the
+// address is registered: Supabase returns success either way, and the caller
+// shows one neutral message regardless.
+export async function requestPasswordReset(
+  email: string,
+  lang: "en" | "ar"
+): Promise<AuthResult> {
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      // SITE_URL, never window.location.origin — see the note in supabase.ts.
+      // The trailing slash matches the exported route (next.config trailingSlash).
+      redirectTo: `${SITE_URL}/reset-password/?lang=${lang}`,
+    });
+    if (error) return { ok: false, error: "unavailable", message: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// Set a new password for the CURRENT session. On /reset-password/ that session
+// is the temporary recovery one Supabase creates from the emailed tokens.
+export async function updatePassword(password: string): Promise<AuthResult> {
+  try {
+    const { error } = await supabase.auth.updateUser({ password });
     if (error) return { ok: false, error: "invalid", message: error.message };
     return { ok: true };
   } catch (e) {

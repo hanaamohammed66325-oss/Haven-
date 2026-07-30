@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthLayout } from "@/components/AuthLayout";
 import { useT } from "@/i18n";
-import { signIn, resendConfirmation } from "@/lib/auth";
+import { signIn, resendConfirmation, requestPasswordReset } from "@/lib/auth";
 
 const fieldBase =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 
 export default function SignInPage() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +20,10 @@ export default function SignInPage() {
   const [error, setError] = useState("");
   const [forgot, setForgot] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Forgot-password panel state.
+  const [resetSending, setResetSending] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState("");
   // Resend-confirmation state — only relevant after an "email not confirmed" error.
   const [unconfirmed, setUnconfirmed] = useState(false);
   const [resending, setResending] = useState(false);
@@ -53,7 +57,79 @@ export default function SignInPage() {
     else setResendError(res.message || t("authErrInvalid"));
   };
 
+  const sendReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSending(true);
+    const res = await requestPasswordReset(email, lang);
+    setResetSending(false);
+    // Same neutral confirmation either way — never reveal whether the address
+    // has an account. Only a transport/network failure shows an error.
+    if (res.ok) setResetSent(true);
+    else setResetError(t("authForgotError"));
+  };
+
   const errBorder = { borderColor: error ? "var(--color-danger)" : "var(--color-border)" };
+
+  // Separate view rather than an inline block: the sign-in markup is already a
+  // <form>, and HTML forbids nesting one form inside another.
+  if (forgot) {
+    return (
+      <AuthLayout title={t("authForgotTitle")} subtitle={t("authForgotIntro")}>
+        <form onSubmit={sendReset} className="flex flex-col gap-4" noValidate>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+              {t("emailLabel")}
+            </span>
+            <input
+              className={fieldBase}
+              style={{ borderColor: "var(--color-border)" }}
+              type="email"
+              value={email}
+              placeholder={t("emailPlaceholder")}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              autoFocus
+            />
+          </label>
+
+          {resetSent && (
+            <span className="text-xs" style={{ color: "var(--color-primary)" }}>
+              {t("authForgotSent")}
+            </span>
+          )}
+          {resetError && (
+            <span className="text-xs" style={{ color: "var(--color-danger)" }}>
+              {resetError}
+            </span>
+          )}
+
+          <button
+            type="submit"
+            disabled={resetSending || resetSent}
+            className="haven-btn mt-1 w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
+          >
+            {resetSending ? t("authForgotSending") : t("authForgotSend")}
+          </button>
+        </form>
+
+        <p className="text-center text-sm mt-6">
+          <button
+            type="button"
+            onClick={() => {
+              setForgot(false);
+              setResetSent(false);
+              setResetError("");
+            }}
+            className="font-medium"
+            style={{ color: "var(--color-primary)" }}
+          >
+            {t("authForgotBack")}
+          </button>
+        </p>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout title={t("signInTitle")} subtitle={t("signInSubtitle")}>
@@ -127,9 +203,6 @@ export default function SignInPage() {
             {t("authForgot")}
           </button>
         </div>
-        {forgot && (
-          <span className="text-xs -mt-2" style={{ color: "var(--color-muted)" }}>{t("authForgotSoon")}</span>
-        )}
 
         <button
           type="submit"
