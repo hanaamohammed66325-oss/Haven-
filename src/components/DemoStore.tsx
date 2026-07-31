@@ -231,14 +231,18 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
       setProfilePhoto: (profilePhoto) => patch({ profilePhoto }),
       setGpaGoal: (gpaGoal) => patch({ gpaGoal }),
 
-      addPlannerNote: (note) =>
+      // Demo store is local-only, so adds never fail — return success so the
+      // callers' await + close-on-success contract works the same as the real store.
+      addPlannerNote: (note) => {
         setData((d) => ({
           ...d,
           planner: {
             ...d.planner,
             notes: [...d.planner.notes, { ...note, id: uid() }],
           },
-        })),
+        }));
+        return Promise.resolve({ ok: true as const });
+      },
       updatePlannerNote: (id, np) =>
         setData((d) => ({
           ...d,
@@ -271,7 +275,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
       setCumulativeHours: (cumulativeHours) => patch({ cumulativeHours }),
       setSemester: (sp) => setData((d) => ({ ...d, semester: { ...d.semester, ...sp } })),
 
-      addCourse: (course) =>
+      addCourse: (course) => {
         setData((d) => ({
           ...d,
           courses: [
@@ -287,12 +291,16 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
               components: [],
             },
           ],
-        })),
+        }));
+        return Promise.resolve({ ok: true as const });
+      },
       updateCourse: (id, cp) => mapCourses(inCourse(id, (c) => ({ ...c, ...cp }))),
       deleteCourse: (id) => setData((d) => ({ ...d, courses: d.courses.filter((c) => c.id !== id) })),
 
-      addComponent: (courseId, comp) =>
-        mapCourses(inCourse(courseId, (c) => ({ ...c, components: [...c.components, { ...comp, id: uid() } as GradeComponent] }))),
+      addComponent: (courseId, comp) => {
+        mapCourses(inCourse(courseId, (c) => ({ ...c, components: [...c.components, { ...comp, id: uid() } as GradeComponent] })));
+        return Promise.resolve({ ok: true as const });
+      },
       updateComponent: (courseId, componentId, cp) =>
         mapCourses(
           inCourse(courseId, (c) => ({
@@ -303,8 +311,10 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
       deleteComponent: (courseId, componentId) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, components: c.components.filter((x) => x.id !== componentId) }))),
 
-      addSession: (courseId, s) =>
-        mapCourses(inCourse(courseId, (c) => ({ ...c, sessions: [...c.sessions, { ...s, id: uid(), notes: s.notes ?? [] }] }))),
+      addSession: (courseId, s) => {
+        mapCourses(inCourse(courseId, (c) => ({ ...c, sessions: [...c.sessions, { ...s, id: uid(), notes: s.notes ?? [] }] })));
+        return Promise.resolve({ ok: true as const });
+      },
       updateSession: (courseId, sessionId, sp) =>
         mapCourses(
           inCourse(courseId, (c) => ({
@@ -317,14 +327,16 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
 
       setMissedLectures: (courseId, missed) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedLectures: Math.max(0, missed) }))),
-      addMissedSession: (courseId, sessionId) =>
+      addMissedSession: (courseId, sessionId) => {
         mapCourses(
           inCourse(courseId, (c) => {
             const s = c.sessions.find((x) => x.id === sessionId);
             if (!s) return c;
             return { ...c, missedSessions: [...c.missedSessions, { id: uid(), sessionId, day: s.day, minutes: s.minutes }] };
           })
-        ),
+        );
+        return Promise.resolve({ ok: true as const });
+      },
       removeMissedSession: (courseId, missedId) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }))),
 

@@ -7,6 +7,7 @@ import { BoundedNumberInput } from "./BoundedNumberInput";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { clampToRange, MAX_PERCENT } from "@/lib/grades";
+import type { MutationResult } from "@/store";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
 
 const COMPONENT_TYPES: ComponentType[] = ["quiz", "midterm", "final", "project", "assignment"];
@@ -17,7 +18,8 @@ const field =
 interface AddItemModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (component: Omit<GradeComponent, "id">) => void;
+  // Add returns the store's MutationResult; edit is optimistic (void).
+  onSubmit: (component: Omit<GradeComponent, "id">) => void | Promise<MutationResult | void>;
   /** when provided, the modal edits an existing item (prefilled) */
   initial?: GradeComponent;
 }
@@ -34,6 +36,8 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
   const [dateMode, setDateMode] = useState<"none" | "specific">("none");
   const [date, setDate] = useState("");
   const [score, setScore] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const border = { borderColor: "var(--color-border)" };
 
@@ -62,10 +66,12 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
       setDateMode("none");
       setDate("");
       setScore("");
+      setError("");
+      setSaving(false);
     }
   }, [open, initial]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const w = Number(weight);
     const tot = Number(total);
@@ -73,7 +79,11 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
     // Defensive clamp: covers switching points -> percent while a >100 weight
     // is still in the field, and any value that reached state another way.
     const safeWeight = unit === "percent" ? clampToRange(w, MAX_PERCENT) : Math.max(0, w);
-    onSubmit({
+    setError("");
+    setSaving(true);
+    // Only close once the store confirms the save; keep open + show the error
+    // otherwise (previously the modal always closed, hiding failures).
+    const res = await onSubmit({
       name: name.trim(),
       type,
       weight: safeWeight,
@@ -82,6 +92,11 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
       score: score.trim() === "" ? null : clampToRange(Number(score), tot),
       date: dateMode === "specific" && date ? date : null,
     });
+    setSaving(false);
+    if (res && res.ok === false) {
+      setError(t("saveError"));
+      return;
+    }
     onClose();
   }
 
@@ -95,13 +110,16 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
             {t("cancel")}
           </button>
-          <button type="submit" form="add-item-form" className="haven-btn px-5 py-2 rounded-xl text-sm font-medium">
-            {isEdit ? t("save") : t("addItem")}
+          <button type="submit" form="add-item-form" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
+            {saving ? t("saving") : isEdit ? t("save") : t("addItem")}
           </button>
         </div>
       }
     >
       <form id="add-item-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error && (
+          <span className="text-xs" style={{ color: "var(--color-danger)" }}>{error}</span>
+        )}
         {/* Name */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemName")}</label>

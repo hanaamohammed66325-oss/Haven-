@@ -187,9 +187,13 @@ export function CoursePanel({ course }: { course: Course }) {
       <AddItemModal
         open={addingItem}
         onClose={() => setAddingItem(false)}
-        onSubmit={(c) => {
-          addComponent(course.id, c);
-          celebrateFor(c.score, c.total);
+        // Return the promise so the modal awaits the save, only closes on
+        // success, and shows an error (staying open) on failure. Celebrate only
+        // once the row is really in the store.
+        onSubmit={async (c) => {
+          const res = await addComponent(course.id, c);
+          if (res.ok) celebrateFor(c.score, c.total);
+          return res;
         }}
       />
 

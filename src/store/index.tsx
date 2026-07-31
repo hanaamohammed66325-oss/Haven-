@@ -140,6 +140,18 @@ function buildPlanner(
   return { notes, strokes: [], highlights: [], autoEdits };
 }
 
+/**
+ * Result of a cloud-backed "add" mutation. Add flows return this instead of
+ * void so the calling modal can react: keep itself open and show an error when
+ * `ok` is false, and only close once the row is really in the store. Before
+ * this, every add swallowed its error in a catch and the modal closed
+ * regardless — a failed save looked identical to a successful one.
+ */
+export type MutationResult = { ok: true } | { ok: false; error: string };
+
+const asError = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+const NOT_SIGNED_IN: MutationResult = { ok: false, error: "not signed in" };
+
 export interface StoreValue extends AppData {
   hydrated: boolean;
   setProfileName: (name: string) => void;
@@ -148,7 +160,7 @@ export interface StoreValue extends AppData {
   setGpaGoal: (goal: number) => void;
   // Planner notes are cloud-backed (planner_items); autoEdits ride in
   // profiles.preferences. Each mutation persists per account.
-  addPlannerNote: (note: Omit<PlannerNote, "id">) => void;
+  addPlannerNote: (note: Omit<PlannerNote, "id">) => Promise<MutationResult>;
   updatePlannerNote: (id: string, patch: Partial<PlannerNote>) => void;
   deletePlannerNote: (id: string) => void;
   setPlannerAutoEdit: (id: string, patch: PlannerData["autoEdits"][string]) => void;
@@ -166,7 +178,11 @@ export interface StoreValue extends AppData {
   /** Completed credit hours behind the cumulative GPA; persisted per account. */
   setCumulativeHours: (hours: number) => void;
   setSemester: (patch: Partial<Semester>) => void;
-  addCourse: (course: { name: string; creditHours: number; attendanceLimit?: number }) => void;
+  addCourse: (course: {
+    name: string;
+    creditHours: number;
+    attendanceLimit?: number;
+  }) => Promise<MutationResult>;
   updateCourse: (
     id: string,
     data: Partial<Omit<Course, "id" | "components">>
@@ -175,14 +191,14 @@ export interface StoreValue extends AppData {
   addComponent: (
     courseId: string,
     component: Omit<GradeComponent, "id">
-  ) => void;
+  ) => Promise<MutationResult>;
   updateComponent: (
     courseId: string,
     componentId: string,
     data: Partial<Omit<GradeComponent, "id">>
   ) => void;
   deleteComponent: (courseId: string, componentId: string) => void;
-  addSession: (courseId: string, session: Omit<CourseSession, "id">) => void;
+  addSession: (courseId: string, session: Omit<CourseSession, "id">) => Promise<MutationResult>;
   updateSession: (
     courseId: string,
     sessionId: string,
@@ -190,7 +206,7 @@ export interface StoreValue extends AppData {
   ) => void;
   deleteSession: (courseId: string, sessionId: string) => void;
   setMissedLectures: (courseId: string, missed: number) => void;
-  addMissedSession: (courseId: string, sessionId: string) => void;
+  addMissedSession: (courseId: string, sessionId: string) => Promise<MutationResult>;
   removeMissedSession: (courseId: string, missedId: string) => void;
   loadDemo: () => void;
   resetData: () => void;
@@ -506,8 +522,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // --- Planner (cloud-backed notes + per-account autoEdits) -----------------
 
-  const addPlannerNote = useCallback(async (note: Omit<PlannerNote, "id">) => {
-    if (!loggedInRef.current) return;
+  const addPlannerNote = useCallback(async (note: Omit<PlannerNote, "id">): Promise<MutationResult> => {
+    if (!loggedInRef.current) return NOT_SIGNED_IN;
     try {
       const row = await db.addPlannerItem({
         week: note.week,
@@ -536,8 +552,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ],
         },
       }));
+      return { ok: true };
     } catch (e) {
       console.error("Haven: failed to add planner note", e);
+      return { ok: false, error: asError(e) };
     }
   }, []);
 
@@ -693,8 +711,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [persistPref]);
 
   const addCourse = useCallback(
-    async (course: { name: string; creditHours: number; attendanceLimit?: number }) => {
-      if (!loggedInRef.current) return;
+    async (course: {
+      name: string;
+      creditHours: number;
+      attendanceLimit?: number;
+    }): Promise<MutationResult> => {
+      if (!loggedInRef.current) return NOT_SIGNED_IN;
       try {
         // db.addCourse resolves the current user's active semester itself, so we
         // never pass a (possibly stale) cached semester id from this account.
@@ -720,8 +742,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             },
           ],
         }));
+        return { ok: true };
       } catch (e) {
         console.error("Haven: failed to add course", e);
+        return { ok: false, error: asError(e) };
       }
     },
     []
@@ -758,8 +782,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addComponent = useCallback(
-    async (courseId: string, component: Omit<GradeComponent, "id">) => {
-      if (!loggedInRef.current) return;
+    async (courseId: string, component: Omit<GradeComponent, "id">): Promise<MutationResult> => {
+      if (!loggedInRef.current) return NOT_SIGNED_IN;
       try {
         const row = await db.addGradeComponent(courseId, component);
         setData((d) => ({
@@ -768,8 +792,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             c.id === courseId ? { ...c, components: [...c.components, row] } : c
           ),
         }));
+        return { ok: true };
       } catch (e) {
         console.error("Haven: failed to add grade component", e);
+        return { ok: false, error: asError(e) };
       }
     },
     []
@@ -873,8 +899,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addSession = useCallback(
-    async (courseId: string, session: Omit<CourseSession, "id">) => {
-      if (!loggedInRef.current) return;
+    async (courseId: string, session: Omit<CourseSession, "id">): Promise<MutationResult> => {
+      if (!loggedInRef.current) return NOT_SIGNED_IN;
       try {
         const row = await db.addAttendanceSession(courseId, {
           day: session.day,
@@ -908,8 +934,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             c.id === courseId ? { ...c, sessions: [...c.sessions, newSession] } : c
           ),
         }));
+        return { ok: true };
       } catch (e) {
         console.error("Haven: failed to add session", e);
+        return { ok: false, error: asError(e) };
       }
     },
     []
@@ -997,11 +1025,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const addMissedSession = useCallback(async (courseId: string, sessionId: string) => {
-    if (!loggedInRef.current) return;
+  const addMissedSession = useCallback(async (courseId: string, sessionId: string): Promise<MutationResult> => {
+    if (!loggedInRef.current) return NOT_SIGNED_IN;
     const course = coursesRef.current.find((c) => c.id === courseId);
     const sess = course?.sessions.find((s) => s.id === sessionId);
-    if (!sess) return;
+    if (!sess) return { ok: false, error: "session not found" };
     try {
       const row = await db.addAbsence(courseId, { day: sess.day, minutes: sess.minutes });
       setData((d) => ({
@@ -1018,8 +1046,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : c
         ),
       }));
+      return { ok: true };
     } catch (e) {
       console.error("Haven: failed to log absence", e);
+      return { ok: false, error: asError(e) };
     }
   }, []);
 

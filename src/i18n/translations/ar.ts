@@ -62,6 +62,8 @@ export const ar: Record<TranslationKey, string> = {
   close: "إغلاق",
   optional: "اختياري",
   confirm: "تأكيد",
+  saveError: "تعذّر الحفظ. تحقّق من اتصالك وحاول مرة أخرى.",
+  saving: "جارٍ الحفظ…",
 
   // Dashboard
   welcomeBack: "أهلًا من جديد 👋",

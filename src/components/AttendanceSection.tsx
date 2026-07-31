@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
-import { useStore } from "@/store";
+import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { attendanceInfo } from "@/lib/grades";
@@ -30,6 +31,13 @@ export function AttendanceSection({ course }: { course: Course }) {
 
   const att = attendanceInfo(course, semester);
   const border = { borderColor: "var(--color-border)" };
+  // Surfaced when a cloud-backed add fails, so it isn't a silent no-op.
+  const [addError, setAddError] = useState("");
+  const runAdd = async (p: Promise<MutationResult>) => {
+    setAddError("");
+    const res = await p;
+    if (!res.ok) setAddError(t("saveError"));
+  };
 
   const hUnit = t("hoursUnit");
   const mUnit = t("minutesUnit");
@@ -68,7 +76,7 @@ export function AttendanceSection({ course }: { course: Course }) {
             {t("weeklySessionsLabel")}
           </span>
           <button
-            onClick={() => addSession(course.id, { day: 0, minutes: 60 })}
+            onClick={() => runAdd(addSession(course.id, { day: 0, minutes: 60 }))}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
             style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
           >
@@ -76,6 +84,9 @@ export function AttendanceSection({ course }: { course: Course }) {
             {t("addSession")}
           </button>
         </div>
+        {addError && (
+          <span className="block mb-2 text-xs" style={{ color: "var(--color-danger)" }}>{addError}</span>
+        )}
 
         {course.sessions.length === 0 ? (
           <p className="text-xs py-1" style={{ color: "var(--color-muted)" }}>
@@ -152,7 +163,7 @@ export function AttendanceSection({ course }: { course: Course }) {
               {course.sessions.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => addMissedSession(course.id, s.id)}
+                  onClick={() => runAdd(addMissedSession(course.id, s.id))}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-80"
                   style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
                 >

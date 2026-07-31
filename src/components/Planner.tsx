@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { StickyNote, X, Check, GraduationCap, ClipboardList } from "lucide-react";
-import { useStore } from "@/store";
+import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { TimeField } from "./TimeField";
@@ -119,8 +119,10 @@ export function Planner() {
   // write and read on this identifier so notes reappear in the exact week.
   const addNote = (week: number, day: number | undefined, text: string, color: string, tag?: string) => {
     const txt = text.trim();
-    if (!txt) return;
-    addPlannerNote({ week, day, text: txt, color, tag, done: false });
+    if (!txt) return Promise.resolve({ ok: true as const });
+    // Return the store result so the inline input can restore the typed text if
+    // the cloud save fails, instead of clearing it and silently losing the note.
+    return addPlannerNote({ week, day, text: txt, color, tag, done: false });
   };
   const updateNote = (id: string, patch: Partial<PlannerNote>) => updatePlannerNote(id, patch);
   const deleteNote = (id: string) => deletePlannerNote(id);
@@ -540,24 +542,38 @@ function DayAddInput({
 }: {
   placeholder: string;
   onFocus: () => void;
-  onAdd: (text: string) => void;
+  onAdd: (text: string) => void | Promise<MutationResult | void>;
 }) {
   const [draft, setDraft] = useState("");
+  const [failed, setFailed] = useState(false);
+  const submit = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    // Clear optimistically for a snappy feel, but restore the text (and flag the
+    // field) if the save fails, so a dropped note is never silently lost.
+    setDraft("");
+    setFailed(false);
+    const res = await onAdd(text);
+    if (res && res.ok === false) {
+      setDraft(text);
+      setFailed(true);
+    }
+  };
   return (
     <input
       value={draft}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        if (failed) setFailed(false);
+      }}
       onFocus={onFocus}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
-        if (e.key === "Enter" && draft.trim()) {
-          onAdd(draft);
-          setDraft("");
-        }
+        if (e.key === "Enter" && draft.trim()) void submit();
       }}
       placeholder={placeholder}
       className="flex-1 min-w-[70px] rounded-lg border px-2 py-1 text-xs outline-none transition-colors focus:border-[var(--color-primary)]"
-      style={{ borderColor: "var(--color-border)", background: "transparent", color: "var(--color-ink)" }}
+      style={{ borderColor: failed ? "var(--color-danger)" : "var(--color-border)", background: "transparent", color: "var(--color-ink)" }}
     />
   );
 }

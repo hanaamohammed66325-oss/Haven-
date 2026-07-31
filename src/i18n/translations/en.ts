@@ -60,6 +60,9 @@ export const en = {
   close: "Close",
   optional: "optional",
   confirm: "Confirm",
+  // Shown inside an add/edit modal when the cloud save fails; the modal stays open.
+  saveError: "Couldn't save. Check your connection and try again.",
+  saving: "Saving…",
 
   // Dashboard
   welcomeBack: "Welcome back 👋",
