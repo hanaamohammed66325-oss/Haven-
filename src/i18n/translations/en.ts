@@ -438,6 +438,18 @@ export const en = {
   reminderTomorrowAt: "Tomorrow at {time}: {title}",
   reminderInDaysAt: "In {n} days at {time}: {title}",
 
+  // Notifications (Web Push subscribe/unsubscribe — free for all users)
+  sectionNotifications: "Notifications",
+  notifUnsupported: "Your browser doesn't support notifications.",
+  notifIosInstall: "To enable notifications on iPad or iPhone, add Haven to your Home Screen first.",
+  notifBlocked: "Notifications are blocked. Enable them in your browser settings, then reload.",
+  notifEnable: "Enable notifications",
+  notifEnabling: "Enabling…",
+  notifOn: "Notifications are on for this device",
+  notifDisable: "Disable notifications",
+  notifDisabling: "Turning off…",
+  notifError: "Something went wrong. Please try again.",
+
   sectionData: "Data",
 
   // Themes

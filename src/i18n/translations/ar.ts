@@ -437,6 +437,18 @@ export const ar: Record<TranslationKey, string> = {
   reminderTomorrowAt: "بكرة الساعة {time}: {title}",
   reminderInDaysAt: "بعد {n} يوم الساعة {time}: {title}",
 
+  // الإشعارات (Web Push — مجاني لكل المستخدمين)
+  sectionNotifications: "الإشعارات",
+  notifUnsupported: "متصفحك لا يدعم الإشعارات.",
+  notifIosInstall: "لتفعيل الإشعارات على آيباد أو آيفون، ثبّت Haven على الشاشة الرئيسية أولاً.",
+  notifBlocked: "الإشعارات محجوبة. فعّلها من إعدادات المتصفح ثم أعد التحميل.",
+  notifEnable: "فعّل الإشعارات",
+  notifEnabling: "جارٍ التفعيل…",
+  notifOn: "الإشعارات مفعّلة على هذا الجهاز",
+  notifDisable: "أوقف الإشعارات",
+  notifDisabling: "جارٍ الإيقاف…",
+  notifError: "حدث خطأ، حاول مرة أخرى.",
+
   sectionData: "البيانات",
 
   // Themes

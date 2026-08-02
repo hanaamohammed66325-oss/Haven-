@@ -9,6 +9,7 @@ import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
 import { DateField } from "@/components/DateField";
 import { DemoPlayer } from "@/components/DemoPlayer";
+import { NotificationsSettings } from "@/components/NotificationsSettings";
 import { signOut as clearSession } from "@/lib/auth";
 import { useDeleteAccount } from "@/lib/useDeleteAccount";
 import { useSubscription } from "@/lib/subscription";
@@ -293,6 +294,11 @@ export default function SettingsPage() {
             </div>
           </Row>
         </div>
+      </Section>
+
+      {/* Notifications (free for all users — no premium gating) */}
+      <Section title={t("sectionNotifications")}>
+        <NotificationsSettings />
       </Section>
 
       {/* Data */}
