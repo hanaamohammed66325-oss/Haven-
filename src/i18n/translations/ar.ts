@@ -448,6 +448,11 @@ export const ar: Record<TranslationKey, string> = {
   notifDisable: "أوقف الإشعارات",
   notifDisabling: "جارٍ الإيقاف…",
   notifError: "حدث خطأ، حاول مرة أخرى.",
+  // إرسال إشعار تجريبي (Phase 2)
+  notifSendTest: "أرسل إشعار تجريبي",
+  notifSending: "جارٍ الإرسال…",
+  notifSentToast: "تم الإرسال إلى {n} جهاز. تحقّق من إشعاراتك.",
+  notifCleanedSuffix: " (تم تنظيف {n} اشتراك قديم)",
 
   sectionData: "البيانات",
 

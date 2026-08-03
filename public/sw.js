@@ -138,3 +138,58 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
+
+// ============ Web Push (Phase 2) ============
+// NOTE: the icon lives at /icons/icon-192.png (files under public/icons/), not
+// /icon-192.png — inspected the folder rather than assuming the root path.
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'Haven', body: '', url: '/' };
+  try {
+    if (event.data) {
+      const parsed = event.data.json();
+      data = {
+        title: parsed.title || 'Haven',
+        body: parsed.body || '',
+        url: parsed.url || '/',
+      };
+    }
+  } catch (e) {
+    // If payload isn't JSON, use plain text as body
+    try { data.body = event.data ? event.data.text() : ''; } catch (_) {}
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: 'haven-notification',
+    data: { url: data.url },
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      // Try to focus an already-open Haven tab
+      for (const client of allClients) {
+        try {
+          const url = new URL(client.url);
+          if (url.origin === self.location.origin) {
+            await client.focus();
+            if ('navigate' in client) { try { await client.navigate(targetUrl); } catch (_) {} }
+            return;
+          }
+        } catch (_) {}
+      }
+      // Otherwise open a new window
+      if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
+    })()
+  );
+});

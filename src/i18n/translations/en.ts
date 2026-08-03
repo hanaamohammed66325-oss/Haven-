@@ -449,6 +449,11 @@ export const en = {
   notifDisable: "Disable notifications",
   notifDisabling: "Turning off…",
   notifError: "Something went wrong. Please try again.",
+  // Send-test-notification (Phase 2)
+  notifSendTest: "Send test notification",
+  notifSending: "Sending…",
+  notifSentToast: "Sent to {n} device(s). Check your notifications.",
+  notifCleanedSuffix: " (cleaned {n} expired)",
 
   sectionData: "Data",
 

@@ -68,10 +68,14 @@ function isStandalone(): boolean {
 }
 
 export function NotificationsSettings() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [state, setState] = useState<NotifState>("checking");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Send-test-notification (state E only).
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState("");
+  const [testErr, setTestErr] = useState("");
   const uidRef = useRef<string | null>(null);
 
   const uid = useCallback(async (): Promise<string | null> => {
@@ -233,6 +237,33 @@ export function NotificationsSettings() {
     }
   }, [t, uid]);
 
+  // Send a real push to every device this user has enabled (via the test-push
+  // Edge Function — the static site has no server to sign VAPID requests).
+  const sendTest = useCallback(async () => {
+    setTestMsg("");
+    setTestErr("");
+    setTesting(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("test-push", {
+        body: { locale: lang },
+      });
+      const sent = (data as { sent?: number } | null)?.sent ?? 0;
+      const cleaned = (data as { cleaned?: number } | null)?.cleaned ?? 0;
+      if (fnError || sent === 0) {
+        setTestErr(t("notifError"));
+        return;
+      }
+      let msg = t("notifSentToast", { n: sent });
+      if (cleaned > 0) msg += t("notifCleanedSuffix", { n: cleaned });
+      setTestMsg(msg);
+    } catch (e) {
+      console.error("Haven: failed to send test notification", e);
+      setTestErr(t("notifError"));
+    } finally {
+      setTesting(false);
+    }
+  }, [lang, t]);
+
   if (state === "checking") return <div className="h-6" />;
 
   const infoText =
@@ -270,12 +301,32 @@ export function NotificationsSettings() {
           </p>
           <button
             onClick={disable}
-            disabled={busy}
+            disabled={busy || testing}
             className="inline-flex items-center gap-2 self-start px-4 py-2 rounded-xl text-sm font-medium border transition-colors disabled:opacity-60"
             style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
           >
             {busy ? t("notifDisabling") : t("notifDisable")}
           </button>
+
+          {/* Secondary/muted action — deliberately less prominent than Disable. */}
+          <button
+            onClick={sendTest}
+            disabled={testing || busy}
+            className="self-start text-xs font-medium underline underline-offset-2 transition-colors disabled:opacity-60"
+            style={{ color: "var(--color-muted)" }}
+          >
+            {testing ? t("notifSending") : t("notifSendTest")}
+          </button>
+          {testMsg && (
+            <p className="text-xs" style={{ color: "var(--color-primary)" }}>
+              {testMsg}
+            </p>
+          )}
+          {testErr && (
+            <p className="text-xs" style={{ color: "var(--color-danger)" }}>
+              {testErr}
+            </p>
+          )}
         </div>
       )}
 
