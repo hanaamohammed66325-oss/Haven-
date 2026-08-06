@@ -245,8 +245,14 @@ function TagEditor({
   const { t } = useT();
   return (
     <div
-      className="rounded-xl border p-2 flex flex-col gap-2"
-      style={{ borderColor: "var(--color-primary)", background: "var(--color-surface)", minWidth: 180 }}
+      // basis-full: take a whole line within the cell's flex-wrap flow so the
+      // panel is anchored directly under the tapped chip and never shares a row
+      // with — or visually overlaps — neighbouring day cells on iPad's narrow
+      // columns. relative + z-index keeps it above sibling chips. The editor is
+      // rendered inline (no fixed/absolute positioning), so it follows the cell
+      // through scroll and keyboard shifts without any viewport maths.
+      className="basis-full relative z-10 rounded-xl border p-2 flex flex-col gap-2"
+      style={{ borderColor: "var(--color-primary)", background: "var(--color-surface)", minWidth: 180, maxWidth: "min(240px, 100%)" }}
       onClick={(e) => e.stopPropagation()}
     >
       {allowRename ? (
@@ -343,32 +349,23 @@ function WeekCard({
     // A deadline-type chip on a specific day can carry an optional time.
     const canHaveTime = !!(n.tag && REMINDER_TAGS.has(n.tag) && n.day != null);
     if (editNoteId === n.id) {
-      if (n.tag) {
-        return (
-          <TagEditor
-            key={n.id}
-            text={n.text}
-            allowRename
-            onText={(v) => onUpdate(n.id, { text: v.trim() || n.text })}
-            onPick={(tag, color) => onUpdate(n.id, { tag, color })}
-            onDone={() => setEditNoteId(null)}
-            onDelete={() => { onDelete(n.id); setEditNoteId(null); }}
-            showTime={canHaveTime}
-            time={n.dueTime ?? null}
-            onTime={(v) => onUpdate(n.id, { dueTime: v })}
-          />
-        );
-      }
+      // Every note — tagged or not, whole-week (day == null) or dated — edits
+      // through the same panel so colours + Delete + Save are always present.
+      // (Previously tagless notes fell back to a bare input with no actions, so
+      // whole-week notes couldn't be recoloured, deleted, or saved.) The Time
+      // picker still only appears for a deadline chip on a specific day.
       return (
-        <input
+        <TagEditor
           key={n.id}
-          autoFocus
-          defaultValue={n.text}
-          onClick={(e) => e.stopPropagation()}
-          onBlur={(e) => { onUpdate(n.id, { text: e.target.value.trim() || n.text }); setEditNoteId(null); }}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          className="rounded-lg px-2 py-1 text-xs outline-none"
-          style={{ border: "1px solid var(--color-primary)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+          text={n.text}
+          allowRename
+          onText={(v) => onUpdate(n.id, { text: v.trim() || n.text })}
+          onPick={(tag, color) => onUpdate(n.id, { tag, color })}
+          onDone={() => setEditNoteId(null)}
+          onDelete={() => { onDelete(n.id); setEditNoteId(null); }}
+          showTime={canHaveTime}
+          time={n.dueTime ?? null}
+          onTime={(v) => onUpdate(n.id, { dueTime: v })}
         />
       );
     }
@@ -407,7 +404,11 @@ function WeekCard({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(n.id); }}
-          className="opacity-0 group-hover/note:opacity-100 transition-opacity shrink-0"
+          // pointer-events-none until hover: on touch devices (no hover) this
+          // inline X is invisible AND untappable, so tapping a chip can never
+          // silently delete it — the item only leaves via the edit panel's
+          // Delete button. Was the iPad "items disappear on tap" bug.
+          className="opacity-0 pointer-events-none group-hover/note:opacity-100 group-hover/note:pointer-events-auto transition-opacity shrink-0"
           aria-label={t("delete")}
         >
           <X size={11} style={{ color: "var(--color-muted)" }} />
@@ -466,7 +467,9 @@ function WeekCard({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onHideAuto(a.id); }}
-          className="opacity-0 group-hover/auto:opacity-100 transition-opacity shrink-0"
+          // See the note chip's X above: kept untappable on touch so an auto
+          // item never vanishes from a stray tap — only via the edit panel.
+          className="opacity-0 pointer-events-none group-hover/auto:opacity-100 group-hover/auto:pointer-events-auto transition-opacity shrink-0"
           aria-label={t("plannerRemoveFromView")}
         >
           <X size={11} style={{ color: "var(--color-muted)" }} />

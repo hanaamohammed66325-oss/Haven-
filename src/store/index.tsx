@@ -114,6 +114,12 @@ const DEFAULT_NOTE_COLOR = "#477680";
 const colorForTag = (tag?: string | null) =>
   (tag && PLANNER_TAG_COLORS[tag]) || DEFAULT_NOTE_COLOR;
 
+/** Client-side id for optimistic rows before the cloud assigns a real one. */
+const newId = (): string =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
+
 /** Whether a session carries any timetable detail worth its own detail row. */
 const sessionHasDetails = (s: Pick<CourseSession, "time" | "building" | "room" | "notes">) =>
   !!(s.time || s.building || s.room || (s.notes && s.notes.length));
@@ -524,6 +530,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addPlannerNote = useCallback(async (note: Omit<PlannerNote, "id">): Promise<MutationResult> => {
     if (!loggedInRef.current) return NOT_SIGNED_IN;
+    // Optimistic add: show the note immediately under a temporary id, then
+    // reconcile with the row the cloud returns (or roll it back if the insert
+    // fails). Previously this awaited the round-trip before the chip appeared —
+    // a lag iPad users felt most. update/delete are already local-first.
+    const tempId = `temp-${newId()}`;
+    setData((d) => ({
+      ...d,
+      planner: {
+        ...d.planner,
+        notes: [
+          ...d.planner.notes,
+          {
+            id: tempId,
+            week: note.week,
+            day: note.day,
+            text: note.text,
+            color: note.color ?? colorForTag(note.tag),
+            tag: note.tag,
+            done: note.done ?? false,
+            dueTime: note.dueTime ?? null,
+          },
+        ],
+      },
+    }));
     try {
       const row = await db.addPlannerItem({
         week: note.week,
@@ -533,28 +563,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         done: note.done ?? false,
         dueTime: note.dueTime ?? null,
       });
+      // Swap the temp row for the real one in place (keeps its grid position).
       setData((d) => ({
         ...d,
         planner: {
           ...d.planner,
-          notes: [
-            ...d.planner.notes,
-            {
-              id: row.id,
-              week: row.week,
-              day: row.day == null ? undefined : row.day,
-              text: row.text,
-              color: colorForTag(row.tag),
-              tag: row.tag ?? undefined,
-              done: row.done,
-              dueTime: row.dueTime,
-            },
-          ],
+          notes: d.planner.notes.map((n) =>
+            n.id === tempId
+              ? {
+                  id: row.id,
+                  week: row.week,
+                  day: row.day == null ? undefined : row.day,
+                  text: row.text,
+                  color: colorForTag(row.tag),
+                  tag: row.tag ?? undefined,
+                  done: row.done,
+                  dueTime: row.dueTime,
+                }
+              : n
+          ),
         },
       }));
       return { ok: true };
     } catch (e) {
       console.error("Haven: failed to add planner note", e);
+      // Roll back the optimistic row so a failed save leaves nothing behind.
+      setData((d) => ({
+        ...d,
+        planner: { ...d.planner, notes: d.planner.notes.filter((n) => n.id !== tempId) },
+      }));
       return { ok: false, error: asError(e) };
     }
   }, []);
