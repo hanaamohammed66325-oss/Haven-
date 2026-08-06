@@ -160,6 +160,15 @@ export function Planner() {
   };
   const targetLabel = activeDay == null ? t("plannerWholeWeek") : t(`day${activeDay}` as TranslationKey);
 
+  // Render day rows in the order the week actually flows in time: start on the
+  // weekday the semester begins (every week begins on that same weekday, since
+  // weeks are start + 7·i), then wrap around. e.g. a Thu start → Thu…Wed, a
+  // Sun start → Sun…Sat. Storage stays 0=Sun..6=Sat; only display order shifts,
+  // so `t(day${d})`, dayDates[d], and item.day filtering are all unaffected.
+  const semesterStart = new Date(semester.startDate);
+  const semesterStartDow = Number.isNaN(+semesterStart) ? 0 : semesterStart.getDay();
+  const orderedDays = Array.from({ length: 7 }, (_, i) => (semesterStartDow + i) % 7);
+
   return (
     <div>
       {/* Toolbar — Note tool + active target + quick tags */}
@@ -200,6 +209,7 @@ export function Planner() {
             notes={planner.notes.filter((n) => n.week === w.index + 1)}
             autoItems={autoByWeek[w.index] ?? []}
             dayDates={dayDatesFor(w)}
+            orderedDays={orderedDays}
             autoEdits={planner.autoEdits ?? {}}
             isActiveWeek={activeWeek === w.index}
             isCurrentWeek={currentWeekIndex === w.index}
@@ -304,6 +314,7 @@ function WeekCard({
   notes,
   autoItems,
   dayDates,
+  orderedDays,
   autoEdits,
   isActiveWeek,
   isCurrentWeek,
@@ -322,6 +333,8 @@ function WeekCard({
   notes: PlannerNote[];
   autoItems: AutoItem[];
   dayDates: (string | null)[];
+  /** weekday indices (0=Sun..6=Sat) in the order this semester's weeks flow */
+  orderedDays: number[];
   autoEdits: Record<string, PlannerAutoEdit>;
   isActiveWeek: boolean;
   isCurrentWeek: boolean;
@@ -509,7 +522,7 @@ function WeekCard({
 
       {/* Days of the week — each shows its calendar date + any items due that day */}
       <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-start">
-        {WEEKDAYS.map((d) => {
+        {orderedDays.map((d) => {
           const dayNotes = notes.filter((n) => n.day === d);
           const dayAuto = visibleAuto.filter((a) => a.day === d);
           const dayActive = isActiveWeek && activeDay === d;
