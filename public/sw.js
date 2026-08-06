@@ -144,7 +144,7 @@ self.addEventListener("message", (event) => {
 // /icon-192.png — inspected the folder rather than assuming the root path.
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Haven', body: '', url: '/' };
+  let data = { title: 'Haven', body: '', url: '/', id: undefined };
   try {
     if (event.data) {
       const parsed = event.data.json();
@@ -152,6 +152,7 @@ self.addEventListener('push', (event) => {
         title: parsed.title || 'Haven',
         body: parsed.body || '',
         url: parsed.url || '/',
+        id: parsed.id,
       };
     }
   } catch (e) {
@@ -163,7 +164,8 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    tag: 'haven-notification',
+    tag: data.id ?? 'haven-notification',
+    renotify: true,
     data: { url: data.url },
   };
 
