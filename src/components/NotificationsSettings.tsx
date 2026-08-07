@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useT } from "@/i18n";
 
@@ -23,11 +23,16 @@ const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 type NotifState =
   | "checking" // initial async detection in flight
+  | "hidden" // defensive: logged out — render nothing (normally AuthGuard prevents this)
   | "unsupported" // A: no Notification / SW / PushManager / VAPID key
   | "ios-install" // B: iOS/iPadOS in a browser tab, not installed to Home Screen
   | "blocked" // C: permission denied
   | "enable" // D: default, or granted-but-not-subscribed-on-this-device
   | "on"; // E: granted AND this device's subscription is stored
+
+// Sentinel returned by the health check when a transient error means we should
+// NOT change what the user is seeing (never flip a working device down to D).
+const KEEP = "keep" as const;
 
 /** base64url VAPID key → Uint8Array for applicationServerKey. */
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -94,7 +99,7 @@ export function NotificationsSettings() {
    * "add to Home Screen" message instead. On every other platform the order is
    * moot (A's conditions and B's are disjoint).
    */
-  const detect = useCallback(async (): Promise<NotifState> => {
+  const detect = useCallback(async (): Promise<NotifState | typeof KEEP> => {
     if (!VAPID_PUBLIC_KEY) {
       console.error(
         "Haven: NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set — notifications are unavailable."
@@ -114,20 +119,86 @@ export function NotificationsSettings() {
     if (Notification.permission === "denied") return "blocked";
     if (Notification.permission === "default") return "enable";
 
-    // Granted: subscribed on THIS device only if the browser has a live
-    // subscription whose endpoint we've stored for this user.
+    // --- Granted: run the subscription HEALTH CHECK -------------------------
+    // The stored row can silently outlive the real subscription (Apple accepts
+    // sends with 2xx but delivers nothing after a silent revoke). So we trust
+    // the BROWSER's live subscription as the source of truth and reconcile the
+    // DB mirror to it, rather than trusting a possibly-dead stored row.
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
-    if (!sub) return "enable";
 
     const userId = await uid();
-    if (!userId) return "enable";
-    const { data } = await supabase
-      .from("push_subscriptions")
-      .select("endpoint")
-      .eq("user_id", userId);
-    const stored = (data ?? []).some((r) => r.endpoint === sub.endpoint);
-    return stored ? "on" : "enable";
+    // Defensive: logged out (AuthGuard should prevent this) — don't render.
+    if (!userId) return "hidden";
+
+    // (5) Browser has NO active subscription. Every stored row is therefore
+    // stale (nothing in this browser can match it) — purge them all and send
+    // the user to Enable (D). D is the truthful state here regardless of
+    // whether the purge succeeds, so a transient DB error doesn't change it.
+    if (!sub) {
+      try {
+        const { data, error } = await supabase
+          .from("push_subscriptions")
+          .select("endpoint")
+          .eq("user_id", userId);
+        if (error) throw new Error(error.message);
+        if ((data?.length ?? 0) > 0) {
+          const { error: delErr } = await supabase
+            .from("push_subscriptions")
+            .delete()
+            .eq("user_id", userId);
+          if (delErr) throw new Error(delErr.message);
+        }
+      } catch (e) {
+        console.warn("Haven: failed to purge stale push subscriptions", e);
+      }
+      return "enable";
+    }
+
+    // (6) Browser HAS a subscription. Reconcile it against the DB.
+    try {
+      const { data, error } = await supabase
+        .from("push_subscriptions")
+        .select("endpoint")
+        .eq("user_id", userId);
+      if (error) throw new Error(error.message);
+
+      // Full-string endpoint compare (endpoints can be >200 chars).
+      const known = (data ?? []).some((r) => r.endpoint === sub.endpoint);
+      if (known) return "on";
+
+      // Orphaned browser subscription (endpoint rotated, or never stored):
+      // adopt it with the same upsert as Enable, keeping ONLY this endpoint.
+      const p256dh = arrayBufferToBase64Url(sub.getKey("p256dh"));
+      const auth = arrayBufferToBase64Url(sub.getKey("auth"));
+      const { error: pruneErr } = await supabase
+        .from("push_subscriptions")
+        .delete()
+        .eq("user_id", userId)
+        .neq("endpoint", sub.endpoint);
+      if (pruneErr) throw new Error(pruneErr.message);
+      const { error: upErr } = await supabase.from("push_subscriptions").upsert(
+        {
+          user_id: userId,
+          endpoint: sub.endpoint,
+          p256dh,
+          auth,
+          user_agent: navigator.userAgent.slice(0, 500),
+          last_seen_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,endpoint" }
+      );
+      if (upErr) throw new Error(upErr.message);
+      return "on";
+    } catch (e) {
+      // Transient DB failure on a device that DOES have a live subscription:
+      // keep the last-known state, never drop to Enable (D). Retries next mount.
+      console.warn(
+        "Haven: push subscription health check failed — keeping last state",
+        e
+      );
+      return KEEP;
+    }
   }, [uid]);
 
   // Initial detection + silent last_seen_at refresh when already subscribed.
@@ -136,10 +207,13 @@ export function NotificationsSettings() {
     (async () => {
       const next = await detect().catch(() => "unsupported" as NotifState);
       if (cancelled) return;
-      setState(next);
+      // KEEP = transient error during the health check: leave the current
+      // state untouched (don't flash the user down to Enable). Every other
+      // result is a real state to render.
+      if (next !== KEEP) setState(next);
 
-      // Phase-1 requirement: on Settings mount, if this device is subscribed,
-      // bump last_seen_at. Fire-and-forget; errors ignored.
+      // (7) On Settings mount, if this device is subscribed, bump last_seen_at
+      // on the current row. Fire-and-forget; errors ignored.
       if (next === "on") {
         try {
           const userId = await uid();
@@ -182,6 +256,20 @@ export function NotificationsSettings() {
       const p256dh = arrayBufferToBase64Url(sub.getKey("p256dh"));
       const auth = arrayBufferToBase64Url(sub.getKey("auth"));
       const userId = await uid();
+
+      // Only ever keep the CURRENT browser's subscription per user. On Apple a
+      // revoke+recreate changes the endpoint, so old rows accumulate and go
+      // dead — prune every other endpoint before mirroring the new one.
+      if (userId) {
+        const { error: pruneErr } = await supabase
+          .from("push_subscriptions")
+          .delete()
+          .eq("user_id", userId)
+          .neq("endpoint", sub.endpoint);
+        if (pruneErr) {
+          console.warn("Haven: failed to prune stale push subscriptions", pruneErr);
+        }
+      }
 
       const { error: dbError } = await supabase.from("push_subscriptions").upsert(
         {
@@ -264,7 +352,18 @@ export function NotificationsSettings() {
     }
   }, [lang, t]);
 
-  if (state === "checking") return <div className="h-6" />;
+  // Health check in flight (on iOS PWA first mount, serviceWorker.ready can take
+  // 1–2s). Show a subtle spinner rather than committing to A–E prematurely.
+  if (state === "checking") {
+    return (
+      <div className="flex items-center h-6" aria-live="polite" aria-busy="true">
+        <Loader2 size={16} className="animate-spin" style={{ color: "var(--color-muted)" }} />
+      </div>
+    );
+  }
+
+  // Defensive: logged out — the whole section renders nothing.
+  if (state === "hidden") return null;
 
   const infoText =
     state === "unsupported"
