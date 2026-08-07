@@ -19,10 +19,10 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Logo } from "./Logo";
-import { Modal } from "./Modal";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
-import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES } from "@/lib/premium";
+import { useSubscription } from "@/lib/subscription";
+import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES, isVip, isActiveSubscriber } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface NavItem {
@@ -119,7 +119,11 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const pathname = usePathname();
   const { t, lang } = useT();
   const { language, setLanguage, profileName, email, profilePhoto } = useStore();
-  const [premiumOpen, setPremiumOpen] = useState(false);
+  const { sub, profile } = useSubscription();
+  // Go Premium is only relevant to users who can still subscribe. Hide it for
+  // VIP and active subscribers (trial users still see it — they may want to
+  // convert / view plans).
+  const hideGoPremium = isVip(profile) || isActiveSubscriber(sub);
   const [plan, setPlan] = useState<string>(DEFAULT_PLAN_ID);
   // Collapsible Go Premium card. Default expanded; once the user collapses it we
   // remember that per browser so it stays a compact pill next time.
@@ -242,15 +246,15 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
       {/* Bottom group */}
       <div className="mt-auto flex flex-col gap-4 pt-8">
-        {collapsed ? (
-          <button
-            onClick={() => setPremiumOpen(true)}
+        {!hideGoPremium && (collapsed ? (
+          <Link
+            href="/premium"
             aria-label={t("premiumTitle")}
             className="haven-upgrade-btn group relative mx-auto flex items-center justify-center h-11 w-11 rounded-xl hover:-translate-y-0.5"
           >
             <Sparkles size={18} />
             <Tooltip>{t("premiumTitle")}</Tooltip>
-          </button>
+          </Link>
         ) : (
           // Expanded sidebar: collapsible Go Premium card. The brass pill is
           // always the header/toggle; the full card body drops down beneath it
@@ -345,18 +349,18 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                         </li>
                       ))}
                     </ul>
-                    <button
-                      onClick={() => setPremiumOpen(true)}
-                      className="haven-upgrade-btn w-full rounded-xl py-2.5 text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"
+                    <Link
+                      href="/premium"
+                      className="haven-upgrade-btn block w-full rounded-xl py-2.5 text-center text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"
                     >
                       {t("premiumCta")}
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        ))}
 
         {/* Language toggle */}
         {collapsed ? (
@@ -413,20 +417,6 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           </Link>
         )}
       </div>
-
-      <Modal open={premiumOpen} onClose={() => setPremiumOpen(false)} title={t("premiumSoonTitle")}>
-        <p className="text-sm leading-relaxed" style={{ color: "var(--color-muted)" }}>
-          {t("premiumSoonDesc")}
-        </p>
-        <div className="flex justify-end mt-6">
-          <button
-            onClick={() => setPremiumOpen(false)}
-            className="haven-btn px-5 py-2 rounded-xl text-sm font-medium"
-          >
-            {t("close")}
-          </button>
-        </div>
-      </Modal>
     </aside>
   );
 }
