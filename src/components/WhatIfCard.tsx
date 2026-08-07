@@ -7,13 +7,10 @@ import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { CountUp } from "./CountUp";
 import { courseCurrentPct, pctToGrade, projectedCumulativeFromParts } from "@/lib/grades";
-import { useSubscription } from "@/lib/subscription";
-import { canUse } from "@/lib/premium";
 
 export function WhatIfCard() {
   const { t } = useT();
   const { courses, gpaMode, cumulativeGpa, cumulativeHours } = useStore();
-  const { sub } = useSubscription();
 
   const buildInitial = useMemo(
     () => () =>
@@ -52,17 +49,8 @@ export function WhatIfCard() {
 
   if (!courses.length) return null;
 
-  // Premium gate ("what you need" final-exam calculator). Open while
-  // ENFORCE_PREMIUM is off; a lock hint once it's on and the plan doesn't allow it.
-  if (!canUse("finalNeeded", sub)) {
-    return (
-      <Card>
-        <h2 className="font-display text-[22px]" style={{ color: "var(--color-ink)" }}>{t("whatIfTitle")}</h2>
-        <p className="text-sm mt-2" style={{ color: "var(--color-muted)" }}>{t("premiumFeatureLocked")}</p>
-      </Card>
-    );
-  }
-
+  // The "what you need" final-exam calculator is available to everyone (not part
+  // of the premium gate set — course limit, themes and Havi are).
   const resultLabel = gpaMode === "cumulative" ? t("whatIfResultCumulative") : t("whatIfResult");
 
   return (

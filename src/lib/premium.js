@@ -1,25 +1,32 @@
 // ---------------------------------------------------------------------------
 // SINGLE SOURCE OF TRUTH for all premium gating.
 //
-// Flip ENFORCE_PREMIUM to true at launch to lock every premium feature. Nothing
-// else needs to change: while it's false, every gate below reports
-// "allowed / unlimited", so the whole app stays open exactly as it is today.
-//
-// Wiring contract used across the app:
-//   canUse(featureKey, sub)   -> boolean   (feature gates)
-//   courseLimit(sub)          -> number    (Infinity = unlimited)
-//   canUseTheme(themeId, sub) -> boolean   (theme gates)
-// `sub` is the user's subscription row (plan, status, trial_ends_at, expires_at),
-// read once near the top of the app and passed in. `null`/loading is treated as
-// "no active subscription" by the helpers — callers decide what to show while
-// the row is still loading.
+// Access is granted only via the VIP flag, an active trial, or an active paid
+// subscription. All predicates take (profile, subscription):
+//   • profile      — the user's profiles row (needs `is_vip`); null when logged out.
+//   • subscription — the user's subscriptions row (snake_case fields); null when none.
+// If ENFORCE_PREMIUM is false every predicate reports "allowed / unlimited", so
+// the whole app stays open.
 // ---------------------------------------------------------------------------
 
-// The launch switch. Keep false until payments go live.
-export const ENFORCE_PREMIUM = false;
+// Enforce premium — set to true. Access is granted only via VIP flag, trial, or active subscription.
+export const ENFORCE_PREMIUM = true;
 
-// Duration-based plans (months) — the values shown in the Go Premium card.
-// Kept here so pricing and gating never drift apart.
+// VIP emails get Premium free forever (hardcoded — do NOT read from env or DB).
+// (Access itself is checked via profiles.is_vip, which the DB sets for these
+// accounts; the list is kept here for reference and any client-side display.)
+export const VIP_EMAILS = [
+  'hanaamohammed25366@gmail.com',
+  'lamesmohammed789@gmail.com',
+];
+
+// Free-tier limits
+export const FREE_COURSE_LIMIT = 3;
+export const FREE_THEMES = ['haven', 'midnight'];
+
+// --- marketing / pricing catalogue -----------------------------------------
+// Not gating logic — the values the Go Premium card renders. Kept here so
+// pricing and gating live in one file and can't drift apart.
 export const PLANS = [
   { id: "4", months: 4, priceSar: 20, labelKey: "planDur4", priceKey: "planPrice4", perMonthKey: "planPerMo4" },
   { id: "6", months: 6, priceSar: 25, labelKey: "planDur6", priceKey: "planPrice6", perMonthKey: "planPerMo6", tagKey: "betterValue" },
@@ -27,69 +34,63 @@ export const PLANS = [
 ];
 export const DEFAULT_PLAN_ID = "12";
 
-// Feature catalogue. `tier: "free"` is available to everyone; `tier: "premium"`
-// requires an active subscription (once ENFORCE_PREMIUM is on). `labelKey` is the
-// i18n key used by the marketing card so the list and the gates share one source.
+// Feature catalogue used only by the Go Premium marketing card (labels).
 export const FEATURES = {
   unlimitedCourses: { tier: "premium", labelKey: "premiumBenefit1" },
   planner: { tier: "premium", labelKey: "premiumBenefit2" },
   finalNeeded: { tier: "premium", labelKey: "premiumBenefit4" },
   havi: { tier: "premium", labelKey: "premiumBenefit5" },
   semesterHistory: { tier: "premium" },
-  // Free for everyone — never gated. Listed so its tier is explicit and can't
-  // accidentally be marketed as premium.
   gpaCumulative: { tier: "free" },
 };
-
-// Which features the Go Premium card advertises, in order. Reads FEATURES for
-// labels so marketing and gating can never drift.
 export const PREMIUM_LIST = ["unlimitedCourses", "planner", "finalNeeded", "havi"];
 
-// Free-tier limits.
-export const FREE_COURSE_LIMIT = 3;
-// Free themes map to the app's two always-free theme ids ("original" default +
-// "dark"): "haven" is the original/default theme, "midnight" is the dark one.
-export const FREE_THEMES = ["haven", "midnight"];
+// Access predicates. All take (profile, subscription) where profile can be null (logged out).
+// If ENFORCE_PREMIUM is false these all return true.
 
-// --- subscription evaluation -----------------------------------------------
-
-/** Does this subscription row grant an ACTIVE paid entitlement right now?
- *  Accepts either snake_case (DB row) or camelCase (db.getSubscription) fields. */
-export function isActive(sub) {
-  if (!sub) return false;
-  const plan = sub.plan;
-  if (!plan || plan === "free") return false;
-  const status = sub.status;
-  const trialEndsAt = sub.trial_ends_at ?? sub.trialEndsAt ?? null;
-  const expiresAt = sub.expires_at ?? sub.expiresAt ?? null;
-  const inFuture = (d) => !d || new Date(d).getTime() > Date.now();
-  if (status === "active") return inFuture(expiresAt);
-  if (status === "trialing") return inFuture(trialEndsAt);
-  return false;
+export function isVip(profile) {
+  return Boolean(profile?.is_vip);
 }
 
-// --- gates ------------------------------------------------------------------
-// IMPORTANT: while ENFORCE_PREMIUM is false, every gate is a no-op that reports
-// allowed / unlimited, so nothing is locked before launch.
+export function isInTrial(subscription) {
+  if (!subscription) return false;
+  if (subscription.status !== 'trial') return false;
+  const end = subscription.trial_ends_at ? new Date(subscription.trial_ends_at) : null;
+  return end !== null && end > new Date();
+}
 
-/** Can this subscription use the given feature? */
-export function canUse(featureKey, sub) {
+export function isActiveSubscriber(subscription) {
+  if (!subscription) return false;
+  // 'active' or 'cancelled-but-still-in-paid-period' both grant access until expires_at.
+  if (subscription.status !== 'active' && subscription.status !== 'cancelled') return false;
+  const end = subscription.expires_at ? new Date(subscription.expires_at) : null;
+  return end !== null && end > new Date();
+}
+
+export function hasActiveAccess(profile, subscription) {
   if (!ENFORCE_PREMIUM) return true;
-  const feature = FEATURES[featureKey];
-  if (!feature) return true; // unknown key -> never block
-  if (feature.tier === "free") return true;
-  return isActive(sub);
+  return isVip(profile) || isInTrial(subscription) || isActiveSubscriber(subscription);
 }
 
-/** Max number of courses this subscription may create (Infinity = unlimited). */
-export function courseLimit(sub) {
-  if (!ENFORCE_PREMIUM) return Infinity;
-  return isActive(sub) ? Infinity : FREE_COURSE_LIMIT;
+export function daysUntilTrialEnds(subscription) {
+  if (!isInTrial(subscription)) return null;
+  const end = new Date(subscription.trial_ends_at);
+  const now = new Date();
+  const diff = end.getTime() - now.getTime();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-/** Can this subscription select the given theme? */
-export function canUseTheme(themeId, sub) {
-  if (!ENFORCE_PREMIUM) return true;
-  if (FREE_THEMES.includes(themeId)) return true;
-  return isActive(sub);
+export function canAddCourse(profile, subscription, currentCourseCount) {
+  if (hasActiveAccess(profile, subscription)) return true;
+  return currentCourseCount < FREE_COURSE_LIMIT;
+}
+
+export function canUseTheme(profile, subscription, themeId) {
+  if (hasActiveAccess(profile, subscription)) return true;
+  return FREE_THEMES.includes(themeId);
+}
+
+// Havi is fully behind premium.
+export function canUseHavi(profile, subscription) {
+  return hasActiveAccess(profile, subscription);
 }

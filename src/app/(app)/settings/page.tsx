@@ -12,6 +12,7 @@ import { DemoPlayer } from "@/components/DemoPlayer";
 import { NotificationsSettings } from "@/components/NotificationsSettings";
 import { signOut as clearSession } from "@/lib/auth";
 import { useDeleteAccount } from "@/lib/useDeleteAccount";
+import { PremiumGate } from "@/components/PremiumGate";
 import { useSubscription } from "@/lib/subscription";
 import { canUseTheme } from "@/lib/premium";
 import type { CalendarType, ThemeId } from "@/types";
@@ -75,7 +76,7 @@ export default function SettingsPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
-  const { sub } = useSubscription();
+  const { sub, profile } = useSubscription();
   const { deleteAccount, loading: deleting, error: deleteError, reset: resetDeleteError } = useDeleteAccount();
 
   const closeDelete = () => {
@@ -85,7 +86,7 @@ export default function SettingsPage() {
   };
 
   const pickTheme = (tm: ThemeMeta) => {
-    if (canUseTheme(tm.id, sub)) setTheme(tm.id);
+    if (canUseTheme(profile, sub, tm.id)) setTheme(tm.id);
     else setPremiumOpen(true);
   };
 
@@ -147,7 +148,7 @@ export default function SettingsPage() {
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {THEMES.map((tm) => (
-            <ThemeCard key={tm.id} theme={tm} active={theme === tm.id} locked={!canUseTheme(tm.id, sub)} onSelect={() => pickTheme(tm)} />
+            <ThemeCard key={tm.id} theme={tm} active={theme === tm.id} locked={!canUseTheme(profile, sub, tm.id)} onSelect={() => pickTheme(tm)} />
           ))}
         </div>
       </Section>
@@ -409,16 +410,7 @@ export default function SettingsPage() {
 
       <DemoPlayer open={demoOpen} onClose={() => setDemoOpen(false)} />
 
-      <Modal open={premiumOpen} onClose={() => setPremiumOpen(false)} title={t("premiumSoonTitle")}>
-        <p className="text-sm leading-relaxed" style={{ color: "var(--color-muted)" }}>
-          {t("premiumSoonDesc")}
-        </p>
-        <div className="flex justify-end mt-6">
-          <button onClick={() => setPremiumOpen(false)} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium">
-            {t("close")}
-          </button>
-        </div>
-      </Modal>
+      <PremiumGate open={premiumOpen} onClose={() => setPremiumOpen(false)} feature="theme" />
     </div>
   );
 }

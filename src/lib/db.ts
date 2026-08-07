@@ -30,12 +30,16 @@ async function currentUserId(): Promise<string> {
 // Subscription / premium entitlement (public.subscriptions)
 // ---------------------------------------------------------------------------
 
+// Fields are kept in snake_case to match the DB row exactly, so the access
+// predicates in premium.js (isInTrial / isActiveSubscriber) can read them
+// directly. Status enum: 'trial' | 'active' | 'cancelled' | 'expired' |
+// 'payment_failed'.
 export interface DbSubscription {
-  plan: string; // 'free' | a paid plan id
-  status: string; // 'trialing' | 'active' | 'canceled' | 'past_due' | ...
-  billingCycle: string | null;
-  trialEndsAt: string | null;
-  expiresAt: string | null;
+  plan: string; // 'free' | 'premium'
+  status: string;
+  billing_cycle: string | null; // '4months' | '6months' | 'yearly' | null
+  trial_ends_at: string | null;
+  expires_at: string | null;
 }
 
 /** The current user's subscription row, or null if none / not signed in.
@@ -56,23 +60,45 @@ export async function getSubscription(): Promise<DbSubscription | null> {
   return {
     plan: data.plan,
     status: data.status,
-    billingCycle: data.billing_cycle ?? null,
-    trialEndsAt: data.trial_ends_at ?? null,
-    expiresAt: data.expires_at ?? null,
+    billing_cycle: data.billing_cycle ?? null,
+    trial_ends_at: data.trial_ends_at ?? null,
+    expires_at: data.expires_at ?? null,
   };
 }
 
+/** The current user's premium-relevant profile flags, or null if not signed in.
+ *  Like getSubscription, this never throws on "no session". `is_vip` grants
+ *  Premium free forever (set by the DB for the VIP accounts). */
+export interface DbProfileFlags {
+  is_vip: boolean;
+}
+
+export async function getProfileFlags(): Promise<DbProfileFlags | null> {
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("is_vip")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return { is_vip: Boolean(data?.is_vip) };
+}
+
 /**
- * Does this subscription grant ACTIVE premium access?
+ * Does this subscription grant ACTIVE premium access (ignoring VIP)?
  * Premium = a paid plan (not 'free') whose status is live and not past its end
- * date: an 'active' plan before expires_at, or a 'trialing' plan before
- * trial_ends_at. Everything else (free, canceled, past_due, expired) is not.
+ * date: an 'active' plan before expires_at, or a 'trial' before trial_ends_at.
+ * Everything else (free, cancelled, expired, payment_failed) is not.
+ * NOTE: premium.js is the source of truth for gating; this stays for callers
+ * that only have the subscription row and want a quick active check.
  */
 export function isActivePremium(sub: DbSubscription | null): boolean {
   if (!sub || sub.plan === "free") return false;
   const inFuture = (d: string | null) => !d || new Date(d).getTime() > Date.now();
-  if (sub.status === "active") return inFuture(sub.expiresAt);
-  if (sub.status === "trialing") return inFuture(sub.trialEndsAt);
+  if (sub.status === "active") return inFuture(sub.expires_at);
+  if (sub.status === "trial") return inFuture(sub.trial_ends_at);
   return false;
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { ReminderToast } from "./ReminderToast";
+import { TrialBanner } from "./TrialBanner";
 
 const STORAGE_KEY = "haven-sidebar-collapsed";
 
@@ -34,6 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className="haven-main flex-1 min-w-0">
         <div className="mx-auto w-full max-w-[1200px] px-6 py-8 md:px-12 md:py-12">
+          <TrialBanner />
           {children}
         </div>
       </main>
