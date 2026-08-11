@@ -17,6 +17,7 @@ import { Logo } from "@/components/Logo";
 import { HeroDemo } from "@/components/HeroDemo";
 import { DemoPlayer } from "@/components/DemoPlayer";
 import { FeedbackForm } from "@/components/FeedbackForm";
+import { Footer } from "@/components/Footer";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 
@@ -283,6 +284,8 @@ export default function LandingPage() {
           <p className="text-sm" style={{ color: "var(--color-muted)" }}>{t("land_footer")}</p>
         </footer>
       </div>
+
+      <Footer />
 
       <DemoPlayer open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>

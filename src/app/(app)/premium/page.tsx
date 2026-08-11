@@ -5,6 +5,7 @@ import { Check, Sparkles } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
+import { Footer } from "@/components/Footer";
 import { useSubscription } from "@/lib/subscription";
 import { PLANS, FEATURES, PREMIUM_LIST, isVip, isActiveSubscriber, hasActiveAccess } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -192,6 +193,8 @@ export default function PremiumPage() {
           </button>
         </div>
       </Modal>
+
+      <Footer />
     </div>
   );
 }
