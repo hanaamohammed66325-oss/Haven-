@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Sparkles } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
-import { Modal } from "@/components/Modal";
 import { Footer } from "@/components/Footer";
 import { useSubscription } from "@/lib/subscription";
 import { PLANS, FEATURES, PREMIUM_LIST, isVip, isActiveSubscriber, hasActiveAccess } from "@/lib/premium";
@@ -26,8 +26,8 @@ const INCLUDED_KEYS: TranslationKey[] = [
 export default function PremiumPage() {
   const { t } = useT();
   usePageTitle("premiumPageTitle");
+  const router = useRouter();
   const { sub, profile } = useSubscription();
-  const [modalOpen, setModalOpen] = useState(false);
   const [accessNote, setAccessNote] = useState(false);
 
   // Access state drives what each card shows.
@@ -42,12 +42,11 @@ export default function PremiumPage() {
     return () => window.clearTimeout(id);
   }, [accessNote]);
 
-  // Placeholder subscribe action (real Moyasar checkout comes later). VIP / trial
-  // / active users already have everything — just tell them; everyone else sees
-  // the "coming soon" modal.
-  const onSubscribe = () => {
+  // Subscribe action. VIP / trial / active users already have everything — just
+  // tell them; everyone else goes to /checkout for the selected plan's cycle.
+  const onSubscribe = (cycle: string) => {
     if (hasAccess) setAccessNote(true);
-    else setModalOpen(true);
+    else router.push(`/checkout?plan=${cycle}`);
   };
 
   return (
@@ -130,7 +129,7 @@ export default function PremiumPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={onSubscribe}
+                    onClick={() => onSubscribe(p.cycle)}
                     className="haven-btn w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold"
                   >
                     <Sparkles size={16} />
@@ -178,21 +177,6 @@ export default function PremiumPage() {
           {t("premiumHaveAccessNote")}
         </div>
       )}
-
-      {/* Placeholder "coming soon" modal (replaced by real checkout later) */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t("premiumComingSoonTitle")}>
-        <p className="text-sm leading-relaxed" style={{ color: "var(--color-muted)" }}>
-          {t("premiumComingSoonBody")}
-        </p>
-        <div className="flex justify-end mt-6">
-          <button
-            onClick={() => setModalOpen(false)}
-            className="haven-btn px-5 py-2 rounded-xl text-sm font-medium"
-          >
-            {t("close")}
-          </button>
-        </div>
-      </Modal>
 
       <Footer />
     </div>

@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://cseufbkuvhqrkjrhbvaj.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_U4M8BJH04I2yJj3MIp0jFA_8UlSlYlr';
+// Exported so callers that talk to Edge Functions directly (e.g. /checkout →
+// create-subscription) can build the functions URL and send the `apikey` header
+// without re-declaring the project config.
+export const SUPABASE_URL = 'https://cseufbkuvhqrkjrhbvaj.supabase.co';
+export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_U4M8BJH04I2yJj3MIp0jFA_8UlSlYlr';
 
 // Canonical production site URL. Used for auth email redirects so confirmation
 // links always point at the live site — NEVER window.location.origin, which

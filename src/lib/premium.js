@@ -27,12 +27,17 @@ export const FREE_THEMES = ['haven', 'midnight'];
 // --- marketing / pricing catalogue -----------------------------------------
 // Not gating logic — the values the Go Premium card renders. Kept here so
 // pricing and gating live in one file and can't drift apart.
+// `cycle` is the billing-cycle slug the create-subscription Edge Function expects
+// ('4months' | '6months' | 'yearly') — the canonical id used in /checkout query
+// params and the subscription API. `id` stays the short marketing id.
 export const PLANS = [
-  { id: "4", months: 4, priceSar: 20, labelKey: "planDur4", priceKey: "planPrice4", perMonthKey: "planPerMo4" },
-  { id: "6", months: 6, priceSar: 25, labelKey: "planDur6", priceKey: "planPrice6", perMonthKey: "planPerMo6", tagKey: "betterValue" },
-  { id: "12", months: 12, priceSar: 40, labelKey: "planDur12", priceKey: "planPrice12", perMonthKey: "planPerMo12", tagKey: "bestValue" },
+  { id: "4", months: 4, priceSar: 20, cycle: "4months", labelKey: "planDur4", priceKey: "planPrice4", perMonthKey: "planPerMo4" },
+  { id: "6", months: 6, priceSar: 25, cycle: "6months", labelKey: "planDur6", priceKey: "planPrice6", perMonthKey: "planPerMo6", tagKey: "betterValue" },
+  { id: "12", months: 12, priceSar: 40, cycle: "yearly", labelKey: "planDur12", priceKey: "planPrice12", perMonthKey: "planPerMo12", tagKey: "bestValue" },
 ];
 export const DEFAULT_PLAN_ID = "12";
+// The billing cycle used when /checkout is opened without a valid ?plan= param.
+export const DEFAULT_PLAN_CYCLE = "6months";
 
 // Feature catalogue used only by the Go Premium marketing card (labels).
 export const FEATURES = {
