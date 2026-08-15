@@ -7,6 +7,7 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
 import { Card } from "@/components/Card";
+import { SubscriptionSection } from "@/components/SubscriptionSection";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -197,6 +198,9 @@ export default function ProfilePage() {
           </button>
         </div>
       </Card>
+
+      {/* Subscription management — current plan, cancel, change plan. */}
+      <SubscriptionSection />
 
       {/* Trial-activated confirmation, shown after returning from checkout. */}
       {trialToast && (

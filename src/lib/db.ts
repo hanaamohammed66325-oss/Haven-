@@ -40,6 +40,9 @@ export interface DbSubscription {
   billing_cycle: string | null; // '4months' | '6months' | 'yearly' | null
   trial_ends_at: string | null;
   expires_at: string | null;
+  amount_sar: number | null;
+  next_billing_at: string | null;
+  cancelled_at: string | null;
 }
 
 /** The current user's subscription row, or null if none / not signed in.
@@ -51,7 +54,7 @@ export async function getSubscription(): Promise<DbSubscription | null> {
   if (!userId) return null;
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("plan, status, billing_cycle, trial_ends_at, expires_at")
+    .select("plan, status, billing_cycle, trial_ends_at, expires_at, amount_sar, next_billing_at, cancelled_at")
     .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
@@ -63,6 +66,9 @@ export async function getSubscription(): Promise<DbSubscription | null> {
     billing_cycle: data.billing_cycle ?? null,
     trial_ends_at: data.trial_ends_at ?? null,
     expires_at: data.expires_at ?? null,
+    amount_sar: data.amount_sar ?? null,
+    next_billing_at: data.next_billing_at ?? null,
+    cancelled_at: data.cancelled_at ?? null,
   };
 }
 
