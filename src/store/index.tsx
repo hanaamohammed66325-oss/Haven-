@@ -353,6 +353,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         const num = (v: unknown, fb: number) => (typeof v === "number" ? v : fb);
         const str = (v: unknown, fb: string) => (typeof v === "string" ? v : fb);
+        // Calendar preference: the canonical `calendar` key (read by server-side
+        // Edge Functions for notifications/emails) wins; fall back to the legacy
+        // `calendarType` pref, then the anonymous localStorage value, then default.
+        const asCal = (v: unknown): "hijri" | "gregorian" | null =>
+          v === "hijri" ? "hijri" : v === "gregorian" ? "gregorian" : null;
+        const localCal = asCal(readLocal().semester?.calendarType);
+        const canonicalCal = asCal(prefs.calendar);
+        const legacyCal = asCal(prefs.calendarType);
+        const resolvedCalendar: "hijri" | "gregorian" =
+          canonicalCal ?? legacyCal ?? localCal ?? "gregorian";
         setData({
           ...initialData,
           profileName:
@@ -380,7 +390,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             name: sem.name,
             weeks: num(prefs.weeks, sem.weeks),
             finalsWeeks: num(prefs.finalsWeeks, sem.finalsWeeks),
-            calendarType: prefs.calendarType === "hijri" ? "hijri" : "gregorian",
+            calendarType: resolvedCalendar,
             startDate: str(prefs.startDate, defaultSemester.startDate),
             endDate: str(prefs.endDate, defaultSemester.endDate),
             withdrawalLimit: num(prefs.withdrawalLimit, defaultSemester.withdrawalLimit),
@@ -388,6 +398,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           courses,
         });
         setHydrated(true);
+
+        // One-time migration: backfill the canonical `calendar` pref for existing
+        // users who only have a legacy value (DB `calendarType` or localStorage),
+        // so server code can rely on it without waiting for a Settings change.
+        if (!canonicalCal && (legacyCal || localCal)) {
+          db.savePreferences({ calendar: resolvedCalendar }).catch((e) =>
+            console.error("Haven: failed to migrate calendar preference", e)
+          );
+        }
       } catch (e) {
         console.error("Haven: failed to load cloud data", e);
         if (cancelled) return;
@@ -740,7 +759,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const prefPatch: db.Preferences = {};
     if (patch.weeks !== undefined) prefPatch.weeks = patch.weeks;
     if (patch.finalsWeeks !== undefined) prefPatch.finalsWeeks = patch.finalsWeeks;
-    if (patch.calendarType !== undefined) prefPatch.calendarType = patch.calendarType;
+    if (patch.calendarType !== undefined) {
+      // Persist BOTH keys: `calendarType` (legacy, read by this app) and the
+      // canonical `calendar` (lowercase 'hijri' | 'gregorian') that server-side
+      // Edge Functions read to format dates in the user's chosen calendar.
+      prefPatch.calendarType = patch.calendarType;
+      prefPatch.calendar = patch.calendarType;
+    }
     if (patch.startDate !== undefined) prefPatch.startDate = patch.startDate;
     if (patch.endDate !== undefined) prefPatch.endDate = patch.endDate;
     if (patch.withdrawalLimit !== undefined) prefPatch.withdrawalLimit = patch.withdrawalLimit;
