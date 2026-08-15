@@ -6,6 +6,7 @@ import { Loader2, Sparkles, ShieldCheck } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
+import { useSubscription } from "@/lib/subscription";
 import { PLANS, DEFAULT_PLAN_CYCLE } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -39,6 +40,7 @@ function CheckoutInner() {
   usePageTitle("checkoutTitle");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refresh } = useSubscription();
 
   // The plan the page opened with. If it's missing/invalid we fall back to the
   // recommended cycle AND surface the plan selector so the user can pick.
@@ -104,7 +106,10 @@ function CheckoutInner() {
         return;
       }
 
-      // 4. Success — the profile subscription section shows the toast.
+      // 4. Success — refresh access state now so premium UI is fresh on arrival
+      // (the profile page also refreshes as a fallback), then redirect. refresh()
+      // never rejects, so the redirect always happens.
+      await refresh();
       router.push("/profile?subscribed=1");
     } catch {
       setError(t("checkoutErrGeneric"));

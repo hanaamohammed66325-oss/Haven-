@@ -22,7 +22,7 @@ import { Logo } from "./Logo";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
-import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES, isVip, isActiveSubscriber } from "@/lib/premium";
+import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES, hasActiveAccess } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface NavItem {
@@ -120,10 +120,11 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const { t, lang } = useT();
   const { language, setLanguage, profileName, email, profilePhoto } = useStore();
   const { sub, profile } = useSubscription();
-  // Go Premium is only relevant to users who can still subscribe. Hide it for
-  // VIP and active subscribers (trial users still see it — they may want to
-  // convert / view plans).
-  const hideGoPremium = isVip(profile) || isActiveSubscriber(sub);
+  // Go Premium is only relevant to users who could still benefit from
+  // subscribing. Hide it for anyone who already has full access — VIP, an active
+  // trial, or an active paid subscription (hasActiveAccess covers all three).
+  // Trial users get the TrialBanner instead, so the two stay consistent.
+  const hideGoPremium = hasActiveAccess(profile, sub);
   const [plan, setPlan] = useState<string>(DEFAULT_PLAN_ID);
   // Collapsible Go Premium card. Default expanded; once the user collapses it we
   // remember that per browser so it stays a compact pill next time.

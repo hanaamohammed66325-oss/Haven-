@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2 } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
+import { useSubscription } from "@/lib/subscription";
 import { Card } from "@/components/Card";
 
 const fieldClass =
@@ -37,6 +39,8 @@ function resizeImage(file: File, max = 256): Promise<string> {
 
 export default function ProfilePage() {
   const { t } = useT();
+  const router = useRouter();
+  const { refresh } = useSubscription();
   const {
     hydrated,
     profileName,
@@ -53,7 +57,29 @@ export default function ProfilePage() {
   const [password, setPassword] = useState("");
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [trialToast, setTrialToast] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Returning from checkout: /profile?subscribed=1. Re-read the (now active)
+  // subscription so premium UI updates without a re-login, celebrate, then strip
+  // the param so a refresh doesn't re-fire the toast. Reads window.location
+  // directly (instead of useSearchParams) to stay static-export friendly without
+  // a Suspense boundary.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("subscribed") === "1") {
+      refresh();
+      setTrialToast(true);
+      router.replace("/profile");
+    }
+  }, [refresh, router]);
+
+  // Auto-dismiss the trial-activated toast.
+  useEffect(() => {
+    if (!trialToast) return;
+    const id = window.setTimeout(() => setTrialToast(false), 6000);
+    return () => window.clearTimeout(id);
+  }, [trialToast]);
 
   // Seed the form from the store once data has hydrated.
   useEffect(() => {
@@ -171,6 +197,18 @@ export default function ProfilePage() {
           </button>
         </div>
       </Card>
+
+      {/* Trial-activated confirmation, shown after returning from checkout. */}
+      {trialToast && (
+        <div
+          className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit max-w-[90%] items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg"
+          style={{ background: "var(--color-ink)", color: "#fff" }}
+          role="status"
+        >
+          <Check size={16} strokeWidth={3} style={{ color: "var(--color-brass)" }} />
+          {t("trialActivated")}
+        </div>
+      )}
     </div>
   );
 }

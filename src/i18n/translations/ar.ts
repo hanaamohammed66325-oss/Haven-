@@ -74,6 +74,7 @@ export const ar: Record<TranslationKey, string> = {
   checkoutErrIneligible: "هذا الحساب غير مؤهل لتجربة مجانية جديدة.",
   checkoutErrSession: "انتهت جلستك. يُرجى تسجيل الدخول من جديد.",
   checkoutErrGeneric: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+  trialActivated: "تم تفعيل تجربتك المجانية! تنتهي خلال ٣٠ يوم.",
   premiumCurrentPlan: "خطتك الحالية",
   premiumPermanentPlan: "خطة دائمة",
   premiumUpgradeTitle: "الترقية إلى بريميوم",

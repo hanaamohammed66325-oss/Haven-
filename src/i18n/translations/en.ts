@@ -72,6 +72,7 @@ export const en = {
   checkoutErrIneligible: "This account isn't eligible for a new free trial.",
   checkoutErrSession: "Your session has expired. Please sign in again.",
   checkoutErrGeneric: "Something went wrong. Please try again.",
+  trialActivated: "Your free trial is active! It ends in 30 days.",
   premiumCurrentPlan: "Your current plan",
   premiumPermanentPlan: "Permanent plan",
   premiumUpgradeTitle: "Upgrade to Premium",
