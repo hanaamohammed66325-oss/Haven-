@@ -15,6 +15,7 @@ import {
   isActiveSubscriber,
   daysUntilTrialEnds,
 } from "@/lib/premium";
+import { changePlan, type PlanCycle } from "@/lib/changePlan";
 import { formatLongDate } from "@/lib/dates";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -68,7 +69,13 @@ export function SubscriptionSection() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
-  // Auto-dismiss the cancel-success toast.
+  // Change-plan / resubscribe state.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const [pendingCycle, setPendingCycle] = useState<string | null>(null);
+  const [changeError, setChangeError] = useState("");
+
+  // Auto-dismiss the success toast.
   useEffect(() => {
     if (!toast) return;
     const id = window.setTimeout(() => setToast(""), 6000);
@@ -78,6 +85,42 @@ export function SubscriptionSection() {
   const openConfirm = () => {
     setError("");
     setConfirmOpen(true);
+  };
+
+  const openPicker = () => {
+    setChangeError("");
+    setPickerOpen(true);
+  };
+
+  // Call change-plan for `cycle`. `resubscribe` = reactivating the same plan
+  // (no plan change), which uses a different confirmation toast.
+  const doChangePlan = async (cycle: PlanCycle, opts?: { resubscribe?: boolean }) => {
+    setChangeError("");
+    setChanging(true);
+    setPendingCycle(cycle);
+    const res = await changePlan(cycle);
+    setChanging(false);
+    setPendingCycle(null);
+    if (!res.ok) {
+      setChangeError(
+        res.code === "NO_SESSION"
+          ? t("checkoutErrSession")
+          : res.code === "NO_SUBSCRIPTION"
+          ? t("subNoSubError")
+          : t("subChangeError")
+      );
+      return;
+    }
+    // Reflect the new plan/status without a re-login.
+    await refresh();
+    setPickerOpen(false);
+    const key = planLabelKey(cycle);
+    const planName = key ? t(key) : cycle;
+    setToast(
+      opts?.resubscribe && !res.plan_changed
+        ? t("subResubscribedToast")
+        : t("subPlanChangedToast", { plan: planName })
+    );
   };
 
   const onCancel = async () => {
@@ -147,7 +190,7 @@ export function SubscriptionSection() {
     <div className="mt-5 flex flex-wrap gap-3">
       <button
         type="button"
-        onClick={() => router.push("/premium")}
+        onClick={openPicker}
         className={secondaryBtn}
         style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
       >
@@ -237,14 +280,36 @@ export function SubscriptionSection() {
         <p className="mt-1.5 text-sm" style={{ color: "var(--color-muted)" }}>
           {t("subNoFurtherCharges")}
         </p>
-        <div className="mt-5">
-          <button
-            type="button"
-            onClick={() => router.push("/premium")}
-            className="haven-btn inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
-          >
-            {t("subResubscribe")}
-          </button>
+        <div className="mt-5 flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              disabled={changing}
+              onClick={() => {
+                const cur = PLANS.find((p) => p.cycle === sub?.billing_cycle);
+                if (cur) doChangePlan(cur.cycle as PlanCycle, { resubscribe: true });
+                else openPicker();
+              }}
+              className="haven-btn inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
+            >
+              {changing && <Loader2 size={15} className="animate-spin" />}
+              {changing ? t("subUpdating") : t("subResubscribe")}
+            </button>
+            <button
+              type="button"
+              onClick={openPicker}
+              disabled={changing}
+              className="text-sm font-medium underline disabled:opacity-60"
+              style={{ color: "var(--color-primary)" }}
+            >
+              {t("subChangePlanInstead")}
+            </button>
+          </div>
+          {changeError && (
+            <p className="text-sm" style={{ color: "var(--color-danger)" }} role="alert">
+              {changeError}
+            </p>
+          )}
         </div>
       </>
     );
@@ -312,7 +377,68 @@ export function SubscriptionSection() {
         )}
       </Modal>
 
-      {/* Cancel-success toast */}
+      {/* Change-plan picker */}
+      <Modal
+        open={pickerOpen}
+        onClose={() => !changing && setPickerOpen(false)}
+        title={t("subChangePlanTitle")}
+      >
+        <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
+          {t("subChangePlanSubtitle")}
+        </p>
+        <div className="flex flex-col gap-2.5">
+          {PLANS.map((p) => {
+            const isCurrent = p.cycle === sub?.billing_cycle;
+            const pending = pendingCycle === p.cycle;
+            return (
+              <button
+                key={p.cycle}
+                type="button"
+                disabled={isCurrent || changing}
+                onClick={() => doChangePlan(p.cycle as PlanCycle)}
+                className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-start transition-colors enabled:hover:bg-black/[0.03] disabled:cursor-not-allowed"
+                style={{
+                  borderColor: isCurrent ? "var(--color-primary)" : "var(--color-border)",
+                  opacity: !isCurrent && changing && !pending ? 0.6 : 1,
+                }}
+                aria-current={isCurrent}
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
+                    {t(p.labelKey as TranslationKey)}
+                  </span>
+                  <span className="block text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                    {t(p.priceKey as TranslationKey)} · {t(p.perMonthKey as TranslationKey)}
+                  </span>
+                </span>
+                {isCurrent ? (
+                  <Badge tone="primary">{t("subCurrentPlanBadge")}</Badge>
+                ) : pending ? (
+                  <Loader2
+                    size={16}
+                    className="animate-spin shrink-0"
+                    style={{ color: "var(--color-primary)" }}
+                  />
+                ) : (
+                  <span
+                    className="shrink-0 text-sm font-semibold"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    {t("subSwitchToPlan")}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {changeError && (
+          <p className="mt-3 text-sm" style={{ color: "var(--color-danger)" }} role="alert">
+            {changeError}
+          </p>
+        )}
+      </Modal>
+
+      {/* Success toast */}
       {toast && (
         <div
           className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit max-w-[90%] items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg"

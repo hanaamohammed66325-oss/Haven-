@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkles, Loader2 } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Footer } from "@/components/Footer";
 import { useSubscription } from "@/lib/subscription";
-import { PLANS, FEATURES, PREMIUM_LIST, isVip, isActiveSubscriber, hasActiveAccess } from "@/lib/premium";
+import { PLANS, FEATURES, PREMIUM_LIST, isVip, isInTrial, isActiveSubscriber } from "@/lib/premium";
+import { changePlan, planLabelKeyFor, type PlanCycle } from "@/lib/changePlan";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 // The recommended / default plan that visually stands out.
@@ -27,26 +28,54 @@ export default function PremiumPage() {
   const { t } = useT();
   usePageTitle("premiumPageTitle");
   const router = useRouter();
-  const { sub, profile } = useSubscription();
-  const [accessNote, setAccessNote] = useState(false);
+  const { sub, profile, refresh } = useSubscription();
 
   // Access state drives what each card shows.
   const vip = isVip(profile);
-  const activeSubscriber = isActiveSubscriber(sub);
-  const hasAccess = hasActiveAccess(profile, sub); // vip || trial || active
+  // Non-VIP users with a live subscription (trial, active, or cancelled but still
+  // in-period) can switch plans in place; the card matching their billing_cycle
+  // is their current plan. Everyone else starts a fresh trial via /checkout.
+  const canSwitch = !vip && (isInTrial(sub) || isActiveSubscriber(sub));
+  const currentCycle = sub?.billing_cycle ?? null;
 
-  // Auto-dismiss the "you already have access" note.
+  const [toast, setToast] = useState("");
+  const [toastErr, setToastErr] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [pendingCycle, setPendingCycle] = useState<string | null>(null);
+
+  // Auto-dismiss the toast.
   useEffect(() => {
-    if (!accessNote) return;
-    const id = window.setTimeout(() => setAccessNote(false), 2600);
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(""), 3600);
     return () => window.clearTimeout(id);
-  }, [accessNote]);
+  }, [toast]);
 
-  // Subscribe action. VIP / trial / active users already have everything — just
-  // tell them; everyone else goes to /checkout for the selected plan's cycle.
-  const onSubscribe = (cycle: string) => {
-    if (hasAccess) setAccessNote(true);
-    else router.push(`/checkout?plan=${cycle}`);
+  // Fresh-trial path (expired / no subscription): go through checkout.
+  const onSubscribe = (cycle: string) => router.push(`/checkout?plan=${cycle}`);
+
+  // In-place plan switch for trial / active / cancelled users.
+  const onSwitch = async (cycle: PlanCycle) => {
+    setToast("");
+    setSwitching(true);
+    setPendingCycle(cycle);
+    const res = await changePlan(cycle);
+    setSwitching(false);
+    setPendingCycle(null);
+    if (!res.ok) {
+      setToastErr(true);
+      setToast(
+        res.code === "NO_SESSION"
+          ? t("checkoutErrSession")
+          : res.code === "NO_SUBSCRIPTION"
+          ? t("subNoSubError")
+          : t("subChangeError")
+      );
+      return;
+    }
+    await refresh();
+    const key = planLabelKeyFor(cycle);
+    setToastErr(false);
+    setToast(t("subPlanChangedToast", { plan: key ? t(key as TranslationKey) : cycle }));
   };
 
   return (
@@ -118,14 +147,30 @@ export default function PremiumPage() {
                   >
                     {t("premiumPermanentPlan")}
                   </button>
-                ) : activeSubscriber ? (
-                  <div
-                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold"
-                    style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
-                  >
-                    <Check size={15} strokeWidth={3} />
-                    {t("premiumCurrentPlan")}
-                  </div>
+                ) : canSwitch ? (
+                  p.cycle === currentCycle ? (
+                    <div
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold"
+                      style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
+                    >
+                      <Check size={15} strokeWidth={3} />
+                      {t("premiumCurrentPlan")}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onSwitch(p.cycle as PlanCycle)}
+                      disabled={switching}
+                      className="haven-btn w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold disabled:opacity-60"
+                    >
+                      {pendingCycle === p.cycle ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={16} />
+                      )}
+                      {pendingCycle === p.cycle ? t("subUpdating") : t("subSwitchToPlan")}
+                    </button>
+                  )
                 ) : (
                   <button
                     type="button"
@@ -167,14 +212,15 @@ export default function PremiumPage() {
         {t("premiumTrustFooter")}
       </p>
 
-      {/* Already-have-access note (VIP / trial / active) */}
-      {accessNote && (
+      {/* Plan-switch toast (success or error) */}
+      {toast && (
         <div
-          className="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[90%] rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg"
-          style={{ background: "var(--color-ink)", color: "#fff" }}
+          className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit max-w-[90%] items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg"
+          style={{ background: toastErr ? "var(--color-danger)" : "var(--color-ink)", color: "#fff" }}
           role="status"
         >
-          {t("premiumHaveAccessNote")}
+          {!toastErr && <Check size={16} strokeWidth={3} style={{ color: "var(--color-brass)" }} />}
+          {toast}
         </div>
       )}
 
