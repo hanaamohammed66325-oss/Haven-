@@ -619,6 +619,13 @@ export const ar: Record<TranslationKey, string> = {
   land_f4Title: "فصلك أسبوع بأسبوع",
   land_f4Desc:
     "مخطّط فصلي وجدول أسبوعي يجمعون مهامك واختباراتك في مكان واحد.",
+  // قسم الأسعار في الصفحة الرئيسية
+  land_pricingTitle: "أسعار بسيطة",
+  land_pricingSubtitle: "ابدأ بتجربة مجانية ٣٠ يوم. ألغِ في أي وقت.",
+  land_pricingFreeHighlight: "٣٠ يوم مجاناً — ٠ ريال. بدون خصم خلال التجربة.",
+  land_pricingStartFree: "ابدأ مجاناً",
+  land_pricingIncluded:
+    "كل الخطط تشمل: مواد غير محدودة، كل الثيمات، وHavi — رفيق مذاكرتك.",
   land_ctaTitle: "فصلك الجاي يستاهل بداية مرتّبة.",
   land_ctaText: "موادك جاهزة في دقائق، بدون تعقيد.",
   land_ctaBtn: "ابدأ مجانًا",

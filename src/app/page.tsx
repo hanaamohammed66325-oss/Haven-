@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -20,6 +20,9 @@ import { FeedbackForm } from "@/components/FeedbackForm";
 import { Footer } from "@/components/Footer";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
+import { supabase } from "@/lib/supabase";
+import { PLANS } from "@/lib/premium";
+import type { TranslationKey } from "@/i18n/translations/en";
 
 // TODO: swap the placeholder "#" hrefs for the real Instagram / WhatsApp / Email
 // links once they exist.
@@ -61,6 +64,22 @@ export default function LandingPage() {
   usePageTitle("metaTitle", { absolute: true }); // homepage brand title (no "· Haven" suffix)
   const { language, setLanguage } = useStore();
   const [demoOpen, setDemoOpen] = useState(false);
+
+  // "Start free" on a pricing card: signed-in users go straight to checkout for
+  // the chosen plan; signed-out visitors sign in first (same intent as the hero
+  // CTA). Session is resolved client-side so this stays a static export.
+  const [loggedIn, setLoggedIn] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setLoggedIn(!!data.session);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const startFreeHref = (cycle: string) =>
+    loggedIn ? `/checkout?plan=${cycle}` : "/signin";
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden">
@@ -221,6 +240,85 @@ export default function LandingPage() {
             <FeatureCard icon={<Target size={22} />} title={t("land_f3Title")} desc={t("land_f3Desc")} />
             <FeatureCard icon={<CalendarRange size={22} />} title={t("land_f4Title")} desc={t("land_f4Desc")} />
           </div>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="pb-32">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h2 className="font-display text-3xl md:text-4xl" style={{ color: "var(--color-ink)" }}>
+              {t("land_pricingTitle")}
+            </h2>
+            <p className="mt-5 text-lg" style={{ color: "var(--color-muted)" }}>
+              {t("land_pricingSubtitle")}
+            </p>
+          </div>
+
+          {/* Free-trial highlight */}
+          <div className="max-w-xl mx-auto mb-12">
+            <div
+              className="surface-card flex items-center justify-center gap-2.5 rounded-2xl px-5 py-3.5 text-center text-[15px] font-medium"
+              style={{ color: "var(--color-primary)" }}
+            >
+              <Sparkles size={17} style={{ color: "var(--color-brass)" }} />
+              {t("land_pricingFreeHighlight")}
+            </div>
+          </div>
+
+          {/* Plan cards (labels/prices from PLANS — single source of truth) */}
+          <div className="grid md:grid-cols-3 gap-8 items-stretch">
+            {PLANS.map((p) => {
+              const recommended = p.id === "12"; // Full year / Best value
+              return (
+                <div
+                  key={p.id}
+                  className="surface-card haven-card haven-card--hover rounded-3xl p-8 flex flex-col"
+                  style={
+                    recommended
+                      ? { outline: "2px solid var(--color-primary)", outlineOffset: 2 }
+                      : undefined
+                  }
+                >
+                  {/* Badge row (fixed height so plan names align across cards) */}
+                  <div className="h-6 mb-3">
+                    {p.tagKey && (
+                      <span
+                        className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                        style={{ background: "var(--color-brass)", color: "#1a1410" }}
+                      >
+                        {t(p.tagKey as TranslationKey)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-sm font-medium" style={{ color: "var(--color-muted)" }}>
+                    {t(p.labelKey as TranslationKey)}
+                  </div>
+                  <div className="mt-2 font-display text-4xl leading-none" style={{ color: "var(--color-ink)" }}>
+                    {t(p.priceKey as TranslationKey)}
+                  </div>
+                  <div className="mt-1.5 text-[13px]" style={{ color: "var(--color-muted)" }}>
+                    {t(p.perMonthKey as TranslationKey)}
+                  </div>
+
+                  <Link
+                    href={startFreeHref(p.cycle)}
+                    className="haven-btn mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
+                  >
+                    <Sparkles size={16} />
+                    {t("land_pricingStartFree")}
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* What's included — matches the real premium gate set (courses, themes, Havi) */}
+          <p
+            className="mt-10 text-center text-[15px] max-w-2xl mx-auto leading-relaxed"
+            style={{ color: "var(--color-muted)" }}
+          >
+            {t("land_pricingIncluded")}
+          </p>
         </section>
 
         {/* CTA */}

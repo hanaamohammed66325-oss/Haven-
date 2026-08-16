@@ -622,6 +622,13 @@ export const en = {
   land_f4Title: "Plan week by week",
   land_f4Desc:
     "A semester planner and weekly schedule keep your tasks and exams together.",
+  // Landing pricing section
+  land_pricingTitle: "Simple pricing",
+  land_pricingSubtitle: "Start with a 30-day free trial. Cancel anytime.",
+  land_pricingFreeHighlight: "30 days free — 0 SAR. No charge during your trial.",
+  land_pricingStartFree: "Start free",
+  land_pricingIncluded:
+    "All plans include: unlimited courses, all themes, and Havi — your study companion.",
   land_ctaTitle: "Ready for a tidier semester?",
   land_ctaText: "Your courses, ready in minutes — no hassle.",
   land_ctaBtn: "Start free",
