@@ -73,6 +73,10 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
   const [paused, setPaused] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const modalBoxRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const pointerDownRef = useRef<HTMLSpanElement>(null);
+  const pointerUpRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => { if (open) { setIdx(0); setPaused(false); } }, [open]);
@@ -100,6 +104,62 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [idx]);
+
+  // Anchor the Havi caption bubble to the mascot himself: it follows him, sits
+  // just above him (or below, if there's no room), and points at him — instead
+  // of being pinned to the bottom corner over the Go Premium card. Tracked each
+  // frame so it stays glued as he emerges from behind a card and settles.
+  useEffect(() => {
+    if (!open || !mounted) return;
+    let raf = 0;
+    const GAP = 12;
+    const PAD = 12;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const bubble = bubbleRef.current;
+      const modal = modalBoxRef.current;
+      if (!bubble || !modal) return;
+      if (bubble.offsetParent === null) return; // hidden (small screens)
+      const canvas = (scrollRef.current?.querySelector(
+        'canvas[aria-label="Havi"]'
+      ) ?? null) as HTMLElement | null;
+      // Use the mascot's container (grandparent of the canvas) so we read a
+      // stable box — the canvas itself carries his idle-bob transform.
+      const avatar = canvas?.parentElement?.parentElement ?? canvas;
+      if (!avatar) {
+        bubble.style.opacity = "0";
+        return;
+      }
+      const ar = avatar.getBoundingClientRect();
+      if (ar.width === 0 || ar.height === 0) {
+        bubble.style.opacity = "0";
+        return;
+      }
+      const mb = modal.getBoundingClientRect();
+      const cx = ar.left + ar.width / 2 - mb.left; // Havi's centre, in modal coords
+      const topRel = ar.top - mb.top;
+      const botRel = ar.bottom - mb.top;
+      const bw = bubble.offsetWidth;
+      const bh = bubble.offsetHeight;
+      const above = topRel - GAP - bh >= 6;
+      const top = above ? topRel - GAP - bh : botRel + GAP;
+      const left = Math.max(PAD, Math.min(mb.width - bw - PAD, cx - bw / 2));
+      bubble.style.left = `${left}px`;
+      bubble.style.top = `${top}px`;
+      bubble.style.opacity = "1";
+      // Point the little arrow at Havi's centre, clamped inside the bubble.
+      const pLeft = Math.max(12, Math.min(bw - 12, cx - left));
+      const down = pointerDownRef.current;
+      const up = pointerUpRef.current;
+      if (down && up) {
+        down.style.display = above ? "block" : "none";
+        up.style.display = above ? "none" : "block";
+        (above ? down : up).style.left = `${pLeft}px`;
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [open, mounted]);
 
   if (!open || !mounted) return null;
 
@@ -129,6 +189,7 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
       aria-label={t("land_seeDemo")}
     >
       <div
+        ref={modalBoxRef}
         className="haven-modal relative flex flex-col w-[94vw] max-w-[1180px] h-[88vh] max-h-[860px] rounded-3xl overflow-hidden"
         style={{ background: "var(--color-surface)", boxShadow: "0 30px 90px rgba(0,0,0,0.45)" }}
         onMouseEnter={() => setPaused(true)}
@@ -169,12 +230,17 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
         </DemoStoreProvider>
 
-        {/* Havi caption bubble — introduces the feature, pinned inside the demo */}
+        {/* Havi caption bubble — introduces the feature. Anchored to the Havi
+            mascot (see the tracking effect above): hovers just above him and
+            points at him, so it's clear the note is about Havi. */}
         <div
+          ref={bubbleRef}
           className="pointer-events-none absolute z-20 hidden sm:block max-w-[240px] rounded-xl px-3 py-2 text-[11px] font-medium leading-snug"
           style={{
-            insetInlineStart: 16,
-            bottom: 88,
+            left: 0,
+            top: 0,
+            opacity: 0,
+            transition: "opacity 0.3s ease",
             background: "var(--color-surface)",
             color: "var(--color-muted)",
             border: "1px solid var(--color-border)",
@@ -183,6 +249,39 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
           role="note"
         >
           {t("haviDemoCaption")}
+          {/* Little arrow pointing at Havi (down when the bubble is above him,
+              up when it flips below). Its horizontal offset is set each frame. */}
+          <span
+            ref={pointerDownRef}
+            aria-hidden
+            style={{
+              position: "absolute",
+              bottom: -7,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 0,
+              height: 0,
+              borderLeft: "7px solid transparent",
+              borderRight: "7px solid transparent",
+              borderTop: "7px solid var(--color-surface)",
+            }}
+          />
+          <span
+            ref={pointerUpRef}
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: -7,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 0,
+              height: 0,
+              borderLeft: "7px solid transparent",
+              borderRight: "7px solid transparent",
+              borderBottom: "7px solid var(--color-surface)",
+              display: "none",
+            }}
+          />
         </div>
 
         {/* Controls */}

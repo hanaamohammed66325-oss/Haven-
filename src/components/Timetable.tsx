@@ -132,7 +132,15 @@ export function Timetable() {
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+      {/* Give each day a comfortable min width and scroll horizontally rather
+          than squeezing all 7 columns into the container (which clipped course
+          names). Columns stretch to fill (1fr) when there's room; on narrow
+          screens the row scrolls. Grid flow follows dir, so RTL mirrors. */}
+      <div className="overflow-x-auto pb-2 -mx-1 px-1">
+        <div
+          className="grid gap-4"
+          style={{ gridTemplateColumns: "repeat(7, minmax(180px, 1fr))" }}
+        >
         {byDay.map(({ day, entries }) => (
           <div
             key={day}
@@ -155,7 +163,7 @@ export function Timetable() {
                       className="rounded-xl px-3 py-2"
                       style={{ background: `${col}14`, borderInlineStart: `3px solid ${col}` }}
                     >
-                      <div className="text-sm font-medium truncate" style={{ color: "var(--color-ink)" }}>
+                      <div className="text-sm font-medium break-words" style={{ color: "var(--color-ink)" }}>
                         {e.course}
                       </div>
                       <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
@@ -183,6 +191,7 @@ export function Timetable() {
             )}
           </div>
         ))}
+        </div>
       </div>
     </div>
   );

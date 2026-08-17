@@ -417,7 +417,6 @@ export default function SettingsPage() {
 
 function ThemeCard({ theme, active, locked, onSelect }: { theme: ThemeMeta; active: boolean; locked: boolean; onSelect: () => void }) {
   const { t } = useT();
-  const isPremium = !theme.free;
   return (
     <button
       type="button"
@@ -453,12 +452,9 @@ function ThemeCard({ theme, active, locked, onSelect }: { theme: ThemeMeta; acti
           <Lock size={13} className="shrink-0" style={{ color: "var(--color-brass)" }} />
         ) : null}
       </div>
-      <span
-        className="text-[11px] font-medium"
-        style={{ color: isPremium ? "var(--color-brass)" : "var(--color-muted)" }}
-      >
-        {isPremium ? t("themePremium") : t("themeFree")}
-      </span>
+      {/* No free/premium text label. Users with active access are never `locked`
+          (canUseTheme → true for all), so they see nothing. Users without access
+          get the 🔒 above on premium (locked) themes and nothing on free ones. */}
     </button>
   );
 }

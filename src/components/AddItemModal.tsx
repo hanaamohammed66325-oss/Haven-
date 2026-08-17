@@ -165,12 +165,14 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
               ))}
             </div>
           </div>
+          <p className="text-[11px] leading-snug" style={{ color: "var(--color-muted)" }}>{t("itemWeightHelp")}</p>
         </div>
 
-        {/* Out of (total) */}
+        {/* Item total score */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemOutOf")}</label>
           <input className={field} style={border} type="number" min="0" step="any" value={total} onChange={(e) => setTotal(e.target.value)} />
+          <p className="text-[11px] leading-snug" style={{ color: "var(--color-muted)" }}>{t("itemOutOfHelp")}</p>
         </div>
 
         {/* Date */}
@@ -216,6 +218,7 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
             max={scoreMax}
             onCommit={(v) => setScore(v == null ? "" : String(v))}
           />
+          <p className="text-[11px] leading-snug" style={{ color: "var(--color-muted)" }}>{t("itemScoreHelp")}</p>
         </div>
       </form>
     </Modal>

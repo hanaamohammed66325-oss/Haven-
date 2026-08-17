@@ -309,7 +309,11 @@ function WhatIfScene({ active, reduced }: { active: boolean; reduced: boolean })
                   style={{ background: `${col}1A`, color: col }}>{letter}</span>
               </div>
               <div className="relative h-2 rounded-full" style={{ background: "var(--color-primary-soft)" }}>
-                <div className="absolute inset-y-0 start-0 rounded-full"
+                {/* Fill uses physical `left-0` (not logical `start-0`) so it shares
+                    the thumb's physical `left: X%` origin. With `start-0` the fill
+                    mirrored under RTL while the thumb did not, leaving green on both
+                    sides of the thumb. */}
+                <div className="absolute inset-y-0 left-0 rounded-full"
                   style={{ width: `${vals[i]}%`, background: "var(--color-primary)" }} />
                 <span className="absolute h-4 w-4 rounded-full -top-1"
                   style={{
