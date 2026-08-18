@@ -77,9 +77,9 @@ export function WhatIfCard() {
           const v = sim[c.id] ?? 75;
           const g = pctToGrade(v);
           return (
-            <div key={c.id} className="flex items-center gap-4">
+            <div key={c.id} className="flex items-center gap-3 sm:gap-4">
               <span
-                className="w-32 shrink-0 text-sm font-medium truncate"
+                className="w-20 sm:w-32 shrink-0 text-sm font-medium truncate"
                 style={{ color: "var(--color-ink)" }}
               >
                 {c.name}

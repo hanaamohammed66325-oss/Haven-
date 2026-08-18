@@ -45,7 +45,7 @@ export function AttendanceSection({ course }: { course: Course }) {
   const dur = (minutes: number) => formatDuration(minutes, hUnit, mUnit);
 
   return (
-    <div className="px-8 py-6 border-t" style={border}>
+    <div className="px-5 sm:px-8 py-6 border-t" style={border}>
       {/* Heading + status */}
       <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
         <div className="flex items-center gap-3">

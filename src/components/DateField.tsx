@@ -76,7 +76,14 @@ function HijriField({
       const el = triggerRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+      // Size the calendar (min 268, at least as wide as the field) but never
+      // wider than the viewport, then clamp its left edge so it can't spill off
+      // either side on a narrow phone.
+      const vw = window.innerWidth;
+      const margin = 8;
+      const width = Math.min(Math.max(268, r.width), vw - margin * 2);
+      const left = Math.max(margin, Math.min(vw - margin - width, r.left));
+      setPos({ top: r.bottom + 6, left, width });
     };
     place();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -144,7 +151,7 @@ function HijriField({
             style={{
               top: pos.top,
               left: pos.left,
-              width: Math.max(268, pos.width),
+              width: pos.width,
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
               boxShadow: "var(--shadow-card-hover)",

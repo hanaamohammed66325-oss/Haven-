@@ -18,6 +18,8 @@ export const en = {
   sidebarAccount: "Account",
   collapseSidebar: "Collapse sidebar",
   expandSidebar: "Expand sidebar",
+  openMenu: "Open menu",
+  closeMenu: "Close menu",
   premiumTitle: "Go Premium ✨",
   premiumSubtitle: "All your study tools in one place",
   premiumBenefit1: "Unlimited courses",

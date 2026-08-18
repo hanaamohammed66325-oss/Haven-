@@ -7,13 +7,19 @@ import { Card } from "./Card";
 import { CircularProgress } from "./CircularProgress";
 import { CountUp } from "./CountUp";
 import { InfoPopover } from "./InfoPopover";
-import { semesterGPA } from "@/lib/grades";
+import { semesterGPA, projectedCumulativeGpa } from "@/lib/grades";
 
 export function GpaGoalCard() {
   const { t } = useT();
-  const { courses, gpaGoal, setGpaGoal } = useStore();
+  const { courses, gpaGoal, setGpaGoal, gpaMode, cumulativeGpa, cumulativeHours } = useStore();
 
-  const gpa = semesterGPA(courses);
+  // Follow the same Semester / Cumulative toggle the GPA card uses (shared
+  // store state) so this ring shows — and measures progress against — the GPA
+  // currently on screen, not a fixed semester figure.
+  const gpa =
+    gpaMode === "cumulative"
+      ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours)
+      : semesterGPA(courses);
   const goal = gpaGoal > 0 ? gpaGoal : 5;
   const pct = gpa != null ? Math.min(100, (gpa / goal) * 100) : 0;
   const reached = gpa != null && gpa >= goal;

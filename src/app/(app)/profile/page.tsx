@@ -126,9 +126,9 @@ export default function ProfilePage() {
         {t("profileSubtitle")}
       </p>
 
-      <Card padding="p-8" className="haven-stagger" data-havi-role="profile">
+      <Card padding="p-5 sm:p-8" className="haven-stagger" data-havi-role="profile">
         {/* Photo */}
-        <div className="flex items-center gap-6 pb-8 border-b" style={border}>
+        <div className="flex items-center gap-4 sm:gap-6 pb-8 border-b" style={border}>
           <span
             className="flex items-center justify-center rounded-full shrink-0 overflow-hidden"
             style={{ width: 76, height: 76, background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
@@ -142,9 +142,9 @@ export default function ProfilePage() {
               <User size={28} />
             )}
           </span>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 min-w-0">
             <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{t("profilePhoto")}</span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => fileRef.current?.click()}
                 className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors"

@@ -162,6 +162,47 @@ html[lang="ar"] .font-display {
     filter 0.22s ease;
 }
 
+/* ---- Mobile responsive + safe-area helpers (Part B) ---- */
+/* ---- Main content column ---- */
+/* Hook on the <main> element. Adds horizontal safe-area padding so that, in the
+   installed PWA on a notched phone held in landscape, content never slides under
+   the notch / rounded corners. On desktop and non-notched devices every inset is
+   0px, so this is a no-op there and desktop layout is unchanged. */
+.haven-main {
+  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+}
+
+/* ---- Mobile top bar (shown < lg only) ---- */
+/* Sticky bar that carries the hamburger + brand on phones/tablets, where the
+   desktop sidebar rail is hidden. `padding-top` absorbs the status-bar / notch
+   inset so the row sits below it in standalone PWA mode. */
+.haven-topbar {
+  min-height: 56px;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, var(--color-canvas) 85%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
+  border-bottom: 1px solid var(--color-border);
+  transition: background 0.45s ease, border-color 0.45s ease;
+}
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .haven-topbar { background: var(--color-canvas); }
+}
+
+/* Bottom safe-area breathing room for the scrollable app content, so the last
+   card clears the home indicator in standalone mode. 0px elsewhere. */
+.haven-safe-b {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Mobile nav drawer panel: fills its height and respects top/bottom insets so
+   the brand row and the profile card at the very bottom stay clear of the notch
+   and the home indicator. */
+.haven-drawer {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* ---- Sidebar nav ---- */
 .haven-nav-item {
   transition: background 0.25s ease, color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;

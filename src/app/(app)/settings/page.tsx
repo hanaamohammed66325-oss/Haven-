@@ -51,7 +51,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="mb-12">
       <h2 className="haven-label mb-4">{title}</h2>
-      <Card padding="p-8">{children}</Card>
+      <Card padding="p-5 sm:p-8">{children}</Card>
     </section>
   );
 }

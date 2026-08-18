@@ -163,7 +163,7 @@ export function SubscriptionSection() {
 
   // Shared card shell so the title stays put across every state.
   const shell = (body: React.ReactNode) => (
-    <Card padding="p-8" className="mt-8">
+    <Card padding="p-5 sm:p-8" className="mt-8">
       <h2 className="font-display text-xl" style={{ color: "var(--color-ink)" }}>
         {t("subscriptionTitle")}
       </h2>

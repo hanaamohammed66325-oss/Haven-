@@ -82,7 +82,6 @@ export function AddCourseModal({ open, onClose, onSubmit, initial, defaultLimit 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("withdrawalLimitLabel")}</label>
           <input className={field} style={border} type="number" min="1" max="100" step="1" value={limit} onChange={(e) => setLimit(e.target.value)} />
-          <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>{t("courseLimitHint")}</span>
         </div>
         {error && (
           <span className="text-xs" style={{ color: "var(--color-danger)" }}>{error}</span>

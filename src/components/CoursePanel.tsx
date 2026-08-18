@@ -73,7 +73,7 @@ export function CoursePanel({ course }: { course: Course }) {
       data-havi-course-id={course.id}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 p-8 border-b" style={border}>
+      <div className="flex items-start justify-between gap-3 p-5 sm:p-8 border-b" style={border}>
         <div className="min-w-0">
           <h2 className="font-display text-xl truncate" style={{ color: "var(--color-ink)" }}>
             {course.name}
@@ -111,7 +111,7 @@ export function CoursePanel({ course }: { course: Course }) {
       </div>
 
       {/* Components */}
-      <div className="p-8">
+      <div className="p-5 sm:p-8">
         <div className="flex items-center justify-between gap-2 mb-6">
           <h3 className="haven-label" style={{ color: "var(--color-ink)" }}>{t("componentsHeading")}</h3>
           <div className="flex items-center gap-2">

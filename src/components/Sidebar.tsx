@@ -17,6 +17,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useStore } from "@/store";
@@ -115,7 +116,18 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
   );
 }
 
-export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+export function Sidebar({
+  collapsed,
+  onToggle,
+  mobile = false,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  /** When true the sidebar renders as the mobile drawer body: full-width, never
+   *  collapsed, and its top control is a close (X) button instead of the
+   *  desktop collapse chevron. The desktop rail hides itself below `lg`. */
+  mobile?: boolean;
+}) {
   const pathname = usePathname();
   const { t, lang } = useT();
   const { language, setLanguage, profileName, email, profilePhoto } = useStore();
@@ -174,15 +186,23 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
   return (
     <aside
-      data-havi-role="nav"
-      className="haven-sidebar shrink-0 sticky top-0 h-dvh flex flex-col z-30"
-      style={{
-        width: collapsed ? 76 : 272,
-        padding: collapsed ? 14 : 26,
-        overflowY: collapsed ? "visible" : "auto",
-        transition:
-          "width 0.28s cubic-bezier(0.22,1,0.36,1), padding 0.28s cubic-bezier(0.22,1,0.36,1), background 0.45s ease",
-      }}
+      {...(mobile ? {} : { "data-havi-role": "nav" })}
+      className={
+        mobile
+          ? "haven-sidebar haven-drawer flex flex-col h-dvh w-full overflow-y-auto"
+          : "haven-sidebar shrink-0 sticky top-0 h-dvh flex-col z-30 hidden lg:flex"
+      }
+      style={
+        mobile
+          ? { padding: 24 }
+          : {
+              width: collapsed ? 76 : 272,
+              padding: collapsed ? 14 : 26,
+              overflowY: collapsed ? "visible" : "auto",
+              transition:
+                "width 0.28s cubic-bezier(0.22,1,0.36,1), padding 0.28s cubic-bezier(0.22,1,0.36,1), background 0.45s ease",
+            }
+      }
     >
       {/* Brand + toggle */}
       {collapsed ? (
@@ -205,11 +225,11 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           </div>
           <button
             onClick={onToggle}
-            aria-label={t("collapseSidebar")}
+            aria-label={mobile ? t("closeMenu") : t("collapseSidebar")}
             className="haven-nav-item flex items-center justify-center h-9 w-9 rounded-lg shrink-0"
             style={{ color: "rgba(231,239,240,0.6)" }}
           >
-            <ChevronsLeft size={18} className="rtl:rotate-180" />
+            {mobile ? <X size={20} /> : <ChevronsLeft size={18} className="rtl:rotate-180" />}
           </button>
         </div>
       )}

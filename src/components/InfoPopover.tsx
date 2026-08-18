@@ -29,7 +29,13 @@ export function InfoPopover({ label, trigger, children }: InfoPopoverProps) {
       const el = triggerRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      setPos({ top: r.bottom + 8, left: r.left + r.width / 2 });
+      // Clamp the (centered) panel into the viewport so it never gets clipped
+      // off the screen edge on narrow phones. Mirrors the width/maxWidth below.
+      const vw = window.innerWidth;
+      const margin = 8;
+      const half = Math.min(210, vw * 0.8) / 2;
+      const center = Math.max(margin + half, Math.min(vw - margin - half, r.left + r.width / 2));
+      setPos({ top: r.bottom + 8, left: center });
     };
     place();
 

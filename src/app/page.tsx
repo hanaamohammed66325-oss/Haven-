@@ -185,7 +185,7 @@ export default function LandingPage() {
             </div>
 
             {/* Stat */}
-            <div className="haven-fade-up mt-14 flex items-center gap-6" style={{ animationDelay: "0.2s" }}>
+            <div className="haven-fade-up mt-14 flex flex-wrap items-center gap-6" style={{ animationDelay: "0.2s" }}>
               <div className="flex items-baseline gap-2">
                 <TrendingUp size={24} style={{ color: "var(--color-success)" }} />
                 <span className="font-display text-5xl" style={{ color: "var(--color-brass)" }}>{t("land_statValue")}</span>

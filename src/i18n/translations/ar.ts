@@ -20,6 +20,8 @@ export const ar: Record<TranslationKey, string> = {
   sidebarAccount: "الحساب",
   collapseSidebar: "طيّ الشريط الجانبي",
   expandSidebar: "توسيع الشريط الجانبي",
+  openMenu: "فتح القائمة",
+  closeMenu: "إغلاق القائمة",
   premiumTitle: "اشترك في Haven بريميوم ✨",
   premiumSubtitle: "كل أدواتك الدراسية في مكان واحد",
   premiumBenefit1: "مواد غير محدودة",

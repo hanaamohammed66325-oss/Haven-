@@ -43,6 +43,30 @@ const TAGS: { key: TranslationKey; color: string }[] = [
 ];
 const tagColorOf = (key?: string) => TAGS.find((t) => t.key === key)?.color;
 
+/** Tag keys that lightly shade the day / week they sit in: holiday, exam, quiz.
+ *  (Deadline and assignment deliberately don't shade.) Ordered so stacked
+ *  bands stay stable regardless of the order items were added. */
+const SHADE_TAG_ORDER = ["tagHoliday", "tagExam", "tagQuiz"] as const;
+
+/** A light, translucent background image shading a day cell or a whole week for
+ *  the holiday / exam / quiz notes it contains. One type → a flat wash; several
+ *  → equal hard-edged bands so every colour stays visible instead of one
+ *  overriding the rest. Returns undefined when there's nothing to shade. */
+function shadeImage(notes: PlannerNote[]): string | undefined {
+  const present = SHADE_TAG_ORDER.filter((k) => notes.some((n) => n.tag === k));
+  if (!present.length) return undefined;
+  const tint = (k: string) => `${tagColorOf(k)}24`; // ~14% alpha — light version
+  if (present.length === 1) {
+    const c = tint(present[0]);
+    return `linear-gradient(0deg, ${c} 0%, ${c} 100%)`;
+  }
+  const n = present.length;
+  const stops = present
+    .map((k, i) => `${tint(k)} ${((i / n) * 100).toFixed(2)}% ${(((i + 1) / n) * 100).toFixed(2)}%`)
+    .join(", ");
+  return `linear-gradient(180deg, ${stops})`;
+}
+
 const EXAM_TYPES = ["quiz", "midterm", "final"];
 const typeColor = (t: string) =>
   t === "final" || t === "midterm" ? "#d9534f" : t === "quiz" ? "#e89b4a" : t === "project" ? "#8a6fb0" : "#477680";
@@ -356,6 +380,10 @@ function WeekCard({
   const visibleAuto = autoItems.filter((a) => !autoEdits[a.id]?.hidden);
   const wholeWeekActive = isActiveWeek && activeDay == null;
 
+  // Whole-week shading: a holiday/exam/quiz added to the whole week tints the
+  // whole card (translucent overlay layered over the card's own surface).
+  const weekShade = shadeImage(general);
+
   const activeRing = { outline: "1px dashed var(--color-primary)", outlineOffset: 2, borderRadius: 8 };
 
   const renderNote = (n: PlannerNote) => {
@@ -495,7 +523,11 @@ function WeekCard({
     <Card
       padding="p-6"
       className="min-h-[160px]"
-      style={{ outline: isActiveWeek ? "2px solid var(--color-brass)" : "none", outlineOffset: 2 }}
+      style={{
+        outline: isActiveWeek ? "2px solid var(--color-brass)" : "none",
+        outlineOffset: 2,
+        backgroundImage: weekShade,
+      }}
       {...(isCurrentWeek ? { "data-havi-role": "current-week" } : {})}
     >
       <button onClick={() => onSetTarget(null)} className="block w-full text-start mb-4">
@@ -527,6 +559,8 @@ function WeekCard({
           const dayAuto = visibleAuto.filter((a) => a.day === d);
           const dayActive = isActiveWeek && activeDay === d;
           const date = dayDates[d];
+          // Per-day shading: a holiday/exam/quiz on this day tints its cell.
+          const dayShade = shadeImage(dayNotes);
           return (
             <Fragment key={d}>
               <button
@@ -538,7 +572,10 @@ function WeekCard({
                 {t(`day${d}` as TranslationKey)}
                 {date && <span className="ms-1 opacity-60">{date}</span>}
               </button>
-              <div className="flex flex-wrap items-center gap-1.5 min-w-0 p-0.5" style={dayActive ? activeRing : undefined}>
+              <div
+                className="flex flex-wrap items-center gap-1.5 min-w-0 p-0.5 rounded-lg"
+                style={{ ...(dayActive ? activeRing : undefined), backgroundImage: dayShade }}
+              >
                 {dayAuto.map(renderAuto)}
                 {dayNotes.map(renderNote)}
                 <DayAddInput placeholder={t("plannerDayAdd")} onFocus={() => onSetTarget(d)} onAdd={(text) => onAdd(d, text)} />
