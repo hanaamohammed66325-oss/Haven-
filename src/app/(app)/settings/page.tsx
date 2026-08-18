@@ -10,6 +10,7 @@ import { Modal } from "@/components/Modal";
 import { DateField } from "@/components/DateField";
 import { DemoPlayer } from "@/components/DemoPlayer";
 import { NotificationsSettings } from "@/components/NotificationsSettings";
+import { RemindersSettings } from "@/components/RemindersSettings";
 import { signOut as clearSession } from "@/lib/auth";
 import { useDeleteAccount } from "@/lib/useDeleteAccount";
 import { PremiumGate } from "@/components/PremiumGate";
@@ -71,7 +72,7 @@ export default function SettingsPage() {
   usePageTitle("nav_settings");
   const router = useRouter();
   const store = useStore();
-  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, reminderDays, setReminderDays, resetData } = store;
+  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, resetData } = store;
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
@@ -261,40 +262,9 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* Reminders */}
+      {/* Reminders — customizable notification preferences (notifPrefs) */}
       <Section title={t("sectionReminders")}>
-        <div className="divide-y" style={divider}>
-          <Row label={t("reminderDaysLabel")}>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setReminderDays(n)}
-                  className="rounded-lg px-3.5 py-2 text-sm font-medium transition-colors"
-                  style={
-                    reminderDays === n
-                      ? { background: "var(--color-primary)", color: "#fff" }
-                      : { background: "var(--color-primary-soft)", color: "var(--color-primary)" }
-                  }
-                >
-                  {n}
-                </button>
-              ))}
-              <input
-                type="number"
-                min="1"
-                max="60"
-                step="1"
-                aria-label={t("weeksCustom")}
-                placeholder={t("weeksCustom")}
-                className={`${fieldClass} flex-1`}
-                style={divider}
-                value={reminderDays}
-                onChange={(e) => setReminderDays(Number(e.target.value) || 1)}
-              />
-            </div>
-          </Row>
-        </div>
+        <RemindersSettings />
       </Section>
 
       {/* Notifications (free for all users — no premium gating) */}

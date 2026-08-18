@@ -15,12 +15,14 @@ import type {
   CourseSession,
   GradeComponent,
   MissedEntry,
+  NotifPrefs,
   PlannerData,
   PlannerNote,
   Semester,
   ThemeId,
   GpaMode,
 } from "@/types";
+import { DEFAULT_NOTIF_PREFS, normalizeNotifPrefs } from "@/lib/notifPrefs";
 import { demoCourses } from "@/lib/demo";
 import { supabase } from "@/lib/supabase";
 import * as db from "@/lib/db";
@@ -99,6 +101,7 @@ const initialData: AppData = {
   gpaMode: "semester",
   cumulativeGpa: 0,
   cumulativeHours: 0,
+  notifPrefs: DEFAULT_NOTIF_PREFS,
 };
 
 // Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
@@ -183,6 +186,8 @@ export interface StoreValue extends AppData {
   setCumulativeGpa: (gpa: number) => void;
   /** Completed credit hours behind the cumulative GPA; persisted per account. */
   setCumulativeHours: (hours: number) => void;
+  /** Customizable notification preferences; persisted to preferences.notifPrefs. */
+  setNotifPrefs: (next: NotifPrefs) => void;
   setSemester: (patch: Partial<Semester>) => void;
   addCourse: (course: {
     name: string;
@@ -266,6 +271,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...local,
         theme: THEME_IDS.includes(local.theme as ThemeId) ? (local.theme as ThemeId) : "haven",
         semester: { ...defaultSemester, ...(local.semester ?? {}) },
+        notifPrefs: normalizeNotifPrefs(local.notifPrefs),
         planner: emptyPlanner,
         taskOrder: [],
         courses: [],
@@ -385,6 +391,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           gpaMode: prefs.gpaMode === "cumulative" ? "cumulative" : "semester",
           cumulativeGpa: num(prefs.cumulativeGpa, initialData.cumulativeGpa),
           cumulativeHours: num(prefs.cumulativeHours, initialData.cumulativeHours),
+          // notifPrefs supersedes the legacy `reminderDays`; missing → defaults.
+          notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
           semester: {
             ...defaultSemester,
             name: sem.name,
@@ -479,6 +487,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         language: data.language,
         theme: data.theme,
         semester: data.semester,
+        notifPrefs: data.notifPrefs,
       };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
     } catch {
@@ -728,6 +737,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const h = Math.max(0, Math.round(Number(hours) || 0));
       setData((d) => ({ ...d, cumulativeHours: h }));
       persistPref({ cumulativeHours: h });
+    },
+    [persistPref]
+  );
+
+  // WRITE helper for notifPrefs. Normalizes defensively (so a bad partial can
+  // never land in the store or the cloud), updates state, and persists the WHOLE
+  // notifPrefs object under profiles.preferences.notifPrefs (read-merge-write in
+  // db.savePreferences leaves every other preference key untouched).
+  const setNotifPrefs = useCallback(
+    (next: NotifPrefs) => {
+      const clean = normalizeNotifPrefs(next);
+      setData((d) => ({ ...d, notifPrefs: clean }));
+      persistPref({ notifPrefs: clean });
     },
     [persistPref]
   );
@@ -1200,6 +1222,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       profilePhoto: d.profilePhoto,
       gpaGoal: d.gpaGoal,
       semester: d.semester,
+      // Reminders are a setting, not academic data — keep them across a reset.
+      notifPrefs: d.notifPrefs,
       // Reset removes courses/grades only — planner items aren't deleted in the
       // cloud, so keep them in memory too (they'd otherwise reappear on reload).
       planner: d.planner,
@@ -1224,6 +1248,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setGpaMode,
     setCumulativeGpa,
     setCumulativeHours,
+    setNotifPrefs,
     setSemester,
     addCourse,
     updateCourse,

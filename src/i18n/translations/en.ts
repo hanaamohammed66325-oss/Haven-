@@ -515,6 +515,29 @@ export const en = {
   reminderTomorrowAt: "Tomorrow at {time}: {title}",
   reminderInDaysAt: "In {n} days at {time}: {title}",
 
+  // Reminders — customizable notification preferences (notifPrefs)
+  remExamsTitle: "Exam reminders",
+  remExamsHelp:
+    "How many days before an exam or assignment we notify you. Example: 3 and 1 means a reminder 3 days before and 1 day before.",
+  remTasksTitle: "Scheduled-task reminders",
+  remTasksHelp:
+    "How many hours before a scheduled task we notify you. Example: 12 and 2 means a reminder 12 hours before and 2 hours before.",
+  remDailyHourTitle: "Daily reminder time",
+  remDailyHourHelp:
+    "The time day-based reminders (exams and assignments) arrive. Hour-based scheduled reminders are not affected by this.",
+  remAttendanceTitle: "Attendance alerts",
+  remAttendanceHelp:
+    "Alerts you as you approach the absence limit in any course. Timing isn't customizable — it's computed automatically.",
+  remFirst: "First reminder",
+  remSecond: "Second reminder",
+  remDaysUnit: "days",
+  remHoursUnit: "hours",
+  remOptional: "optional",
+  remRangeHint: "Enter a whole number from {min} to {max}.",
+  remSmallerHint: "The second reminder should be smaller than the first.",
+  remAM: "AM",
+  remPM: "PM",
+
   // Notifications (Web Push subscribe/unsubscribe — free for all users)
   sectionNotifications: "Notifications",
   notifUnsupported: "Your browser doesn't support notifications.",

@@ -144,8 +144,28 @@ export interface AppData {
   cumulativeGpa: number;
   /** completed credit hours behind the current cumulative GPA. */
   cumulativeHours: number;
+  /** customizable notification preferences (per account, in preferences.notifPrefs). */
+  notifPrefs: NotifPrefs;
 }
 
 /** Semester-GPA card mode. "semester" = live GPA out of 5.0; "cumulative" =
  *  projected new cumulative starting from the user's entered current GPA. */
 export type GpaMode = "semester" | "cumulative";
+
+/**
+ * Customizable notification preferences, stored under
+ * profiles.preferences.notifPrefs. The client persists this; server-side
+ * scheduling reads it separately. Offset arrays hold 1 or 2 values, largest
+ * (earliest) lead time first. See src/lib/notifPrefs.ts for defaults + the
+ * read/normalize helper.
+ */
+export interface NotifPrefs {
+  /** date-based items (quizzes, midterms, finals, assignments, projects) */
+  exams: { enabled: boolean; days: number[] }; // up to 2, each 1..30
+  /** planner items that carry a specific time */
+  tasks: { enabled: boolean; hours: number[] }; // up to 2, each 1..72
+  /** approaching-the-absence-limit alerts (timing computed automatically) */
+  attendance: { enabled: boolean };
+  /** hour of day (0..23) day-based reminders are delivered */
+  dailyReminderHour: number;
+}

@@ -12,6 +12,7 @@ import type {
   PlannerNote,
   Semester,
 } from "@/types";
+import { DEFAULT_NOTIF_PREFS } from "@/lib/notifPrefs";
 
 // A fully self-contained, interactive copy of the store used ONLY by the demo
 // modal. It renders the REAL app pages, but every mutation stays in local React
@@ -207,6 +208,7 @@ function buildInitialData(): AppData {
     gpaMode: "semester",
     cumulativeGpa: 4.62,
     cumulativeHours: 52,
+    notifPrefs: DEFAULT_NOTIF_PREFS,
   };
 }
 
@@ -273,6 +275,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
       setGpaMode: (gpaMode) => patch({ gpaMode }),
       setCumulativeGpa: (cumulativeGpa) => patch({ cumulativeGpa }),
       setCumulativeHours: (cumulativeHours) => patch({ cumulativeHours }),
+      setNotifPrefs: (notifPrefs) => patch({ notifPrefs }),
       setSemester: (sp) => setData((d) => ({ ...d, semester: { ...d.semester, ...sp } })),
 
       addCourse: (course) => {

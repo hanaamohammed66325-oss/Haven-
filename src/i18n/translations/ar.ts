@@ -514,6 +514,29 @@ export const ar: Record<TranslationKey, string> = {
   reminderTomorrowAt: "بكرة الساعة {time}: {title}",
   reminderInDaysAt: "بعد {n} يوم الساعة {time}: {title}",
 
+  // التذكيرات — تفضيلات الإشعارات القابلة للتخصيص (notifPrefs)
+  remExamsTitle: "تذكيرات الاختبارات",
+  remExamsHelp:
+    "كم يوماً قبل موعد الاختبار أو الواجب نُنبّهك. مثال: ٣ و ١ يعني تنبيه قبل ٣ أيام وقبل يوم.",
+  remTasksTitle: "تذكيرات المهام المجدولة",
+  remTasksHelp:
+    "كم ساعة قبل المهمة المجدولة نُنبّهك. مثال: ١٢ و ٢ يعني تنبيه قبل ١٢ ساعة وقبل ساعتين.",
+  remDailyHourTitle: "وقت التذكير اليومي",
+  remDailyHourHelp:
+    "الوقت الذي تصل فيه تذكيرات الأيام (الاختبارات والواجبات). التذكيرات المجدولة بالساعات لا تتأثر بهذا الوقت.",
+  remAttendanceTitle: "تنبيهات الغياب",
+  remAttendanceHelp:
+    "تنبيهك عند اقترابك من حد الغياب في أي مادة. لا يمكن تخصيص التوقيت — يُحسب تلقائياً.",
+  remFirst: "التذكير الأول",
+  remSecond: "التذكير الثاني",
+  remDaysUnit: "يوم",
+  remHoursUnit: "ساعة",
+  remOptional: "اختياري",
+  remRangeHint: "أدخل رقماً صحيحاً من {min} إلى {max}.",
+  remSmallerHint: "يجب أن يكون التذكير الثاني أصغر من الأول.",
+  remAM: "ص",
+  remPM: "م",
+
   // الإشعارات (Web Push — مجاني لكل المستخدمين)
   sectionNotifications: "الإشعارات",
   notifUnsupported: "متصفحك لا يدعم الإشعارات.",
