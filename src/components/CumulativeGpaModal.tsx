@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Info } from "lucide-react";
 import { Modal } from "./Modal";
+import { InfoPopover } from "./InfoPopover";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { SCALE, courseCurrentPct, pctToGrade } from "@/lib/grades";
@@ -299,7 +300,17 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
 
         {/* Result (shared) */}
         <section className="rounded-2xl p-6 text-center" style={{ background: "var(--color-primary-soft)" }}>
-          <div className="haven-label" style={{ color: "var(--color-primary)" }}>{t("cumResultLabel")}</div>
+          <div className="inline-flex items-center justify-center gap-1">
+            <span className="haven-label" style={{ color: "var(--color-primary)" }}>{t("cumResultLabel")}</span>
+            <InfoPopover
+              label={t("gpaRoundingInfo")}
+              trigger={
+                <Info size={13} className="haven-nudge" style={{ color: "var(--color-primary)" }} />
+              }
+            >
+              {t("gpaRoundingNote")}
+            </InfoPopover>
+          </div>
           <div className="mt-2.5 leading-none">
             <span className="font-display text-[44px]" style={{ color: "var(--color-brass)" }}>{fmt(newGpa)}</span>
             <span className="text-base ms-1.5" style={{ color: "var(--color-muted)" }}>/ 5.0</span>

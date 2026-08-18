@@ -1,10 +1,12 @@
 "use client";
 
+import { Info } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { CircularProgress } from "./CircularProgress";
 import { CountUp } from "./CountUp";
+import { InfoPopover } from "./InfoPopover";
 import { semesterGPA } from "@/lib/grades";
 
 export function GpaGoalCard() {
@@ -24,9 +26,19 @@ export function GpaGoalCard() {
 
   return (
     <Card>
-      <h2 className="font-display text-lg mb-6" style={{ color: "var(--color-ink)" }}>
-        {t("gpaGoalTitle")}
-      </h2>
+      <div className="flex items-center gap-1.5 mb-6">
+        <h2 className="font-display text-lg" style={{ color: "var(--color-ink)" }}>
+          {t("gpaGoalTitle")}
+        </h2>
+        <InfoPopover
+          label={t("gpaRoundingInfo")}
+          trigger={
+            <Info size={14} className="haven-nudge" style={{ color: "var(--color-muted)" }} />
+          }
+        >
+          {t("gpaRoundingNote")}
+        </InfoPopover>
+      </div>
       <div className="flex items-center gap-6">
         <CircularProgress value={pct} size={104} color="gradient">
           <div className="flex flex-col items-center leading-none">

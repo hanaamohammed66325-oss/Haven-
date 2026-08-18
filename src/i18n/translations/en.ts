@@ -156,6 +156,8 @@ export const en = {
   gpaCompletedHours: "Completed hours",
   gpaProjectedCumulative: "Projected cumulative",
   gpaEnterCumulative: "Enter your current cumulative GPA to project it live.",
+  gpaRoundingInfo: "About GPA rounding",
+  gpaRoundingNote: "Note: The GPA shown may differ from your university's by 0.01–0.04 due to rounding differences.",
   gpaHidden: "Hidden",
   clickReveal: "Click to reveal",
   clickHide: "Click to hide",

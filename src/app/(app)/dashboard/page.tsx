@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator } from "lucide-react";
+import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
@@ -203,14 +203,28 @@ export default function DashboardPage() {
                   ))}
                 </div>
 
-                <button
-                  onClick={() => setRevealGpa((v) => !v)}
-                  className="flex flex-col items-center justify-center gap-2 text-center"
-                >
-                  <div className="haven-label">
-                    {t(gpaMode === "cumulative" ? "gpaProjectedCumulative" : "semesterGpa")}
+                <div className="flex flex-col items-center gap-2">
+                  {/* Label + rounding-note info icon (outside the reveal button so
+                      we don't nest buttons; the icon covers both GPA readings). */}
+                  <div className="inline-flex items-center gap-1">
+                    <span className="haven-label">
+                      {t(gpaMode === "cumulative" ? "gpaProjectedCumulative" : "semesterGpa")}
+                    </span>
+                    <InfoPopover
+                      label={t("gpaRoundingInfo")}
+                      trigger={
+                        <Info size={13} className="haven-nudge" style={{ color: "var(--color-muted)" }} />
+                      }
+                    >
+                      {t("gpaRoundingNote")}
+                    </InfoPopover>
                   </div>
-                  {shownGpa == null ? (
+
+                  <button
+                    onClick={() => setRevealGpa((v) => !v)}
+                    className="flex flex-col items-center justify-center gap-2 text-center"
+                  >
+                    {shownGpa == null ? (
                     <>
                       <div className="font-display text-4xl" style={{ color: "var(--color-muted)" }}>—</div>
                       <div className="text-xs max-w-[11rem]" style={{ color: "var(--color-muted)" }}>
@@ -231,7 +245,8 @@ export default function DashboardPage() {
                       </div>
                     </>
                   )}
-                </button>
+                  </button>
+                </div>
 
                 {/* Cumulative inputs — the current GPA the projection starts from */}
                 {gpaMode === "cumulative" && (

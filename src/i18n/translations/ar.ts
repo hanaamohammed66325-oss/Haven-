@@ -157,6 +157,8 @@ export const ar: Record<TranslationKey, string> = {
   gpaCompletedHours: "الساعات المكتملة",
   gpaProjectedCumulative: "التراكمي المتوقّع",
   gpaEnterCumulative: "أدخل معدلك التراكمي الحالي ليُحسب مباشرة.",
+  gpaRoundingInfo: "حول تقريب المعدل",
+  gpaRoundingNote: "ملاحظة: قد يختلف المعدل المعروض عن معدل جامعتك بمقدار ١ إلى ٤ من مئة (٠.٠١–٠.٠٤) بسبب اختلاف طريقة التقريب.",
   gpaHidden: "مخفي",
   clickReveal: "اضغط للعرض",
   clickHide: "اضغط للإخفاء",
