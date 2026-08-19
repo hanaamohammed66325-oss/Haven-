@@ -166,6 +166,8 @@ export interface NotifPrefs {
   tasks: { enabled: boolean; hours: number[] }; // up to 2, each 1..72
   /** approaching-the-absence-limit alerts (timing computed automatically) */
   attendance: { enabled: boolean };
+  /** minutes before a class start to remind — 5..120 */
+  lectures: { enabled: boolean; minutesBefore: number };
   /** hour of day (0..23) day-based reminders are delivered */
   dailyReminderHour: number;
 }

@@ -17,16 +17,20 @@ export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   exams: { enabled: true, days: [3, 1] },
   tasks: { enabled: true, hours: [12, 2] },
   attendance: { enabled: true },
+  lectures: { enabled: true, minutesBefore: 15 },
   dailyReminderHour: 9,
 };
 
-// Bounds (also enforced in the UI). Days: 1..30, Hours: 1..72, Hour-of-day: 0..23.
+// Bounds (also enforced in the UI). Days: 1..30, Hours: 1..72, Hour-of-day: 0..23,
+// Lecture lead time: 5..120 minutes.
 export const EXAM_DAYS_MIN = 1;
 export const EXAM_DAYS_MAX = 30;
 export const TASK_HOURS_MIN = 1;
 export const TASK_HOURS_MAX = 72;
 export const DAILY_HOUR_MIN = 0;
 export const DAILY_HOUR_MAX = 23;
+export const LECTURE_MINUTES_MIN = 5;
+export const LECTURE_MINUTES_MAX = 120;
 
 /** An integer within [min,max], or null if the value isn't a valid integer in range. */
 function intInRange(v: unknown, min: number, max: number): number | null {
@@ -67,7 +71,10 @@ export function normalizeNotifPrefs(raw: unknown): NotifPrefs {
   const tasks = o.tasks && typeof o.tasks === "object" ? (o.tasks as Record<string, unknown>) : {};
   const attendance =
     o.attendance && typeof o.attendance === "object" ? (o.attendance as Record<string, unknown>) : {};
+  const lectures =
+    o.lectures && typeof o.lectures === "object" ? (o.lectures as Record<string, unknown>) : {};
   const hour = intInRange(o.dailyReminderHour, DAILY_HOUR_MIN, DAILY_HOUR_MAX);
+  const lectureMinutes = intInRange(lectures.minutesBefore, LECTURE_MINUTES_MIN, LECTURE_MINUTES_MAX);
   return {
     exams: {
       enabled: normalizeBool(exams.enabled, DEFAULT_NOTIF_PREFS.exams.enabled),
@@ -79,6 +86,11 @@ export function normalizeNotifPrefs(raw: unknown): NotifPrefs {
     },
     attendance: {
       enabled: normalizeBool(attendance.enabled, DEFAULT_NOTIF_PREFS.attendance.enabled),
+    },
+    lectures: {
+      enabled: normalizeBool(lectures.enabled, DEFAULT_NOTIF_PREFS.lectures.enabled),
+      minutesBefore:
+        lectureMinutes == null ? DEFAULT_NOTIF_PREFS.lectures.minutesBefore : lectureMinutes,
     },
     dailyReminderHour: hour == null ? DEFAULT_NOTIF_PREFS.dailyReminderHour : hour,
   };

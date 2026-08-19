@@ -20,6 +20,8 @@ import {
   TASK_HOURS_MAX,
   DAILY_HOUR_MIN,
   DAILY_HOUR_MAX,
+  LECTURE_MINUTES_MIN,
+  LECTURE_MINUTES_MAX,
 } from "@/lib/notifPrefs";
 
 const numField =
@@ -218,6 +220,104 @@ function ReminderPair({
   );
 }
 
+/**
+ * A single whole-number input bounded to [min, max] (e.g. lecture lead time).
+ * Live typing shows a gentle range hint when out of range / not an integer, and
+ * commits only valid values; on blur, anything invalid snaps back into range
+ * (decimals round, negatives/too-small → min, too-large → max, empty → previous)
+ * so the store never holds an out-of-range value.
+ */
+function SingleNumber({
+  value,
+  min,
+  max,
+  label,
+  unit,
+  onCommit,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  label: string;
+  unit: string;
+  onCommit: (v: number) => void;
+}) {
+  const { t, lang } = useT();
+  const [draft, setDraft] = useState(String(value));
+  const [err, setErr] = useState<string | null>(null);
+
+  // Re-sync the draft only when the stored value actually changes (load / reset /
+  // account switch), never while the user is mid-edit.
+  useEffect(() => {
+    setDraft(String(value));
+    setErr(null);
+  }, [value]);
+
+  const isInt = (s: string) => /^\d+$/.test(s.trim());
+  const range = () =>
+    t("remRangeHint", { min: toLocaleDigits(min, lang), max: toLocaleDigits(max, lang) });
+
+  const onChange = (v: string) => {
+    setDraft(v);
+    if (!isInt(v)) {
+      setErr(range());
+      return;
+    }
+    const n = Number(v);
+    if (n < min || n > max) {
+      setErr(range());
+      return;
+    }
+    setErr(null);
+    onCommit(n);
+  };
+
+  const onBlur = () => {
+    const raw = draft.trim();
+    if (raw === "") {
+      // Empty → revert to the last committed value rather than forcing a number.
+      setDraft(String(value));
+      setErr(null);
+      return;
+    }
+    const n = Number(raw);
+    const clamped = Number.isFinite(n)
+      ? Math.min(max, Math.max(min, Math.round(n)))
+      : value;
+    setDraft(String(clamped));
+    setErr(null);
+    onCommit(clamped);
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+          {label} <span className="opacity-70">({unit})</span>
+        </span>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={3}
+          className={numField}
+          aria-label={`${label} (${unit})`}
+          aria-invalid={err ? true : undefined}
+          value={draft}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          style={err ? { ...border, borderColor: "var(--color-danger)" } : border}
+        />
+      </label>
+      {err && (
+        <span className="text-[11px] leading-tight" style={{ color: "var(--color-danger)" }}>
+          {err}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function RemindersSettings() {
   const { t, lang } = useT();
   const { notifPrefs: np, setNotifPrefs } = useStore();
@@ -327,6 +427,31 @@ export function RemindersSettings() {
         </div>
         <p className={helpCls} style={{ color: "var(--color-muted)" }}>
           {t("remAttendanceHelp")}
+        </p>
+      </div>
+
+      {/* 5) Lecture reminders (minutes before a class start) */}
+      <div className={rowCls} style={border}>
+        <div className="flex items-center justify-between gap-4">
+          <span className={titleCls} style={{ color: "var(--color-ink)" }}>
+            {t("remLecturesTitle")}
+          </span>
+          <Toggle
+            checked={np.lectures.enabled}
+            onChange={(v) => update({ lectures: { ...np.lectures, enabled: v } })}
+            label={t("remLecturesTitle")}
+          />
+        </div>
+        <SingleNumber
+          value={np.lectures.minutesBefore}
+          min={LECTURE_MINUTES_MIN}
+          max={LECTURE_MINUTES_MAX}
+          label={t("remLecturesMinLabel")}
+          unit={t("remMinutesUnit")}
+          onCommit={(minutesBefore) => update({ lectures: { ...np.lectures, minutesBefore } })}
+        />
+        <p className={helpCls} style={{ color: "var(--color-muted)" }}>
+          {t("remLecturesHelp")}
         </p>
       </div>
     </div>

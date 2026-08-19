@@ -530,6 +530,11 @@ export const en = {
   remAttendanceTitle: "Attendance alerts",
   remAttendanceHelp:
     "Alerts you as you approach the absence limit in any course. Timing isn't customizable — it's computed automatically.",
+  remLecturesTitle: "Lecture reminders",
+  remLecturesHelp:
+    "Reminder before your lecture starts, in your chosen minutes. Only fires on class days during the active semester.",
+  remLecturesMinLabel: "Remind me before",
+  remMinutesUnit: "minutes",
   remFirst: "First reminder",
   remSecond: "Second reminder",
   remDaysUnit: "days",

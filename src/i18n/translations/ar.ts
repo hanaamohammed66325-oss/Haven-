@@ -529,6 +529,11 @@ export const ar: Record<TranslationKey, string> = {
   remAttendanceTitle: "تنبيهات الغياب",
   remAttendanceHelp:
     "تنبيهك عند اقترابك من حد الغياب في أي مادة. لا يمكن تخصيص التوقيت — يُحسب تلقائياً.",
+  remLecturesTitle: "تذكيرات المحاضرات",
+  remLecturesHelp:
+    "تذكير قبل بدء المحاضرة بالدقائق اللي تحددها. التذكير يشتغل فقط أيام المحاضرات خلال الفصل الدراسي.",
+  remLecturesMinLabel: "التذكير قبل",
+  remMinutesUnit: "دقيقة",
   remFirst: "التذكير الأول",
   remSecond: "التذكير الثاني",
   remDaysUnit: "يوم",
