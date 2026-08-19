@@ -90,7 +90,9 @@ export function WhatIfCard() {
                 max="100"
                 value={v}
                 onChange={(e) => setSim((s) => ({ ...s, [c.id]: Number(e.target.value) }))}
-                className="flex-1 cursor-pointer"
+                // min-w-0 lets the range shrink below its intrinsic width so the
+                // trailing %/grade columns can't be pushed off the card on phones.
+                className="flex-1 min-w-0 cursor-pointer"
                 style={{ accentColor: "var(--color-primary)" }}
                 aria-label={c.name}
               />

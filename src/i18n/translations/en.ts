@@ -559,6 +559,10 @@ export const en = {
 
   sectionData: "Data",
 
+  // Contact us (Settings)
+  sectionContact: "Contact us",
+  contactIntro: "For any question or feedback, we're here to help.",
+
   // Themes
   sectionTheme: "Theme",
   themeSectionDesc: "Choose a look — it applies instantly across Haven.",

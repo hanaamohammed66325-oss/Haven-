@@ -558,6 +558,10 @@ export const ar: Record<TranslationKey, string> = {
 
   sectionData: "البيانات",
 
+  // Contact us (Settings)
+  sectionContact: "تواصل معنا",
+  contactIntro: "لأي سؤال أو ملاحظة، نحن هنا للمساعدة.",
+
   // Themes
   sectionTheme: "المظهر",
   themeSectionDesc: "اختَر مظهرًا — يُطبَّق فورًا في كل أنحاء Haven.",

@@ -16,6 +16,7 @@ import { useDeleteAccount } from "@/lib/useDeleteAccount";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useSubscription } from "@/lib/subscription";
 import { canUseTheme } from "@/lib/premium";
+import { SUPPORT_EMAIL, contactChannels } from "@/lib/contact";
 import type { CalendarType, ThemeId } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -303,6 +304,32 @@ export default function SettingsPage() {
               {t("resetData")}
             </button>
           </div>
+        </div>
+      </Section>
+
+      {/* Contact us — same channels as the /contact page (single source in
+          @/lib/contact). Email is live; WhatsApp/Instagram are placeholders. */}
+      <Section title={t("sectionContact")}>
+        <p className="text-[13px] mb-5 -mt-1" style={{ color: "var(--color-muted)" }}>
+          {t("contactIntro")}
+        </p>
+        <div className="flex flex-wrap gap-2.5">
+          {contactChannels.map((c) => {
+            const isEmail = c.label === "Email";
+            return (
+              <a
+                key={c.label}
+                href={c.href}
+                aria-label={c.label}
+                {...(isEmail ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+                className="inline-flex min-h-11 items-center gap-2.5 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:border-[var(--color-primary)] hover:text-[color:var(--color-primary)]"
+                style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
+              >
+                <span className="shrink-0">{c.svg}</span>
+                <span dir={isEmail ? "ltr" : undefined}>{isEmail ? SUPPORT_EMAIL : c.label}</span>
+              </a>
+            );
+          })}
         </div>
       </Section>
 

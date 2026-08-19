@@ -25,6 +25,7 @@ import type {
 import { DEFAULT_NOTIF_PREFS, normalizeNotifPrefs } from "@/lib/notifPrefs";
 import { demoCourses } from "@/lib/demo";
 import { supabase } from "@/lib/supabase";
+import { toISODate, addDays } from "@/lib/dates";
 import * as db from "@/lib/db";
 import type { Session } from "@supabase/supabase-js";
 
@@ -73,14 +74,25 @@ const THEME_IDS: ThemeId[] = [
   "mono",
 ];
 
+// A NEW / empty semester defaults its start date to "today" (the user's local
+// calendar day) instead of a hardcoded date, and its end date to a full default
+// term later so the two stay coherent. These are ONLY fallbacks for a fresh
+// semester — an existing semester with a saved start/end keeps its own values
+// (the load path below only reaches for these when a field is missing).
+const DEFAULT_TEACHING_WEEKS = 15;
+const DEFAULT_FINALS_WEEKS = 2;
+const defaultSemesterStart = new Date();
+
 const defaultSemester: Semester = {
   name: "Current Semester",
-  startDate: "2026-04-19",
-  endDate: "2026-08-09",
+  startDate: toISODate(defaultSemesterStart),
+  endDate: toISODate(
+    addDays(defaultSemesterStart, (DEFAULT_TEACHING_WEEKS + DEFAULT_FINALS_WEEKS) * 7)
+  ),
   calendarType: "gregorian",
   gradingSystem: "saudi5",
-  weeks: 15,
-  finalsWeeks: 2,
+  weeks: DEFAULT_TEACHING_WEEKS,
+  finalsWeeks: DEFAULT_FINALS_WEEKS,
   withdrawalLimit: 25,
 };
 
