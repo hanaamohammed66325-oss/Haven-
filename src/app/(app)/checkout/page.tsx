@@ -1,22 +1,65 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Sparkles, ShieldCheck } from "lucide-react";
+import Script from "next/script";
+import { Loader2, Sparkles, ShieldCheck, ChevronDown } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
+import { getSubscription } from "@/lib/db";
 import { useSubscription } from "@/lib/subscription";
 import { PLANS, DEFAULT_PLAN_CYCLE } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 // UI payments mode. 'mock' (default) shows the test banner and a simulated card
-// form; no real Moyasar SDK is loaded and no real charge happens. Flipping
-// NEXT_PUBLIC_PAYMENTS_MODE to 'live' (later) mounts the real Moyasar form.
+// form; no real Tap SDK is loaded and no real charge happens. Flipping
+// NEXT_PUBLIC_PAYMENTS_MODE to 'live' mounts the real Tap Card Web SDK below.
+// NOTE: this is a SEPARATE toggle from the Edge Functions' own server-side
+// PAYMENTS_MODE secret (Supabase) — both need to be 'live' for a real charge
+// flow to run end to end.
 const PAYMENTS_MODE = (process.env.NEXT_PUBLIC_PAYMENTS_MODE ?? "mock").toLowerCase();
 const IS_MOCK = PAYMENTS_MODE !== "live";
 
 const CREATE_SUBSCRIPTION_URL = `${SUPABASE_URL}/functions/v1/create-subscription`;
+
+// ---------------------------------------------------------------------------
+// Tap Card Web SDK v2 — confirmed against Tap's live docs
+// (https://developers.tap.company/docs/card-sdk-web-v2) on integration date.
+// Script exposes `window.CardSDK` with `renderTapCard(containerId, config)`,
+// which mounts Tap's own hosted card fields and returns `{ unmount }`.
+// Tokenization is triggered by calling `window.CardSDK.tokenize()`; the
+// result comes back via the `onSuccess`/`onError` callbacks passed at init —
+// NOT as a promise — so the actual subscribe flow has to live inside those
+// callbacks rather than a linear async function.
+// ---------------------------------------------------------------------------
+const TAP_SDK_SRC = "https://tap-sdks.b-cdn.net/card/1.0.2/index.js";
+const TAP_CONTAINER_ID = "tap-card-element";
+const TAP_PUBLIC_KEY = process.env.NEXT_PUBLIC_TAP_PUBLIC_KEY ?? "";
+// Tap's own convention: test keys are always prefixed pk_test_, live keys
+// pk_live_ — so the sandbox banner/test-card helper disappear automatically
+// once a real pk_live_ key is configured, with no code change needed.
+const IS_TAP_TEST_MODE = TAP_PUBLIC_KEY.startsWith("pk_test_");
+
+// Verified test cards (https://developers.tap.company/reference/testing-cards,
+// fetched live) — a non-3DS and a 3DS-triggering card per brand, so both
+// checkout paths can be exercised. Any future expiry date; CVV 100.
+const TEST_CARDS: { brand: string; number: string; threeDS: boolean }[] = [
+  { brand: "Visa", number: "4012 0000 3333 0026", threeDS: false },
+  { brand: "Visa", number: "4508 7500 1574 1019", threeDS: true },
+  { brand: "Mastercard", number: "5111 1111 1111 1118", threeDS: false },
+  { brand: "Mastercard", number: "5123 4500 0000 0008", threeDS: true },
+];
+
+// The plan cycle survives the full-page redirect to Tap's 3DS challenge (and
+// back) via sessionStorage — component state and the ?plan= query param are
+// both lost on that round trip otherwise.
+const PENDING_CYCLE_KEY = "haven_checkout_pending_cycle";
+
+// How long to keep polling for the subscription row to appear after a 3DS
+// return before showing "still verifying" instead of silently retrying forever.
+const VERIFY_POLL_ATTEMPTS = 10;
+const VERIFY_POLL_DELAY_MS = 2000;
 
 const fieldBase =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -35,8 +78,10 @@ function errorKeyFor(status: number, message: string): TranslationKey {
   return "checkoutErrGeneric";
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 function CheckoutInner() {
-  const { t } = useT();
+  const { t, lang, dir } = useT();
   usePageTitle("checkoutTitle");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,64 +103,253 @@ function CheckoutInner() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>("");
+  const [testCardsOpen, setTestCardsOpen] = useState(false);
+
+  // 3DS return-flow state: shown instead of the normal form while we confirm
+  // the subscription actually landed after the redirect back from Tap.
+  const [verifying, setVerifying] = useState(false);
+  const [verifyTimedOut, setVerifyTimedOut] = useState(false);
+  const [verifyAttempt, setVerifyAttempt] = useState(0);
+
+  // Tap SDK mount state.
+  const [tapScriptLoaded, setTapScriptLoaded] = useState(false);
+  const [tapReady, setTapReady] = useState(false);
+  const tapInitRef = useRef(false); // guards against a double init (StrictMode)
+  const tapUnmountRef = useRef<(() => void) | null>(null);
+
+  // ---- Shared "create the trial subscription" call, used by both mock and
+  // live paths once a token is in hand. ----
+  const completeSubscription = useCallback(
+    async (token: string) => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          setError(t("checkoutErrSession"));
+          setBusy(false);
+          return;
+        }
+
+        const res = await fetch(CREATE_SUBSCRIPTION_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ plan: cycle, token }),
+        });
+        const json = await res.json().catch(() => ({} as Record<string, unknown>));
+
+        // 3D Secure required: create-subscription returns 200 with
+        // requires_3ds instead of completing — no subscription row exists yet.
+        // Send the browser to Tap's hosted challenge; it redirects back here.
+        if (json?.requires_3ds && typeof json?.redirect_url === "string") {
+          try {
+            sessionStorage.setItem(PENDING_CYCLE_KEY, cycle);
+          } catch {
+            /* ignore */
+          }
+          window.location.href = json.redirect_url as string;
+          return;
+        }
+
+        if (!res.ok || !json?.ok) {
+          setError(t(errorKeyFor(res.status, String(json?.error ?? ""))));
+          setBusy(false);
+          return;
+        }
+
+        // Success — refresh access state now so premium UI is fresh on arrival
+        // (the profile page also refreshes as a fallback), then redirect.
+        await refresh();
+        router.push("/profile?subscribed=1");
+      } catch {
+        setError(t("checkoutErrGeneric"));
+        setBusy(false);
+      }
+    },
+    [cycle, refresh, router, t]
+  );
+
+  // ---- Tap SDK init (live mode only) ----
+  const initTapCard = useCallback(() => {
+    if (tapInitRef.current) return;
+    const CardSDK = (window as unknown as { CardSDK?: Record<string, unknown> }).CardSDK;
+    if (!CardSDK || typeof CardSDK.renderTapCard !== "function") return;
+    if (!document.getElementById(TAP_CONTAINER_ID)) return;
+    if (!TAP_PUBLIC_KEY) {
+      setError(t("checkoutErrGeneric"));
+      return;
+    }
+    tapInitRef.current = true;
+
+    const { renderTapCard, Currencies, Direction, Locale, Theme, Edges } = CardSDK as {
+      renderTapCard: (id: string, config: Record<string, unknown>) => { unmount: () => void };
+      Currencies: Record<string, unknown>;
+      Direction: Record<string, unknown>;
+      Locale: Record<string, unknown>;
+      Theme: Record<string, unknown>;
+      Edges: Record<string, unknown>;
+    };
+
+    try {
+      const { unmount } = renderTapCard(TAP_CONTAINER_ID, {
+        publicKey: TAP_PUBLIC_KEY,
+        // Matches the 1 SAR authorize-then-void amount create-subscription
+        // actually uses to save the card (see that function's comments) — NOT
+        // the plan's real price, since no money moves at this step either way.
+        transaction: { amount: 1, currency: Currencies.SAR },
+        interface: {
+          locale: lang === "ar" ? Locale.AR : Locale.EN,
+          direction: dir === "rtl" ? Direction.RTL : Direction.LTR,
+          theme: Theme.LIGHT,
+          edges: Edges.CURVED,
+        },
+        onReady: () => setTapReady(true),
+        onSuccess: (data: { id: string }) => {
+          void completeSubscription(data.id);
+        },
+        onError: () => {
+          setError(t("checkoutErrTokenize"));
+          setBusy(false);
+        },
+      });
+      tapUnmountRef.current = unmount;
+    } catch (e) {
+      console.error("Haven: failed to mount Tap card element", e);
+      tapInitRef.current = false;
+      setError(t("checkoutErrGeneric"));
+    }
+  }, [completeSubscription, dir, lang, t]);
+
+  useEffect(() => {
+    if (IS_MOCK || !tapScriptLoaded) return;
+    initTapCard();
+    return () => {
+      tapUnmountRef.current?.();
+      tapUnmountRef.current = null;
+      tapInitRef.current = false;
+      setTapReady(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tapScriptLoaded]);
+
+  // ---- 3DS return flow: ?tap_status=complete means the user is back from
+  // Tap's hosted challenge. Poll for the subscription row rather than assume
+  // success — create-subscription doesn't run again on this leg; only Tap's
+  // server-to-server webhook can complete it (see report for the gap this
+  // depends on). runVerification is a plain callback (not tied to the effect)
+  // so the manual "check again" retry button can re-run the exact same logic
+  // without any router-navigation trick to re-trigger an effect.
+  const verifyCancelledRef = useRef(false);
+
+  const runVerification = useCallback(async () => {
+    verifyCancelledRef.current = false;
+    setVerifying(true);
+    setVerifyTimedOut(false);
+
+    try {
+      const savedCycle = sessionStorage.getItem(PENDING_CYCLE_KEY);
+      if (savedCycle && planForCycle(savedCycle)) setCycle(savedCycle);
+    } catch {
+      /* ignore */
+    }
+
+    for (let attempt = 1; attempt <= VERIFY_POLL_ATTEMPTS; attempt++) {
+      if (verifyCancelledRef.current) return;
+      setVerifyAttempt(attempt);
+      try {
+        const sub = await getSubscription();
+        if (sub && (sub.status === "trial" || sub.status === "active")) {
+          try {
+            sessionStorage.removeItem(PENDING_CYCLE_KEY);
+          } catch {
+            /* ignore */
+          }
+          await refresh();
+          if (!verifyCancelledRef.current) router.push("/profile?subscribed=1");
+          return;
+        }
+      } catch {
+        /* transient read error — keep polling */
+      }
+      if (attempt < VERIFY_POLL_ATTEMPTS) await sleep(VERIFY_POLL_DELAY_MS);
+    }
+    if (!verifyCancelledRef.current) {
+      setVerifying(false);
+      setVerifyTimedOut(true);
+    }
+  }, [refresh, router]);
+
+  useEffect(() => {
+    if (searchParams.get("tap_status") !== "complete") return;
+    void runVerification();
+    return () => {
+      verifyCancelledRef.current = true;
+    };
+    // Runs once for the mount that arrives with this query param; the retry
+    // button re-invokes runVerification directly, so this intentionally
+    // doesn't depend on runVerification's own identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const onSubscribe = async () => {
     setError("");
     setBusy(true);
-    try {
-      // 1. Obtain the payment token.
-      let token: string;
-      if (IS_MOCK) {
-        // Mock: no gateway. A fake token stands in for Moyasar tokenization.
-        token = `tok_mock_${crypto.randomUUID()}`;
-      } else {
-        // LIVE (future): the real card token comes from Moyasar's tokenization
-        // callback (save_only flow) captured in #moyasar-form. Until the SDK is
-        // wired up there is no token to send.
-        // TODO(live): token = <token from Moyasar.init save_only callback>
-        setError(t("checkoutErrGeneric"));
-        setBusy(false);
-        return;
-      }
 
-      // 2. Authenticate: the create-subscription function needs the user's JWT.
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        setError(t("checkoutErrSession"));
-        setBusy(false);
-        return;
-      }
-
-      // 3. Create the trial subscription.
-      const res = await fetch(CREATE_SUBSCRIPTION_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ plan: cycle, token }),
-      });
-      const json = await res.json().catch(() => ({} as Record<string, unknown>));
-
-      if (!res.ok || !json?.ok) {
-        setError(t(errorKeyFor(res.status, String(json?.error ?? ""))));
-        setBusy(false);
-        return;
-      }
-
-      // 4. Success — refresh access state now so premium UI is fresh on arrival
-      // (the profile page also refreshes as a fallback), then redirect. refresh()
-      // never rejects, so the redirect always happens.
-      await refresh();
-      router.push("/profile?subscribed=1");
-    } catch {
-      setError(t("checkoutErrGeneric"));
-      setBusy(false);
+    if (IS_MOCK) {
+      // Mock: no gateway. A fake token stands in for Tap tokenization.
+      const token = `tok_mock_${crypto.randomUUID()}`;
+      await completeSubscription(token);
+      return;
     }
+
+    // Live: hand off to the Tap SDK. It validates the entered card fields and
+    // calls onSuccess/onError above; completeSubscription runs from there.
+    const CardSDK = (window as unknown as { CardSDK?: { tokenize?: () => void } }).CardSDK;
+    if (!tapReady || !CardSDK?.tokenize) {
+      setError(t("checkoutErrTokenize"));
+      setBusy(false);
+      return;
+    }
+    CardSDK.tokenize();
   };
+
+  // ---- 3DS verifying state — replaces the whole form while polling ----
+  if (verifying || verifyTimedOut) {
+    return (
+      <div className="haven-fade-in max-w-lg mx-auto text-center py-12">
+        <Card padding="p-8">
+          {verifying ? (
+            <>
+              <Loader2 size={28} className="animate-spin mx-auto mb-4" style={{ color: "var(--color-primary)" }} />
+              <p className="text-[15px] font-medium" style={{ color: "var(--color-ink)" }}>
+                {t("checkout3dsVerifying")}
+              </p>
+              <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
+                {t("checkout3dsVerifyingHint", { n: verifyAttempt, total: VERIFY_POLL_ATTEMPTS })}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[15px] font-medium" style={{ color: "var(--color-ink)" }}>
+                {t("checkout3dsTimeout")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void runVerification()}
+                className="haven-btn mt-5 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold"
+              >
+                {t("checkout3dsRetry")}
+              </button>
+            </>
+          )}
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="haven-fade-in max-w-lg mx-auto">
@@ -124,19 +358,28 @@ function CheckoutInner() {
         {t("checkoutTitle")}
       </h1>
 
-      {/* Test-mode banner (mock only) */}
-      {IS_MOCK && (
+      {/* Test-mode banners: the mock banner while NEXT_PUBLIC_PAYMENTS_MODE
+          isn't 'live', or the Tap sandbox banner once it is but Tap's own
+          public key is still a pk_test_ one. Neither shows once both are
+          switched to real live values. */}
+      {IS_MOCK ? (
         <div
           className="mt-5 rounded-xl px-4 py-3 text-[13px] font-medium"
-          style={{
-            background: "rgba(245, 158, 11, 0.12)",
-            color: "#92600a",
-            border: "1px solid rgba(245, 158, 11, 0.4)",
-          }}
+          style={{ background: "rgba(245, 158, 11, 0.12)", color: "#92600a", border: "1px solid rgba(245, 158, 11, 0.4)" }}
           role="status"
         >
           {t("checkoutMockBanner")}
         </div>
+      ) : (
+        IS_TAP_TEST_MODE && (
+          <div
+            className="mt-5 rounded-xl px-4 py-3 text-[13px] font-medium"
+            style={{ background: "rgba(245, 158, 11, 0.12)", color: "#92600a", border: "1px solid rgba(245, 158, 11, 0.4)" }}
+            role="status"
+          >
+            {t("checkoutTapTestBanner")}
+          </div>
+        )
       )}
 
       {/* Optional plan selector — only when the URL plan was missing/invalid */}
@@ -198,7 +441,7 @@ function CheckoutInner() {
       {/* Card form */}
       <Card padding="p-5" className="mt-5">
         {IS_MOCK ? (
-          // Simulated form: visually complete, accepts input, never calls Moyasar.
+          // Simulated form: visually complete, accepts input, never calls Tap.
           <div className="flex flex-col gap-3.5">
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
@@ -272,15 +515,44 @@ function CheckoutInner() {
             </p>
           </div>
         ) : (
-          // LIVE mode (future): the real Moyasar.js form mounts here. To enable:
-          //   1. Load the Moyasar SDK (script + CSS) when IS_MOCK is false.
-          //   2. Moyasar.init({ element: '#moyasar-form', amount, currency: 'SAR',
-          //        save_only: true, ...publishable_api_key, on_completed: cb }).
-          //   3. In on_completed, capture the returned card token and feed it to
-          //      onSubscribe() instead of the mock token above.
-          // Keep this the ONLY place that changes when going live.
-          // TODO(live): mount Moyasar here (save_only tokenization).
-          <div id="moyasar-form" />
+          <div className="flex flex-col gap-3">
+            {/* Tap mounts its own hosted card fields into this container. */}
+            <div id={TAP_CONTAINER_ID} className="min-h-[120px]" />
+            {!tapReady && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 size={20} className="animate-spin" style={{ color: "var(--color-muted)" }} />
+              </div>
+            )}
+
+            {IS_TAP_TEST_MODE && (
+              <details
+                className="mt-1 rounded-xl border p-3 text-xs"
+                style={{ borderColor: "var(--color-border)" }}
+                open={testCardsOpen}
+                onToggle={(e) => setTestCardsOpen(e.currentTarget.open)}
+              >
+                <summary className="cursor-pointer font-medium inline-flex items-center gap-1.5" style={{ color: "var(--color-muted)" }}>
+                  <ChevronDown size={13} className={testCardsOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+                  {t("checkoutTestCardsTitle")}
+                </summary>
+                <div className="mt-3 flex flex-col gap-1.5" dir="ltr">
+                  {TEST_CARDS.map((c) => (
+                    <div key={c.number} className="flex items-center justify-between gap-2">
+                      <span style={{ color: "var(--color-ink)" }}>
+                        {c.brand} — <span style={{ fontFamily: "monospace" }}>{c.number}</span>
+                      </span>
+                      <span style={{ color: "var(--color-muted)" }}>
+                        {c.threeDS ? t("checkoutTestCard3ds") : t("checkoutTestCardNo3ds")}
+                      </span>
+                    </div>
+                  ))}
+                  <span className="mt-1" style={{ color: "var(--color-muted)" }}>
+                    {t("checkoutTestCardsHint")}
+                  </span>
+                </div>
+              </details>
+            )}
+          </div>
         )}
       </Card>
 
@@ -295,7 +567,7 @@ function CheckoutInner() {
       <button
         type="button"
         onClick={onSubscribe}
-        disabled={busy}
+        disabled={busy || (!IS_MOCK && !tapReady)}
         className="haven-btn mt-5 w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
       >
         {busy ? (
@@ -319,6 +591,13 @@ function CheckoutInner() {
         <ShieldCheck size={14} />
         {t("premiumTrustFooter")}
       </p>
+
+      {/* Tap Card Web SDK — page-scoped only (not loaded globally), client-side
+          only. afterInteractive: this page is the ONLY consumer, and the card
+          form only needs to be interactive once the page itself already is. */}
+      {!IS_MOCK && (
+        <Script src={TAP_SDK_SRC} strategy="afterInteractive" onLoad={() => setTapScriptLoaded(true)} />
+      )}
     </div>
   );
 }

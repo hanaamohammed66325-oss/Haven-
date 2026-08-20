@@ -57,9 +57,11 @@ export const ar: Record<TranslationKey, string> = {
   premiumComingSoonTitle: "الاشتراك قريباً",
   premiumComingSoonBody: "قريباً — الدفع قيد التفعيل مع ميسر. سنعلن عند الجاهزية.",
   premiumHaveAccessNote: "لديك وصول كامل بالفعل",
-  // /checkout — تأكيد الاشتراك (Moyasar، وضع الاختبار حاليًا)
+  // /checkout — تأكيد الاشتراك (Tap Payments؛ وضع تجريبي عندما
+  // NEXT_PUBLIC_PAYMENTS_MODE ليست 'live')
   checkoutTitle: "تأكيد الاشتراك",
   checkoutMockBanner: "⚠️ وضع الاختبار — لن يتم أي دفع فعلي. هذا لأغراض التطوير فقط.",
+  checkoutTapTestBanner: "⚠️ وضع اختبار Tap — استخدمي بطاقة تجريبية، لن يتم أي خصم حقيقي.",
   checkoutPlanSummary: "خطتك",
   checkoutChoosePlan: "اختر خطة",
   checkoutFreeTrialLine:
@@ -70,12 +72,21 @@ export const ar: Record<TranslationKey, string> = {
   checkoutCardName: "اسم حامل البطاقة",
   checkoutCardNamePlaceholder: "الاسم على البطاقة",
   checkoutFieldsSimulated: "الحقول تجريبية في وضع الاختبار",
+  checkoutTestCardsTitle: "بطاقات تجريبية",
+  checkoutTestCardsHint: "أي تاريخ انتهاء مستقبلي؛ رمز التحقق ١٠٠.",
+  checkoutTestCard3ds: "يُفعّل التحقق ثلاثي الأبعاد",
+  checkoutTestCardNo3ds: "بدون تحقق ثلاثي الأبعاد",
   checkoutStartTrial: "ابدأ التجربة المجانية",
   checkoutProcessing: "جارٍ المعالجة…",
   checkoutErrActive: "لديك اشتراك نشط بالفعل.",
   checkoutErrIneligible: "هذا الحساب غير مؤهل لتجربة مجانية جديدة.",
   checkoutErrSession: "انتهت جلستك. يُرجى تسجيل الدخول من جديد.",
   checkoutErrGeneric: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+  checkoutErrTokenize: "تعذّرت معالجة بطاقتك. يُرجى التحقق من البيانات والمحاولة مرة أخرى.",
+  checkout3dsVerifying: "جارٍ التحقق من بطاقتك…",
+  checkout3dsVerifyingHint: "جارٍ الفحص {n} من {total} — قد يستغرق هذا لحظة.",
+  checkout3dsTimeout: "لا تزال بطاقتك قيد التحقق. قد يستغرق هذا وقتاً أطول أحياناً — تحقّقي مرة أخرى بعد قليل.",
+  checkout3dsRetry: "تحقّق مرة أخرى",
   trialActivated: "تم تفعيل تجربتك المجانية! تنتهي خلال ٣٠ يوم.",
   // /profile — قسم الاشتراك
   subscriptionTitle: "الاشتراك",

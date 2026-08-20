@@ -55,9 +55,11 @@ export const en = {
   premiumComingSoonTitle: "Subscribe coming soon",
   premiumComingSoonBody: "Coming soon — payment activation with Moyasar in progress. We'll announce when it's ready.",
   premiumHaveAccessNote: "You already have full access",
-  // /checkout — confirm subscription (Moyasar, mock mode for now)
+  // /checkout — confirm subscription (Tap Payments; mock mode when
+  // NEXT_PUBLIC_PAYMENTS_MODE isn't 'live')
   checkoutTitle: "Confirm subscription",
   checkoutMockBanner: "⚠️ Test mode — no real payment will be made. For development only.",
+  checkoutTapTestBanner: "⚠️ Tap test mode — use a test card, no real charge will occur.",
   checkoutPlanSummary: "Your plan",
   checkoutChoosePlan: "Choose a plan",
   checkoutFreeTrialLine:
@@ -68,12 +70,22 @@ export const en = {
   checkoutCardName: "Cardholder name",
   checkoutCardNamePlaceholder: "Name on card",
   checkoutFieldsSimulated: "Fields are simulated in test mode",
+  checkoutTestCardsTitle: "Test cards",
+  checkoutTestCardsHint: "Any future expiry date; CVV 100.",
+  checkoutTestCard3ds: "triggers 3D Secure",
+  checkoutTestCardNo3ds: "no 3D Secure",
   checkoutStartTrial: "Start free trial",
   checkoutProcessing: "Processing…",
   checkoutErrActive: "You already have an active subscription.",
   checkoutErrIneligible: "This account isn't eligible for a new free trial.",
   checkoutErrSession: "Your session has expired. Please sign in again.",
   checkoutErrGeneric: "Something went wrong. Please try again.",
+  checkoutErrTokenize: "We couldn't process your card. Please check the details and try again.",
+  checkout3dsVerifying: "Verifying your card…",
+  checkout3dsVerifyingHint: "Checking {n} of {total} — this can take a moment.",
+  checkout3dsTimeout:
+    "Your card is still being verified. This can occasionally take longer — check again in a moment.",
+  checkout3dsRetry: "Check again",
   trialActivated: "Your free trial is active! It ends in 30 days.",
   // /profile — subscription section
   subscriptionTitle: "Subscription",
