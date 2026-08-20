@@ -7,7 +7,6 @@ import { Loader2, Sparkles, ShieldCheck, ChevronDown } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
-import { getSubscription } from "@/lib/db";
 import { useSubscription } from "@/lib/subscription";
 import { PLANS, DEFAULT_PLAN_CYCLE } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -22,6 +21,7 @@ const PAYMENTS_MODE = (process.env.NEXT_PUBLIC_PAYMENTS_MODE ?? "mock").toLowerC
 const IS_MOCK = PAYMENTS_MODE !== "live";
 
 const CREATE_SUBSCRIPTION_URL = `${SUPABASE_URL}/functions/v1/create-subscription`;
+const TAP_CONFIRM_3DS_URL = `${SUPABASE_URL}/functions/v1/tap-confirm-3ds`;
 
 // ---------------------------------------------------------------------------
 // Tap Card Web SDK v2 — confirmed against Tap's live docs
@@ -51,14 +51,17 @@ const TEST_CARDS: { brand: string; number: string; threeDS: boolean }[] = [
   { brand: "Mastercard", number: "5123 4500 0000 0008", threeDS: true },
 ];
 
-// The plan cycle survives the full-page redirect to Tap's 3DS challenge (and
-// back) via sessionStorage — component state and the ?plan= query param are
-// both lost on that round trip otherwise.
+// The plan cycle and Tap's authorize_id both survive the full-page redirect
+// to Tap's 3DS challenge (and back) via sessionStorage — component state and
+// the ?plan= query param are both lost on that round trip otherwise, and
+// authorize_id is never in any URL param Tap sends back to us.
 const PENDING_CYCLE_KEY = "haven_checkout_pending_cycle";
+const PENDING_AUTHORIZE_ID_KEY = "haven_checkout_pending_authorize_id";
 
-// How long to keep polling for the subscription row to appear after a 3DS
-// return before showing "still verifying" instead of silently retrying forever.
-const VERIFY_POLL_ATTEMPTS = 10;
+// How many times to re-call tap-confirm-3ds while it still reports "pending"
+// before giving up silent retries and showing "still verifying" with a
+// manual "check again" button instead.
+const VERIFY_POLL_ATTEMPTS = 5;
 const VERIFY_POLL_DELAY_MS = 2000;
 
 const fieldBase =
@@ -107,8 +110,16 @@ function CheckoutInner() {
 
   // 3DS return-flow state: shown instead of the normal form while we confirm
   // the subscription actually landed after the redirect back from Tap.
+  // - verifying: tap-confirm-3ds call(s) in flight (including the silent
+  //   pending-status retry loop).
+  // - verifyTimedOut: still "pending" after all retries — recoverable via
+  //   the manual "check again" button (calls runVerification again).
+  // - verifyOutcome: a terminal, non-retriable-the-same-way result —
+  //   "declined" (card failed 3DS, offer to pick a different card/plan) or
+  //   "error" (request/network failure, offer a manual retry).
   const [verifying, setVerifying] = useState(false);
   const [verifyTimedOut, setVerifyTimedOut] = useState(false);
+  const [verifyOutcome, setVerifyOutcome] = useState<"declined" | "error" | null>(null);
   const [verifyAttempt, setVerifyAttempt] = useState(0);
 
   // Tap SDK mount state.
@@ -148,6 +159,9 @@ function CheckoutInner() {
         if (json?.requires_3ds && typeof json?.redirect_url === "string") {
           try {
             sessionStorage.setItem(PENDING_CYCLE_KEY, cycle);
+            if (typeof json.authorize_id === "string") {
+              sessionStorage.setItem(PENDING_AUTHORIZE_ID_KEY, json.authorize_id);
+            }
           } catch {
             /* ignore */
           }
@@ -249,51 +263,132 @@ function CheckoutInner() {
   }, [tapScriptLoaded]);
 
   // ---- 3DS return flow: ?tap_status=complete means the user is back from
-  // Tap's hosted challenge. Poll for the subscription row rather than assume
-  // success — create-subscription doesn't run again on this leg; only Tap's
-  // server-to-server webhook can complete it (see report for the gap this
-  // depends on). runVerification is a plain callback (not tied to the effect)
-  // so the manual "check again" retry button can re-run the exact same logic
+  // Tap's hosted challenge. create-subscription doesn't run again on this
+  // leg, so we call tap-confirm-3ds directly with the authorize_id saved
+  // before the redirect — it confirms the authorization with Tap and
+  // finalizes the trial subscription synchronously, instead of waiting on
+  // Tap's server-to-server webhook (which can only UPDATE an existing
+  // subscription row and so never completes a first-time signup on its own).
+  // runVerification is a plain callback (not tied to the effect) so the
+  // manual "check again" retry button can re-run the exact same logic
   // without any router-navigation trick to re-trigger an effect.
   const verifyCancelledRef = useRef(false);
+
+  // Strips ?tap_status=complete from the URL (keeping any other params, e.g.
+  // ?plan=) so a refresh after this page has already handled the return
+  // doesn't re-trigger the effect below and start verification over.
+  const clearTapStatusParam = useCallback(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has("tap_status")) return;
+      params.delete("tap_status");
+      const qs = params.toString();
+      router.replace(qs ? `/checkout?${qs}` : "/checkout");
+    } catch {
+      /* ignore */
+    }
+  }, [router]);
 
   const runVerification = useCallback(async () => {
     verifyCancelledRef.current = false;
     setVerifying(true);
     setVerifyTimedOut(false);
+    setVerifyOutcome(null);
 
+    // Reached a terminal (non-success) state: commit the UI state first,
+    // THEN clean the URL. clearTapStatusParam() changes searchParams, which
+    // re-fires the effect below and its cleanup (setting verifyCancelledRef
+    // = true) — doing the state commit first means that race can't swallow
+    // the outcome we just decided.
+    const finish = (outcome: "declined" | "error" | "timeout") => {
+      if (verifyCancelledRef.current) return;
+      setVerifying(false);
+      if (outcome === "timeout") setVerifyTimedOut(true);
+      else setVerifyOutcome(outcome);
+      clearTapStatusParam();
+    };
+
+    let authorizeId: string | null = null;
     try {
       const savedCycle = sessionStorage.getItem(PENDING_CYCLE_KEY);
       if (savedCycle && planForCycle(savedCycle)) setCycle(savedCycle);
+      authorizeId = sessionStorage.getItem(PENDING_AUTHORIZE_ID_KEY);
     } catch {
       /* ignore */
+    }
+
+    const clearPending = () => {
+      try {
+        sessionStorage.removeItem(PENDING_CYCLE_KEY);
+        sessionStorage.removeItem(PENDING_AUTHORIZE_ID_KEY);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    // No authorize_id survived the round trip (cleared storage, a different
+    // tab, or a stale link) — there's nothing to confirm.
+    if (!authorizeId) {
+      finish("error");
+      return;
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      finish("error");
+      return;
     }
 
     for (let attempt = 1; attempt <= VERIFY_POLL_ATTEMPTS; attempt++) {
       if (verifyCancelledRef.current) return;
       setVerifyAttempt(attempt);
+
+      let json: Record<string, unknown> = {};
       try {
-        const sub = await getSubscription();
-        if (sub && (sub.status === "trial" || sub.status === "active")) {
-          try {
-            sessionStorage.removeItem(PENDING_CYCLE_KEY);
-          } catch {
-            /* ignore */
-          }
-          await refresh();
-          if (!verifyCancelledRef.current) router.push("/profile?subscribed=1");
+        const res = await fetch(TAP_CONFIRM_3DS_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ authorize_id: authorizeId }),
+        });
+        json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.ok || json.error) {
+          finish("error");
           return;
         }
       } catch {
-        /* transient read error — keep polling */
+        // Network/fetch failure — surface immediately with a manual retry
+        // rather than silently looping on an unreachable endpoint.
+        finish("error");
+        return;
       }
+
+      if (json.status === "trial" || json.already_finalized) {
+        clearPending();
+        await refresh();
+        if (!verifyCancelledRef.current) {
+          clearTapStatusParam();
+          router.push("/profile?subscribed=1");
+        }
+        return;
+      }
+
+      if (json.status === "failed") {
+        clearPending();
+        finish("declined");
+        return;
+      }
+
+      // status === "pending" — Tap hasn't finished settling yet; retry.
       if (attempt < VERIFY_POLL_ATTEMPTS) await sleep(VERIFY_POLL_DELAY_MS);
     }
-    if (!verifyCancelledRef.current) {
-      setVerifying(false);
-      setVerifyTimedOut(true);
-    }
-  }, [refresh, router]);
+    finish("timeout");
+  }, [clearTapStatusParam, refresh, router]);
 
   useEffect(() => {
     if (searchParams.get("tap_status") !== "complete") return;
@@ -329,8 +424,16 @@ function CheckoutInner() {
     CardSDK.tokenize();
   };
 
-  // ---- 3DS verifying state — replaces the whole form while polling ----
-  if (verifying || verifyTimedOut) {
+  // Declined card: not retriable with the same authorize_id, so send the
+  // user back to a clean plan-selection state (strips ?plan= and ?tap_status
+  // both) rather than offering "check again".
+  const backToPlanSelection = () => {
+    setVerifyOutcome(null);
+    router.replace("/checkout");
+  };
+
+  // ---- 3DS return-flow states — replace the whole form while resolving ----
+  if (verifying || verifyTimedOut || verifyOutcome) {
     return (
       <div className="haven-fade-in max-w-lg mx-auto text-center py-12">
         <Card padding="p-8">
@@ -344,10 +447,36 @@ function CheckoutInner() {
                 {t("checkout3dsVerifyingHint", { n: verifyAttempt, total: VERIFY_POLL_ATTEMPTS })}
               </p>
             </>
-          ) : (
+          ) : verifyTimedOut ? (
             <>
               <p className="text-[15px] font-medium" style={{ color: "var(--color-ink)" }}>
                 {t("checkout3dsTimeout")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void runVerification()}
+                className="haven-btn mt-5 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold"
+              >
+                {t("checkout3dsRetry")}
+              </button>
+            </>
+          ) : verifyOutcome === "declined" ? (
+            <>
+              <p className="text-[15px] font-medium" style={{ color: "var(--color-danger)" }}>
+                {t("checkout3dsDeclined")}
+              </p>
+              <button
+                type="button"
+                onClick={backToPlanSelection}
+                className="haven-btn mt-5 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold"
+              >
+                {t("checkout3dsBackToPlans")}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-[15px] font-medium" style={{ color: "var(--color-danger)" }}>
+                {t("checkout3dsError")}
               </p>
               <button
                 type="button"

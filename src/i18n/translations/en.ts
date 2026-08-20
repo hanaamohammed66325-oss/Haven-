@@ -86,6 +86,9 @@ export const en = {
   checkout3dsTimeout:
     "Your card is still being verified. This can occasionally take longer — check again in a moment.",
   checkout3dsRetry: "Check again",
+  checkout3dsDeclined: "Your card was declined. Please try a different card.",
+  checkout3dsError: "Something went wrong while confirming your subscription. Please try again.",
+  checkout3dsBackToPlans: "Back to plan selection",
   trialActivated: "Your free trial is active! It ends in 30 days.",
   // /profile — subscription section
   subscriptionTitle: "Subscription",

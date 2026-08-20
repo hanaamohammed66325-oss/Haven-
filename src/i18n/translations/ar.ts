@@ -87,6 +87,9 @@ export const ar: Record<TranslationKey, string> = {
   checkout3dsVerifyingHint: "جارٍ الفحص {n} من {total} — قد يستغرق هذا لحظة.",
   checkout3dsTimeout: "لا تزال بطاقتك قيد التحقق. قد يستغرق هذا وقتاً أطول أحياناً — تحقّقي مرة أخرى بعد قليل.",
   checkout3dsRetry: "تحقّق مرة أخرى",
+  checkout3dsDeclined: "تم رفض بطاقتك. يُرجى تجربة بطاقة أخرى.",
+  checkout3dsError: "حدث خطأ أثناء تأكيد اشتراكك. يُرجى المحاولة مرة أخرى.",
+  checkout3dsBackToPlans: "العودة إلى اختيار الخطة",
   trialActivated: "تم تفعيل تجربتك المجانية! تنتهي خلال ٣٠ يوم.",
   // /profile — قسم الاشتراك
   subscriptionTitle: "الاشتراك",
