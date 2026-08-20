@@ -201,6 +201,18 @@ function CheckoutInner() {
         // actually uses to save the card (see that function's comments) — NOT
         // the plan's real price, since no money moves at this step either way.
         transaction: { amount: 1, currency: Currencies.SAR },
+        // Tap's docs list `addons`/`fields` as optional, but the SDK's own
+        // bundle reads addons.loader and fields.cardHolder without guarding
+        // an absent object — omitting either throws "Cannot read properties
+        // of undefined" from inside index.js (confirmed by reproducing both
+        // live against the real SDK bundle: addons.loader threw and stopped
+        // the widget from rendering at all; fields.cardHolder threw but
+        // non-fatally). Passing both explicitly eliminates all of it. saveCard
+        // is off (our backend always saves the card server-side — see
+        // create-subscription — so an extra "save this card" checkbox in the
+        // widget would just be confusing/redundant).
+        addons: { loader: true, saveCard: false, displayPaymentBrands: true },
+        fields: { cardHolder: true },
         interface: {
           locale: lang === "ar" ? Locale.AR : Locale.EN,
           direction: dir === "rtl" ? Direction.RTL : Direction.LTR,
