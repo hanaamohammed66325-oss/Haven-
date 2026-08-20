@@ -144,6 +144,7 @@ self.addEventListener("message", (event) => {
 // /icon-192.png — inspected the folder rather than assuming the root path.
 
 self.addEventListener('push', (event) => {
+  console.log('[sw] push event received', event.data ? event.data.text() : '(no data)');
   let data = { title: 'Haven', body: '', url: '/', id: undefined };
   try {
     if (event.data) {

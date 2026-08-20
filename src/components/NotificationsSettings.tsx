@@ -72,6 +72,151 @@ function isStandalone(): boolean {
   );
 }
 
+// ---------------------------------------------------------------------------
+// TEMPORARY diagnostic block — shows the live browser push subscription and SW
+// state for comparison against the stored push_subscriptions row. Rendered ONLY
+// when the URL carries ?debug=1, so it never clutters the normal UI. It is
+// strictly READ-ONLY: it calls getSubscription()/getRegistration()/matchMedia
+// and never subscribes, resubscribes, or writes to the database. Delete this
+// component (and its <DebugInfo /> use below) when the push investigation ends.
+// ---------------------------------------------------------------------------
+interface DebugData {
+  standalone: boolean;
+  iosStandalone: boolean;
+  swSupported: boolean;
+  scriptURL: string | null;
+  installing: string | null;
+  waiting: string | null;
+  active: string | null;
+  endpoint: string | null;
+  note: string;
+}
+
+function DebugInfo() {
+  const [show, setShow] = useState(false);
+  const [data, setData] = useState<DebugData | null>(null);
+
+  // Gate on ?debug=1. Read window.location directly (not useSearchParams) to
+  // stay static-export friendly without a Suspense boundary.
+  useEffect(() => {
+    try {
+      setShow(new URLSearchParams(window.location.search).get("debug") === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!show) return;
+    let cancelled = false;
+    (async () => {
+      const out: DebugData = {
+        standalone: window.matchMedia?.("(display-mode: standalone)").matches === true,
+        iosStandalone:
+          (navigator as Navigator & { standalone?: boolean }).standalone === true,
+        swSupported: "serviceWorker" in navigator,
+        scriptURL: null,
+        installing: null,
+        waiting: null,
+        active: null,
+        endpoint: null,
+        note: "",
+      };
+      if (!out.swSupported) {
+        out.note = "serviceWorker API not available";
+        if (!cancelled) setData(out);
+        return;
+      }
+      try {
+        // navigator.serviceWorker.ready never resolves when no worker is active
+        // (e.g. dev, where registration is skipped) — race it with a timeout and
+        // fall back to getRegistration() so this block can't hang.
+        const readyReg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<null>((res) => window.setTimeout(() => res(null), 3000)),
+        ]);
+        const reg = readyReg ?? (await navigator.serviceWorker.getRegistration()) ?? null;
+        if (!reg) {
+          out.note = "no service worker registration (ready timed out)";
+          if (!cancelled) setData(out);
+          return;
+        }
+        const worker = reg.active ?? reg.waiting ?? reg.installing;
+        out.scriptURL = worker?.scriptURL ?? null;
+        out.installing = reg.installing?.state ?? null;
+        out.waiting = reg.waiting?.state ?? null;
+        out.active = reg.active?.state ?? null;
+        // READ-ONLY: getSubscription() returns the existing subscription or null;
+        // it NEVER creates one or writes anything.
+        const sub = await reg.pushManager.getSubscription();
+        out.endpoint = sub?.endpoint ?? null;
+      } catch (e) {
+        out.note = "error reading SW/subscription: " + (e instanceof Error ? e.message : String(e));
+      }
+      if (!cancelled) setData(out);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [show]);
+
+  if (!show) return null;
+
+  const row = (label: string, value: string) => (
+    <div>
+      <span style={{ color: "var(--color-muted)" }}>{label}: </span>
+      <span style={{ userSelect: "all", wordBreak: "break-all" }}>{value}</span>
+    </div>
+  );
+
+  return (
+    <details
+      className="mt-6 rounded-xl border p-3 text-xs"
+      style={{ borderColor: "var(--color-border)" }}
+    >
+      <summary className="cursor-pointer font-medium" style={{ color: "var(--color-muted)" }}>
+        Debug info (push)
+      </summary>
+      <div className="mt-3 flex flex-col gap-2" style={{ color: "var(--color-ink)" }}>
+        {row("standalone (matchMedia)", data ? String(data.standalone) : "…")}
+        {row("navigator.standalone", data ? String(data.iosStandalone) : "…")}
+        {row("SW scriptURL", data?.scriptURL ?? (data ? "—" : "…"))}
+        {row(
+          "SW states",
+          data
+            ? `installing=${data.installing ?? "—"} · waiting=${data.waiting ?? "—"} · active=${data.active ?? "—"}`
+            : "…"
+        )}
+        <div>
+          <span style={{ color: "var(--color-muted)" }}>push endpoint:</span>
+          {data == null ? (
+            <span> …</span>
+          ) : data.endpoint ? (
+            <textarea
+              readOnly
+              value={data.endpoint}
+              onFocus={(e) => e.currentTarget.select()}
+              rows={3}
+              className="mt-1 w-full rounded-lg border p-2"
+              style={{
+                borderColor: "var(--color-border)",
+                background: "var(--color-surface)",
+                color: "var(--color-ink)",
+                fontFamily: "monospace",
+                fontSize: "11px",
+                resize: "vertical",
+              }}
+            />
+          ) : (
+            <span> no subscription</span>
+          )}
+        </div>
+        {data?.note && <div style={{ color: "var(--color-danger)" }}>{data.note}</div>}
+      </div>
+    </details>
+  );
+}
+
 export function NotificationsSettings() {
   const { t, lang } = useT();
   const [state, setState] = useState<NotifState>("checking");
@@ -434,6 +579,9 @@ export function NotificationsSettings() {
           {error}
         </p>
       )}
+
+      {/* TEMPORARY: hidden push diagnostics — only renders with ?debug=1 */}
+      <DebugInfo />
     </div>
   );
 }
