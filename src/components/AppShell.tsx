@@ -9,6 +9,7 @@ import { Logo } from "./Logo";
 import { ReminderToast } from "./ReminderToast";
 import { TrialBanner } from "./TrialBanner";
 import { useT } from "@/i18n";
+import { runPushAutoHeal } from "@/lib/pushHealthCheck";
 
 const STORAGE_KEY = "haven-sidebar-collapsed";
 
@@ -27,6 +28,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+  }, []);
+
+  // Silently re-validate/repair this device's push subscription once per app
+  // session (AppShell only mounts for a signed-in user and stays mounted
+  // across route changes within the app, so this empty-deps effect already
+  // fires once per launch; pushHealthCheck adds its own multi-hour throttle
+  // on top as a defensive backstop). Fire-and-forget — never blocks render,
+  // never prompts, and is a no-op for anyone who hasn't enabled notifications.
+  useEffect(() => {
+    void runPushAutoHeal();
   }, []);
 
   // Close the drawer whenever the route changes, so tapping a nav item both

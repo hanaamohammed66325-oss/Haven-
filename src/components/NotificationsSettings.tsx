@@ -16,6 +16,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useT } from "@/i18n";
+import {
+  PUSH_ENABLED_KEY,
+  urlBase64ToUint8Array,
+  mirrorSubscription,
+  reconcilePushSubscription,
+} from "@/lib/pushHealthCheck";
 
 // Inlined at build time by Next for NEXT_PUBLIC_* vars. Missing → treated as
 // "unsupported" (state A) with a clear console error, never a crash.
@@ -33,27 +39,6 @@ type NotifState =
 // Sentinel returned by the health check when a transient error means we should
 // NOT change what the user is seeing (never flip a working device down to D).
 const KEEP = "keep" as const;
-
-/** base64url VAPID key → Uint8Array for applicationServerKey. */
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(base64);
-  // Back it with a concrete ArrayBuffer so it satisfies BufferSource
-  // (applicationServerKey) under the newer ArrayBufferLike typings.
-  const arr = new Uint8Array(new ArrayBuffer(raw.length));
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-  return arr;
-}
-
-/** ArrayBuffer subscription key → base64url string for storage. */
-function arrayBufferToBase64Url(buf: ArrayBuffer | null): string {
-  if (!buf) return "";
-  const bytes = new Uint8Array(buf);
-  let str = "";
-  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
-  return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
 
 /** True on iPhone/iPad, including iPadOS desktop-mode (reports as a Mac). */
 function isAppleMobile(): boolean {
@@ -123,7 +108,11 @@ export function NotificationsSettings() {
     // The stored row can silently outlive the real subscription (Apple accepts
     // sends with 2xx but delivers nothing after a silent revoke). So we trust
     // the BROWSER's live subscription as the source of truth and reconcile the
-    // DB mirror to it, rather than trusting a possibly-dead stored row.
+    // DB mirror to it, rather than trusting a possibly-dead stored row. This is
+    // the same reconciliation the silent auto-heal runs on every app open (see
+    // @/lib/pushHealthCheck) — allowResubscribe:false here because a Settings
+    // visit should show the Enable button rather than silently act for the
+    // user; last_seen_at is bumped as part of the "already known" branch.
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
 
@@ -131,77 +120,16 @@ export function NotificationsSettings() {
     // Defensive: logged out (AuthGuard should prevent this) — don't render.
     if (!userId) return "hidden";
 
-    // (5) Browser has NO active subscription. Every stored row is therefore
-    // stale (nothing in this browser can match it) — purge them all and send
-    // the user to Enable (D). D is the truthful state here regardless of
-    // whether the purge succeeds, so a transient DB error doesn't change it.
-    if (!sub) {
-      try {
-        const { data, error } = await supabase
-          .from("push_subscriptions")
-          .select("endpoint")
-          .eq("user_id", userId);
-        if (error) throw new Error(error.message);
-        if ((data?.length ?? 0) > 0) {
-          const { error: delErr } = await supabase
-            .from("push_subscriptions")
-            .delete()
-            .eq("user_id", userId);
-          if (delErr) throw new Error(delErr.message);
-        }
-      } catch (e) {
-        console.warn("Haven: failed to purge stale push subscriptions", e);
-      }
-      return "enable";
-    }
-
-    // (6) Browser HAS a subscription. Reconcile it against the DB.
-    try {
-      const { data, error } = await supabase
-        .from("push_subscriptions")
-        .select("endpoint")
-        .eq("user_id", userId);
-      if (error) throw new Error(error.message);
-
-      // Full-string endpoint compare (endpoints can be >200 chars).
-      const known = (data ?? []).some((r) => r.endpoint === sub.endpoint);
-      if (known) return "on";
-
-      // Orphaned browser subscription (endpoint rotated, or never stored):
-      // adopt it with the same upsert as Enable, keeping ONLY this endpoint.
-      const p256dh = arrayBufferToBase64Url(sub.getKey("p256dh"));
-      const auth = arrayBufferToBase64Url(sub.getKey("auth"));
-      const { error: pruneErr } = await supabase
-        .from("push_subscriptions")
-        .delete()
-        .eq("user_id", userId)
-        .neq("endpoint", sub.endpoint);
-      if (pruneErr) throw new Error(pruneErr.message);
-      const { error: upErr } = await supabase.from("push_subscriptions").upsert(
-        {
-          user_id: userId,
-          endpoint: sub.endpoint,
-          p256dh,
-          auth,
-          user_agent: navigator.userAgent.slice(0, 500),
-          last_seen_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,endpoint" }
-      );
-      if (upErr) throw new Error(upErr.message);
-      return "on";
-    } catch (e) {
-      // Transient DB failure on a device that DOES have a live subscription:
-      // keep the last-known state, never drop to Enable (D). Retries next mount.
-      console.warn(
-        "Haven: push subscription health check failed — keeping last state",
-        e
-      );
+    const result = await reconcilePushSubscription(userId, reg, sub, { allowResubscribe: false });
+    if (!result.ok) {
+      // Transient failure: keep the last-known state, never drop to Enable
+      // (D). Retries next mount.
       return KEEP;
     }
+    return result.subscribed ? "on" : "enable";
   }, [uid]);
 
-  // Initial detection + silent last_seen_at refresh when already subscribed.
+  // Initial detection on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -211,30 +139,11 @@ export function NotificationsSettings() {
       // state untouched (don't flash the user down to Enable). Every other
       // result is a real state to render.
       if (next !== KEEP) setState(next);
-
-      // (7) On Settings mount, if this device is subscribed, bump last_seen_at
-      // on the current row. Fire-and-forget; errors ignored.
-      if (next === "on") {
-        try {
-          const userId = await uid();
-          const reg = await navigator.serviceWorker.ready;
-          const sub = await reg.pushManager.getSubscription();
-          if (userId && sub) {
-            await supabase
-              .from("push_subscriptions")
-              .update({ last_seen_at: new Date().toISOString() })
-              .eq("user_id", userId)
-              .eq("endpoint", sub.endpoint);
-          }
-        } catch {
-          /* silent — a stale last_seen_at is harmless */
-        }
-      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [detect, uid]);
+  }, [detect]);
 
   const enable = useCallback(async () => {
     setError("");
@@ -253,41 +162,29 @@ export function NotificationsSettings() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY as string),
       });
 
-      const p256dh = arrayBufferToBase64Url(sub.getKey("p256dh"));
-      const auth = arrayBufferToBase64Url(sub.getKey("auth"));
       const userId = await uid();
-
-      // Only ever keep the CURRENT browser's subscription per user. On Apple a
-      // revoke+recreate changes the endpoint, so old rows accumulate and go
-      // dead — prune every other endpoint before mirroring the new one.
-      if (userId) {
-        const { error: pruneErr } = await supabase
-          .from("push_subscriptions")
-          .delete()
-          .eq("user_id", userId)
-          .neq("endpoint", sub.endpoint);
-        if (pruneErr) {
-          console.warn("Haven: failed to prune stale push subscriptions", pruneErr);
-        }
+      if (!userId) {
+        await sub.unsubscribe().catch(() => {});
+        setError(t("notifError"));
+        return;
       }
 
-      const { error: dbError } = await supabase.from("push_subscriptions").upsert(
-        {
-          user_id: userId,
-          endpoint: sub.endpoint,
-          p256dh,
-          auth,
-          user_agent: navigator.userAgent.slice(0, 500),
-          last_seen_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,endpoint" }
-      );
-
-      if (dbError) {
+      // Prune every other endpoint for this user and mirror this one — the
+      // same helper the silent auto-heal uses (@/lib/pushHealthCheck), so the
+      // DB write can never drift between the two call sites.
+      const mirrored = await mirrorSubscription(userId, sub);
+      if (!mirrored.ok) {
         // Roll back the browser subscription so the two sides never disagree.
         await sub.unsubscribe().catch(() => {});
         setError(t("notifError"));
         return;
+      }
+      // Record that THIS device opted in, so the silent auto-heal (run on
+      // every app open) knows it's safe to self-heal a future silent revoke.
+      try {
+        localStorage.setItem(PUSH_ENABLED_KEY, "1");
+      } catch {
+        /* ignore */
       }
       setState("on");
     } catch (e) {
@@ -314,6 +211,13 @@ export function NotificationsSettings() {
           .eq("user_id", userId as string)
           .eq("endpoint", endpoint);
         if (dbError) throw new Error(dbError.message);
+      }
+      // Explicit opt-out: the silent auto-heal must never resubscribe this
+      // device on its own after the user turned notifications off here.
+      try {
+        localStorage.setItem(PUSH_ENABLED_KEY, "0");
+      } catch {
+        /* ignore */
       }
       setState("enable");
     } catch (e) {
