@@ -7,6 +7,7 @@ import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { TimeField } from "./TimeField";
 import { addDays, formatShortDate, formatTime, hijriParts, toISODate } from "@/lib/dates";
+import { weeksFromDates } from "@/lib/grades";
 import { REMINDER_TAGS } from "@/lib/reminders";
 import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -135,8 +136,12 @@ export function Planner() {
   const [activeWeek, setActiveWeek] = useState(0);
   const [activeDay, setActiveDay] = useState<number | null>(null); // null = whole week
 
-  // Week cards = teaching weeks + finals weeks (from settings), date range from start date.
-  const weekCount = Math.max(1, Math.min(40, Math.round((Number(semester.weeks) || 0) + (Number(semester.finalsWeeks) || 0)) || 1));
+  // Week cards = the actual start/end date range, so the count always matches
+  // what the user set in Settings and updates immediately when either date
+  // changes — not the separately-stored weeks/finalsWeeks settings (those
+  // still drive attendance math and the Settings hint text, but are an
+  // independent, manually-set field that can drift from the real date span).
+  const weekCount = Math.max(1, Math.min(40, weeksFromDates(semester)));
 
   const weeks = useMemo<Week[]>(() => {
     const start = new Date(semester.startDate);

@@ -15,6 +15,7 @@
 // ---------------------------------------------------------------------------
 
 import { supabase } from "./supabase";
+import { toISODate } from "./dates";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
 
 /** Resolve the current user's id (required on every insert by RLS). */
@@ -115,6 +116,8 @@ export interface DbSemester {
   name: string;
   weeks: number; // teaching_weeks
   finalsWeeks: number; // finals_weeks
+  startDate: string | null; // start_date
+  endDate: string | null; // end_date
 }
 
 export interface DbCourse {
@@ -134,12 +137,18 @@ const mapSemester = (row: {
   name: string;
   teaching_weeks: number;
   finals_weeks: number;
+  start_date: string | null;
+  end_date: string | null;
 }): DbSemester => ({
   id: row.id,
   name: row.name,
   weeks: row.teaching_weeks,
   finalsWeeks: row.finals_weeks,
+  startDate: row.start_date,
+  endDate: row.end_date,
 });
+
+const SEMESTER_COLS = "id, name, teaching_weeks, finals_weeks, start_date, end_date";
 
 /** The current user's active semester, or null if none exists yet.
  *  ALWAYS scoped to the current auth user — a semester is never resolved for
@@ -148,13 +157,25 @@ export async function getActiveSemester(): Promise<DbSemester | null> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("semesters")
-    .select("id, name, teaching_weeks, finals_weeks")
+    .select(SEMESTER_COLS)
     .eq("user_id", userId)
     .eq("is_active", true)
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapSemester(data) : null;
+}
+
+/** Today + a total term length (weeks), as a start/end ISO pair. Used ONLY to
+ *  seed a brand-new semester row's dates at creation, and to backfill a
+ *  pre-existing row that has neither date set — never to override a semester
+ *  that already has a real saved date. */
+function defaultDateRange(teachingWeeks: number, finalsWeeks: number): { startDate: string; endDate: string } {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const totalWeeks = Math.max(1, teachingWeeks + finalsWeeks);
+  const end = new Date(+start + totalWeeks * 7 * 864e5);
+  return { startDate: toISODate(start), endDate: toISODate(end) };
 }
 
 /** The owner (user_id) of a semester row, or null if it can't be read. Used to
@@ -172,6 +193,18 @@ async function semesterOwnerId(semesterId: string): Promise<string | null> {
 /**
  * Return the active semester, creating one if the user has none yet.
  * `settings` (the app's semester settings) seeds the new row's week counts.
+ *
+ * "Default start date = today" is applied HERE, at most once, and persisted
+ * immediately — never as a client-side fallback recomputed on every load
+ * (which would silently show a DIFFERENT "today" each day for anyone who
+ * hasn't set a real date yet, and could look like an existing date being
+ * reset). Two cases:
+ *   - No row yet (first-ever load for this user): the new row is created
+ *     WITH today's date + a default term already set.
+ *   - A row exists but was created before dates were seeded (both columns
+ *     still null): backfilled once, here, and never touched again once set.
+ * A semester with ANY real saved date (from either path) is always returned
+ * as-is — this function never overwrites one.
  */
 export async function ensureActiveSemester(settings?: {
   name?: string;
@@ -179,19 +212,31 @@ export async function ensureActiveSemester(settings?: {
   finalsWeeks?: number;
 }): Promise<DbSemester> {
   const existing = await getActiveSemester();
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.startDate && !existing.endDate) {
+      const range = defaultDateRange(existing.weeks, existing.finalsWeeks);
+      await updateSemester(existing.id, range);
+      return { ...existing, startDate: range.startDate, endDate: range.endDate };
+    }
+    return existing;
+  }
 
   const userId = await currentUserId();
+  const teachingWeeks = settings?.weeks ?? 13;
+  const finalsWeeks = settings?.finalsWeeks ?? 2;
+  const range = defaultDateRange(teachingWeeks, finalsWeeks);
   const { data, error } = await supabase
     .from("semesters")
     .insert({
       user_id: userId,
       name: settings?.name?.trim() || "Current semester",
-      teaching_weeks: settings?.weeks ?? 13,
-      finals_weeks: settings?.finalsWeeks ?? 2,
+      teaching_weeks: teachingWeeks,
+      finals_weeks: finalsWeeks,
       is_active: true,
+      start_date: range.startDate,
+      end_date: range.endDate,
     })
-    .select("id, name, teaching_weeks, finals_weeks")
+    .select(SEMESTER_COLS)
     .single();
   if (error) throw new Error(error.message);
   return mapSemester(data);

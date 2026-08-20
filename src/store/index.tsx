@@ -75,11 +75,12 @@ const THEME_IDS: ThemeId[] = [
   "mono",
 ];
 
-// A NEW / empty semester defaults its start date to "today" (the user's local
-// calendar day) instead of a hardcoded date, and its end date to a full default
-// term later so the two stay coherent. These are ONLY fallbacks for a fresh
-// semester — an existing semester with a saved start/end keeps its own values
-// (the load path below only reaches for these when a field is missing).
+// Fallback semester shown before the cloud has answered (initial render) and
+// used by the signed-OUT/local-only path. For a signed-in user, the REAL
+// "default a brand-new semester to today" behavior lives in
+// db.ensureActiveSemester — it seeds/backfills the semesters table row itself,
+// at most once, so it's never re-applied on a later load. This object is only
+// reached here as a last-resort fallback if that somehow returns nothing.
 const DEFAULT_TEACHING_WEEKS = 15;
 const DEFAULT_FINALS_WEEKS = 2;
 const defaultSemesterStart = new Date();
@@ -433,11 +434,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           semester: {
             ...defaultSemester,
             name: sem.name,
-            weeks: num(prefs.weeks, sem.weeks),
-            finalsWeeks: num(prefs.finalsWeeks, sem.finalsWeeks),
+            // weeks/finalsWeeks/startDate/endDate: `sem` (the semesters table
+            // row) is written via plain atomic column UPDATEs and is always
+            // trustworthy. `prefs.*` mirrors the same values into
+            // profiles.preferences via a client-side read-merge-write, which
+            // CAN lose a rapid edit to a race (e.g. typing "16" fires a save
+            // on every keystroke; if the "1" save's write lands after the
+            // "16" save's, prefs.weeks is stuck at 1) — so `sem` wins outright
+            // for weeks/finalsWeeks (always a real number), and for the dates
+            // `prefs.*` is kept only as a fallback for rows that predate the
+            // semesters-table date columns (ensureActiveSemester backfills
+            // those going forward), with "today" as the last-resort default
+            // for a genuinely brand-new/empty semester only.
+            weeks: sem.weeks,
+            finalsWeeks: sem.finalsWeeks,
             calendarType: resolvedCalendar,
-            startDate: str(prefs.startDate, defaultSemester.startDate),
-            endDate: str(prefs.endDate, defaultSemester.endDate),
+            startDate: str(sem.startDate, str(prefs.startDate, defaultSemester.startDate)),
+            endDate: str(sem.endDate, str(prefs.endDate, defaultSemester.endDate)),
             withdrawalLimit: num(prefs.withdrawalLimit, defaultSemester.withdrawalLimit),
           },
           courses,
