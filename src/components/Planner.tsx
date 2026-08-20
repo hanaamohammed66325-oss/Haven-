@@ -71,6 +71,68 @@ const EXAM_TYPES = ["quiz", "midterm", "final"];
 const typeColor = (t: string) =>
   t === "final" || t === "midterm" ? "#d9534f" : t === "quiz" ? "#e89b4a" : t === "project" ? "#8a6fb0" : "#477680";
 
+/**
+ * The Note pill + "Adding to Week N · [scope]" indicator + the five type
+ * chips (Exam/Quiz/Assignment/Deadline/Holiday). Shared by both placements so
+ * the add-note logic lives in exactly one place:
+ *  - `vertical=false`: the mobile top bar (horizontal, wraps).
+ *  - `vertical=true`: the ≥lg sticky sidebar (stacked, full-width chips).
+ */
+function PlannerToolbar({
+  vertical,
+  targetLabel,
+  activeWeek,
+  onAddTag,
+}: {
+  vertical: boolean;
+  targetLabel: string;
+  activeWeek: number;
+  onAddTag: (tag: { key: TranslationKey; color: string }) => void;
+}) {
+  const { t } = useT();
+  return (
+    <div
+      className={`surface-card rounded-2xl p-3 flex gap-2 ${
+        vertical ? "flex-col items-stretch" : "flex-wrap items-center"
+      }`}
+    >
+      <span
+        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
+        style={{ background: "var(--color-primary)", color: "#fff" }}
+      >
+        <StickyNote size={16} />
+        <span className={vertical ? "" : "hidden sm:inline"}>{t("toolNote")}</span>
+      </span>
+
+      {vertical ? (
+        <span className="h-px w-full" style={{ background: "var(--color-border)" }} />
+      ) : (
+        <span className="h-6 w-px mx-1" style={{ background: "var(--color-border)" }} />
+      )}
+
+      <span
+        className={`text-[11px] font-medium ${vertical ? "" : "me-1"}`}
+        style={{ color: "var(--color-muted)" }}
+      >
+        {t("plannerActiveTarget", { n: activeWeek + 1, target: targetLabel })}
+      </span>
+      {TAGS.map((tg) => (
+        <button
+          key={tg.key}
+          onClick={() => onAddTag(tg)}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            vertical ? "w-full justify-start" : ""
+          }`}
+          style={{ background: `${tg.color}1A`, color: tg.color }}
+        >
+          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: tg.color }} />
+          {t(tg.key)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Planner() {
   const { t, lang } = useT();
   const {
@@ -193,62 +255,57 @@ export function Planner() {
   const semesterStartDow = Number.isNaN(+semesterStart) ? 0 : semesterStart.getDay();
   const orderedDays = Array.from({ length: 7 }, (_, i) => (semesterStartDow + i) % 7);
 
+  const addTag = (tg: { key: TranslationKey; color: string }) =>
+    addNote(activeWeek + 1, activeDay ?? undefined, t(tg.key), tg.color, tg.key);
+
   return (
-    <div>
-      {/* Toolbar — Note tool + active target + quick tags */}
-      <div className="surface-card rounded-2xl p-3 mb-8 flex flex-wrap items-center gap-2">
-        <span
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
-          style={{ background: "var(--color-primary)", color: "#fff" }}
-        >
-          <StickyNote size={16} />
-          <span className="hidden sm:inline">{t("toolNote")}</span>
-        </span>
+    // ≥lg: two columns — week grid, then the toolbar as a sticky sidebar on the
+    // side OPPOSITE the main nav. The main nav always sits at the inline-start
+    // edge (it's flex/grid-first in DOM order, which is dir-aware), so putting
+    // this toolbar SECOND here places it at inline-end automatically — right
+    // in LTR, left in RTL — with no hardcoded side. Below lg it collapses back
+    // to a single column with the toolbar pinned to the top instead.
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_224px] lg:items-start lg:gap-6">
+      <div className="min-w-0">
+        {/* Mobile/tablet toolbar — sticky under the app's mobile top bar so it
+            stays visible while scrolling; hidden at lg+ where the sidebar
+            variant (below) takes over. */}
+        <div className="lg:hidden sticky top-[calc(56px+env(safe-area-inset-top,0px))] z-20 mb-8">
+          <PlannerToolbar vertical={false} targetLabel={targetLabel} activeWeek={activeWeek} onAddTag={addTag} />
+        </div>
 
-        <span className="h-6 w-px mx-1" style={{ background: "var(--color-border)" }} />
-
-        <span className="text-[11px] font-medium me-1" style={{ color: "var(--color-muted)" }}>
-          {t("plannerActiveTarget", { n: activeWeek + 1, target: targetLabel })}
-        </span>
-        {TAGS.map((tg) => (
-          <button
-            key={tg.key}
-            onClick={() => addNote(activeWeek + 1, activeDay ?? undefined, t(tg.key), tg.color, tg.key)}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
-            style={{ background: `${tg.color}1A`, color: tg.color }}
-          >
-            <span className="h-2 w-2 rounded-full" style={{ background: tg.color }} />
-            {t(tg.key)}
-          </button>
-        ))}
+        {/* Week grid */}
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {weeks.map((w) => (
+            <WeekCard
+              key={w.index}
+              label={t("weekLabel", { n: w.index + 1 })}
+              range={range(w)}
+              notes={planner.notes.filter((n) => n.week === w.index + 1)}
+              autoItems={autoByWeek[w.index] ?? []}
+              dayDates={dayDatesFor(w)}
+              orderedDays={orderedDays}
+              autoEdits={planner.autoEdits ?? {}}
+              isActiveWeek={activeWeek === w.index}
+              isCurrentWeek={currentWeekIndex === w.index}
+              activeDay={activeWeek === w.index ? activeDay : undefined}
+              onSetTarget={(day) => setTarget(w.index, day)}
+              onAdd={(day, text) => addNote(w.index + 1, day ?? undefined, text, DEFAULT_NOTE_COLOR)}
+              onUpdate={updateNote}
+              onDelete={deleteNote}
+              onToggleDone={toggleNoteDone}
+              onToggleAutoDone={(id) => setAutoEdit(id, { done: !(planner.autoEdits?.[id]?.done) })}
+              onHideAuto={(id) => setAutoEdit(id, { hidden: true })}
+              onRetagAuto={(id, tag) => setAutoEdit(id, { tag })}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Week grid */}
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {weeks.map((w) => (
-          <WeekCard
-            key={w.index}
-            label={t("weekLabel", { n: w.index + 1 })}
-            range={range(w)}
-            notes={planner.notes.filter((n) => n.week === w.index + 1)}
-            autoItems={autoByWeek[w.index] ?? []}
-            dayDates={dayDatesFor(w)}
-            orderedDays={orderedDays}
-            autoEdits={planner.autoEdits ?? {}}
-            isActiveWeek={activeWeek === w.index}
-            isCurrentWeek={currentWeekIndex === w.index}
-            activeDay={activeWeek === w.index ? activeDay : undefined}
-            onSetTarget={(day) => setTarget(w.index, day)}
-            onAdd={(day, text) => addNote(w.index + 1, day ?? undefined, text, DEFAULT_NOTE_COLOR)}
-            onUpdate={updateNote}
-            onDelete={deleteNote}
-            onToggleDone={toggleNoteDone}
-            onToggleAutoDone={(id) => setAutoEdit(id, { done: !(planner.autoEdits?.[id]?.done) })}
-            onHideAuto={(id) => setAutoEdit(id, { hidden: true })}
-            onRetagAuto={(id, tag) => setAutoEdit(id, { tag })}
-          />
-        ))}
-      </div>
+      {/* Desktop/tablet sidebar toolbar — sticky, opposite the main nav */}
+      <aside className="hidden lg:block lg:sticky lg:top-6">
+        <PlannerToolbar vertical targetLabel={targetLabel} activeWeek={activeWeek} onAddTag={addTag} />
+      </aside>
     </div>
   );
 }

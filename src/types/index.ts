@@ -30,6 +30,7 @@ export interface CourseSession {
   day: number; // 0 = Sunday … 6 = Saturday
   minutes: number; // duration of this session in minutes
   time?: string; // start time "HH:MM" (optional)
+  endTime?: string; // end time "HH:MM" (optional) — shown as "From X to Y"
   building?: string; // building name/number (optional)
   room?: string; // room number (optional)
   note?: string; // legacy single note — migrated into `notes`

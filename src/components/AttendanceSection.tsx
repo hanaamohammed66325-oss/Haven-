@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { AttendanceBadge } from "./AttendanceBadge";
@@ -17,6 +17,61 @@ const statusColor: Record<"ok" | "warn" | "danger", string> = {
   warn: "#C77E2E",
   danger: "var(--color-danger)",
 };
+
+/** A number input with up/down stepper buttons, matching the day selector's
+ *  arrow affordance. Clicking a step clamps to [min, max]; typing directly
+ *  still works exactly as before (unclamped, same as the plain input did). */
+function NumberStepper({
+  value,
+  min,
+  max,
+  ariaLabel,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  ariaLabel: string;
+  onChange: (v: number) => void;
+}) {
+  const border = { borderColor: "var(--color-border)" };
+  const clamp = (v: number) => Math.min(max, Math.max(min, v));
+  const btnCls = "flex items-center justify-center h-[15px] w-5 transition-colors hover:bg-black/5";
+  return (
+    <div className="inline-flex items-stretch rounded-lg border overflow-hidden" style={border}>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={1}
+        value={value}
+        aria-label={ariaLabel}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        className="w-11 px-1.5 py-1.5 text-sm text-center outline-none"
+        style={{ color: "var(--color-ink)" }}
+      />
+      <div className="flex flex-col border-s" style={border}>
+        <button
+          type="button"
+          onClick={() => onChange(clamp(value + 1))}
+          aria-label={`${ariaLabel} +1`}
+          className={btnCls}
+        >
+          <ChevronUp size={10} style={{ color: "var(--color-muted)" }} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(clamp(value - 1))}
+          aria-label={`${ariaLabel} -1`}
+          className={`${btnCls} border-t`}
+          style={border}
+        >
+          <ChevronDown size={10} style={{ color: "var(--color-muted)" }} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function AttendanceSection({ course }: { course: Course }) {
   const { t } = useT();
@@ -109,32 +164,21 @@ export function AttendanceSection({ course }: { course: Course }) {
                       <option key={d} value={d}>{dayLabel(d)}</option>
                     ))}
                   </select>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <NumberStepper
                       value={h}
-                      aria-label={hUnit}
-                      onChange={(e) =>
-                        updateSession(course.id, s.id, { minutes: (Number(e.target.value) || 0) * 60 + m })
-                      }
-                      className="w-12 rounded-lg border px-2 py-1.5 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
-                      style={border}
+                      min={0}
+                      max={23}
+                      ariaLabel={hUnit}
+                      onChange={(nh) => updateSession(course.id, s.id, { minutes: nh * 60 + m })}
                     />
                     <span className="text-xs" style={{ color: "var(--color-muted)" }}>{hUnit}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="59"
-                      step="5"
+                    <NumberStepper
                       value={m}
-                      aria-label={mUnit}
-                      onChange={(e) =>
-                        updateSession(course.id, s.id, { minutes: h * 60 + (Number(e.target.value) || 0) })
-                      }
-                      className="w-12 rounded-lg border px-2 py-1.5 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
-                      style={border}
+                      min={0}
+                      max={59}
+                      ariaLabel={mUnit}
+                      onChange={(nm) => updateSession(course.id, s.id, { minutes: h * 60 + nm })}
                     />
                     <span className="text-xs" style={{ color: "var(--color-muted)" }}>{mUnit}</span>
                   </div>

@@ -308,7 +308,8 @@ export default function SettingsPage() {
       </Section>
 
       {/* Contact us — same channels as the /contact page (single source in
-          @/lib/contact). Email is live; WhatsApp/Instagram are placeholders. */}
+          @/lib/contact). Email and Instagram are live; WhatsApp is
+          temporarily disabled. */}
       <Section title={t("sectionContact")}>
         <p className="text-[13px] mb-5 -mt-1" style={{ color: "var(--color-muted)" }}>
           {t("contactIntro")}

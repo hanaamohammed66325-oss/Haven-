@@ -57,7 +57,8 @@ export default function ContactPage() {
           {SUPPORT_EMAIL}
         </a>
 
-        {/* The same channels as the landing page — WhatsApp · Email · Instagram */}
+        {/* The same channels as the landing page — Email · Instagram (WhatsApp
+            temporarily disabled, see @/lib/contact) */}
         <div className="mt-8">
           <p className="text-[13px] mb-3" style={{ color: "var(--color-muted)" }}>
             {ar ? "أو تواصل معنا عبر:" : "Or reach us on:"}

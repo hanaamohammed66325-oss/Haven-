@@ -13,6 +13,7 @@ import type {
   Semester,
 } from "@/types";
 import { DEFAULT_NOTIF_PREFS } from "@/lib/notifPrefs";
+import { addMinutesToTime } from "@/lib/format";
 
 // A fully self-contained, interactive copy of the store used ONLY by the demo
 // modal. It renders the REAL app pages, but every mutation stays in local React
@@ -40,6 +41,7 @@ const session = (day: number, minutes: number, time: string, building: string, r
   day,
   minutes,
   time,
+  endTime: addMinutesToTime(time, minutes),
   building,
   room,
   notes: [],

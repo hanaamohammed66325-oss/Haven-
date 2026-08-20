@@ -26,6 +26,7 @@ import { DEFAULT_NOTIF_PREFS, normalizeNotifPrefs } from "@/lib/notifPrefs";
 import { demoCourses } from "@/lib/demo";
 import { supabase } from "@/lib/supabase";
 import { toISODate, addDays } from "@/lib/dates";
+import { addMinutesToTime } from "@/lib/format";
 import * as db from "@/lib/db";
 import type { Session } from "@supabase/supabase-js";
 
@@ -136,8 +137,9 @@ const newId = (): string =>
     : Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 /** Whether a session carries any timetable detail worth its own detail row. */
-const sessionHasDetails = (s: Pick<CourseSession, "time" | "building" | "room" | "notes">) =>
-  !!(s.time || s.building || s.room || (s.notes && s.notes.length));
+const sessionHasDetails = (
+  s: Pick<CourseSession, "time" | "endTime" | "building" | "room" | "notes">
+) => !!(s.time || s.endTime || s.building || s.room || (s.notes && s.notes.length));
 
 /** Reshape cloud planner rows + the per-account autoEdits into PlannerData. */
 function buildPlanner(
@@ -331,16 +333,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const sessionsByCourse = new Map<string, CourseSession[]>();
         for (const s of cloudSessions) {
           const tt = ttBySession.get(s.id);
+          // Backfill: a timetable row that has a start time but no end time yet
+          // (added before end_time existed) gets one computed from its stored
+          // duration, so it immediately shows "From/To" without the user
+          // re-entering anything. Fire-and-forget write-through below so this
+          // only needs to compute once per row.
+          const backfilledEndTime =
+            tt && tt.time && !tt.endTime && s.minutes > 0
+              ? addMinutesToTime(tt.time, s.minutes)
+              : undefined;
+          const endTime = tt?.endTime ?? backfilledEndTime;
           const session: CourseSession = {
             id: s.id,
             day: s.day,
             minutes: s.minutes,
             ...(tt?.time ? { time: tt.time } : {}),
+            ...(endTime ? { endTime } : {}),
             ...(tt?.building ? { building: tt.building } : {}),
             ...(tt?.room ? { room: tt.room } : {}),
             notes: tt?.notes ?? [],
             ...(tt ? { timetableId: tt.id } : {}),
           };
+          if (backfilledEndTime && tt) {
+            db.updateTimetableEntry(tt.id, {
+              sessionId: s.id,
+              courseId: s.courseId,
+              day: tt.day,
+              time: tt.time,
+              endTime: backfilledEndTime,
+              building: tt.building,
+              room: tt.room,
+              notes: tt.notes,
+            }).catch((e) => console.error("Haven: failed to backfill lecture end time", e));
+          }
           const arr = sessionsByCourse.get(s.courseId) ?? [];
           arr.push(session);
           sessionsByCourse.set(s.courseId, arr);
@@ -956,6 +981,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       courseId,
       day: s.day,
       time: s.time,
+      endTime: s.endTime,
       building: s.building,
       room: s.room,
       notes: s.notes,
@@ -1009,6 +1035,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             courseId,
             day: row.day,
             time: session.time,
+            endTime: session.endTime,
             building: session.building,
             room: session.room,
             notes: session.notes,
@@ -1019,6 +1046,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           day: row.day,
           minutes: row.minutes,
           ...(session.time ? { time: session.time } : {}),
+          ...(session.endTime ? { endTime: session.endTime } : {}),
           ...(session.building ? { building: session.building } : {}),
           ...(session.room ? { room: session.room } : {}),
           notes: session.notes ?? [],
@@ -1070,6 +1098,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       const touchedDetails =
         patch.time !== undefined ||
+        patch.endTime !== undefined ||
         patch.building !== undefined ||
         patch.room !== undefined ||
         patch.notes !== undefined;

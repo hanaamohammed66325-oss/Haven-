@@ -598,6 +598,7 @@ export interface DbTimetableEntry {
   courseId: string | null;
   day: number;
   time?: string;
+  endTime?: string;
   building?: string;
   room?: string;
   notes: string[];
@@ -607,7 +608,7 @@ export async function getTimetable(): Promise<DbTimetableEntry[]> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("timetable_entries")
-    .select("id, course_id, day_of_week, start_time, room, note")
+    .select("id, course_id, day_of_week, start_time, end_time, room, note")
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => {
@@ -618,6 +619,7 @@ export async function getTimetable(): Promise<DbTimetableEntry[]> {
       courseId: r.course_id,
       day: fromDayOfWeek(r.day_of_week),
       time: r.start_time ?? undefined,
+      endTime: r.end_time ?? undefined,
       building,
       room: r.room ?? undefined,
       notes,
@@ -630,6 +632,7 @@ interface TimetableFields {
   courseId: string;
   day: number;
   time?: string;
+  endTime?: string;
   building?: string;
   room?: string;
   notes?: string[];
@@ -647,6 +650,7 @@ export async function addTimetableEntry(fields: TimetableFields): Promise<string
       course_id: fields.courseId,
       day_of_week: toDayOfWeek(fields.day),
       start_time: fields.time && fields.time.trim() ? fields.time.trim() : null,
+      end_time: fields.endTime && fields.endTime.trim() ? fields.endTime.trim() : null,
       room: fields.room && fields.room.trim() ? fields.room.trim() : null,
       note: encodeTtNote(fields.sessionId, fields.building, fields.notes),
     })
@@ -664,6 +668,7 @@ export async function updateTimetableEntry(id: string, fields: TimetableFields):
       course_id: fields.courseId,
       day_of_week: toDayOfWeek(fields.day),
       start_time: fields.time && fields.time.trim() ? fields.time.trim() : null,
+      end_time: fields.endTime && fields.endTime.trim() ? fields.endTime.trim() : null,
       room: fields.room && fields.room.trim() ? fields.room.trim() : null,
       note: encodeTtNote(fields.sessionId, fields.building, fields.notes),
     })

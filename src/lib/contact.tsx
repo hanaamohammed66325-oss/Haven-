@@ -1,15 +1,20 @@
 import type { ReactNode } from "react";
 
 // ============================================================================
-// Contact channels — SINGLE SOURCE OF TRUTH for the support links.
-// Email is live. WhatsApp + Instagram are PLACEHOLDERS: swap the two hrefs
-// below for the real links when they exist and every surface that reads from
-// here (the /contact page and Settings → Contact us) updates at once.
+// Contact channels — SINGLE SOURCE OF TRUTH for the support links, read by
+// the landing page footer/social strip, the /contact page, and Settings →
+// Contact us, so all three stay in sync from one place.
+//
+// Email and Instagram are live. WhatsApp is temporarily disabled (filtered
+// out of `contactChannels` below) until there's a confirmed number.
 // ============================================================================
 
 export const SUPPORT_EMAIL = "support@havenstudent.com";
-export const WHATSAPP_URL = "#"; // TODO: replace with the real WhatsApp link
-export const INSTAGRAM_URL = "#"; // TODO: replace with the real Instagram link
+// WhatsApp is temporarily disabled (no confirmed number yet) — see the filter
+// below. The definition stays intact so it's trivial to bring back: set a
+// real URL here and remove the `.filter(...)` line further down.
+const WHATSAPP_URL = "#"; // TODO: set the real WhatsApp link, then re-enable below
+export const INSTAGRAM_URL = "https://instagram.com/havenstudent2026";
 
 export interface ContactChannel {
   label: string;
@@ -17,8 +22,8 @@ export interface ContactChannel {
   svg: ReactNode;
 }
 
-// Same three channels/icons used on the landing footer and /contact page.
-export const contactChannels: ContactChannel[] = [
+// Same channels/icons used on the landing footer, /contact page, and Settings.
+const ALL_CHANNELS: ContactChannel[] = [
   {
     label: "WhatsApp",
     href: WHATSAPP_URL,
@@ -50,3 +55,7 @@ export const contactChannels: ContactChannel[] = [
     ),
   },
 ];
+
+// WhatsApp temporarily excluded — TODO: drop this filter once WHATSAPP_URL
+// above is a real link, so it reappears everywhere contactChannels is used.
+export const contactChannels: ContactChannel[] = ALL_CHANNELS.filter((c) => c.label !== "WhatsApp");

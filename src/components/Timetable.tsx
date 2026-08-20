@@ -2,22 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarRange, Clock, MapPin, DoorOpen, Plus, Trash2 } from "lucide-react";
+import { CalendarRange, MapPin, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
-import { formatDuration } from "@/lib/format";
+import { localizeDigits } from "@/lib/format";
+import type { CourseSession } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6];
 const COURSE_COLORS = ["#477680", "#5fa98c", "#e89b4a", "#8a6fb0", "#3b6ea5", "#b8975a", "#d9534f"];
 
 export function Timetable() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { courses, updateSession } = useStore();
-
-  const hUnit = t("hoursUnit");
-  const mUnit = t("minutesUnit");
 
   const colorOf = (id: string) => {
     const idx = courses.findIndex((c) => c.id === id);
@@ -25,6 +23,17 @@ export function Timetable() {
   };
 
   const dayLabel = (d: number) => t(`day${d}` as TranslationKey);
+
+  // "From X to Y" (localized digits); falls back to a bare time when only one
+  // side is set, and shows nothing when neither is. Duration is never shown.
+  const fromToLabel = (s: Pick<CourseSession, "time" | "endTime">): string | null => {
+    if (s.time && s.endTime) {
+      return t("ttFromTo", { from: localizeDigits(s.time, lang), to: localizeDigits(s.endTime, lang) });
+    }
+    if (s.time) return localizeDigits(s.time, lang);
+    if (s.endTime) return localizeDigits(s.endTime, lang);
+    return null;
+  };
 
   // Flat list of every session for the smart toolbar picker.
   const allSessions = courses.flatMap((c) =>
@@ -34,6 +43,7 @@ export function Timetable() {
   // ---- Smart detail toolbar state ----
   const [selKey, setSelKey] = useState("");
   const [time, setTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [building, setBuilding] = useState("");
   const [room, setRoom] = useState("");
 
@@ -41,6 +51,7 @@ export function Timetable() {
     setSelKey(key);
     const found = allSessions.find((x) => x.key === key);
     setTime(found?.session.time ?? "");
+    setEndTime(found?.session.endTime ?? "");
     setBuilding(found?.session.building ?? "");
     setRoom(found?.session.room ?? "");
   };
@@ -50,6 +61,7 @@ export function Timetable() {
     if (!found) return;
     updateSession(found.courseId, found.sessionId, {
       time: time.trim() || undefined,
+      endTime: endTime.trim() || undefined,
       building: building.trim() || undefined,
       room: room.trim() || undefined,
     });
@@ -57,11 +69,24 @@ export function Timetable() {
 
   const byDay = DAYS.map((d) => ({
     day: d,
-    entries: courses.flatMap((c) =>
-      c.sessions
-        .filter((s) => s.day === d)
-        .map((s) => ({ key: `${c.id}:${s.id}`, courseId: c.id, sessionId: s.id, course: c.name, session: s }))
-    ),
+    entries: courses
+      .flatMap((c) =>
+        c.sessions
+          .filter((s) => s.day === d)
+          .map((s) => ({ key: `${c.id}:${s.id}`, courseId: c.id, sessionId: s.id, course: c.name, session: s }))
+      )
+      // Explicit, deliberate sort — earliest start time first, regardless of
+      // course/session insertion order. Sessions with no start time sort after
+      // every timed one (nothing to order them by); ties keep their original
+      // relative order (Array.prototype.sort is stable).
+      .sort((a, b) => {
+        const ta = a.session.time;
+        const tb = b.session.time;
+        if (ta && tb) return ta < tb ? -1 : ta > tb ? 1 : 0;
+        if (ta) return -1;
+        if (tb) return 1;
+        return 0;
+      }),
   }));
 
   const hasAny = byDay.some((d) => d.entries.length > 0);
@@ -109,9 +134,13 @@ export function Timetable() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 w-[120px]">
-            <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttTime")}</span>
+          <label className="flex flex-col gap-1 w-[105px]">
+            <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttFrom")}</span>
             <input type="time" className={fieldCls} style={border} value={time} onChange={(e) => setTime(e.target.value)} disabled={!selKey} />
+          </label>
+          <label className="flex flex-col gap-1 w-[105px]">
+            <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttTo")}</span>
+            <input type="time" className={fieldCls} style={border} value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!selKey} />
           </label>
           <label className="flex flex-col gap-1 w-[130px]">
             <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttBuilding")}</span>
@@ -166,14 +195,15 @@ export function Timetable() {
                       <div className="text-sm font-medium break-words" style={{ color: "var(--color-ink)" }}>
                         {e.course}
                       </div>
-                      <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                        {formatDuration(s.minutes, hUnit, mUnit)}
-                      </div>
+                      {fromToLabel(s) && (
+                        <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                          {fromToLabel(s)}
+                        </div>
+                      )}
 
-                      {/* Detail chips */}
-                      {(s.time || s.building || s.room) && (
+                      {/* Detail chips — time already shown above as From/To */}
+                      {(s.building || s.room) && (
                         <div className="flex flex-wrap gap-1.5 mt-1.5">
-                          {s.time && <DetailChip icon={<Clock size={10} />} text={s.time} />}
                           {s.building && <DetailChip icon={<MapPin size={10} />} text={s.building} />}
                           {s.room && <DetailChip icon={<DoorOpen size={10} />} text={s.room} />}
                         </div>
