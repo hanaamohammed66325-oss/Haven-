@@ -73,12 +73,15 @@ function isStandalone(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// TEMPORARY diagnostic block — shows the live browser push subscription and SW
-// state for comparison against the stored push_subscriptions row. Rendered ONLY
-// when the URL carries ?debug=1, so it never clutters the normal UI. It is
-// strictly READ-ONLY: it calls getSubscription()/getRegistration()/matchMedia
-// and never subscribes, resubscribes, or writes to the database. Delete this
-// component (and its <DebugInfo /> use below) when the push investigation ends.
+// TEMPORARY diagnostic block — an always-available "Advanced info" section
+// (collapsed by default) that shows the LIVE browser push subscription + SW
+// state alongside the row(s) currently STORED for this user in the DB, so the
+// two can be compared without database access. Always visible (no ?debug gate)
+// because an installed iOS PWA has no address bar to add query params. Strictly
+// READ-ONLY: it only calls getSubscription()/getRegistration()/matchMedia and
+// SELECTs push_subscriptions — it never subscribes, resubscribes, or writes.
+// Delete this component (and its <AdvancedInfo /> use below) when the push
+// investigation ends.
 // ---------------------------------------------------------------------------
 interface DebugData {
   standalone: boolean;
@@ -92,22 +95,25 @@ interface DebugData {
   note: string;
 }
 
-function DebugInfo() {
-  const [show, setShow] = useState(false);
+interface StoredSub {
+  endpoint: string;
+  created_at: string | null;
+  last_seen_at: string | null;
+}
+
+function AdvancedInfo() {
+  const [open, setOpen] = useState(false);
   const [data, setData] = useState<DebugData | null>(null);
-
-  // Gate on ?debug=1. Read window.location directly (not useSearchParams) to
-  // stay static-export friendly without a Suspense boundary.
-  useEffect(() => {
-    try {
-      setShow(new URLSearchParams(window.location.search).get("debug") === "1");
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const [stored, setStored] = useState<StoredSub[] | null>(null);
+  const [storedErr, setStoredErr] = useState<string | null>(null);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
-    if (!show) return;
+    // Load once, the first time the user actually expands the section — no
+    // point querying the live subscription / DB for a collapsed block nobody
+    // is looking at.
+    if (!open || loadedRef.current) return;
+    loadedRef.current = true;
     let cancelled = false;
     (async () => {
       const out: DebugData = {
@@ -154,13 +160,34 @@ function DebugInfo() {
         out.note = "error reading SW/subscription: " + (e instanceof Error ? e.message : String(e));
       }
       if (!cancelled) setData(out);
+
+      // READ-ONLY: SELECT this user's own push_subscriptions rows (RLS-scoped —
+      // the query naturally returns only rows owned by the signed-in user, same
+      // as the health check above). Never inserts/updates/deletes anything.
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData.user?.id;
+        if (!userId) {
+          if (!cancelled) setStoredErr("not signed in");
+          return;
+        }
+        const { data: rows, error: dbErr } = await supabase
+          .from("push_subscriptions")
+          .select("endpoint, created_at, last_seen_at")
+          .eq("user_id", userId)
+          .order("last_seen_at", { ascending: false, nullsFirst: false });
+        if (dbErr) throw new Error(dbErr.message);
+        if (!cancelled) setStored((rows ?? []) as StoredSub[]);
+      } catch (e) {
+        if (!cancelled) {
+          setStoredErr(e instanceof Error ? e.message : String(e));
+        }
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [show]);
-
-  if (!show) return null;
+  }, [open]);
 
   const row = (label: string, value: string) => (
     <div>
@@ -169,49 +196,88 @@ function DebugInfo() {
     </div>
   );
 
+  const endpointBox = (value: string) => (
+    <textarea
+      readOnly
+      value={value}
+      onFocus={(e) => e.currentTarget.select()}
+      rows={3}
+      className="mt-1 w-full rounded-lg border p-2"
+      style={{
+        borderColor: "var(--color-border)",
+        background: "var(--color-surface)",
+        color: "var(--color-ink)",
+        fontFamily: "monospace",
+        fontSize: "11px",
+        resize: "vertical",
+      }}
+    />
+  );
+
   return (
     <details
       className="mt-6 rounded-xl border p-3 text-xs"
       style={{ borderColor: "var(--color-border)" }}
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
     >
       <summary className="cursor-pointer font-medium" style={{ color: "var(--color-muted)" }}>
-        Debug info (push)
+        Advanced info
       </summary>
-      <div className="mt-3 flex flex-col gap-2" style={{ color: "var(--color-ink)" }}>
-        {row("standalone (matchMedia)", data ? String(data.standalone) : "…")}
-        {row("navigator.standalone", data ? String(data.iosStandalone) : "…")}
-        {row("SW scriptURL", data?.scriptURL ?? (data ? "—" : "…"))}
-        {row(
-          "SW states",
-          data
-            ? `installing=${data.installing ?? "—"} · waiting=${data.waiting ?? "—"} · active=${data.active ?? "—"}`
-            : "…"
-        )}
-        <div>
-          <span style={{ color: "var(--color-muted)" }}>push endpoint:</span>
-          {data == null ? (
-            <span> …</span>
-          ) : data.endpoint ? (
-            <textarea
-              readOnly
-              value={data.endpoint}
-              onFocus={(e) => e.currentTarget.select()}
-              rows={3}
-              className="mt-1 w-full rounded-lg border p-2"
-              style={{
-                borderColor: "var(--color-border)",
-                background: "var(--color-surface)",
-                color: "var(--color-ink)",
-                fontFamily: "monospace",
-                fontSize: "11px",
-                resize: "vertical",
-              }}
-            />
-          ) : (
-            <span> no subscription</span>
+      <div className="mt-3 flex flex-col gap-5" style={{ color: "var(--color-ink)" }}>
+        {/* ---- Live browser subscription ---- */}
+        <div className="flex flex-col gap-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>
+            Live browser subscription
+          </div>
+          {row("standalone (matchMedia)", data ? String(data.standalone) : "…")}
+          {row("navigator.standalone", data ? String(data.iosStandalone) : "…")}
+          {row("SW scriptURL", data?.scriptURL ?? (data ? "—" : "…"))}
+          {row(
+            "SW states",
+            data
+              ? `installing=${data.installing ?? "—"} · waiting=${data.waiting ?? "—"} · active=${data.active ?? "—"}`
+              : "…"
           )}
+          <div>
+            <span style={{ color: "var(--color-muted)" }}>push endpoint:</span>
+            {data == null ? (
+              <span> …</span>
+            ) : data.endpoint ? (
+              endpointBox(data.endpoint)
+            ) : (
+              <span> no subscription</span>
+            )}
+          </div>
+          {data?.note && <div style={{ color: "var(--color-danger)" }}>{data.note}</div>}
         </div>
-        {data?.note && <div style={{ color: "var(--color-danger)" }}>{data.note}</div>}
+
+        {/* ---- Stored in database (push_subscriptions, this user's rows) ---- */}
+        <div className="flex flex-col gap-2 pt-3 border-t" style={{ borderColor: "var(--color-border)" }}>
+          <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>
+            Stored in database
+          </div>
+          {stored == null && !storedErr && <span style={{ color: "var(--color-muted)" }}>…</span>}
+          {storedErr && <div style={{ color: "var(--color-danger)" }}>error: {storedErr}</div>}
+          {stored != null && stored.length === 0 && (
+            <span style={{ color: "var(--color-muted)" }}>no rows for this user</span>
+          )}
+          {stored != null &&
+            stored.length > 0 &&
+            stored.map((r, i) => (
+              <div
+                key={r.endpoint + i}
+                className="flex flex-col gap-1 rounded-lg border p-2"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                <span style={{ color: "var(--color-muted)" }}>
+                  row {i + 1} of {stored.length} · created: {r.created_at ?? "—"} · last seen:{" "}
+                  {r.last_seen_at ?? "—"}
+                </span>
+                {endpointBox(r.endpoint)}
+              </div>
+            ))}
+        </div>
       </div>
     </details>
   );
@@ -580,8 +646,9 @@ export function NotificationsSettings() {
         </p>
       )}
 
-      {/* TEMPORARY: hidden push diagnostics — only renders with ?debug=1 */}
-      <DebugInfo />
+      {/* TEMPORARY: push diagnostics, collapsed by default. Delete when the push
+          investigation ends. */}
+      <AdvancedInfo />
     </div>
   );
 }
