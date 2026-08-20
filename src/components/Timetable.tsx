@@ -6,7 +6,7 @@ import { CalendarRange, MapPin, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
-import { localizeDigits } from "@/lib/format";
+import { formatTime } from "@/lib/dates";
 import type { CourseSession } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -24,14 +24,16 @@ export function Timetable() {
 
   const dayLabel = (d: number) => t(`day${d}` as TranslationKey);
 
-  // "From X to Y" (localized digits); falls back to a bare time when only one
-  // side is set, and shows nothing when neither is. Duration is never shown.
+  // "From X to Y" in 12-hour form with a localized AM/PM (ص/م) indicator —
+  // stored data stays 24h ("13:00"); only this display converts. Falls back
+  // to a bare time when only one side is set, nothing when neither is. The
+  // computed duration is never shown.
   const fromToLabel = (s: Pick<CourseSession, "time" | "endTime">): string | null => {
     if (s.time && s.endTime) {
-      return t("ttFromTo", { from: localizeDigits(s.time, lang), to: localizeDigits(s.endTime, lang) });
+      return t("ttFromTo", { from: formatTime(s.time, lang), to: formatTime(s.endTime, lang) });
     }
-    if (s.time) return localizeDigits(s.time, lang);
-    if (s.endTime) return localizeDigits(s.endTime, lang);
+    if (s.time) return formatTime(s.time, lang);
+    if (s.endTime) return formatTime(s.endTime, lang);
     return null;
   };
 

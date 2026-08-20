@@ -356,7 +356,6 @@ export const ar: Record<TranslationKey, string> = {
   addNotePlaceholder: "أضف ملاحظة…",
   plannerNoDates: "حدّد تاريخ بداية الفصل ونهايته في الإعدادات لبناء المخطّط.",
   plannerActiveWeek: "الإضافة إلى الأسبوع {n}",
-  toolNote: "ملاحظة",
   toolColor: "لون",
   toolHighlight: "تظليل",
   toolPen: "قلم",

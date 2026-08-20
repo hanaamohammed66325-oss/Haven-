@@ -357,7 +357,6 @@ export const en = {
   addNotePlaceholder: "Add a note…",
   plannerNoDates: "Set your semester start and end dates in Settings to build the planner.",
   plannerActiveWeek: "Adding to Week {n}",
-  toolNote: "Note",
   toolColor: "Color",
   toolHighlight: "Highlighter",
   toolPen: "Pen",

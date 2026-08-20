@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { StickyNote, X, Check, GraduationCap, ClipboardList } from "lucide-react";
+import { X, Check, GraduationCap, ClipboardList } from "lucide-react";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
@@ -72,9 +72,9 @@ const typeColor = (t: string) =>
   t === "final" || t === "midterm" ? "#d9534f" : t === "quiz" ? "#e89b4a" : t === "project" ? "#8a6fb0" : "#477680";
 
 /**
- * The Note pill + "Adding to Week N · [scope]" indicator + the five type
- * chips (Exam/Quiz/Assignment/Deadline/Holiday). Shared by both placements so
- * the add-note logic lives in exactly one place:
+ * The "Adding to Week N · [scope]" indicator + the five type chips
+ * (Exam/Quiz/Assignment/Deadline/Holiday). Shared by both placements so the
+ * add-note logic lives in exactly one place:
  *  - `vertical=false`: the mobile top bar (horizontal, wraps).
  *  - `vertical=true`: the ≥lg sticky sidebar (stacked, full-width chips).
  */
@@ -96,20 +96,6 @@ function PlannerToolbar({
         vertical ? "flex-col items-stretch" : "flex-wrap items-center"
       }`}
     >
-      <span
-        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
-        style={{ background: "var(--color-primary)", color: "#fff" }}
-      >
-        <StickyNote size={16} />
-        <span className={vertical ? "" : "hidden sm:inline"}>{t("toolNote")}</span>
-      </span>
-
-      {vertical ? (
-        <span className="h-px w-full" style={{ background: "var(--color-border)" }} />
-      ) : (
-        <span className="h-6 w-px mx-1" style={{ background: "var(--color-border)" }} />
-      )}
-
       <span
         className={`text-[11px] font-medium ${vertical ? "" : "me-1"}`}
         style={{ color: "var(--color-muted)" }}
