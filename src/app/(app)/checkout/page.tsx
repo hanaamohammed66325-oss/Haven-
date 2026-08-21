@@ -36,6 +36,13 @@ const TAP_CONFIRM_3DS_URL = `${SUPABASE_URL}/functions/v1/tap-confirm-3ds`;
 const TAP_SDK_SRC = "https://tap-sdks.b-cdn.net/card/1.0.2/index.js";
 const TAP_CONTAINER_ID = "tap-card-element";
 const TAP_PUBLIC_KEY = process.env.NEXT_PUBLIC_TAP_PUBLIC_KEY ?? "";
+// Tap's docs list `merchant.id` as optional, but the hosted card page the SDK
+// loads (sdk.tap.company/v2/card/index.html) is built with an empty `mid=`
+// query param when it's omitted and rejects the request with 400 — same
+// documented-optional-but-actually-required pattern as `addons`/`fields`
+// below (confirmed live: rendering with vs without merchant.id produces
+// `mid=` vs `mid=<value>` in the iframe src the SDK builds).
+const TAP_MERCHANT_ID = process.env.NEXT_PUBLIC_TAP_MERCHANT_ID ?? "";
 // Tap's own convention: test keys are always prefixed pk_test_, live keys
 // pk_live_ — so the sandbox banner/test-card helper disappear automatically
 // once a real pk_live_ key is configured, with no code change needed.
@@ -193,7 +200,7 @@ function CheckoutInner() {
     const CardSDK = (window as unknown as { CardSDK?: Record<string, unknown> }).CardSDK;
     if (!CardSDK || typeof CardSDK.renderTapCard !== "function") return;
     if (!document.getElementById(TAP_CONTAINER_ID)) return;
-    if (!TAP_PUBLIC_KEY) {
+    if (!TAP_PUBLIC_KEY || !TAP_MERCHANT_ID) {
       setError(t("checkoutErrGeneric"));
       return;
     }
@@ -211,6 +218,7 @@ function CheckoutInner() {
     try {
       const { unmount } = renderTapCard(TAP_CONTAINER_ID, {
         publicKey: TAP_PUBLIC_KEY,
+        merchant: { id: TAP_MERCHANT_ID },
         // Matches the 1 SAR authorize-then-void amount create-subscription
         // actually uses to save the card (see that function's comments) — NOT
         // the plan's real price, since no money moves at this step either way.
