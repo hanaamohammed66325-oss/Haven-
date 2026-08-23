@@ -22,7 +22,6 @@ import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { supabase } from "@/lib/supabase";
 import { PLANS } from "@/lib/premium";
-import { contactChannels } from "@/lib/contact";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 export default function LandingPage() {
@@ -49,22 +48,6 @@ export default function LandingPage() {
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden">
-      {/* Social strip */}
-      <div className="hidden xl:flex flex-col items-center gap-5 fixed top-1/2 -translate-y-1/2 end-7 z-20">
-        {contactChannels.map((s) => (
-          <a
-            key={s.label}
-            href={s.href}
-            {...(s.label === "Email" ? {} : { target: "_blank", rel: "noopener noreferrer" })}
-            className="transition-colors hover:text-[color:var(--color-primary)]"
-            style={{ color: "var(--color-muted)" }}
-            aria-label={s.label}
-          >
-            {s.svg}
-          </a>
-        ))}
-        <span className="w-px h-16" style={{ background: "var(--color-border)" }} />
-      </div>
 
       <div className="relative z-10 mx-auto w-full max-w-7xl px-6 md:px-10 lg:px-16">
         {/* Nav */}
@@ -331,21 +314,6 @@ export default function LandingPage() {
           <div className="flex items-center gap-2.5">
             <Logo size={26} tile />
             <span className="font-display text-lg" style={{ color: "var(--color-ink)" }}>{t("appName")}</span>
-          </div>
-          {/* Social: Instagram · Email (WhatsApp temporarily disabled — see @/lib/contact) */}
-          <div className="flex items-center gap-5 order-first sm:order-none">
-            {contactChannels.map((s) => (
-              <a
-                key={s.label}
-                href={s.href}
-                {...(s.label === "Email" ? {} : { target: "_blank", rel: "noopener noreferrer" })}
-                className="transition-colors hover:text-[color:var(--color-primary)]"
-                style={{ color: "var(--color-muted)" }}
-                aria-label={s.label}
-              >
-                {s.svg}
-              </a>
-            ))}
           </div>
           <p className="text-sm" style={{ color: "var(--color-muted)" }}>{t("land_footer")}</p>
         </footer>

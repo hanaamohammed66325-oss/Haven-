@@ -8,6 +8,7 @@ import { Sidebar } from "./Sidebar";
 import { Logo } from "./Logo";
 import { ReminderToast } from "./ReminderToast";
 import { TrialBanner } from "./TrialBanner";
+import { Footer } from "./Footer";
 import { useT } from "@/i18n";
 import { runPushAutoHeal } from "@/lib/pushHealthCheck";
 
@@ -122,10 +123,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Generous bottom padding (+ safe-area inset) so content never touches
             the viewport edge / hides under the phone home indicator in the PWA.
             Top/side padding is unchanged from before; only the bottom grew. */}
-        <div className="mx-auto w-full max-w-[1200px] px-5 pt-6 sm:px-6 sm:pt-8 md:px-12 md:pt-12 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto w-full max-w-[1200px] px-5 pt-6 sm:px-6 sm:pt-8 md:px-12 md:pt-12 pb-12">
           <TrialBanner />
           {children}
         </div>
+        <Footer />
       </main>
       <ReminderToast />
     </div>
