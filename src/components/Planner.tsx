@@ -270,7 +270,7 @@ export function Planner() {
             at xl left each card too narrow; staying at 2 (wider) columns
             through that range gives cards more room on typical desktop/laptop
             widths, matching the tighter card padding below. */}
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
           {weeks.map((w) => (
             <WeekCard
               key={w.index}
