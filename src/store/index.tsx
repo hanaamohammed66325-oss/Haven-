@@ -416,7 +416,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           email: user.email ?? "",
           profilePhoto: typeof prefs.profilePhoto === "string" ? prefs.profilePhoto : null,
           gpaGoal: num(prefs.gpaGoal, initialData.gpaGoal),
-          language: prefs.language === "ar" ? "ar" : "en",
+          language: prefs.language === "en" ? "en" : "ar",
           theme: THEME_IDS.includes(prefs.theme as ThemeId) ? (prefs.theme as ThemeId) : "haven",
           planner: buildPlanner(cloudPlanner, prefs.plannerAutoEdits),
           taskOrder: Array.isArray(prefs.taskOrder)
