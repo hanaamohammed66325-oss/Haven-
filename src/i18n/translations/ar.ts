@@ -27,11 +27,11 @@ export const ar: Record<TranslationKey, string> = {
   premiumBenefit1: "مواد غير محدودة",
   premiumBenefit2: "مخطّط الفصل والجدول الأسبوعي",
   premiumBenefit4: "حاسبة «المطلوب» في النهائي",
-  premiumBenefit5: "Havi — رفيقك الصغير في الموقع",
+  premiumBenefit5: "Havi — شخصية الموقع اللطيفة",
   premiumCta: "اشترك الآن",
   premiumExpand: "عرض خطط بريميوم",
   premiumCollapse: "إخفاء خطط بريميوم",
-  haviDemoCaption: "Havi يعيش في صفحاتك ويتفاعل معك — متاح في بريميوم",
+  haviDemoCaption: "Havi يظهر في صفحاتك ويونسك — متاح في بريميوم",
   // خطط بحسب المدة (تناسب نظام الفصلين والثلاثة فصول)
   planDur4: "4 شهور",
   planDur6: "6 شهور",
@@ -90,6 +90,15 @@ export const ar: Record<TranslationKey, string> = {
   checkout3dsDeclined: "تم رفض بطاقتك. يُرجى تجربة بطاقة أخرى.",
   checkout3dsError: "حدث خطأ أثناء تأكيد اشتراكك. يُرجى المحاولة مرة أخرى.",
   checkout3dsBackToPlans: "العودة إلى اختيار الخطة",
+  // Coupon system
+  checkoutCouponLabel: "كوبون الخصم",
+  checkoutCouponPlaceholder: "أدخلي كود الخصم",
+  checkoutCouponApply: "تطبيق",
+  checkoutCouponRemove: "إزالة",
+  checkoutCouponApplied: "خصم {percent}% مُطبَّق!",
+  checkoutCouponInvalid: "كود الخصم غير صالح أو منتهي الصلاحية.",
+  checkoutOriginalPrice: "السعر الأصلي",
+  checkoutAfterDiscount: "بعد الخصم",
   trialActivated: "تم تفعيل تجربتك المجانية! تنتهي خلال ٣٠ يوم.",
   // /profile — قسم الاشتراك
   subscriptionTitle: "الاشتراك",
@@ -679,7 +688,7 @@ export const ar: Record<TranslationKey, string> = {
   land_pricingFreeHighlight: "٣٠ يوم مجاناً — ٠ ريال. بدون خصم خلال التجربة.",
   land_pricingStartFree: "ابدأ مجاناً",
   land_pricingIncluded:
-    "كل الخطط تشمل: مواد غير محدودة، كل الثيمات، وHavi — رفيق مذاكرتك.",
+    "كل الخطط تشمل: مواد غير محدودة، كل الثيمات، وHavi — شخصية الموقع اللطيفة.",
   land_ctaTitle: "فصلك الجاي يستاهل بداية مرتّبة.",
   land_ctaText: "موادك جاهزة في دقائق، بدون تعقيد.",
   land_ctaBtn: "ابدأ مجانًا",

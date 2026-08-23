@@ -25,11 +25,11 @@ export const en = {
   premiumBenefit1: "Unlimited courses",
   premiumBenefit2: "Semester planner & weekly schedule",
   premiumBenefit4: '"What you need" final-exam calculator',
-  premiumBenefit5: "Havi — your little study companion",
+  premiumBenefit5: "Havi — your cute site mascot",
   premiumCta: "Upgrade now",
   premiumExpand: "Show Premium plans",
   premiumCollapse: "Hide Premium plans",
-  haviDemoCaption: "Havi lives in your pages and reacts as you work — available in Premium",
+  haviDemoCaption: "Havi hangs out on your pages and keeps you company — available in Premium",
   // Duration-based plans (fit both two-term and three-term systems)
   planDur4: "4 months",
   planDur6: "6 months",
@@ -89,6 +89,15 @@ export const en = {
   checkout3dsDeclined: "Your card was declined. Please try a different card.",
   checkout3dsError: "Something went wrong while confirming your subscription. Please try again.",
   checkout3dsBackToPlans: "Back to plan selection",
+  // Coupon system
+  checkoutCouponLabel: "Discount coupon",
+  checkoutCouponPlaceholder: "Enter coupon code",
+  checkoutCouponApply: "Apply",
+  checkoutCouponRemove: "Remove",
+  checkoutCouponApplied: "{percent}% discount applied!",
+  checkoutCouponInvalid: "Invalid or expired coupon code.",
+  checkoutOriginalPrice: "Original price",
+  checkoutAfterDiscount: "After discount",
   trialActivated: "Your free trial is active! It ends in 30 days.",
   // /profile — subscription section
   subscriptionTitle: "Subscription",
@@ -683,7 +692,7 @@ export const en = {
   land_pricingFreeHighlight: "30 days free — 0 SAR. No charge during your trial.",
   land_pricingStartFree: "Start free",
   land_pricingIncluded:
-    "All plans include: unlimited courses, all themes, and Havi — your study companion.",
+    "All plans include: unlimited courses, all themes, and Havi — your cute mascot.",
   land_ctaTitle: "Ready for a tidier semester?",
   land_ctaText: "Your courses, ready in minutes — no hassle.",
   land_ctaBtn: "Start free",

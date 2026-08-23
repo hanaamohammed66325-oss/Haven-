@@ -38,3 +38,8 @@ next-env.d.ts
 .agents/
 .claude/skills/
 skills-lock.json
+
+# secrets & non-project files
+VAPID KEYS.txt
+*.zip
+.claude/settings.local.json
