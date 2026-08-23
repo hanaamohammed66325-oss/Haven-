@@ -22,6 +22,7 @@ const IS_MOCK = PAYMENTS_MODE !== "live";
 
 const CREATE_SUBSCRIPTION_URL = `${SUPABASE_URL}/functions/v1/create-subscription`;
 const TAP_CONFIRM_3DS_URL = `${SUPABASE_URL}/functions/v1/tap-confirm-3ds`;
+const VALIDATE_COUPON_URL = `${SUPABASE_URL}/functions/v1/validate-coupon`;
 
 // ---------------------------------------------------------------------------
 // Tap Card Web SDK v2 — confirmed against Tap's live docs
@@ -115,6 +116,12 @@ function CheckoutInner() {
   const [error, setError] = useState<string>("");
   const [testCardsOpen, setTestCardsOpen] = useState(false);
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; percentOff: number } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState("");
+
   // 3DS return-flow state: shown instead of the normal form while we confirm
   // the subscription actually landed after the redirect back from Tap.
   // - verifying: tap-confirm-3ds call(s) in flight (including the silent
@@ -156,7 +163,11 @@ function CheckoutInner() {
             Authorization: `Bearer ${session.access_token}`,
             apikey: SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ plan: cycle, token }),
+          body: JSON.stringify({
+            plan: cycle,
+            token,
+            ...(appliedCoupon ? { coupon_code: appliedCoupon.code } : {}),
+          }),
         });
         const json = await res.json().catch(() => ({} as Record<string, unknown>));
 
@@ -191,8 +202,52 @@ function CheckoutInner() {
         setBusy(false);
       }
     },
-    [cycle, refresh, router, t]
+    [appliedCoupon, cycle, refresh, router, t]
   );
+
+  // ---- Coupon apply / remove ----
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) return;
+    setCouponError("");
+    setCouponLoading(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setCouponError(t("checkoutErrSession"));
+        setCouponLoading(false);
+        return;
+      }
+      const res = await fetch(VALIDATE_COUPON_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ code }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json?.valid) {
+        setAppliedCoupon({ code, percentOff: json.percent_off as number });
+        setCouponCode("");
+      } else {
+        setCouponError(t("checkoutCouponInvalid"));
+      }
+    } catch {
+      setCouponError(t("checkoutErrGeneric"));
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError("");
+  };
 
   // ---- Tap SDK init (live mode only) ----
   const initTapCard = useCallback(() => {
@@ -575,10 +630,39 @@ function CheckoutInner() {
               {t(plan.labelKey as TranslationKey)}
             </div>
           </div>
-          <div className="font-display text-[24px] leading-none" style={{ color: "var(--color-ink)" }}>
-            {t(plan.priceKey as TranslationKey)}
+          <div className="text-end">
+            {appliedCoupon ? (
+              <>
+                <div
+                  className="text-[13px] line-through"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  {t(plan.priceKey as TranslationKey)}
+                </div>
+                <div className="font-display text-[24px] leading-none" style={{ color: "var(--color-primary)" }}>
+                  {Math.round(plan.priceSar * (1 - appliedCoupon.percentOff / 100))} SAR
+                </div>
+              </>
+            ) : (
+              <div className="font-display text-[24px] leading-none" style={{ color: "var(--color-ink)" }}>
+                {t(plan.priceKey as TranslationKey)}
+              </div>
+            )}
           </div>
         </div>
+        {appliedCoupon && (
+          <div
+            className="mt-3 rounded-xl px-3.5 py-2.5 text-[13px] font-medium flex items-center gap-2"
+            style={{ background: "color-mix(in srgb, var(--color-primary) 12%, transparent)", color: "var(--color-primary)" }}
+          >
+            <span className="flex-1">
+              {t("checkoutCouponApplied", { percent: String(appliedCoupon.percentOff) })}
+            </span>
+            <button type="button" onClick={removeCoupon} className="underline text-[12px] shrink-0">
+              {t("checkoutCouponRemove")}
+            </button>
+          </div>
+        )}
         <p
           className="mt-4 rounded-xl px-3.5 py-3 text-[13px] leading-relaxed"
           style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
@@ -586,6 +670,39 @@ function CheckoutInner() {
           {t("checkoutFreeTrialLine")}
         </p>
       </Card>
+
+      {/* Coupon code */}
+      {!appliedCoupon && (
+        <Card padding="p-4" className="mt-4">
+          <div className="haven-label mb-2">{t("checkoutCouponLabel")}</div>
+          <div className="flex gap-2">
+            <input
+              className={`${fieldBase} flex-1`}
+              style={{ borderColor: "var(--color-border)" }}
+              type="text"
+              dir="ltr"
+              placeholder={t("checkoutCouponPlaceholder")}
+              value={couponCode}
+              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(""); }}
+              onKeyDown={(e) => { if (e.key === "Enter") void applyCoupon(); }}
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              onClick={() => void applyCoupon()}
+              disabled={!couponCode.trim() || couponLoading}
+              className="haven-btn shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {couponLoading ? "…" : t("checkoutCouponApply")}
+            </button>
+          </div>
+          {couponError && (
+            <p className="mt-2 text-[12px]" style={{ color: "var(--color-danger)" }}>
+              {couponError}
+            </p>
+          )}
+        </Card>
+      )}
 
       {/* Card form */}
       <Card padding="p-5" className="mt-5">

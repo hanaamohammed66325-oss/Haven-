@@ -265,8 +265,12 @@ export function Planner() {
           <PlannerToolbar vertical={false} targetLabel={targetLabel} activeWeek={activeWeek} onAddTag={addTag} />
         </div>
 
-        {/* Week grid */}
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {/* Week grid. 3 columns waits until 2xl (not xl) — at lg/xl the sticky
+            toolbar sidebar already claims 224px+gap, so splitting into 3 right
+            at xl left each card too narrow; staying at 2 (wider) columns
+            through that range gives cards more room on typical desktop/laptop
+            widths, matching the tighter card padding below. */}
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {weeks.map((w) => (
             <WeekCard
               key={w.index}

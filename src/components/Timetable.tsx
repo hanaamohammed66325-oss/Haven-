@@ -170,7 +170,7 @@ export function Timetable() {
       <div className="overflow-x-auto pb-2 -mx-1 px-1">
         <div
           className="grid gap-4"
-          style={{ gridTemplateColumns: "repeat(7, minmax(180px, 1fr))" }}
+          style={{ gridTemplateColumns: "repeat(7, minmax(220px, 1fr))" }}
         >
         {byDay.map(({ day, entries }) => (
           <div

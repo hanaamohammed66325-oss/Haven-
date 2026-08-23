@@ -105,7 +105,7 @@ const initialData: AppData = {
   email: "",
   profilePhoto: null,
   gpaGoal: 4.5,
-  language: "en",
+  language: "ar",
   theme: "haven",
   semester: defaultSemester,
   courses: [],

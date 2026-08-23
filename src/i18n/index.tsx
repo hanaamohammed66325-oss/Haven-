@@ -29,18 +29,20 @@ const I18nContext = createContext<I18nContextValue>({
 });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const { language } = useStore();
+  const { language, hydrated } = useStore();
   const dir: "ltr" | "rtl" = language === "ar" ? "rtl" : "ltr";
 
   useEffect(() => {
+    // Until real data loads, `language` is still the default ("en"). The pre-paint
+    // boot script already set <html lang/dir> to the user's real locale; leave it
+    // alone until we have the real value, otherwise we'd flash it back to default.
+    if (!hydrated) return;
     const el = document.documentElement;
     el.lang = language;
     el.dir = dir;
-    // Keep the meta description in the active language. The tab <title> is set
-    // per-page by usePageTitle so each page reads specifically, still branded.
     const desc = document.querySelector('meta[name="description"]');
     if (desc) desc.setAttribute("content", dictionaries[language].metaDescription);
-  }, [language, dir]);
+  }, [language, dir, hydrated]);
 
   const t = (key: TranslationKey, params?: Params): string => {
     const template = dictionaries[language][key] ?? en[key] ?? key;
@@ -63,9 +65,14 @@ export function useT() {
 // pass { absolute: true } for the homepage brand title, which stands alone.
 export function usePageTitle(key: TranslationKey, opts?: { absolute?: boolean }) {
   const { t, lang } = useT();
+  const { hydrated } = useStore();
   const absolute = opts?.absolute ?? false;
   useEffect(() => {
+    // The boot script set a correct pre-paint tab title (brand, in the real
+    // locale). Don't override it until real data loads, or we'd briefly show the
+    // per-page title in the DEFAULT locale before correcting.
+    if (!hydrated) return;
     const label = t(key);
     document.title = absolute ? label : `${label} · Haven`;
-  }, [t, lang, key, absolute]);
+  }, [t, lang, key, absolute, hydrated]);
 }
