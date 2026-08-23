@@ -93,8 +93,8 @@ function PlannerToolbar({
   const { t } = useT();
   return (
     <div
-      className={`surface-card rounded-2xl p-3 flex gap-2 ${
-        vertical ? "flex-col items-stretch" : "flex-wrap items-center"
+      className={`surface-card rounded-2xl flex gap-1.5 ${
+        vertical ? "flex-col items-stretch p-2.5" : "flex-wrap items-center p-3"
       }`}
     >
       <span
@@ -107,8 +107,8 @@ function PlannerToolbar({
         <button
           key={tg.key}
           onClick={() => onAddTag(tg)}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-            vertical ? "w-full justify-start" : ""
+          className={`inline-flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
+            vertical ? "w-full justify-start px-2 py-1.5" : "px-2.5 py-1.5"
           }`}
           style={{ background: `${tg.color}1A`, color: tg.color }}
         >
@@ -256,7 +256,7 @@ export function Planner() {
     // this toolbar SECOND here places it at inline-end automatically — right
     // in LTR, left in RTL — with no hardcoded side. Below lg it collapses back
     // to a single column with the toolbar pinned to the top instead.
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_224px] lg:items-start lg:gap-6">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_180px] lg:items-start lg:gap-4">
       <div className="min-w-0">
         {/* Mobile/tablet toolbar — sticky under the app's mobile top bar so it
             stays visible while scrolling; hidden at lg+ where the sidebar
@@ -270,7 +270,7 @@ export function Planner() {
             at xl left each card too narrow; staying at 2 (wider) columns
             through that range gives cards more room on typical desktop/laptop
             widths, matching the tighter card padding below. */}
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
           {weeks.map((w) => (
             <WeekCard
               key={w.index}
