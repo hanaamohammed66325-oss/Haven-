@@ -123,7 +123,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Generous bottom padding (+ safe-area inset) so content never touches
             the viewport edge / hides under the phone home indicator in the PWA.
             Top/side padding is unchanged from before; only the bottom grew. */}
-        <div className="mx-auto w-full max-w-[1200px] px-5 pt-6 sm:px-6 sm:pt-8 md:px-12 md:pt-12 pb-12">
+        <div className="mx-auto w-full max-w-[1600px] px-5 pt-6 sm:px-6 sm:pt-8 md:px-10 md:pt-12 pb-12">
           <TrialBanner />
           {children}
         </div>

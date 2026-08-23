@@ -256,7 +256,7 @@ export function Planner() {
     // this toolbar SECOND here places it at inline-end automatically — right
     // in LTR, left in RTL — with no hardcoded side. Below lg it collapses back
     // to a single column with the toolbar pinned to the top instead.
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_180px] lg:items-start lg:gap-4">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_160px] lg:items-start lg:gap-4">
       <div className="min-w-0">
         {/* Mobile/tablet toolbar — sticky under the app's mobile top bar so it
             stays visible while scrolling; hidden at lg+ where the sidebar
@@ -270,7 +270,7 @@ export function Planner() {
             at xl left each card too narrow; staying at 2 (wider) columns
             through that range gives cards more room on typical desktop/laptop
             widths, matching the tighter card padding below. */}
-        <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {weeks.map((w) => (
             <WeekCard
               key={w.index}
