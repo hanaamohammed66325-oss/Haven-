@@ -101,25 +101,28 @@ export async function mirrorSubscription(
   }
 }
 
-/** Delete every stored row for this user — nothing in this browser can match
- *  them once the live subscription is gone and can't be silently replaced. */
-async function purgeAllSubscriptions(userId: string): Promise<{ ok: boolean }> {
+/**
+ * Delete the stored rows belonging to THIS DEVICE ONLY.
+ *
+ * MULTI-DEVICE SAFETY: this used to delete by user_id alone, so a laptop that
+ * lost its subscription silently wiped the user's phone and tablet rows too —
+ * their exam and lecture reminders stopped arriving with the toggle still
+ * reading "On". A dead endpoint on another device is not this device's
+ * business; send-user-push already prunes those when the push gateway answers
+ * 404/410.
+ */
+async function purgeThisDeviceSubscriptions(userId: string): Promise<{ ok: boolean }> {
   try {
-    const { data, error } = await supabase
+    const ua = navigator.userAgent.slice(0, 500);
+    const { error } = await supabase
       .from("push_subscriptions")
-      .select("endpoint")
-      .eq("user_id", userId);
+      .delete()
+      .eq("user_id", userId)
+      .eq("user_agent", ua); // ← never touch other devices' rows
     if (error) throw new Error(error.message);
-    if ((data?.length ?? 0) > 0) {
-      const { error: delErr } = await supabase
-        .from("push_subscriptions")
-        .delete()
-        .eq("user_id", userId);
-      if (delErr) throw new Error(delErr.message);
-    }
     return { ok: true };
   } catch (e) {
-    console.warn("Haven: failed to purge stale push subscriptions", e);
+    console.warn("Haven: failed to purge this device's push subscription", e);
     return { ok: false };
   }
 }
@@ -174,7 +177,7 @@ export async function reconcilePushSubscription(
         console.warn("Haven: silent push resubscribe failed", e);
       }
     }
-    const purged = await purgeAllSubscriptions(userId);
+    const purged = await purgeThisDeviceSubscriptions(userId);
     return { ok: purged.ok, subscribed: false };
   }
 
@@ -242,9 +245,17 @@ export async function runPushAutoHeal(): Promise<void> {
 
     const last = Number(localStorage.getItem(THROTTLE_KEY) || 0);
     if (Date.now() - last < THROTTLE_MS) return;
-    // Mark BEFORE awaiting anything, so an overlapping call (e.g. React
-    // StrictMode's double-invoke in dev) can't run the check twice.
-    localStorage.setItem(THROTTLE_KEY, String(Date.now()));
+
+    // A SHORT in-flight lock absorbs overlapping calls (React StrictMode's
+    // double-invoke). The long THROTTLE window is only spent once the check
+    // actually completes — stamping it up front meant every early return
+    // (no session yet, serviceWorker.ready timing out on a cold PWA launch)
+    // burned the full window, so a user who opens the app briefly a few times
+    // a day effectively never got healed.
+    const IN_FLIGHT_KEY = "haven-push-healthcheck-lock";
+    const inFlight = Number(sessionStorage.getItem(IN_FLIGHT_KEY) || 0);
+    if (Date.now() - inFlight < 30_000) return;
+    sessionStorage.setItem(IN_FLIGHT_KEY, String(Date.now()));
 
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
@@ -260,7 +271,11 @@ export async function runPushAutoHeal(): Promise<void> {
     if (!reg) return;
 
     const sub = await reg.pushManager.getSubscription();
-    await reconcilePushSubscription(userId, reg, sub, { allowResubscribe: true });
+    const result = await reconcilePushSubscription(userId, reg, sub, {
+      allowResubscribe: true,
+    });
+    // Only consume the throttle window on a check that genuinely ran.
+    if (result.ok) localStorage.setItem(THROTTLE_KEY, String(Date.now()));
   } catch (e) {
     console.warn("Haven: push auto-heal failed", e);
   }

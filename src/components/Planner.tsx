@@ -144,7 +144,10 @@ export function Planner() {
   const weekCount = Math.max(1, Math.min(40, weeksFromDates(semester)));
 
   const weeks = useMemo<Week[]>(() => {
-    const start = new Date(semester.startDate);
+    // Local midnight, not `new Date("YYYY-MM-DD")` — the bare form parses as
+    // UTC and reads back as the previous day at negative UTC offsets, shifting
+    // every week card one day early outside the Gulf.
+    const start = isoToLocalDate(semester.startDate);
     const valid = !Number.isNaN(+start);
     const dayMs = 864e5;
     return Array.from({ length: weekCount }, (_, i) => {
@@ -242,7 +245,9 @@ export function Planner() {
   // weeks are start + 7·i), then wrap around. e.g. a Thu start → Thu…Wed, a
   // Sun start → Sun…Sat. Storage stays 0=Sun..6=Sat; only display order shifts,
   // so `t(day${d})`, dayDates[d], and item.day filtering are all unaffected.
-  const semesterStart = new Date(semester.startDate);
+  // Local midnight (see the weeks memo above) so getDay() reports the weekday
+  // the student actually starts on, not the UTC-shifted one.
+  const semesterStart = isoToLocalDate(semester.startDate);
   const semesterStartDow = Number.isNaN(+semesterStart) ? 0 : semesterStart.getDay();
   const orderedDays = Array.from({ length: 7 }, (_, i) => (semesterStartDow + i) % 7);
 

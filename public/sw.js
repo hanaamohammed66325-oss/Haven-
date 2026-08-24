@@ -1,14 +1,21 @@
 /* Haven service worker
  *
  * Strategy
- *  - App shell + static assets  : cache-first (fast, works offline)
- *  - Page navigations           : network-first, fall back to cache, then /offline/
- *  - Supabase / API calls       : never cached (always live data)
+ *  - Build-hashed assets (/_next/static/) : cache-first (immutable by name)
+ *  - Named assets (/icons/, /logo, favicon): stale-while-revalidate
+ *  - Page navigations                     : network-first → cache → /offline/
+ *  - Supabase / API calls                 : never cached (always live data)
  *
- * Bump CACHE_VERSION whenever you want every client to refetch the shell.
+ * CRITICAL — CACHE_VERSION must CHANGE ON EVERY DEPLOY.
+ * A browser only installs a new service worker when sw.js's BYTES differ. If
+ * this string were a hand-edited constant, the worker would never update, the
+ * caches would never be purged, and every user would be pinned to the first
+ * build they ever loaded — seeing stale UI forever while the cloud data is
+ * correct. `scripts/stamp-sw.mjs` (run by `npm run build`) rewrites the
+ * __BUILD_ID__ placeholder with a per-build id, so the bytes always change.
  */
 
-const CACHE_VERSION = "haven-v1";
+const CACHE_VERSION = "haven-__BUILD_ID__";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const ASSET_CACHE = `${CACHE_VERSION}-assets`;
 const PAGE_CACHE = `${CACHE_VERSION}-pages`;
@@ -55,13 +62,20 @@ function isLiveData(url) {
   );
 }
 
-function isStaticAsset(url) {
+/** Content-hashed by the build — the filename changes when the bytes change,
+ *  so these are safe to cache forever. */
+function isImmutableAsset(url) {
+  return url.pathname.startsWith("/_next/static/");
+}
+
+/** Assets served under a STABLE name (icons, logo, favicon, manifest). The
+ *  bytes can change between deploys while the URL stays the same, so these
+ *  must revalidate — cache-first would pin the old logo/icon forever. */
+function isNamedAsset(url) {
   return (
-    url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
-    /\.(?:js|css|woff2?|ttf|otf|png|jpe?g|gif|svg|webp|avif|ico)$/i.test(
-      url.pathname
-    )
+    /^\/(?:logo(?:-\d+)?\.png|favicon\.svg|manifest\.json)$/i.test(url.pathname) ||
+    /\.(?:woff2?|ttf|otf)$/i.test(url.pathname)
   );
 }
 
@@ -83,8 +97,13 @@ self.addEventListener("fetch", (event) => {
       (async () => {
         try {
           const fresh = await fetch(request);
-          const cache = await caches.open(PAGE_CACHE);
-          cache.put(request, fresh.clone());
+          // Only cache a GOOD response. `fetch` resolves for 404/503 too, and
+          // caching a deploy-window 503 would pin the error page as this
+          // route's offline copy.
+          if (fresh && fresh.ok && fresh.type === "basic") {
+            const cache = await caches.open(PAGE_CACHE);
+            cache.put(request, fresh.clone());
+          }
           return fresh;
         } catch (e) {
           const cached =
@@ -104,21 +123,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: cache-first, refreshed in the background.
-  if (isStaticAsset(url)) {
+  // Build-hashed assets: cache-first. The URL changes whenever the bytes do,
+  // so a cache hit is always the right bytes.
+  if (isImmutableAsset(url)) {
     event.respondWith(
       (async () => {
         const cached = await caches.match(request);
-        if (cached) {
-          fetch(request)
-            .then((fresh) => {
-              if (fresh && fresh.ok) {
-                caches.open(ASSET_CACHE).then((c) => c.put(request, fresh));
-              }
-            })
-            .catch(() => {});
-          return cached;
-        }
+        if (cached) return cached;
         try {
           const fresh = await fetch(request);
           if (fresh && fresh.ok) {
@@ -129,6 +140,27 @@ self.addEventListener("fetch", (event) => {
         } catch (e) {
           return new Response("", { status: 504 });
         }
+      })()
+    );
+    return;
+  }
+
+  // Named assets (icons/logo/favicon/fonts): serve cached for speed, but ALWAYS
+  // revalidate against the network so a redesigned logo or icon actually lands.
+  // `cache: "no-cache"` bypasses the browser's own HTTP cache, which would
+  // otherwise answer the revalidation with the same stale bytes.
+  if (isNamedAsset(url)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(ASSET_CACHE);
+        const cached = await cache.match(request);
+        const network = fetch(new Request(request, { cache: "no-cache" }))
+          .then((fresh) => {
+            if (fresh && fresh.ok) cache.put(request, fresh.clone());
+            return fresh;
+          })
+          .catch(() => null);
+        return cached || (await network) || new Response("", { status: 504 });
       })()
     );
   }

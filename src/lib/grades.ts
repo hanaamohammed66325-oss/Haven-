@@ -160,7 +160,11 @@ export interface AttendanceInfo {
 // Duration-based absence: every session and every logged absence is weighted by its real length
 // in minutes, so a 2-hour class counts twice a 1-hour one. Compared against the withdrawal limit.
 export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null {
-  const weeks = Math.max(1, Math.round(sem?.weeks ?? 15) || 15);
+  // Same week count the planner and dashboard use. Previously this read
+  // `sem.weeks` (teaching only) while everything else used the full date span,
+  // so absence percentages were inflated by finals-weeks worth of missing
+  // denominator — enough to fire false "you're being withdrawn" warnings.
+  const weeks = semesterWeeks(sem);
   // Per-course withdrawal limit; thresholds scale with it so any university /
   // college (25% standard, 20% health colleges, …) works automatically.
   const limit = courseLimit(c, sem);
@@ -183,30 +187,68 @@ export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null
   return { weeks, unit, absence, rate, limit, status };
 }
 
-// Total weeks computed from the semester start/end dates.
-export function weeksFromDates(sem: Semester): number {
-  const start = +new Date(sem.startDate);
-  const end = +new Date(sem.endDate);
-  if (!start || !end || end <= start) return 15;
-  return Math.max(1, Math.round((end - start) / (7 * 864e5)));
+/** Hard bounds for any semester length, in weeks. */
+const MIN_SEMESTER_WEEKS = 1;
+const MAX_SEMESTER_WEEKS = 40;
+
+/**
+ * THE single source of truth for "how many weeks is this semester".
+ *
+ * Prefers the real date span (that's what the student actually set), and falls
+ * back to the CONFIGURED teaching + finals weeks when the dates are missing or
+ * inverted — never to a magic constant. A hardcoded fallback is what made a
+ * 20-week semester render as 15 while Settings clearly said 18 + 2.
+ *
+ * Every consumer (planner grid, dashboard progress, attendance maths) must use
+ * this, otherwise they disagree with each other — which previously inflated
+ * absence percentages by ~15% and produced false withdrawal warnings.
+ */
+export function semesterWeeks(sem?: Semester | null): number {
+  const clamp = (n: number) =>
+    Math.max(MIN_SEMESTER_WEEKS, Math.min(MAX_SEMESTER_WEEKS, Math.round(n)));
+
+  const teaching = Math.round(Number(sem?.weeks) || 0);
+  const finals = Math.round(Number(sem?.finalsWeeks) || 0);
+  const configured = teaching + finals;
+
+  const start = sem?.startDate ? +new Date(sem.startDate) : NaN;
+  const end = sem?.endDate ? +new Date(sem.endDate) : NaN;
+  if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+    return clamp((end - start) / (7 * 864e5));
+  }
+  return clamp(configured > 0 ? configured : 15);
 }
 
-// Semester progress from start/end dates
+// Kept as the historical name used across the app; now date-aware AND
+// safely backed by the user's configured weeks.
+export function weeksFromDates(sem: Semester): number {
+  return semesterWeeks(sem);
+}
+
+/**
+ * Semester progress. Guards every division so a same-day or inverted date range
+ * can never produce NaN/Infinity — which previously rendered a literal "NaN%"
+ * in the dashboard gauge and collapsed the week counter to "1 of 1".
+ */
 export function semesterProgress(sem: Semester) {
-  const start = +new Date(sem.startDate),
-    end = +new Date(sem.endDate),
-    now = Date.now(),
-    wk = 7 * 864e5;
+  const start = +new Date(sem.startDate);
+  const end = +new Date(sem.endDate);
+  const wk = 7 * 864e5;
+  const totalWeeks = semesterWeeks(sem);
+
+  // Dates unusable → progress can't be derived from them. Report the correct
+  // total (from the configured weeks) rather than a bogus 1-of-1.
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return { pct: 0, totalWeeks, currentWeek: 1 };
+  }
+
+  const now = Date.now();
+  const span = end - start;
+  const elapsed = now - start;
   return {
-    pct: Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100)),
-    totalWeeks: Math.max(1, Math.round((end - start) / wk)),
-    currentWeek: Math.max(
-      1,
-      Math.min(
-        Math.round((end - start) / wk),
-        Math.ceil((now - start) / wk)
-      )
-    ),
+    pct: Math.max(0, Math.min(100, (elapsed / span) * 100)),
+    totalWeeks,
+    currentWeek: Math.max(1, Math.min(totalWeeks, Math.ceil(elapsed / wk) || 1)),
   };
 }
 

@@ -317,7 +317,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           });
         const [cloudCourses, cloudSessions, cloudTimetable, cloudAbsences, cloudPlanner] =
           await Promise.all([
-            db.getCourses(sem.id),
+            // Courses gets the same protection as its siblings: a hiccup here
+            // used to reject the whole Promise.all and drop the user into the
+            // catch below, which published empty defaults over their account.
+            safe(db.getCourses(sem.id), "courses"),
             safe(db.getAttendanceSessions(), "attendance sessions"),
             safe(db.getTimetable(), "timetable"),
             safe(db.getAbsences(), "absences"),
@@ -468,9 +471,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("Haven: failed to load cloud data", e);
         if (cancelled) return;
-        // Safe fallback: defaults + the device-local layer (never localStorage prefs).
-        setData(initialData);
-        setHydrated(true);
+        // DO NOT publish defaults as if they were the user's real data. Doing
+        // that on a single dropped request showed a signed-in student an empty
+        // account — no courses, name reset to "Student", theme and language
+        // reverted, a semester starting today — rendered as settled truth with
+        // no error and no retry. It then wrote those wrong values into the
+        // boot cache, so the NEXT launch started wrong too.
+        //
+        // Leaving `hydrated` false keeps the app on its loading state (screens
+        // return early while !hydrated) instead of lying about the data, and
+        // the retry below recovers as soon as the network does.
+        if (!loadedOnceRef.current) {
+          window.setTimeout(() => {
+            if (!cancelled) void applyForUser(session);
+          }, 4000);
+        }
       }
     };
 

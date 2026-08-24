@@ -692,6 +692,10 @@ export const ar: Record<TranslationKey, string> = {
   errEmailTaken: "هذا البريد مسجّل مسبقاً لحساب آخر.",
   errUnknown: "حدث خطأ. حاولي مرة أخرى.",
 
+  // التحقق من تواريخ الفصل
+  errEndBeforeStart: "تاريخ النهاية يجب أن يكون بعد تاريخ البداية — تأكدي من السنة.",
+  errStartAfterEnd: "تاريخ البداية يجب أن يكون قبل تاريخ النهاية — تأكدي من السنة.",
+
   // Landing page
   land_navHome: "الرئيسية",
   land_navFeatures: "المميزات",

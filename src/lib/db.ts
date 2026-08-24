@@ -494,16 +494,20 @@ export async function getPreferences(): Promise<Preferences> {
   return prefs && typeof prefs === "object" ? (prefs as Preferences) : {};
 }
 
-/** Merge `partial` into the current user's preferences and persist the result. */
+/**
+ * Merge `partial` into the current user's preferences.
+ *
+ * Uses a SERVER-SIDE atomic merge (`merge_preferences` RPC, jsonb `||`).
+ * The old read-merge-write here lost data: Settings saves on every keystroke,
+ * so two overlapping calls both read the same snapshot and both wrote their own
+ * merge — whichever UPDATE landed last silently discarded the other's keys.
+ * Typing "20" into the withdrawal limit could persist "2", after which every
+ * course was evaluated against a 2% limit and the dashboard filled with false
+ * withdrawal warnings.
+ */
 export async function savePreferences(partial: Preferences): Promise<void> {
-  const userId = await currentUserId();
-  // Read-merge-write so a partial save never drops the user's other settings.
-  const current = await getPreferences();
-  const next = { ...current, ...partial };
-  const { error } = await supabase
-    .from("profiles")
-    .update({ preferences: next })
-    .eq("id", userId);
+  if (!partial || Object.keys(partial).length === 0) return;
+  const { error } = await supabase.rpc("merge_preferences", { patch: partial });
   if (error) throw new Error(error.message);
 }
 

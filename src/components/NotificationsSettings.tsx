@@ -113,7 +113,15 @@ export function NotificationsSettings() {
     // @/lib/pushHealthCheck) — allowResubscribe:false here because a Settings
     // visit should show the Enable button rather than silently act for the
     // user; last_seen_at is bumped as part of the "already known" branch.
-    const reg = await navigator.serviceWorker.ready;
+    // `serviceWorker.ready` NEVER resolves when no worker ever activates — and
+    // RegisterSW swallows registration failures, so a bad deploy (404 on
+    // /sw.js) left this section stuck on its spinner forever: no message, no
+    // Enable button, no error. Race it with a timeout, same as the auto-heal.
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 5000)),
+    ]);
+    if (!reg) return "unsupported";
     const sub = await reg.pushManager.getSubscription();
 
     const userId = await uid();

@@ -40,7 +40,11 @@ const localMidnight = (iso: string) => new Date(`${iso}T00:00:00`);
  *  0..6). Mirrors the Planner grid: week start = semester start + (week-1)*7,
  *  then the offset to that weekday within the week window. */
 export function plannerItemDate(sem: Semester, week: number, day: number): Date | null {
-  const start = new Date(sem.startDate);
+  // localMidnight, NOT `new Date(iso)`: a bare "YYYY-MM-DD" is parsed as UTC
+  // midnight, which reads back as the PREVIOUS day for anyone at a negative UTC
+  // offset. That shifted the whole planner grid and every derived reminder one
+  // day early outside the Gulf.
+  const start = localMidnight(sem.startDate);
   if (Number.isNaN(+start)) return null;
   const weekStart = localMidnight(toISODate(new Date(+start + (week - 1) * 7 * DAY_MS)));
   const offset = (((day - weekStart.getDay()) % 7) + 7) % 7;

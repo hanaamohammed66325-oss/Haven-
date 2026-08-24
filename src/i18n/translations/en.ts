@@ -694,6 +694,10 @@ export const en = {
   errEmailTaken: "That email is already registered to another account.",
   errUnknown: "Something went wrong. Please try again.",
 
+  // Semester date validation
+  errEndBeforeStart: "The end date must come after the start date — check the year.",
+  errStartAfterEnd: "The start date must come before the end date — check the year.",
+
   // Landing page
   land_navHome: "Home",
   land_navFeatures: "Features",

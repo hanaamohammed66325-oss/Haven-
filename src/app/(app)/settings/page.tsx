@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, Trash2, Check, Lock, LogOut } from "lucide-react";
 import { useStore } from "@/store";
@@ -48,6 +48,64 @@ const THEMES: ThemeMeta[] = [
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 
+/**
+ * A number field that only ever COMMITS a value inside [min, max].
+ *
+ * `min`/`max` on a plain <input type="number"> are decorative for typed input —
+ * they gate the steppers and native form validation, not `onChange`. Saving
+ * straight from `onChange` meant that simply backspacing the field to retype it
+ * persisted 0, which downstream code then silently replaced with a made-up 15;
+ * and typing 999 persisted 999, dividing attendance by a 999-week term so every
+ * student appeared to have ~0% absence.
+ *
+ * The draft is local while typing (so the field stays usable), and the clamped
+ * value is committed on blur / Enter. Re-syncs when the stored value changes
+ * elsewhere.
+ */
+function ClampedNumberField({
+  value, min, max, onCommit, className, style, ariaLabel, placeholder,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onCommit: (n: number) => void;
+  className?: string;
+  style?: React.CSSProperties;
+  ariaLabel?: string;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+
+  const commit = () => {
+    const parsed = Math.round(Number(draft));
+    // An empty or unparseable field reverts to the stored value — never 0.
+    const next = Number.isFinite(parsed) && draft.trim() !== ""
+      ? Math.max(min, Math.min(max, parsed))
+      : value;
+    setDraft(String(next));
+    if (next !== value) onCommit(next);
+  };
+
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      step="1"
+      inputMode="numeric"
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      className={className}
+      style={style}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+    />
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-12">
@@ -74,6 +132,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const store = useStore();
   const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, resetData } = store;
+  // Which of the two semester date fields was last rejected for inverting the
+  // range (null = no problem). Drives the inline explanation under the fields.
+  const [dateError, setDateError] = useState<"start" | "end" | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
@@ -166,13 +227,26 @@ export default function SettingsPage() {
               onChange={(e) => setSemester({ name: e.target.value })}
             />
           </Row>
+          {/* Start/end are cross-validated: an end date on or before the start
+              produces a zero/negative span, which used to collapse the whole app
+              to "Week 1 of 1", show 0% progress forever, and make the planner
+              render a single week regardless of the configured 18+2. The guards
+              below simply refuse the invalid value and the notice explains why. */}
           <Row label={t("startDate")}>
             <DateField
               calendar={semester.calendarType}
               className={fieldClass}
               style={divider}
               value={semester.startDate}
-              onChange={(v) => setSemester({ startDate: v })}
+              onChange={(v) => {
+                if (!v) return;
+                if (semester.endDate && v >= semester.endDate) {
+                  setDateError("start");
+                  return;
+                }
+                setDateError(null);
+                setSemester({ startDate: v });
+              }}
             />
           </Row>
           <Row label={t("endDate")}>
@@ -181,9 +255,24 @@ export default function SettingsPage() {
               className={fieldClass}
               style={divider}
               value={semester.endDate}
-              onChange={(v) => setSemester({ endDate: v })}
+              onChange={(v) => {
+                if (!v) return;
+                if (semester.startDate && v <= semester.startDate) {
+                  setDateError("end");
+                  return;
+                }
+                setDateError(null);
+                setSemester({ endDate: v });
+              }}
             />
           </Row>
+          {dateError && (
+            <div className="px-1 py-2">
+              <p className="text-xs" style={{ color: "var(--color-danger, #c0392b)" }}>
+                {dateError === "end" ? t("errEndBeforeStart") : t("errStartAfterEnd")}
+              </p>
+            </div>
+          )}
           <Row label={t("calendarLabel")}>
             <select
               className={fieldClass}
@@ -202,27 +291,23 @@ export default function SettingsPage() {
       <Section title={t("sectionAttendance")}>
         <div className="divide-y" style={divider}>
           <Row label={t("withdrawalLimitLabel")}>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              step="1"
+            <ClampedNumberField
+              value={semester.withdrawalLimit}
+              min={1}
+              max={100}
+              onCommit={(n) => setSemester({ withdrawalLimit: n })}
               className={fieldClass}
               style={divider}
-              value={semester.withdrawalLimit}
-              onChange={(e) => setSemester({ withdrawalLimit: Number(e.target.value) || 0 })}
             />
           </Row>
           <Row label={t("finalsWeeksLabel")}>
-            <input
-              type="number"
-              min="0"
-              max="10"
-              step="1"
+            <ClampedNumberField
+              value={semester.finalsWeeks}
+              min={0}
+              max={10}
+              onCommit={(n) => setSemester({ finalsWeeks: n })}
               className={fieldClass}
               style={divider}
-              value={semester.finalsWeeks}
-              onChange={(e) => setSemester({ finalsWeeks: Number(e.target.value) || 0 })}
             />
           </Row>
           <Row label={t("semesterWeeksLabel")}>
@@ -242,17 +327,15 @@ export default function SettingsPage() {
                     {w}
                   </button>
                 ))}
-                <input
-                  type="number"
-                  min="1"
-                  max="40"
-                  step="1"
-                  aria-label={t("weeksCustom")}
+                <ClampedNumberField
+                  value={semester.weeks}
+                  min={1}
+                  max={40}
+                  onCommit={(n) => setSemester({ weeks: n })}
+                  ariaLabel={t("weeksCustom")}
                   placeholder={t("weeksCustom")}
                   className={`${fieldClass} flex-1`}
                   style={divider}
-                  value={semester.weeks}
-                  onChange={(e) => setSemester({ weeks: Number(e.target.value) || 0 })}
                 />
               </div>
               <span className="text-xs" style={{ color: "var(--color-muted)" }}>
