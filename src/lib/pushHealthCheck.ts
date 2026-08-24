@@ -58,10 +58,12 @@ const setPushEnabledFlag = () => {
 };
 
 /**
- * Mirror a live PushSubscription into push_subscriptions, keeping ONLY this
- * endpoint for the user (an Apple revoke+recreate rotates the endpoint, so old
- * rows must be pruned or they accumulate and go dead). Used by enable(), the
- * orphan-adopt branch below, and the silent resubscribe branch below.
+ * Mirror a live PushSubscription into push_subscriptions. Multi-device: we
+ * only prune stale endpoints for THIS device (same user_agent, different
+ * endpoint — happens when Apple revoke+recreate rotates it), NOT for other
+ * devices. Dead endpoints on other devices get cleaned up by send-user-push
+ * when the gateway returns 404/410. Used by enable(), the orphan-adopt
+ * branch below, and the silent resubscribe branch below.
  */
 export async function mirrorSubscription(
   userId: string,
@@ -70,10 +72,14 @@ export async function mirrorSubscription(
   try {
     const p256dh = arrayBufferToBase64Url(sub.getKey("p256dh"));
     const auth = arrayBufferToBase64Url(sub.getKey("auth"));
+    const ua = navigator.userAgent.slice(0, 500);
+    // Prune only rows from THIS SAME device (same user_agent) whose endpoint
+    // has rotated. Leaves OTHER devices' rows untouched.
     const { error: pruneErr } = await supabase
       .from("push_subscriptions")
       .delete()
       .eq("user_id", userId)
+      .eq("user_agent", ua)
       .neq("endpoint", sub.endpoint);
     if (pruneErr) throw new Error(pruneErr.message);
     const { error: upErr } = await supabase.from("push_subscriptions").upsert(
@@ -82,7 +88,7 @@ export async function mirrorSubscription(
         endpoint: sub.endpoint,
         p256dh,
         auth,
-        user_agent: navigator.userAgent.slice(0, 500),
+        user_agent: ua,
         last_seen_at: new Date().toISOString(),
       },
       { onConflict: "user_id,endpoint" }
