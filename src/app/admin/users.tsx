@@ -50,7 +50,6 @@ export function UsersSection({
     { id: "active",    label: "Active" },
     { id: "trial",     label: "Trial" },
     { id: "paid",      label: "Paid" },
-    { id: "pending",   label: "Pending 3DS" },
     { id: "expired",   label: "Expired" },
     { id: "cancelled", label: "Cancelled" },
     { id: "free",      label: "Free" },

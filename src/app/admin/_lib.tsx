@@ -228,6 +228,8 @@ export function Badge({
   const map: Record<string, { bg: string; fg: string }> = {
     trial:          { bg: isLight ? "#dbeafe" : "#172554", fg: isLight ? "#1e40af" : "#93c5fd" },
     active:         { bg: c.successBg, fg: c.successText },
+    // Retained so any historical row still renders with a sensible badge;
+    // no new subscription can reach this status (no gateway, no 3DS step).
     pending_3ds:    { bg: c.purpleBg, fg: c.purple },
     expired:        { bg: isLight ? "#fef3c7" : "#3f2712", fg: isLight ? "#92400e" : "#fbbf24" },
     cancelled:      { bg: c.border, fg: c.textMuted },

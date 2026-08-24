@@ -40,7 +40,6 @@ export function SubscriptionsSection({
     { id: "all",             label: "All" },
     { id: "active",          label: "Active" },
     { id: "trial",           label: "Trial" },
-    { id: "pending_3ds",     label: "Pending 3DS" },
     { id: "expired",         label: "Expired" },
     { id: "cancelled",       label: "Cancelled" },
     { id: "payment_failed",  label: "Payment failed" },
