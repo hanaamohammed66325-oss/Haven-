@@ -650,9 +650,39 @@ export const en = {
   changePhoto: "Change photo",
   emailLabel: "Email",
   emailPlaceholder: "you@example.com",
-  newPasswordLabel: "New password",
-  passwordNote: "Sign-in and secure passwords arrive with accounts later — this is a placeholder.",
   savedToast: "Saved",
+
+  // Account security — buttons that open the change-email / change-password modals
+  accountSecurityHeading: "Sign-in & security",
+  changeEmailBtn: "Change email",
+  changePasswordBtn: "Change password",
+
+  // Change-email modal
+  changeEmailTitle: "Change your email",
+  changeEmailIntro: "For security, enter your current password. A confirmation link will be sent to both your current and new email addresses — both must be confirmed before the change takes effect.",
+  currentPasswordLabel: "Current password",
+  newEmailLabel: "New email",
+  changeEmailSubmit: "Send confirmations",
+  changeEmailSuccessTitle: "Confirmation emails sent",
+  changeEmailSuccessBody: "Open both your current and new inboxes and click the confirmation link in each. Your email will change once both are confirmed.",
+
+  // Change-password modal
+  changePasswordTitle: "Change your password",
+  changePasswordIntro: "Enter your current password and choose a new one. You'll be signed out from all other devices as a security measure, and we'll email you a confirmation.",
+  newPasswordLabel: "New password",
+  confirmPasswordLabel: "Confirm new password",
+  passwordMinHint: "At least 8 characters.",
+  changePasswordSubmit: "Save new password",
+  changePasswordSuccess: "Password changed. Other devices have been signed out.",
+
+  // Shared errors
+  errWrongPassword: "The current password is incorrect.",
+  errPasswordsDontMatch: "New passwords don't match.",
+  errPasswordTooShort: "Password must be at least 8 characters.",
+  errInvalidEmail: "Please enter a valid email address.",
+  errSameEmail: "The new email is the same as your current email.",
+  errEmailTaken: "That email is already registered to another account.",
+  errUnknown: "Something went wrong. Please try again.",
 
   // Landing page
   land_navHome: "Home",

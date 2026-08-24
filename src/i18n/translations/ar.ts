@@ -648,9 +648,39 @@ export const ar: Record<TranslationKey, string> = {
   changePhoto: "تغيير الصورة",
   emailLabel: "البريد الإلكتروني",
   emailPlaceholder: "you@example.com",
-  newPasswordLabel: "كلمة مرور جديدة",
-  passwordNote: "تسجيل الدخول وكلمات المرور الآمنة ستتوفّر لاحقًا مع الحسابات — هذا حقل مؤقت.",
   savedToast: "تم الحفظ",
+
+  // Account security — buttons that open the change-email / change-password modals
+  accountSecurityHeading: "تسجيل الدخول والأمان",
+  changeEmailBtn: "تغيير البريد الإلكتروني",
+  changePasswordBtn: "تغيير كلمة المرور",
+
+  // Change-email modal
+  changeEmailTitle: "تغيير بريدك الإلكتروني",
+  changeEmailIntro: "لأمانك، أدخلي كلمة مرورك الحالية. سيصلك رابط تأكيد على بريدك الحالي والجديد — يجب تأكيد الرابطين معًا لتفعيل التغيير.",
+  currentPasswordLabel: "كلمة المرور الحالية",
+  newEmailLabel: "البريد الإلكتروني الجديد",
+  changeEmailSubmit: "إرسال رسائل التأكيد",
+  changeEmailSuccessTitle: "تم إرسال رسائل التأكيد",
+  changeEmailSuccessBody: "افتحي بريدك الحالي والجديد واضغطي على رابط التأكيد في كل رسالة. سيتغيّر بريدك بعد تأكيد الرابطين.",
+
+  // Change-password modal
+  changePasswordTitle: "تغيير كلمة المرور",
+  changePasswordIntro: "أدخلي كلمة مرورك الحالية واختاري كلمة مرور جديدة. سيتم تسجيل خروجك من جميع الأجهزة الأخرى كإجراء أمني، وسنرسل لك رسالة تأكيد.",
+  newPasswordLabel: "كلمة المرور الجديدة",
+  confirmPasswordLabel: "تأكيد كلمة المرور الجديدة",
+  passwordMinHint: "٨ أحرف على الأقل.",
+  changePasswordSubmit: "حفظ كلمة المرور الجديدة",
+  changePasswordSuccess: "تم تغيير كلمة المرور. تم تسجيل خروج الأجهزة الأخرى.",
+
+  // Shared errors
+  errWrongPassword: "كلمة المرور الحالية غير صحيحة.",
+  errPasswordsDontMatch: "كلمتا المرور الجديدتان غير متطابقتين.",
+  errPasswordTooShort: "يجب أن تكون كلمة المرور ٨ أحرف على الأقل.",
+  errInvalidEmail: "يرجى إدخال بريد إلكتروني صالح.",
+  errSameEmail: "البريد الجديد مطابق لبريدك الحالي.",
+  errEmailTaken: "هذا البريد مسجّل مسبقاً لحساب آخر.",
+  errUnknown: "حدث خطأ. حاولي مرة أخرى.",
 
   // Landing page
   land_navHome: "الرئيسية",
