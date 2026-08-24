@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock } from "lucide-react";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
+import { PENDING_EMAIL_CHANGE_KEY } from "@/lib/auth";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
@@ -283,6 +284,13 @@ function ChangeEmailModal({ open, onClose }: { open: boolean; onClose: () => voi
       });
       const j = await res.json().catch(() => ({}));
       if (res.ok && j?.ok) {
+        // Mark this device as the initiator so /email-changed can distinguish
+        // same-device vs other-device when the confirmation link is opened.
+        try {
+          localStorage.setItem(PENDING_EMAIL_CHANGE_KEY, newEmail.trim().toLowerCase());
+        } catch {
+          // ignore
+        }
         setSuccess(true);
       } else {
         const code = String(j?.error ?? "");

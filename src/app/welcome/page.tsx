@@ -33,6 +33,32 @@ export default function WelcomePage() {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     (async () => {
+      // Two flows land here:
+      //   1) Send Email Hook builds ?token_hash=... URLs (signup/magiclink/invite).
+      //   2) Supabase's default link puts tokens in the URL hash (implicit).
+      let params: URLSearchParams | null = null;
+      try {
+        params = new URLSearchParams(window.location.search);
+      } catch { /* ignore */ }
+      const tokenHash = params?.get("token_hash");
+      const linkType = params?.get("type"); // signup | magiclink | invite
+
+      if (tokenHash) {
+        const verifyType =
+          linkType === "signup" ? "signup" :
+          linkType === "magiclink" ? "magiclink" :
+          linkType === "invite" ? "invite" : "email";
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: verifyType as "signup" | "magiclink" | "invite" | "email",
+        });
+        if (cancelled) return;
+        if (error) {
+          setState("invalid");
+          return;
+        }
+      }
+
       const { data } = await supabase.auth.getSession();
       if (cancelled) return;
       const session = data.session;

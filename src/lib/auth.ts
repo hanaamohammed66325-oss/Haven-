@@ -15,6 +15,11 @@ import { supabase, SITE_URL, WELCOME_URL } from "./supabase";
 // link" (sign out so no stray session is left there).
 export const PENDING_SIGNUP_KEY = "haven_pending_signup";
 
+// Set to the NEW email when a change-email request is initiated on this device.
+// The /email-changed page reads it to decide: same device (initiator) vs the
+// other device (which just opened one of the confirmation links).
+export const PENDING_EMAIL_CHANGE_KEY = "haven_pending_email_change";
+
 export interface HavenUser {
   id: string;
   name: string;

@@ -94,9 +94,22 @@ export default function ResetPasswordPage() {
       if (event === "PASSWORD_RECOVERY" || session) succeed();
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) succeed();
-    });
+    // Two flows can land here:
+    //   1) Send Email Hook builds ?token_hash=... URLs — verify with verifyOtp.
+    //   2) Supabase's default link puts tokens in the URL hash (implicit) —
+    //      onAuthStateChange + getSession above already handle that path.
+    let tokenHash: string | null = null;
+    try {
+      tokenHash = new URLSearchParams(window.location.search).get("token_hash");
+    } catch { /* ignore */ }
+    if (tokenHash) {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
+        .then(({ error }) => { if (!error) succeed(); });
+    } else {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) succeed();
+      });
+    }
 
     const timer = window.setTimeout(() => {
       if (!settled) {

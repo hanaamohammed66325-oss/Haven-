@@ -666,6 +666,16 @@ export const en = {
   changeEmailSuccessTitle: "Confirmation emails sent",
   changeEmailSuccessBody: "Open both your current and new inboxes and click the confirmation link in each. Your email will change once both are confirmed.",
 
+  // /email-changed landing page (Supabase email-change confirmation link)
+  emailChangedChecking: "Confirming your email change…",
+  emailChangedSameDeviceTitle: "Email change confirmed",
+  emailChangedSameDeviceSubtitle: "Your new email is now active on this account.",
+  emailChangedGoToProfile: "Go to your profile",
+  emailChangedOtherDeviceTitle: "Email change confirmed",
+  emailChangedOtherDeviceSubtitle: "You can close this page and go back to the device where you requested the change.",
+  emailChangedInvalidTitle: "This confirmation link is invalid or has expired.",
+  emailChangedInvalidSubtitle: "Please sign in and try again from your profile.",
+
   // Change-password modal
   changePasswordTitle: "Change your password",
   changePasswordIntro: "Enter your current password and choose a new one. You'll be signed out from all other devices as a security measure, and we'll email you a confirmation.",

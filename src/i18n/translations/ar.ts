@@ -664,6 +664,16 @@ export const ar: Record<TranslationKey, string> = {
   changeEmailSuccessTitle: "تم إرسال رسائل التأكيد",
   changeEmailSuccessBody: "افتحي بريدك الحالي والجديد واضغطي على رابط التأكيد في كل رسالة. سيتغيّر بريدك بعد تأكيد الرابطين.",
 
+  // صفحة /email-changed
+  emailChangedChecking: "جارٍ تأكيد تغيير البريد…",
+  emailChangedSameDeviceTitle: "تم تأكيد تغيير البريد",
+  emailChangedSameDeviceSubtitle: "بريدك الجديد أصبح مفعّلاً على حسابك.",
+  emailChangedGoToProfile: "الانتقال إلى ملفك الشخصي",
+  emailChangedOtherDeviceTitle: "تم تأكيد تغيير البريد",
+  emailChangedOtherDeviceSubtitle: "يمكنك إغلاق هذه الصفحة والعودة إلى الجهاز الذي طلبتِ منه التغيير.",
+  emailChangedInvalidTitle: "رابط التأكيد غير صالح أو منتهي الصلاحية.",
+  emailChangedInvalidSubtitle: "يرجى تسجيل الدخول والمحاولة من ملفك الشخصي.",
+
   // Change-password modal
   changePasswordTitle: "تغيير كلمة المرور",
   changePasswordIntro: "أدخلي كلمة مرورك الحالية واختاري كلمة مرور جديدة. سيتم تسجيل خروجك من جميع الأجهزة الأخرى كإجراء أمني، وسنرسل لك رسالة تأكيد.",
