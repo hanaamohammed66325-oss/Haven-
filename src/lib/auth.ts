@@ -9,6 +9,14 @@
 
 import { supabase, SITE_URL, WELCOME_URL } from "./supabase";
 
+// Supabase sometimes returns unhelpful error messages like "{}" or empty strings.
+// This helper replaces them with a generic fallback.
+function sanitizeMessage(msg: string, fallback = "Something went wrong. Please try again."): string {
+  const trimmed = msg?.trim();
+  if (!trimmed || trimmed === "{}" || trimmed === "[object Object]") return fallback;
+  return trimmed;
+}
+
 // localStorage flag written when a signup starts on THIS device (value = the
 // email). The email-confirmation landing page reads it to tell "same device"
 // (keep the session, go to the dashboard) from "a different device opened the
@@ -40,7 +48,7 @@ export async function signUp(name: string, email: string, password: string): Pro
       options: { data: { full_name: name.trim() }, emailRedirectTo: WELCOME_URL },
     });
     if (error) {
-      const message = error.message;
+      const message = sanitizeMessage(error.message);
       // Supabase reports an already-registered email as "User already registered".
       if (/already registered|already exists/i.test(message)) {
         return { ok: false, error: "exists", message };
@@ -64,7 +72,7 @@ export async function signUp(name: string, email: string, password: string): Pro
     const needsConfirmation = !data.session;
     return { ok: true, needsConfirmation };
   } catch (e) {
-    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+    return { ok: false, error: "unavailable", message: sanitizeMessage(e instanceof Error ? e.message : String(e)) };
   }
 }
 
@@ -75,7 +83,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
       password,
     });
     if (error) {
-      const message = error.message;
+      const message = sanitizeMessage(error.message);
       if (/email not confirmed|not confirmed/i.test(message)) {
         return { ok: false, error: "unconfirmed", message };
       }
@@ -83,7 +91,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     }
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+    return { ok: false, error: "unavailable", message: sanitizeMessage(e instanceof Error ? e.message : String(e)) };
   }
 }
 
@@ -95,10 +103,10 @@ export async function resendConfirmation(email: string): Promise<AuthResult> {
       email: email.trim(),
       options: { emailRedirectTo: WELCOME_URL },
     });
-    if (error) return { ok: false, error: "invalid", message: error.message };
+    if (error) return { ok: false, error: "invalid", message: sanitizeMessage(error.message) };
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+    return { ok: false, error: "unavailable", message: sanitizeMessage(e instanceof Error ? e.message : String(e)) };
   }
 }
 
@@ -113,10 +121,10 @@ export async function verifySignupOtp(email: string, token: string): Promise<Aut
       token: token.trim(),
       type: "signup",
     });
-    if (error) return { ok: false, error: "invalid", message: error.message };
+    if (error) return { ok: false, error: "invalid", message: sanitizeMessage(error.message) };
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+    return { ok: false, error: "unavailable", message: sanitizeMessage(e instanceof Error ? e.message : String(e)) };
   }
 }
 
@@ -141,10 +149,10 @@ export async function requestPasswordReset(
       // The trailing slash matches the exported route (next.config trailingSlash).
       redirectTo: `${SITE_URL}/reset-password/?lang=${lang}`,
     });
-    if (error) return { ok: false, error: "unavailable", message: error.message };
+    if (error) return { ok: false, error: "unavailable", message: sanitizeMessage(error.message) };
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+    return { ok: false, error: "unavailable", message: sanitizeMessage(e instanceof Error ? e.message : String(e)) };
   }
 }
 
@@ -153,10 +161,10 @@ export async function requestPasswordReset(
 export async function updatePassword(password: string): Promise<AuthResult> {
   try {
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) return { ok: false, error: "invalid", message: error.message };
+    if (error) return { ok: false, error: "invalid", message: sanitizeMessage(error.message) };
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: "unavailable", message: e instanceof Error ? e.message : String(e) };
+    return { ok: false, error: "unavailable", message: sanitizeMessage(e instanceof Error ? e.message : String(e)) };
   }
 }
 
