@@ -34,6 +34,7 @@ const fieldBase =
 
 /** Matches the signup rule (see authErrPassword). */
 const MIN_PASSWORD = 8;
+const isStrongPassword = (p: string) => p.length >= MIN_PASSWORD && /[a-z]/.test(p) && /[A-Z]/.test(p) && /[0-9]/.test(p);
 
 /** How long to wait for a recovery session before calling the link invalid. */
 const VERIFY_TIMEOUT_MS = 4000;
@@ -136,7 +137,7 @@ export default function ResetPasswordPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const next: typeof errors = {};
-    if (password.length < MIN_PASSWORD) next.password = t("authErrPassword");
+    if (!isStrongPassword(password)) next.password = t("authErrPassword");
     if (confirm !== password) next.confirm = t("authErrMatch");
     setErrors(next);
     if (Object.keys(next).length) return;

@@ -304,7 +304,7 @@ export const en = {
   authHidePassword: "Hide password",
   authErrName: "Please enter your name.",
   authErrEmail: "Please enter a valid email.",
-  authErrPassword: "Password must be at least 8 characters.",
+  authErrPassword: "Password must be at least 8 characters, with uppercase, lowercase, and a number.",
   authErrMatch: "Passwords don't match.",
   authErrExists: "An account with this email already exists.",
   authErrInvalid: "Invalid email or password",
@@ -674,7 +674,7 @@ export const en = {
   // Shared errors
   errWrongPassword: "The current password is incorrect.",
   errPasswordsDontMatch: "New passwords don't match.",
-  errPasswordTooShort: "Password must be at least 8 characters.",
+  errPasswordTooShort: "Password must be at least 8 characters, with uppercase, lowercase, and a number.",
   errInvalidEmail: "Please enter a valid email address.",
   errSameEmail: "The new email is the same as your current email.",
   errEmailTaken: "That email is already registered to another account.",

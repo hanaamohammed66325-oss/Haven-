@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 
 // Simple, permissive email check: something@something.something (no spaces).
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+const isStrongPassword = (p: string) => p.length >= 8 && /[a-z]/.test(p) && /[A-Z]/.test(p) && /[0-9]/.test(p);
 const fieldBase =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 
@@ -136,7 +137,7 @@ export default function SignUpPage() {
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = t("authErrName");
     if (!isValidEmail(email)) errs.email = t("authErrEmail");
-    if (password.length < 8) errs.password = t("authErrPassword");
+    if (!isStrongPassword(password)) errs.password = t("authErrPassword");
     if (confirm !== password) errs.confirm = t("authErrMatch");
     setErrors(errs);
     setFormError("");

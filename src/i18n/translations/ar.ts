@@ -303,7 +303,7 @@ export const ar: Record<TranslationKey, string> = {
   authHidePassword: "إخفاء كلمة المرور",
   authErrName: "الاسم مطلوب.",
   authErrEmail: "البريد الإلكتروني غير صحيح.",
-  authErrPassword: "كلمة المرور يجب أن تكون ٨ أحرف على الأقل.",
+  authErrPassword: "كلمة المرور يجب أن تكون ٨ أحرف على الأقل، وتحتوي حرف كبير وحرف صغير ورقم.",
   authErrMatch: "كلمتا المرور غير متطابقتين.",
   authErrExists: "يوجد حساب بهذا البريد بالفعل.",
   authErrInvalid: "البريد أو كلمة المرور غير صحيحة",
@@ -673,7 +673,7 @@ export const ar: Record<TranslationKey, string> = {
   // Shared errors
   errWrongPassword: "كلمة المرور الحالية غير صحيحة.",
   errPasswordsDontMatch: "كلمتا المرور الجديدتان غير متطابقتين.",
-  errPasswordTooShort: "يجب أن تكون كلمة المرور ٨ أحرف على الأقل.",
+  errPasswordTooShort: "كلمة المرور يجب أن تكون ٨ أحرف على الأقل، وتحتوي حرف كبير وحرف صغير ورقم.",
   errInvalidEmail: "يرجى إدخال بريد إلكتروني صالح.",
   errSameEmail: "البريد الجديد مطابق لبريدك الحالي.",
   errEmailTaken: "هذا البريد مسجّل مسبقاً لحساب آخر.",

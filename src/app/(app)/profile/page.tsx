@@ -388,7 +388,7 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
     e.preventDefault();
     setError("");
     if (!current) return;
-    if (next.length < 8) { setError(t("errPasswordTooShort")); return; }
+    if (next.length < 8 || !/[a-z]/.test(next) || !/[A-Z]/.test(next) || !/[0-9]/.test(next)) { setError(t("errPasswordTooShort")); return; }
     if (next !== confirm) { setError(t("errPasswordsDontMatch")); return; }
     setLoading(true);
     try {
