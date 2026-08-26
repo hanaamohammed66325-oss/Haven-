@@ -34,7 +34,7 @@ export function AuthLayout({
       {/* Centered brand + card */}
       <div className="flex flex-1 flex-col items-center justify-center py-12">
         <Link href="/" className="haven-fade-up flex items-center gap-3 mb-8">
-          <Logo size={40} tile />
+          <Logo size={40} mono />
           <span className="font-display text-3xl" style={{ color: "var(--color-ink)" }}>{t("appName")}</span>
         </Link>
 

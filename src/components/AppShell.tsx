@@ -114,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Menu size={22} />
           </button>
           <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-            <Logo size={26} tile />
+            <Logo size={26} mono />
             <span className="font-display text-lg truncate" style={{ color: "var(--color-ink)" }}>
               {t("appName")}
             </span>

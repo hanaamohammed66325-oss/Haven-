@@ -69,7 +69,9 @@ export default function RegisterSW() {
 
         // An installed PWA may never navigate, so poll for a new sw.js.
         const poll = () => { reg.update().catch(() => {}); };
-        const hourly = window.setInterval(poll, 60 * 60 * 1000);
+        // Check immediately on load — catches deploys the user missed.
+        poll();
+        const periodic = window.setInterval(poll, 10 * 60 * 1000);
         const onVisible = () => {
           if (document.visibilityState === "visible") poll();
         };
@@ -81,7 +83,7 @@ export default function RegisterSW() {
             onControllerChange
           );
           document.removeEventListener("visibilitychange", onVisible);
-          window.clearInterval(hourly);
+          window.clearInterval(periodic);
         };
       } catch {
         /* registration failed — the app still works, just without offline */

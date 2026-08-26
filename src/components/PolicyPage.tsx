@@ -34,7 +34,7 @@ export function PolicyPage({
     <div className="min-h-dvh flex flex-col">
       <header className="mx-auto w-full max-w-[720px] px-5 flex items-center justify-between py-6">
         <Link href="/" className="flex items-center gap-2.5">
-          <Logo size={30} tile />
+          <Logo size={30} mono />
           <span className="font-display text-xl" style={{ color: "var(--color-ink)" }}>
             {t("appName")}
           </span>

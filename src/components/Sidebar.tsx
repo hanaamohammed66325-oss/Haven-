@@ -207,7 +207,7 @@ export function Sidebar({
       {/* Brand + toggle */}
       {collapsed ? (
         <div className="flex flex-col items-center gap-3">
-          <Logo size={32} stroke="#ffffff" />
+          <Logo size={32} mono />
           <button
             onClick={onToggle}
             aria-label={t("expandSidebar")}
@@ -220,7 +220,7 @@ export function Sidebar({
       ) : (
         <div className="flex items-center justify-between gap-2 px-1">
           <div className="flex items-center gap-3 min-w-0">
-            <Logo size={34} stroke="#ffffff" />
+            <Logo size={34} mono />
             <span className="font-display text-2xl text-white truncate">{t("appName")}</span>
           </div>
           <button

@@ -53,7 +53,7 @@ export default function LandingPage() {
         {/* Nav */}
         <header className="flex items-center justify-between gap-6 py-7">
           <div className="flex items-center gap-3">
-            <Logo size={38} tile />
+            <Logo size={38} mono />
             <span className="font-display text-2xl" style={{ color: "var(--color-ink)" }}>
               {t("appName")}
             </span>
@@ -312,7 +312,7 @@ export default function LandingPage() {
         {/* Footer */}
         <footer className="flex flex-col sm:flex-row items-center justify-between gap-4 py-12 border-t" style={{ borderColor: "var(--color-border)" }}>
           <div className="flex items-center gap-2.5">
-            <Logo size={26} tile />
+            <Logo size={26} mono />
             <span className="font-display text-lg" style={{ color: "var(--color-ink)" }}>{t("appName")}</span>
           </div>
           <p className="text-sm" style={{ color: "var(--color-muted)" }}>{t("land_footer")}</p>

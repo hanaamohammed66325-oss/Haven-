@@ -327,7 +327,7 @@ function DemoSidebar({ activeIdx, onPick }: { activeIdx: number; onPick: (i: num
   return (
     <aside className="haven-sidebar hidden md:flex shrink-0 flex-col" style={{ width: 208, padding: 18 }}>
       <div className="flex items-center gap-2 mb-6 px-1">
-        <Logo size={26} stroke="#ffffff" />
+        <Logo size={26} mono />
         <span className="font-display text-xl text-white">{t("appName")}</span>
       </div>
       <nav className="flex flex-col gap-1">

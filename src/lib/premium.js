@@ -42,13 +42,12 @@ export const DEFAULT_PLAN_CYCLE = "6months";
 // Feature catalogue used only by the Go Premium marketing card (labels).
 export const FEATURES = {
   unlimitedCourses: { tier: "premium", labelKey: "premiumBenefit1" },
-  planner: { tier: "premium", labelKey: "premiumBenefit2" },
   finalNeeded: { tier: "premium", labelKey: "premiumBenefit4" },
   havi: { tier: "premium", labelKey: "premiumBenefit5" },
   semesterHistory: { tier: "premium" },
   gpaCumulative: { tier: "free" },
 };
-export const PREMIUM_LIST = ["unlimitedCourses", "planner", "finalNeeded", "havi"];
+export const PREMIUM_LIST = ["unlimitedCourses", "finalNeeded", "havi"];
 
 // Access predicates. All take (profile, subscription) where profile can be null (logged out).
 // If ENFORCE_PREMIUM is false these all return true.
