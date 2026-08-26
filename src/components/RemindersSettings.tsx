@@ -3,7 +3,8 @@
 // ---------------------------------------------------------------------------
 // Reminders — customizable notification preferences (profiles.preferences.
 // notifPrefs). UI + validation only; the store persists the whole notifPrefs
-// object (see setNotifPrefs) and server-side scheduling reads it separately.
+// object (see setNotifPrefs) and the client-side scheduler in
+// src/lib/notifScheduler.ts reads it to fire timed browser notifications.
 //
 // Shape / defaults / bounds / the read-normalize helper live in
 // src/lib/notifPrefs.ts. This file never talks to Supabase directly.

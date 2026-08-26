@@ -16,16 +16,21 @@ import { collectUpcoming, plannerItemDate } from "./reminders";
 let activeTimers: ReturnType<typeof setTimeout>[] = [];
 const FIRED_KEY = "haven-notif-fired";
 
+// setTimeout max safe delay (~24.85 days). Values above this wrap to 1ms.
+const MAX_DELAY = 0x7fffffff;
+
 function clearAll() {
   for (const t of activeTimers) clearTimeout(t);
   activeTimers = [];
 }
 
-function firedThisSession(id: string): boolean {
+function firedToday(id: string): boolean {
   try {
-    const raw = sessionStorage.getItem(FIRED_KEY);
+    const raw = localStorage.getItem(FIRED_KEY);
     if (!raw) return false;
-    return (JSON.parse(raw) as string[]).includes(id);
+    const obj = JSON.parse(raw) as { date: string; ids: string[] };
+    if (obj.date !== new Date().toISOString().slice(0, 10)) return false;
+    return obj.ids.includes(id);
   } catch {
     return false;
   }
@@ -33,15 +38,20 @@ function firedThisSession(id: string): boolean {
 
 function markFired(id: string) {
   try {
-    const raw = sessionStorage.getItem(FIRED_KEY);
-    const set: string[] = raw ? JSON.parse(raw) : [];
-    set.push(id);
-    sessionStorage.setItem(FIRED_KEY, JSON.stringify(set));
+    const today = new Date().toISOString().slice(0, 10);
+    const raw = localStorage.getItem(FIRED_KEY);
+    let obj: { date: string; ids: string[] } = { date: today, ids: [] };
+    if (raw) {
+      const parsed = JSON.parse(raw) as { date: string; ids: string[] };
+      if (parsed.date === today) obj = parsed;
+    }
+    obj.ids.push(id);
+    localStorage.setItem(FIRED_KEY, JSON.stringify(obj));
   } catch { /* ignore */ }
 }
 
 function fire(title: string, body: string, id: string) {
-  if (firedThisSession(id)) return;
+  if (firedToday(id)) return;
   markFired(id);
   if ("Notification" in window && Notification.permission === "granted") {
     new Notification(title, {
@@ -53,7 +63,7 @@ function fire(title: string, body: string, id: string) {
 }
 
 function scheduleAt(ms: number, title: string, body: string, id: string) {
-  if (ms <= 0) return;
+  if (ms <= 0 || ms > MAX_DELAY) return;
   activeTimers.push(setTimeout(() => fire(title, body, id), ms));
 }
 
@@ -63,10 +73,25 @@ function todayAt(hh: number, mm: number): number {
   return d.getTime();
 }
 
+function isWithinSemester(semester: Semester): boolean {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const start = new Date(`${semester.startDate}T00:00:00`);
+  const end = new Date(`${semester.endDate}T00:00:00`);
+  if (Number.isNaN(+start) || Number.isNaN(+end)) return true;
+  return now >= start && now <= end;
+}
+
 // ---- Lecture reminders ----
 
-function scheduleLectures(courses: Course[], prefs: NotifPrefs, lang: "en" | "ar") {
+function scheduleLectures(
+  courses: Course[],
+  prefs: NotifPrefs,
+  semester: Semester,
+  lang: "en" | "ar",
+) {
   if (!prefs.lectures.enabled) return;
+  if (!isWithinSemester(semester)) return;
   const now = Date.now();
   const today = new Date().getDay();
 
@@ -104,10 +129,12 @@ function scheduleDailyDigest(
   const fireAt = todayAt(prefs.dailyReminderHour, 0);
   if (fireAt - now <= 0) return;
 
-  const items = collectUpcoming(courses, planner, semester, reminderDays);
-  if (!items.length) return;
+  const maxDays = prefs.exams.days.length ? Math.max(...prefs.exams.days) : reminderDays;
+  const items = collectUpcoming(courses, planner, semester, maxDays);
+  const filtered = items.filter((it) => prefs.exams.days.some((d) => it.diff <= d));
+  if (!filtered.length) return;
 
-  const lines = items.map((it) => {
+  const lines = filtered.map((it) => {
     if (lang === "ar") {
       if (it.diff === 0) return `اليوم: ${it.title}`;
       if (it.diff === 1) return `غداً: ${it.title}`;
@@ -171,7 +198,7 @@ export function scheduleAll(
   if (typeof window === "undefined") return;
   if (!("Notification" in window) || Notification.permission !== "granted") return;
 
-  scheduleLectures(courses, notifPrefs, lang);
+  scheduleLectures(courses, notifPrefs, semester, lang);
   scheduleDailyDigest(courses, planner, semester, notifPrefs, reminderDays, lang);
   scheduleTasks(planner, semester, notifPrefs, lang);
 }

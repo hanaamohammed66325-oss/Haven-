@@ -155,8 +155,8 @@ export type GpaMode = "semester" | "cumulative";
 
 /**
  * Customizable notification preferences, stored under
- * profiles.preferences.notifPrefs. The client persists this; server-side
- * scheduling reads it separately. Offset arrays hold 1 or 2 values, largest
+ * profiles.preferences.notifPrefs. The client persists and reads this;
+ * the scheduler in src/lib/notifScheduler.ts fires timed notifications. Offset arrays hold 1 or 2 values, largest
  * (earliest) lead time first. See src/lib/notifPrefs.ts for defaults + the
  * read/normalize helper.
  */
