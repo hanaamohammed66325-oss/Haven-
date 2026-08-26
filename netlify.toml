@@ -18,8 +18,9 @@
   [headers.values]
     Cache-Control = "public, max-age=3600"
 
-# Icons are content-stable and referenced by name, so they can be cached hard.
+# Icons use stable filenames (no content hash), so keep cache short enough
+# that a redesign propagates within a day.
 [[headers]]
   for = "/icons/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=86400"
