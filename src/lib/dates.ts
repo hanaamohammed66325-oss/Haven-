@@ -65,13 +65,16 @@ export function formatShortDate(
 export function formatTime(hhmm: string, lang: "en" | "ar"): string {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
   if (!m) return hhmm;
-  const d = new Date();
-  d.setHours(Number(m[1]), Number(m[2]), 0, 0);
-  return new Intl.DateTimeFormat(lang === "ar" ? "ar-SA" : "en", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(d);
+  let h = Number(m[1]);
+  const min = m[2];
+  const isPM = h >= 12;
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  if (lang === "ar") {
+    const toAr = (n: number) => n.toString().replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+    return `${toAr(h)}:${min.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)])} ${isPM ? "م" : "ص"}`;
+  }
+  return `${h}:${min} ${isPM ? "PM" : "AM"}`;
 }
 
 // Full date with year (used for the Hijri caption under the date fields).

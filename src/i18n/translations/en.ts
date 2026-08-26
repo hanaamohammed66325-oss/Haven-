@@ -285,7 +285,7 @@ export const en = {
   authForgotSending: "Sending…",
   // Shown whether or not the address is registered, so this never reveals
   // which emails have accounts.
-  authForgotSent: "If this email is registered, we've sent a reset link. Check your inbox.",
+  authForgotSent: "If this email is registered, we've sent a reset link. Check your inbox — and your spam or junk folder.",
   authForgotError: "Something went wrong, please try again.",
   authForgotBack: "Back to sign in",
   // Password reset — /reset-password page
@@ -309,7 +309,7 @@ export const en = {
   authErrExists: "An account with this email already exists.",
   authErrInvalid: "Invalid email or password",
   authErrUnconfirmed: "Please confirm your email first — check the link we sent you.",
-  authCheckEmail: "Almost there! We've sent a confirmation link to your email. Please confirm your account, then sign in.",
+  authCheckEmail: "Almost there! We've sent a confirmation link to your email. Check your spam or junk folder if you don't see it. Please confirm your account, then sign in.",
   authWaitingConfirm: "Waiting for confirmation…",
   authResend: "Resend confirmation email",
   authResending: "Sending…",

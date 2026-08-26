@@ -47,9 +47,9 @@ export const ar: Record<TranslationKey, string> = {
   premiumSoonTitle: "بريميوم — قريبًا",
   premiumSoonDesc: "الدفع غير متاح بعد — هذه معاينة لما هو قادم.",
   // /premium plans page
-  premiumPageTitle: "افتحي كل شي في Haven",
-  premiumPageSubtitle: "شهر مجاني للتجربة — ألغي بأي وقت بدون خصم",
-  premiumStartFree: "ابدئي الشهر المجاني",
+  premiumPageTitle: "افتح كل شي في Haven",
+  premiumPageSubtitle: "شهر مجاني للتجربة — إلغاء بأي وقت بدون خصم",
+  premiumStartFree: "ابدأ الشهر المجاني",
   premiumRecommended: "موصى به",
   premiumIncludedTitle: "مشمول مع اشتراكك",
   premiumIncludeThemes: "كل الثيمات",
@@ -79,7 +79,7 @@ export const ar: Record<TranslationKey, string> = {
   checkoutErrGeneric: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
   // Coupon system
   checkoutCouponLabel: "كوبون الخصم",
-  checkoutCouponPlaceholder: "أدخلي كود الخصم",
+  checkoutCouponPlaceholder: "أدخل كود الخصم",
   checkoutCouponApply: "تطبيق",
   checkoutCouponRemove: "إزالة",
   checkoutCouponApplied: "خصم {percent}% مُطبَّق!",
@@ -284,7 +284,7 @@ export const ar: Record<TranslationKey, string> = {
   authForgotIntro: "اكتب بريدك وبنرسل لك رابط إعادة التعيين.",
   authForgotSend: "أرسل رابط إعادة التعيين",
   authForgotSending: "جارٍ الإرسال…",
-  authForgotSent: "إذا كان هذا البريد مسجّلاً، أرسلنا رابط إعادة التعيين. تحقق من بريدك.",
+  authForgotSent: "إذا كان هذا البريد مسجّلاً، أرسلنا رابط إعادة التعيين. تحقق من بريدك — ومجلد الرسائل غير المرغوبة (Spam).",
   authForgotError: "حدث خطأ، حاول مرة أخرى.",
   authForgotBack: "الرجوع لتسجيل الدخول",
   // إعادة تعيين كلمة المرور — صفحة /reset-password
@@ -308,12 +308,12 @@ export const ar: Record<TranslationKey, string> = {
   authErrExists: "يوجد حساب بهذا البريد بالفعل.",
   authErrInvalid: "البريد أو كلمة المرور غير صحيحة",
   authErrUnconfirmed: "يرجى تأكيد بريدك أولًا — افتح الرابط الذي أرسلناه إليك.",
-  authCheckEmail: "خطوة أخيرة! أرسلنا رابط تأكيد إلى بريدك. يرجى تأكيد الحساب ثم تسجيل الدخول.",
+  authCheckEmail: "خطوة أخيرة! أرسلنا رابط تأكيد إلى بريدك. تحقق من مجلد الرسائل غير المرغوبة (Spam) إذا لم تجد الرسالة. يرجى تأكيد الحساب ثم تسجيل الدخول.",
   authWaitingConfirm: "بانتظار التأكيد…",
   authResend: "إعادة إرسال رابط التأكيد",
   authResending: "جارٍ الإرسال…",
   authResendSent: "تم إرسال رابط تأكيد جديد — تحقّق من بريدك.",
-  authEmailRegistered: "هذا البريد مسجّل مسبقًا — سجّلي الدخول",
+  authEmailRegistered: "هذا البريد مسجّل مسبقًا — سجّل الدخول",
   // الرمز المكوّن من 6 أرقام في شاشة التسجيل
   authOtpLabel: "أدخل الرمز المكوّن من 6 أرقام",
   authOtpHint: "افتح البريد واكتب الرمز هنا — على هذا الجهاز — لإكمال تسجيل الدخول.",
@@ -644,12 +644,12 @@ export const ar: Record<TranslationKey, string> = {
 
   // Change-email modal
   changeEmailTitle: "تغيير بريدك الإلكتروني",
-  changeEmailIntro: "لأمانك، أدخلي كلمة مرورك الحالية. سيصلك رابط تأكيد على بريدك الحالي والجديد — يجب تأكيد الرابطين معًا لتفعيل التغيير.",
+  changeEmailIntro: "لأمانك، أدخل كلمة مرورك الحالية. سيصلك رابط تأكيد على بريدك الحالي والجديد — يجب تأكيد الرابطين معًا لتفعيل التغيير.",
   currentPasswordLabel: "كلمة المرور الحالية",
   newEmailLabel: "البريد الإلكتروني الجديد",
   changeEmailSubmit: "إرسال رسائل التأكيد",
   changeEmailSuccessTitle: "تم إرسال رسائل التأكيد",
-  changeEmailSuccessBody: "افتحي بريدك الحالي والجديد واضغطي على رابط التأكيد في كل رسالة. سيتغيّر بريدك بعد تأكيد الرابطين.",
+  changeEmailSuccessBody: "افتح بريدك الحالي والجديد واضغط على رابط التأكيد في كل رسالة. سيتغيّر بريدك بعد تأكيد الرابطين.",
 
   // صفحة /email-changed
   emailChangedChecking: "جارٍ تأكيد تغيير البريد…",
@@ -663,7 +663,7 @@ export const ar: Record<TranslationKey, string> = {
 
   // Change-password modal
   changePasswordTitle: "تغيير كلمة المرور",
-  changePasswordIntro: "أدخلي كلمة مرورك الحالية واختاري كلمة مرور جديدة. سيتم تسجيل خروجك من جميع الأجهزة الأخرى كإجراء أمني، وسنرسل لك رسالة تأكيد.",
+  changePasswordIntro: "أدخل كلمة مرورك الحالية واختر كلمة مرور جديدة. سيتم تسجيل خروجك من جميع الأجهزة الأخرى كإجراء أمني، وسنرسل لك رسالة تأكيد.",
   newPasswordLabel: "كلمة المرور الجديدة",
   confirmPasswordLabel: "تأكيد كلمة المرور الجديدة",
   passwordMinHint: "٨ أحرف على الأقل.",
@@ -677,11 +677,11 @@ export const ar: Record<TranslationKey, string> = {
   errInvalidEmail: "يرجى إدخال بريد إلكتروني صالح.",
   errSameEmail: "البريد الجديد مطابق لبريدك الحالي.",
   errEmailTaken: "هذا البريد مسجّل مسبقاً لحساب آخر.",
-  errUnknown: "حدث خطأ. حاولي مرة أخرى.",
+  errUnknown: "حدث خطأ. حاول مرة أخرى.",
 
   // التحقق من تواريخ الفصل
-  errEndBeforeStart: "تاريخ النهاية يجب أن يكون بعد تاريخ البداية — تأكدي من السنة.",
-  errStartAfterEnd: "تاريخ البداية يجب أن يكون قبل تاريخ النهاية — تأكدي من السنة.",
+  errEndBeforeStart: "تاريخ النهاية يجب أن يكون بعد تاريخ البداية — تأكد من السنة.",
+  errStartAfterEnd: "تاريخ البداية يجب أن يكون قبل تاريخ النهاية — تأكد من السنة.",
 
   // Landing page
   land_navHome: "الرئيسية",
