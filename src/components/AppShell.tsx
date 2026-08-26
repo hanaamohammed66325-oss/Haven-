@@ -7,6 +7,7 @@ import { Menu } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { Logo } from "./Logo";
 import { ReminderToast } from "./ReminderToast";
+import { NotifScheduler } from "./NotifScheduler";
 import { TrialBanner } from "./TrialBanner";
 import { Footer } from "./Footer";
 import { useT } from "@/i18n";
@@ -130,6 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Footer />
       </main>
       <ReminderToast />
+      <NotifScheduler />
     </div>
   );
 }
