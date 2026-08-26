@@ -2,8 +2,6 @@ import React from "react";
 
 interface LogoProps {
   size?: number;
-  /** When true the logo renders monochrome — white in the sidebar (always
-   *  dark) and theme-adaptive (dark/light) everywhere else via CSS. */
   mono?: boolean;
   /** Legacy prop — replaced by `mono`. Kept so call sites don't break. */
   stroke?: string;
@@ -14,6 +12,33 @@ interface LogoProps {
 
 export function Logo({ size = 28, mono, stroke, className }: LogoProps) {
   const useMono = mono ?? !!stroke;
+
+  if (useMono) {
+    return (
+      <span
+        role="img"
+        aria-label="Haven"
+        className={className ?? ""}
+        style={{
+          display: "inline-block",
+          width: size,
+          height: size,
+          backgroundColor: "currentColor",
+          WebkitMaskImage: "url(/logo.png)",
+          maskImage: "url(/logo.png)",
+          WebkitMaskSize: "contain",
+          maskSize: "contain",
+          WebkitMaskRepeat: "no-repeat",
+          maskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+          maskPosition: "center",
+          flexShrink: 0,
+          verticalAlign: "middle",
+        }}
+      />
+    );
+  }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -21,7 +46,7 @@ export function Logo({ size = 28, mono, stroke, className }: LogoProps) {
       alt="Haven"
       width={size}
       height={size}
-      className={`${useMono ? "haven-logo-mono" : ""} ${className ?? ""}`}
+      className={className ?? ""}
       style={{ display: "inline-block", objectFit: "contain" }}
     />
   );

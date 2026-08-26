@@ -101,20 +101,10 @@ html[lang="ar"] .font-display {
   transform: translateY(-4px);
 }
 
-/* ---- Monochrome logo — white in the (always-dark) sidebar, theme-ink elsewhere ---- */
-.haven-logo-mono {
-  filter: brightness(0);
-}
-html[data-theme="midnight"] .haven-logo-mono {
-  filter: brightness(0) invert(1);
-}
-.haven-sidebar .haven-logo-mono,
-.haven-drawer .haven-logo-mono {
-  filter: brightness(0) invert(1);
-}
 
 /* ---- Glass sidebar ---- */
 .haven-sidebar {
+  color: #fff;
   /* deep-teal glass: translucent theme colour + backdrop blur */
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 24%),
