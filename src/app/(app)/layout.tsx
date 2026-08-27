@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { AuthGuard } from "@/components/AuthGuard";
+import { BetaGate } from "@/components/BetaGate";
 
 export default function AppGroupLayout({
   children,
@@ -8,7 +9,9 @@ export default function AppGroupLayout({
 }) {
   return (
     <AuthGuard>
-      <AppShell>{children}</AppShell>
+      <BetaGate>
+        <AppShell>{children}</AppShell>
+      </BetaGate>
     </AuthGuard>
   );
 }
