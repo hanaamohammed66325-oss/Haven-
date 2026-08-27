@@ -5,7 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
   | "dashboard" | "users" | "subscriptions" | "payments"
-  | "support" | "coupons";
+  | "support" | "coupons" | "beta";
 
 interface NavItem { id: AdminSection; label: string; icon: string; badge?: number | string; }
 
@@ -27,6 +27,7 @@ export function AdminSidebar({
     { id: "payments",      label: "Payments",      icon: "💰", badge: badges?.payments },
     { id: "support",       label: "Support",       icon: "🎫", badge: badges?.support },
     { id: "coupons",       label: "Coupons",       icon: "🏷️" },
+    { id: "beta",          label: "Beta",          icon: "🧪", badge: badges?.beta },
   ];
 
   return (

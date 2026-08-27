@@ -15,6 +15,7 @@ import { SubscriptionsSection } from "./subscriptions";
 import { PaymentsSection } from "./payments";
 import { SupportSection } from "./support";
 import { CouponsSection } from "./coupons";
+import { BetaSection } from "./beta";
 
 export default function AdminPageWrapper() {
   return (
@@ -160,6 +161,8 @@ function AdminPage() {
             <SupportSection session={session} />
           ) : section === "coupons" ? (
             <CouponsSection session={session} />
+          ) : section === "beta" ? (
+            <BetaSection session={session} />
           ) : null}
         </main>
       </div>

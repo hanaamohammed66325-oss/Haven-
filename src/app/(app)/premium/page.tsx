@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Sparkles, Loader2 } from "lucide-react";
+import { Check, Sparkles, Loader2, FlaskConical } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Footer } from "@/components/Footer";
 import { useSubscription } from "@/lib/subscription";
-import { PLANS, FEATURES, PREMIUM_LIST, isVip, isInTrial, isActiveSubscriber } from "@/lib/premium";
+import { PLANS, FEATURES, PREMIUM_LIST, isVip, isBetaTester, isInTrial, isActiveSubscriber, hasActiveAccess } from "@/lib/premium";
+import { activateBetaCode } from "@/lib/db";
 import { changePlan, planLabelKeyFor, type PlanCycle } from "@/lib/changePlan";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -38,10 +39,17 @@ export default function PremiumPage() {
   const canSwitch = !vip && (isInTrial(sub) || isActiveSubscriber(sub));
   const currentCycle = sub?.billing_cycle ?? null;
 
+  const beta = isBetaTester(profile);
+  const premium = hasActiveAccess(profile, sub);
+
   const [toast, setToast] = useState("");
   const [toastErr, setToastErr] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [pendingCycle, setPendingCycle] = useState<string | null>(null);
+
+  const [betaCode, setBetaCode] = useState("");
+  const [betaLoading, setBetaLoading] = useState(false);
+  const [betaError, setBetaError] = useState("");
 
   // Auto-dismiss the toast.
   useEffect(() => {
@@ -186,6 +194,73 @@ export default function PremiumPage() {
           );
         })}
       </div>
+
+      {/* Beta tester banner */}
+      {beta && (
+        <Card padding="p-5" className="mt-8 max-w-md mx-auto text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <FlaskConical size={18} style={{ color: "var(--color-primary)" }} />
+            <span className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
+              {t("betaActiveTitle")}
+            </span>
+          </div>
+          <p className="text-[13px]" style={{ color: "var(--color-muted)" }}>
+            {t("betaActiveDesc")}
+          </p>
+        </Card>
+      )}
+
+      {/* Beta code entry — only for users without active access */}
+      {!premium && (
+        <Card padding="p-5" className="mt-8 max-w-md mx-auto">
+          <div className="flex items-center gap-2 mb-3">
+            <FlaskConical size={16} style={{ color: "var(--color-primary)" }} />
+            <span className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
+              {t("betaCodeTitle")}
+            </span>
+          </div>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBetaError("");
+              setBetaLoading(true);
+              const res = await activateBetaCode(betaCode);
+              setBetaLoading(false);
+              if (res.ok) {
+                setBetaCode("");
+                await refresh();
+                setToastErr(false);
+                setToast(t("betaActivated"));
+              } else {
+                const errKey = `betaErr_${res.error}` as TranslationKey;
+                setBetaError(t(errKey) !== errKey ? t(errKey) : t("betaErrGeneric"));
+              }
+            }}
+            className="flex gap-2"
+          >
+            <input
+              type="text"
+              required
+              placeholder="HVN-XXXX-XXXX"
+              value={betaCode}
+              onChange={(e) => setBetaCode(e.target.value.toUpperCase())}
+              className="haven-input flex-1 text-center tracking-widest font-mono"
+              style={{ letterSpacing: "0.1em" }}
+              dir="ltr"
+            />
+            <button
+              type="submit"
+              disabled={betaLoading || !betaCode.trim()}
+              className="haven-btn rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+            >
+              {betaLoading ? <Loader2 size={16} className="animate-spin" /> : t("betaActivate")}
+            </button>
+          </form>
+          {betaError && (
+            <p className="text-[12px] mt-2" style={{ color: "var(--color-danger)" }}>{betaError}</p>
+          )}
+        </Card>
+      )}
 
       {/* Included with subscription */}
       <div className="mt-12">

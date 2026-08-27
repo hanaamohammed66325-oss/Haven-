@@ -56,6 +56,10 @@ export function isVip(profile) {
   return Boolean(profile?.is_vip);
 }
 
+export function isBetaTester(profile) {
+  return Boolean(profile?.is_beta);
+}
+
 export function isInTrial(subscription) {
   if (!subscription) return false;
   if (subscription.status !== 'trial') return false;
@@ -73,7 +77,7 @@ export function isActiveSubscriber(subscription) {
 
 export function hasActiveAccess(profile, subscription) {
   if (!ENFORCE_PREMIUM) return true;
-  return isVip(profile) || isInTrial(subscription) || isActiveSubscriber(subscription);
+  return isVip(profile) || isBetaTester(profile) || isInTrial(subscription) || isActiveSubscriber(subscription);
 }
 
 export function daysUntilTrialEnds(subscription) {

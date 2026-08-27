@@ -14,7 +14,7 @@
 // functions to this same file later.
 // ---------------------------------------------------------------------------
 
-import { supabase } from "./supabase";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase";
 import { toISODate } from "./dates";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
 
@@ -78,6 +78,7 @@ export async function getSubscription(): Promise<DbSubscription | null> {
  *  Premium free forever (set by the DB for the VIP accounts). */
 export interface DbProfileFlags {
   is_vip: boolean;
+  is_beta: boolean;
 }
 
 export async function getProfileFlags(): Promise<DbProfileFlags | null> {
@@ -86,11 +87,29 @@ export async function getProfileFlags(): Promise<DbProfileFlags | null> {
   if (!userId) return null;
   const { data, error } = await supabase
     .from("profiles")
-    .select("is_vip")
+    .select("is_vip, is_beta")
     .eq("id", userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return { is_vip: Boolean(data?.is_vip) };
+  return { is_vip: Boolean(data?.is_vip), is_beta: Boolean(data?.is_beta) };
+}
+
+/** Redeem a beta code. Calls the beta-activate edge function. */
+export async function activateBetaCode(code: string): Promise<{ ok: boolean; error?: string }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { ok: false, error: "not_signed_in" };
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/beta-activate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+    },
+    body: JSON.stringify({ code: code.trim().toUpperCase() }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.ok && data.ok) return { ok: true };
+  return { ok: false, error: data.error ?? "activation_failed" };
 }
 
 /**
