@@ -22,6 +22,7 @@ interface BetaTester {
   beta_code_used: string | null;
   beta_activated_at: string | null;
   last_active_at: string | null;
+  last_activity: string | null;
   courses: number;
   components: number;
   planner_items: number;
@@ -273,7 +274,7 @@ export function BetaSection({ session }: { session: Session }) {
                 ) : (
                   testers.map((t) => {
                     const totalItems = (t.courses ?? 0) + (t.components ?? 0) + (t.planner_items ?? 0);
-                    const lastActive = t.last_active_at ? new Date(t.last_active_at) : null;
+                    const lastActive = (t.last_activity ?? t.last_active_at) ? new Date((t.last_activity ?? t.last_active_at)!) : null;
                     const daysSince = lastActive ? Math.floor((Date.now() - lastActive.getTime()) / 86400000) : null;
                     const activityLevel = totalItems === 0 ? "none"
                       : daysSince !== null && daysSince <= 2 ? "active"
@@ -297,7 +298,7 @@ export function BetaSection({ session }: { session: Session }) {
                           {t.beta_activated_at ? fmtDateTime(t.beta_activated_at) : "—"}
                         </td>
                         <td style={{ ...S.tableCell, color: C.textMuted }}>
-                          {lastActive ? fmtDateTime(t.last_active_at!) : "Never"}
+                          {lastActive ? fmtDateTime((t.last_activity ?? t.last_active_at)!) : "Never"}
                         </td>
                         <td style={{ ...S.tableCell, textAlign: "center" }}>{t.courses ?? 0}</td>
                         <td style={{ ...S.tableCell, textAlign: "center" }}>{t.components ?? 0}</td>
