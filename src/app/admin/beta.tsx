@@ -21,6 +21,10 @@ interface BetaTester {
   email: string;
   beta_code_used: string | null;
   beta_activated_at: string | null;
+  last_active_at: string | null;
+  courses: number;
+  components: number;
+  planner_items: number;
 }
 interface BetaStats {
   total_codes: number;
@@ -254,7 +258,7 @@ export function BetaSection({ session }: { session: Session }) {
             <table className="w-full text-[13px]">
               <thead>
                 <tr>
-                  {["Email", "Beta Code", "Activated"].map((h) => (
+                  {["Email", "Beta Code", "Activated", "Last Active", "Courses", "Components", "Planner", "Activity"].map((h) => (
                     <th key={h} style={S.tableHead}>{h}</th>
                   ))}
                 </tr>
@@ -262,22 +266,53 @@ export function BetaSection({ session }: { session: Session }) {
               <tbody>
                 {testers.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-10 text-center" style={{ color: C.textFaint }}>
+                    <td colSpan={8} className="px-4 py-10 text-center" style={{ color: C.textFaint }}>
                       No active beta testers yet.
                     </td>
                   </tr>
                 ) : (
-                  testers.map((t) => (
-                    <tr key={t.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                      <td style={{ ...S.tableCell, fontWeight: 500 }}>{t.email ?? "—"}</td>
-                      <td style={{ ...S.tableCell, fontFamily: "monospace", color: C.textMuted }}>
-                        {t.beta_code_used ?? "—"}
-                      </td>
-                      <td style={{ ...S.tableCell, color: C.textMuted }}>
-                        {t.beta_activated_at ? fmtDateTime(t.beta_activated_at) : "—"}
-                      </td>
-                    </tr>
-                  ))
+                  testers.map((t) => {
+                    const totalItems = (t.courses ?? 0) + (t.components ?? 0) + (t.planner_items ?? 0);
+                    const lastActive = t.last_active_at ? new Date(t.last_active_at) : null;
+                    const daysSince = lastActive ? Math.floor((Date.now() - lastActive.getTime()) / 86400000) : null;
+                    const activityLevel = totalItems === 0 ? "none"
+                      : daysSince !== null && daysSince <= 2 ? "active"
+                      : daysSince !== null && daysSince <= 7 ? "idle"
+                      : "inactive";
+                    const activityColor = activityLevel === "active" ? { bg: C.successBg, fg: C.successText }
+                      : activityLevel === "idle" ? { bg: C.tint(C.warning, "22"), fg: C.warningText }
+                      : activityLevel === "none" ? { bg: C.dangerBg, fg: C.danger }
+                      : { bg: C.tint(C.warning, "22"), fg: C.warningText };
+                    const activityLabel = activityLevel === "active" ? "Active"
+                      : activityLevel === "idle" ? "Idle"
+                      : activityLevel === "none" ? "No data"
+                      : "Inactive";
+                    return (
+                      <tr key={t.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                        <td style={{ ...S.tableCell, fontWeight: 500 }}>{t.email ?? "—"}</td>
+                        <td style={{ ...S.tableCell, fontFamily: "monospace", color: C.textMuted }}>
+                          {t.beta_code_used ?? "—"}
+                        </td>
+                        <td style={{ ...S.tableCell, color: C.textMuted }}>
+                          {t.beta_activated_at ? fmtDateTime(t.beta_activated_at) : "—"}
+                        </td>
+                        <td style={{ ...S.tableCell, color: C.textMuted }}>
+                          {lastActive ? fmtDateTime(t.last_active_at!) : "Never"}
+                        </td>
+                        <td style={{ ...S.tableCell, textAlign: "center" }}>{t.courses ?? 0}</td>
+                        <td style={{ ...S.tableCell, textAlign: "center" }}>{t.components ?? 0}</td>
+                        <td style={{ ...S.tableCell, textAlign: "center" }}>{t.planner_items ?? 0}</td>
+                        <td style={S.tableCell}>
+                          <span
+                            className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                            style={{ background: activityColor.bg, color: activityColor.fg }}
+                          >
+                            {activityLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

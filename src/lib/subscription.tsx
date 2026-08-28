@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
-import { getSubscription, getProfileFlags, type DbSubscription, type DbProfileFlags } from "./db";
+import { getSubscription, getProfileFlags, touchLastActive, type DbSubscription, type DbProfileFlags } from "./db";
 
 export interface SubState {
   /** The user's subscription row, or null (no row / signed out / not loaded). */
@@ -56,6 +56,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       const [sub, profile] = await Promise.all([getSubscription(), getProfileFlags()]);
       clearRetry();
       setState({ sub, profile, loading: false });
+      touchLastActive().catch(() => {});
     } catch (e) {
       console.error("Haven: failed to read premium access", e);
       // NEVER downgrade on a transient error. Clearing sub+profile here made a

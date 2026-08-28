@@ -94,6 +94,17 @@ export async function getProfileFlags(): Promise<DbProfileFlags | null> {
   return { is_vip: Boolean(data?.is_vip), is_beta: Boolean(data?.is_beta) };
 }
 
+/** Touch last_active_at on the current user's profile. Fire-and-forget. */
+export async function touchLastActive(): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) return;
+  await supabase
+    .from("profiles")
+    .update({ last_active_at: new Date().toISOString() })
+    .eq("id", userId);
+}
+
 /** Redeem a beta code. Calls the beta-activate edge function. */
 export async function activateBetaCode(code: string): Promise<{ ok: boolean; error?: string }> {
   const { data: { session } } = await supabase.auth.getSession();
