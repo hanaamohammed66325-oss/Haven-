@@ -115,8 +115,10 @@ export default function RootLayout({
             Havi mascot (which lives outside Providers) so every premium gate
             evaluates the same source. */}
         <SubscriptionProvider>
-          <Providers>{children}</Providers>
-          <HaviMascot />
+          <Providers>
+            {children}
+            <HaviMascot />
+          </Providers>
         </SubscriptionProvider>
         {/* PWA: register the worker (production only) and offer the install
             flow. Mounted once here so they exist on every route. */}

@@ -18,7 +18,7 @@ import {
 import { creditHoursLabel } from "@/lib/format";
 import type { Course, GradeComponent } from "@/types";
 
-export function CoursePanel({ course }: { course: Course }) {
+export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDeleteCourse?: (id: string) => void }) {
   const { t, lang } = useT();
   const { semester, addComponent, updateComponent, deleteComponent, deleteCourse, updateCourse } = useStore();
   const [addingItem, setAddingItem] = useState(false);
@@ -101,7 +101,7 @@ export function CoursePanel({ course }: { course: Course }) {
             <Pencil size={16} style={{ color: "var(--color-muted)" }} />
           </button>
           <button
-            onClick={() => deleteCourse(course.id)}
+            onClick={() => (onDeleteCourse ?? deleteCourse)(course.id)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"
             aria-label={t("delete")}
           >

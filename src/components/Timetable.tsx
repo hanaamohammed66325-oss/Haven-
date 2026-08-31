@@ -19,6 +19,7 @@ export function Timetable() {
 
   const colorOf = (id: string) => {
     const idx = courses.findIndex((c) => c.id === id);
+    if (idx >= 0 && courses[idx].color) return courses[idx].color;
     return COURSE_COLORS[(idx < 0 ? 0 : idx) % COURSE_COLORS.length];
   };
 

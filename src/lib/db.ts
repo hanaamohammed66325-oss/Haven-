@@ -156,6 +156,8 @@ export interface DbCourse {
   creditHours: number; // credits
   position: number;
   attendanceLimit: number; // attendance_limit (per-course withdrawal % )
+  instructorName?: string;
+  color?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -306,15 +308,19 @@ const mapCourse = (row: {
   credits: number;
   position: number;
   attendance_limit: number | null;
+  instructor_name: string | null;
+  color: string | null;
 }): DbCourse => ({
   id: row.id,
   name: row.name,
   creditHours: Number(row.credits) || 0,
   position: row.position ?? 0,
   attendanceLimit: Number(row.attendance_limit) || 0,
+  instructorName: row.instructor_name ?? undefined,
+  color: row.color ?? undefined,
 });
 
-const COURSE_COLS = "id, name, credits, position, attendance_limit";
+const COURSE_COLS = "id, name, credits, position, attendance_limit, instructor_name, color";
 
 export async function getCourses(semesterId: string): Promise<DbCourse[]> {
   const userId = await currentUserId();
@@ -365,13 +371,15 @@ export async function addCourse(
 
 export async function updateCourse(
   id: string,
-  fields: Partial<{ name: string; creditHours: number; position: number; attendanceLimit: number }>
+  fields: Partial<{ name: string; creditHours: number; position: number; attendanceLimit: number; instructorName: string | null; color: string | null }>
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
   if (fields.name !== undefined) patch.name = fields.name;
   if (fields.creditHours !== undefined) patch.credits = fields.creditHours;
   if (fields.position !== undefined) patch.position = fields.position;
   if (fields.attendanceLimit !== undefined) patch.attendance_limit = fields.attendanceLimit;
+  if (fields.instructorName !== undefined) patch.instructor_name = fields.instructorName;
+  if (fields.color !== undefined) patch.color = fields.color;
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("courses").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
@@ -766,13 +774,16 @@ export interface DbAbsence {
   courseId: string;
   day: number;
   minutes: number;
+  date?: string;
+  excused?: boolean;
+  tardiness?: number;
 }
 
 export async function getAbsences(): Promise<DbAbsence[]> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("attendance_absences")
-    .select("id, course_id, absent_on, minutes")
+    .select("id, course_id, absent_on, minutes, excused, tardiness")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
@@ -781,24 +792,29 @@ export async function getAbsences(): Promise<DbAbsence[]> {
     courseId: r.course_id,
     day: weekdayFromIso(r.absent_on),
     minutes: Number(r.minutes) || 0,
+    date: r.absent_on ?? undefined,
+    excused: r.excused ?? false,
+    tardiness: r.tardiness != null ? Number(r.tardiness) : undefined,
   }));
 }
 
 export async function addAbsence(
   courseId: string,
-  fields: { day: number; minutes: number }
+  fields: { day: number; minutes: number; date?: string; excused?: boolean; tardiness?: number }
 ): Promise<DbAbsence> {
   const userId = await currentUserId();
+  const absentOn = fields.date ?? isoForWeekday(fields.day);
   const { data, error } = await supabase
     .from("attendance_absences")
     .insert({
       user_id: userId,
       course_id: courseId,
-      absent_on: isoForWeekday(fields.day),
+      absent_on: absentOn,
       minutes: fields.minutes,
-      excused: false,
+      excused: fields.excused ?? false,
+      tardiness: fields.tardiness ?? null,
     })
-    .select("id, course_id, absent_on, minutes")
+    .select("id, course_id, absent_on, minutes, excused, tardiness")
     .single();
   if (error) throw new Error(error.message);
   return {
@@ -806,7 +822,22 @@ export async function addAbsence(
     courseId: data.course_id,
     day: weekdayFromIso(data.absent_on),
     minutes: Number(data.minutes) || 0,
+    date: data.absent_on ?? undefined,
+    excused: data.excused ?? false,
+    tardiness: data.tardiness != null ? Number(data.tardiness) : undefined,
   };
+}
+
+export async function updateAbsence(
+  id: string,
+  patch: { excused?: boolean; tardiness?: number | null }
+): Promise<void> {
+  const updates: Record<string, unknown> = {};
+  if (patch.excused !== undefined) updates.excused = patch.excused;
+  if (patch.tardiness !== undefined) updates.tardiness = patch.tardiness ?? null;
+  if (!Object.keys(updates).length) return;
+  const { error } = await supabase.from("attendance_absences").update(updates).eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteAbsence(id: string): Promise<void> {

@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSubscription } from "@/lib/subscription";
 import { canUseHavi } from "@/lib/premium";
+import { useStore } from "@/store";
 
 /* ================================================================== */
 /*  PIXEL ART                                                          */
@@ -348,6 +349,7 @@ export default function HaviMascot({
   // allows "havi"; while the subscription row is still loading we render nothing
   // (handled at the return below) so he never flashes in then out.
   const { sub, profile, loading: subLoading } = useSubscription();
+  const { haviName } = useStore();
 
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -1365,7 +1367,8 @@ export default function HaviMascot({
             pointerEvents: "auto", // he can be poked
             cursor: "pointer",
           }}
-          aria-label="Havi"
+          aria-label={haviName || "Havi"}
+          title={haviName || "Havi"}
           role="img"
         />
       </div>

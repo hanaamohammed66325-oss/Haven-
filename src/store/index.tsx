@@ -116,6 +116,7 @@ const initialData: AppData = {
   cumulativeGpa: 0,
   cumulativeHours: 0,
   notifPrefs: DEFAULT_NOTIF_PREFS,
+  haviName: "Havi",
 };
 
 // Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
@@ -203,6 +204,8 @@ export interface StoreValue extends AppData {
   setCumulativeHours: (hours: number) => void;
   /** Customizable notification preferences; persisted to preferences.notifPrefs. */
   setNotifPrefs: (next: NotifPrefs) => void;
+  /** Custom name for Havi mascot; persisted to preferences.haviName. */
+  setHaviName: (name: string) => void;
   setSemester: (patch: Partial<Semester>) => void;
   addCourse: (course: {
     name: string;
@@ -214,6 +217,8 @@ export interface StoreValue extends AppData {
     data: Partial<Omit<Course, "id" | "components">>
   ) => void;
   deleteCourse: (id: string) => void;
+  softDeleteCourse: (id: string) => Course | undefined;
+  restoreCourse: (course: Course) => void;
   addComponent: (
     courseId: string,
     component: Omit<GradeComponent, "id">
@@ -232,7 +237,12 @@ export interface StoreValue extends AppData {
   ) => void;
   deleteSession: (courseId: string, sessionId: string) => void;
   setMissedLectures: (courseId: string, missed: number) => void;
-  addMissedSession: (courseId: string, sessionId: string) => Promise<MutationResult>;
+  addMissedSession: (
+    courseId: string,
+    sessionId: string,
+    extra?: { date?: string; excused?: boolean; tardiness?: number }
+  ) => Promise<MutationResult>;
+  updateMissedSession: (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null }) => void;
   removeMissedSession: (courseId: string, missedId: string) => void;
   loadDemo: () => void;
   resetData: () => void;
@@ -377,7 +387,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const absencesByCourse = new Map<string, MissedEntry[]>();
         for (const a of cloudAbsences) {
           const arr = absencesByCourse.get(a.courseId) ?? [];
-          arr.push({ id: a.id, day: a.day, minutes: a.minutes });
+          arr.push({
+            id: a.id,
+            day: a.day,
+            minutes: a.minutes,
+            date: a.date,
+            excused: a.excused,
+            tardiness: a.tardiness,
+          });
           absencesByCourse.set(a.courseId, arr);
         }
 
@@ -389,6 +406,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               name: cc.name,
               creditHours: cc.creditHours,
               attendanceLimit: cc.attendanceLimit,
+              instructorName: cc.instructorName,
+              color: cc.color,
               sessions: sessionsByCourse.get(cc.id) ?? [],
               missedLectures: 0,
               missedSessions: absencesByCourse.get(cc.id) ?? [],
@@ -434,6 +453,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           cumulativeHours: num(prefs.cumulativeHours, initialData.cumulativeHours),
           // notifPrefs supersedes the legacy `reminderDays`; missing → defaults.
           notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
+          haviName: str(prefs.haviName, "Havi") || "Havi",
           semester: {
             ...defaultSemester,
             name: sem.name,
@@ -819,6 +839,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [persistPref]
   );
 
+  const setHaviName = useCallback(
+    (name: string) => {
+      setData((d) => ({ ...d, haviName: name || "Havi" }));
+      persistPref({ haviName: name || "Havi" });
+    },
+    [persistPref]
+  );
+
   const setSemester = useCallback((patch: Partial<Semester>) => {
     setData((d) => ({ ...d, semester: { ...d.semester, ...patch } }));
     // Mirror the cloud-backed fields to the active semesters row. name/weeks/
@@ -856,6 +884,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (patch.startDate !== undefined) prefPatch.startDate = patch.startDate;
     if (patch.endDate !== undefined) prefPatch.endDate = patch.endDate;
     if (patch.withdrawalLimit !== undefined) prefPatch.withdrawalLimit = patch.withdrawalLimit;
+    if (patch.tardinessRuleId !== undefined) prefPatch.tardinessRuleId = patch.tardinessRuleId;
+    if (patch.customTardinessThreshold !== undefined) prefPatch.customTardinessThreshold = patch.customTardinessThreshold;
+    if (patch.customTardiesPerAbsence !== undefined) prefPatch.customTardiesPerAbsence = patch.customTardiesPerAbsence;
     if (Object.keys(prefPatch).length) persistPref(prefPatch);
   }, [persistPref]);
 
@@ -911,12 +942,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loggedInRef.current &&
         (patch.name !== undefined ||
           patch.creditHours !== undefined ||
-          patch.attendanceLimit !== undefined)
+          patch.attendanceLimit !== undefined ||
+          patch.instructorName !== undefined ||
+          patch.color !== undefined)
       ) {
         db.updateCourse(id, {
           ...(patch.name !== undefined ? { name: patch.name } : {}),
           ...(patch.creditHours !== undefined ? { creditHours: patch.creditHours } : {}),
           ...(patch.attendanceLimit !== undefined ? { attendanceLimit: patch.attendanceLimit } : {}),
+          ...(patch.instructorName !== undefined ? { instructorName: patch.instructorName ?? null } : {}),
+          ...(patch.color !== undefined ? { color: patch.color ?? null } : {}),
         }).catch((e) => console.error("Haven: failed to update course", e));
       }
     },
@@ -928,6 +963,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (loggedInRef.current) {
       db.deleteCourse(id).catch((e) => console.error("Haven: failed to delete course", e));
     }
+  }, []);
+
+  const softDeleteCourse = useCallback((id: string): Course | undefined => {
+    const deleted = data.courses.find((c) => c.id === id);
+    if (!deleted) return undefined;
+    setData((d) => ({ ...d, courses: d.courses.filter((c) => c.id !== id) }));
+    return deleted;
+  }, [data.courses]);
+
+  const restoreCourse = useCallback((course: Course) => {
+    setData((d) => ({ ...d, courses: [...d.courses, course] }));
   }, []);
 
   const addComponent = useCallback(
@@ -1178,13 +1224,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const addMissedSession = useCallback(async (courseId: string, sessionId: string): Promise<MutationResult> => {
+  const addMissedSession = useCallback(async (
+    courseId: string,
+    sessionId: string,
+    extra?: { date?: string; excused?: boolean; tardiness?: number }
+  ): Promise<MutationResult> => {
     if (!loggedInRef.current) return NOT_SIGNED_IN;
     const course = coursesRef.current.find((c) => c.id === courseId);
     const sess = course?.sessions.find((s) => s.id === sessionId);
     if (!sess) return { ok: false, error: "session not found" };
     try {
-      const row = await db.addAbsence(courseId, { day: sess.day, minutes: sess.minutes });
+      const row = await db.addAbsence(courseId, {
+        day: sess.day,
+        minutes: sess.minutes,
+        date: extra?.date,
+        excused: extra?.excused,
+        tardiness: extra?.tardiness,
+      });
       setData((d) => ({
         ...d,
         courses: d.courses.map((c) =>
@@ -1193,7 +1249,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 ...c,
                 missedSessions: [
                   ...c.missedSessions,
-                  { id: row.id, sessionId, day: row.day, minutes: row.minutes },
+                  {
+                    id: row.id,
+                    sessionId,
+                    day: row.day,
+                    minutes: row.minutes,
+                    date: row.date,
+                    excused: row.excused,
+                    tardiness: row.tardiness,
+                  },
                 ],
               }
             : c
@@ -1205,6 +1269,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: asError(e) };
     }
   }, []);
+
+  const updateMissedSession = useCallback(
+    (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null }) => {
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId
+            ? {
+                ...c,
+                missedSessions: c.missedSessions.map((m) =>
+                  m.id === missedId
+                    ? { ...m, ...patch, tardiness: patch.tardiness ?? undefined }
+                    : m
+                ),
+              }
+            : c
+        ),
+      }));
+      if (loggedInRef.current) {
+        db.updateAbsence(missedId, patch).catch((e) =>
+          console.error("Haven: failed to update absence", e)
+        );
+      }
+    },
+    []
+  );
 
   const removeMissedSession = useCallback((courseId: string, missedId: string) => {
     setData((d) => ({
@@ -1318,10 +1408,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCumulativeGpa,
     setCumulativeHours,
     setNotifPrefs,
+    setHaviName,
     setSemester,
     addCourse,
     updateCourse,
     deleteCourse,
+    softDeleteCourse,
+    restoreCourse,
     addComponent,
     updateComponent,
     deleteComponent,
@@ -1330,6 +1423,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteSession,
     setMissedLectures,
     addMissedSession,
+    updateMissedSession,
     removeMissedSession,
     loadDemo,
     resetData,

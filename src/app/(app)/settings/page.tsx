@@ -131,7 +131,7 @@ export default function SettingsPage() {
   usePageTitle("nav_settings");
   const router = useRouter();
   const store = useStore();
-  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, resetData } = store;
+  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, resetData, haviName, setHaviName } = store;
   // Which of the two semester date fields was last rejected for inverting the
   // range (null = no problem). Drives the inline explanation under the fields.
   const [dateError, setDateError] = useState<"start" | "end" | null>(null);
@@ -200,6 +200,16 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
+          </Row>
+          <Row label={t("haviNameLabel")}>
+            <input
+              className={fieldClass}
+              style={divider}
+              value={haviName}
+              placeholder={t("haviNamePlaceholder")}
+              maxLength={20}
+              onChange={(e) => setHaviName(e.target.value)}
+            />
           </Row>
         </div>
       </Section>

@@ -1,7 +1,15 @@
 import type { Course, Semester } from "@/types";
+import { resolveHolidaysForSemester, holidayMinutes } from "./holidays";
+import { resolveTardinessRule, tardinessToAbsenceMinutes } from "./tardiness";
 
 /** Status thresholds scale with each course's own limit: "approaching" starts at
  *  70% of the limit, "withdrawal risk" at the limit itself. */
+export const STATUS_COLOR: Record<"ok" | "warn" | "danger", string> = {
+  ok: "var(--color-success)",
+  warn: "#C77E2E",
+  danger: "var(--color-danger)",
+};
+
 export const APPROACHING_FRACTION = 0.7;
 
 /** The effective withdrawal limit (%) for a course: its own attendance_limit
@@ -155,36 +163,85 @@ export interface AttendanceInfo {
   rate: number;
   limit: number;
   status: "ok" | "warn" | "danger";
+  /** total contact minutes (after subtracting holidays) */
+  totalMinutes: number;
+  /** total missed minutes (unexcused only) */
+  missedMinutes: number;
+  /** excused minutes (tracked but not counted) */
+  excusedMinutes: number;
+  /** minutes derived from tardiness rule (tardies converted to absences) */
+  tardinessMinutes: number;
+  /** minutes subtracted for holidays */
+  holidayMinutesOff: number;
+  /** hours remaining before reaching the limit */
+  hoursRemaining: number;
 }
 
 // Duration-based absence: every session and every logged absence is weighted by its real length
 // in minutes, so a 2-hour class counts twice a 1-hour one. Compared against the withdrawal limit.
 export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null {
-  // Same week count the planner and dashboard use. Previously this read
-  // `sem.weeks` (teaching only) while everything else used the full date span,
-  // so absence percentages were inflated by finals-weeks worth of missing
-  // denominator — enough to fire false "you're being withdrawn" warnings.
-  const weeks = semesterWeeks(sem);
-  // Per-course withdrawal limit; thresholds scale with it so any university /
-  // college (25% standard, 20% health colleges, …) works automatically.
+  const weeks = teachingWeeks(sem);
   const limit = courseLimit(c, sem);
   const approaching = APPROACHING_FRACTION * limit;
 
-  const total = minutesPerWeek(c) * weeks; // total contact minutes for the term
-  if (!total) return null;
+  const rawTotal = minutesPerWeek(c) * weeks;
+  if (!rawTotal) return null;
 
-  const missed = (c.missedSessions ?? []).reduce(
-    (sum, m) => sum + (Number(m.minutes) || 0),
-    0
-  );
+  // Subtract holiday sessions from total contact time
+  let holidayMins = 0;
+  if (sem?.startDate && sem?.endDate) {
+    const holidays = resolveHolidaysForSemester(
+      sem.startDate,
+      sem.endDate,
+      sem.dismissedHolidays
+    );
+    holidayMins = holidayMinutes(c.sessions, holidays);
+  }
+  const total = Math.max(1, rawTotal - holidayMins);
 
-  const unit = (100 / total) * 60; // percent per hour — same minutes-based total
+  // Separate: full absences, excused, and tardies
+  const rule = resolveTardinessRule(sem);
+  let missed = 0;
+  let excused = 0;
+  const tardies: { minutesLate: number; sessionMinutes: number }[] = [];
+
+  for (const m of c.missedSessions ?? []) {
+    const mins = Number(m.minutes) || 0;
+    if (m.excused) {
+      excused += mins;
+    } else if (m.tardiness && m.tardiness > 0) {
+      tardies.push({ minutesLate: m.tardiness, sessionMinutes: mins });
+    } else {
+      missed += mins;
+    }
+  }
+
+  const tardinessAbsence = tardinessToAbsenceMinutes(tardies, rule);
+  missed += tardinessAbsence;
+
+  const unit = (100 / total) * 60;
   const absence = Math.min(100, (missed / total) * 100);
   const rate = 100 - absence;
   const status: "ok" | "warn" | "danger" =
     absence >= limit ? "danger" : absence >= approaching ? "warn" : "ok";
 
-  return { weeks, unit, absence, rate, limit, status };
+  const limitMinutes = (limit / 100) * total;
+  const hoursRemaining = Math.max(0, (limitMinutes - missed) / 60);
+
+  return {
+    weeks,
+    unit,
+    absence,
+    rate,
+    limit,
+    status,
+    totalMinutes: total,
+    missedMinutes: missed,
+    excusedMinutes: excused,
+    tardinessMinutes: tardinessAbsence,
+    holidayMinutesOff: holidayMins,
+    hoursRemaining,
+  };
 }
 
 /** Hard bounds for any semester length, in weeks. */
@@ -217,6 +274,23 @@ export function semesterWeeks(sem?: Semester | null): number {
     return clamp((end - start) / (7 * 864e5));
   }
   return clamp(configured > 0 ? configured : 15);
+}
+
+/**
+ * Teaching weeks only (excludes finals) — used by attendance math.
+ * Finals weeks have no regular lectures, so they must not inflate the
+ * contact-hours denominator.
+ */
+export function teachingWeeks(sem?: Semester | null): number {
+  const clamp = (n: number) =>
+    Math.max(MIN_SEMESTER_WEEKS, Math.min(MAX_SEMESTER_WEEKS, Math.round(n)));
+
+  const teaching = Math.round(Number(sem?.weeks) || 0);
+  if (teaching > 0) return clamp(teaching);
+
+  const finals = Math.round(Number(sem?.finalsWeeks) || 0);
+  const total = semesterWeeks(sem);
+  return clamp(finals > 0 ? total - finals : total);
 }
 
 // Kept as the historical name used across the app; now date-aware AND

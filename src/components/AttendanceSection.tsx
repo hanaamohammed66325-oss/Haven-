@@ -5,18 +5,13 @@ import { Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { AttendanceBadge } from "./AttendanceBadge";
-import { attendanceInfo } from "@/lib/grades";
+import { attendanceInfo, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6];
 
-const statusColor: Record<"ok" | "warn" | "danger", string> = {
-  ok: "var(--color-success)",
-  warn: "#C77E2E",
-  danger: "var(--color-danger)",
-};
 
 /** A number input with up/down stepper buttons, matching the day selector's
  *  arrow affordance. Clicking a step clamps to [min, max]; typing directly
@@ -113,7 +108,7 @@ export function AttendanceSection({ course }: { course: Course }) {
           <div className="text-right rtl:text-left">
             <span
               className="font-display text-2xl leading-none"
-              style={{ color: statusColor[att.status] }}
+              style={{ color: STATUS_COLOR[att.status] }}
             >
               {att.absence.toFixed(1)}%
             </span>

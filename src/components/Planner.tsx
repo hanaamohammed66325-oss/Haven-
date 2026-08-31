@@ -8,6 +8,7 @@ import { Card } from "./Card";
 import { TimeField } from "./TimeField";
 import { addDays, formatShortDate, formatTime, hijriParts, toISODate } from "@/lib/dates";
 import { weeksFromDates } from "@/lib/grades";
+import { resolveHolidaysForSemester, holidayDates } from "@/lib/holidays";
 import { REMINDER_TAGS } from "@/lib/reminders";
 import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -192,6 +193,73 @@ export function Planner() {
     return map;
   }, [courses, weeks]);
 
+  // Virtual holiday notes — injected into planner weeks so holidays render
+  // with the existing tagHoliday green shading. Not persisted; generated
+  // from the semester's resolved holidays each render.
+  const holidayNotesByWeek = useMemo(() => {
+    const map: Record<number, PlannerNote[]> = {};
+    if (!semester?.startDate || !semester?.endDate) return map;
+    const holidays = resolveHolidaysForSemester(
+      semester.startDate,
+      semester.endDate,
+      semester.dismissedHolidays
+    );
+    const dateToWeek = new Map<string, number>();
+    for (const wk of weeks) {
+      if (!wk.start || !wk.end) continue;
+      let d = new Date(wk.start);
+      const wEnd = wk.end;
+      while (d <= wEnd) {
+        dateToWeek.set(toISODate(d), wk.index);
+        d = addDays(d, 1);
+      }
+    }
+
+    for (const h of holidays) {
+      const dates = holidayDates(h);
+      const byWeek: Record<number, { day: number; dateStr: string }[]> = {};
+      for (const dateStr of dates) {
+        const d = new Date(`${dateStr}T00:00:00`);
+        const dow = d.getDay();
+        if (dow === 5 || dow === 6) continue;
+        const wi = dateToWeek.get(dateStr);
+        if (wi != null) {
+          (byWeek[wi] ??= []).push({ day: dow, dateStr });
+        }
+      }
+      for (const [wi, entries] of Object.entries(byWeek)) {
+        const idx = Number(wi);
+        const arr = (map[idx] ??= []);
+        const workdays = new Set(entries.map((e) => e.day));
+        if (workdays.size === 5) {
+          // All Sun-Thu covered → single whole-week badge
+          arr.push({
+            id: `holiday-${h.id}-week-${idx}`,
+            week: idx + 1,
+            day: undefined,
+            text: lang === "ar" ? h.nameAr : h.nameEn,
+            color: "#5fa98c",
+            tag: "tagHoliday",
+            done: false,
+          });
+        } else {
+          for (const entry of entries) {
+            arr.push({
+              id: `holiday-${h.id}-${entry.dateStr}`,
+              week: idx + 1,
+              day: entry.day,
+              text: lang === "ar" ? h.nameAr : h.nameEn,
+              color: "#5fa98c",
+              tag: "tagHoliday",
+              done: false,
+            });
+          }
+        }
+      }
+    }
+    return map;
+  }, [semester?.startDate, semester?.endDate, semester?.dismissedHolidays, weeks, lang]);
+
   // ---- mutations (cloud-backed via the store) ----
   // NOTE: `week` here is the 1-based displayed week number ("Week 11" → 11),
   // the same identifier stored in planner_items.week_number and matched against
@@ -281,7 +349,10 @@ export function Planner() {
               key={w.index}
               label={t("weekLabel", { n: w.index + 1 })}
               range={range(w)}
-              notes={planner.notes.filter((n) => n.week === w.index + 1)}
+              notes={[
+                ...planner.notes.filter((n) => n.week === w.index + 1),
+                ...(holidayNotesByWeek[w.index] ?? []),
+              ]}
               autoItems={autoByWeek[w.index] ?? []}
               dayDates={dayDatesFor(w)}
               orderedDays={orderedDays}
@@ -444,6 +515,24 @@ function WeekCard({
   const activeRing = { outline: "1px dashed var(--color-primary)", outlineOffset: 2, borderRadius: 8 };
 
   const renderNote = (n: PlannerNote) => {
+    // Virtual holiday notes are read-only — no edit, delete, or done toggle.
+    if (n.id.startsWith("holiday-")) {
+      return (
+        <span
+          key={n.id}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs max-w-full"
+          style={{ background: `${n.color}1A`, border: "1px solid transparent" }}
+        >
+          <span
+            className="h-2 w-2 rounded-full shrink-0"
+            style={{ background: n.color }}
+          />
+          <span className="truncate" style={{ color: n.color, fontWeight: 500 }}>
+            {n.text}
+          </span>
+        </span>
+      );
+    }
     // A deadline-type chip on a specific day can carry an optional time.
     const canHaveTime = !!(n.tag && REMINDER_TAGS.has(n.tag) && n.day != null);
     if (editNoteId === n.id) {

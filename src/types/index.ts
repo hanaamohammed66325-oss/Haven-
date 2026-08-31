@@ -51,6 +51,12 @@ export interface MissedEntry {
   day: number;
   /** missed minutes — weighted into the attendance percentage */
   minutes: number;
+  /** actual date of absence (ISO YYYY-MM-DD) — null for legacy entries */
+  date?: string;
+  /** excused absences don't count toward withdrawal limit */
+  excused?: boolean;
+  /** tardiness in minutes (0 or undefined = full absence, >0 = late arrival) */
+  tardiness?: number;
 }
 
 export interface Course {
@@ -60,6 +66,8 @@ export interface Course {
   /** this course's own withdrawal ("حرمان") limit as an absence % (from
    *  courses.attendance_limit). 0/undefined → fall back to the semester default. */
   attendanceLimit?: number;
+  instructorName?: string;
+  color?: string;
   /** weekly class meetings — drives totals for both counting methods */
   sessions: CourseSession[];
   /** missed count for the "by lecture" method */
@@ -81,6 +89,12 @@ export interface Semester {
   finalsWeeks: number;
   /** withdrawal ("حرمان") threshold as a percentage of absence */
   withdrawalLimit: number;
+  /** tardiness conversion rule id (default: "standard") */
+  tardinessRuleId?: string;
+  customTardinessThreshold?: number;
+  customTardiesPerAbsence?: number;
+  /** holiday IDs the student has dismissed (don't apply to them) */
+  dismissedHolidays?: string[];
 }
 
 /** A typed note/task placed inside a planner week. */
@@ -147,6 +161,8 @@ export interface AppData {
   cumulativeHours: number;
   /** customizable notification preferences (per account, in preferences.notifPrefs). */
   notifPrefs: NotifPrefs;
+  /** custom name for the Havi mascot (default "Havi") */
+  haviName: string;
 }
 
 /** Semester-GPA card mode. "semester" = live GPA out of 5.0; "cumulative" =

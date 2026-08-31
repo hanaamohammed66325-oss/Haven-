@@ -8,6 +8,7 @@ import {
   BookOpen,
   ClipboardList,
   CalendarDays,
+  Shield,
   Settings,
   Lock,
   Globe,
@@ -38,6 +39,7 @@ const MENU: NavItem[] = [
   { href: "/courses", labelKey: "nav_courses", icon: BookOpen },
   { href: "/assignments", labelKey: "nav_assignments", icon: ClipboardList },
   { href: "/schedule", labelKey: "nav_schedule", icon: CalendarDays },
+  { href: "/attendance", labelKey: "nav_attendance", icon: Shield },
 ];
 
 const ACCOUNT: NavItem[] = [
