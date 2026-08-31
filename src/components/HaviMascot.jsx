@@ -996,7 +996,7 @@ export default function HaviMascot({
       forcedActRef.current = null;
       clickCountRef.current = 0;
       targetElRef.current = null;
-      setVisible(false); // hide IMMEDIATELY — no lingering on the old page
+      queueMicrotask(() => setVisible(false));
     };
 
     const onNavigate = () => {

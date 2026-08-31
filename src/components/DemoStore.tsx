@@ -211,6 +211,7 @@ function buildInitialData(): AppData {
     cumulativeGpa: 4.62,
     cumulativeHours: 52,
     notifPrefs: DEFAULT_NOTIF_PREFS,
+    haviName: "Havi",
   };
 }
 
@@ -332,18 +333,33 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
 
       setMissedLectures: (courseId, missed) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedLectures: Math.max(0, missed) }))),
-      addMissedSession: (courseId, sessionId) => {
+      addMissedSession: (courseId, sessionId, extra) => {
         mapCourses(
           inCourse(courseId, (c) => {
             const s = c.sessions.find((x) => x.id === sessionId);
             if (!s) return c;
-            return { ...c, missedSessions: [...c.missedSessions, { id: uid(), sessionId, day: s.day, minutes: s.minutes }] };
+            return { ...c, missedSessions: [...c.missedSessions, { id: uid(), sessionId, day: s.day, minutes: s.minutes, ...extra }] };
           })
         );
         return Promise.resolve({ ok: true as const });
       },
+      updateMissedSession: (courseId, missedId, p) =>
+        mapCourses(inCourse(courseId, (c) => ({
+          ...c,
+          missedSessions: c.missedSessions.map((m) =>
+            m.id === missedId ? { ...m, ...p, tardiness: p.tardiness === null ? undefined : (p.tardiness ?? m.tardiness) } : m
+          ),
+        }))),
       removeMissedSession: (courseId, missedId) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }))),
+
+      setHaviName: (name) => patch({ haviName: name || "Havi" }),
+      softDeleteCourse: (id) => {
+        const found = data.courses.find((c) => c.id === id);
+        if (found) setData((d) => ({ ...d, courses: d.courses.filter((c) => c.id !== id) }));
+        return found;
+      },
+      restoreCourse: (course) => setData((d) => ({ ...d, courses: [...d.courses, course] })),
 
       loadDemo: () => {},
       resetData: () => {},
