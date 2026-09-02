@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette } from "lucide-react";
+import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
@@ -431,7 +431,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
       className="haven-fade-up h-full"
       style={{ animationDelay: `${0.18 + index * 0.07}s` }}
     >
-      <Card hover className="relative h-full" style={cardColor ? { background: `${cardColor}10`, borderColor: `${cardColor}30` } : undefined}>
+      <Card hover className="group relative h-full" style={cardColor ? { background: `${cardColor}10`, borderColor: `${cardColor}30` } : undefined}>
         <Link
           href="/courses"
           aria-label={course.name}
@@ -497,7 +497,15 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             <span className="text-[12px] mt-1 block" style={{ color: "var(--color-muted)" }}>
               {creditHoursLabel(course.creditHours, lang)}
               {course.instructorName && !editingInstructor && (
-                <> · {course.instructorName}</>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setInstrDraft(course.instructorName ?? ""); setEditingInstructor(true); }}
+                  className="relative z-[2] inline-flex items-center gap-0.5 hover:opacity-70 transition-opacity"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  <span> · {course.instructorName}</span>
+                  <Pencil size={10} className="opacity-0 group-hover:opacity-60 transition-opacity" />
+                </button>
               )}
             </span>
           </div>
