@@ -6,6 +6,11 @@
 // so per-user timing (lectures.minutesBefore) is always honored — no shared
 // server clock that could make different users' reminders fire together.
 //
+// Reliability: mobile browsers and PWAs aggressively throttle setTimeout when
+// the tab is backgrounded or the device sleeps. To compensate, a watchdog
+// interval (every 15s) and a visibilitychange listener catch any notification
+// whose setTimeout missed its window, firing it as soon as the engine wakes.
+//
 // Entry point: scheduleAll(). Call once after hydration and whenever courses,
 // semester, planner, or notifPrefs change. Clears all previous timers first.
 // ---------------------------------------------------------------------------
@@ -19,9 +24,61 @@ const FIRED_KEY = "haven-notif-fired";
 // setTimeout max safe delay (~24.85 days). Values above this wrap to 1ms.
 const MAX_DELAY = 0x7fffffff;
 
+// ---- Pending notification queue + watchdog ----
+
+interface PendingNotif {
+  fireAt: number;
+  title: string;
+  body: string;
+  id: string;
+}
+
+let pending: PendingNotif[] = [];
+let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+let visibilityBound = false;
+
+const WATCHDOG_INTERVAL = 15_000;
+
+function checkPending() {
+  const now = Date.now();
+  const due: PendingNotif[] = [];
+  const remaining: PendingNotif[] = [];
+  for (const n of pending) {
+    if (now >= n.fireAt) due.push(n);
+    else remaining.push(n);
+  }
+  pending = remaining;
+  for (const n of due) fire(n.title, n.body, n.id);
+  if (pending.length === 0) stopWatchdog();
+}
+
+function startWatchdog() {
+  if (watchdogTimer) return;
+  watchdogTimer = setInterval(checkPending, WATCHDOG_INTERVAL);
+  if (!visibilityBound && typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    visibilityBound = true;
+  }
+}
+
+function stopWatchdog() {
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
+    watchdogTimer = null;
+  }
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === "visible") checkPending();
+}
+
+// ---- Core helpers ----
+
 function clearAll() {
   for (const t of activeTimers) clearTimeout(t);
   activeTimers = [];
+  pending = [];
+  stopWatchdog();
 }
 
 function localDateStr(): string {
@@ -68,8 +125,14 @@ function fire(title: string, body: string, id: string) {
 }
 
 function scheduleAt(ms: number, title: string, body: string, id: string) {
-  if (ms <= 0 || ms > MAX_DELAY) return;
+  if (ms > MAX_DELAY) return;
+  if (ms <= 0) {
+    fire(title, body, id);
+    return;
+  }
+  pending.push({ fireAt: Date.now() + ms, title, body, id });
   activeTimers.push(setTimeout(() => fire(title, body, id), ms));
+  startWatchdog();
 }
 
 function todayAt(hh: number, mm: number): number {
@@ -166,7 +229,6 @@ function scheduleDailyDigest(
   if (delay > 0) {
     scheduleAt(delay, title, lines.join("\n"), id);
   } else {
-    // App opened after the scheduled hour — fire immediately instead of skipping
     fire(title, lines.join("\n"), id);
   }
 }
