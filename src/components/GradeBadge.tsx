@@ -1,10 +1,12 @@
 "use client";
 
 import { pctToGrade } from "@/lib/grades";
+import { useT } from "@/i18n";
 
 interface GradeBadgeProps {
   pct: number | null;
   size?: "sm" | "md" | "lg";
+  showDefaultNote?: boolean;
 }
 
 function gradeColor(points: number): string {
@@ -14,16 +16,12 @@ function gradeColor(points: number): string {
   return "#D9534F"; // danger
 }
 
-export function GradeBadge({ pct, size = "md" }: GradeBadgeProps) {
-  if (pct == null) {
-    return (
-      <span className="text-sm" style={{ color: "var(--color-muted)" }}>
-        —
-      </span>
-    );
-  }
+export function GradeBadge({ pct, size = "md", showDefaultNote = false }: GradeBadgeProps) {
+  const { t } = useT();
+  const isDefault = pct == null;
+  const displayPct = pct ?? 100;
 
-  const grade = pctToGrade(pct);
+  const grade = pctToGrade(displayPct);
   const color = gradeColor(grade.points);
   const sizeClass = {
     sm: "text-xs px-1.5 py-0.5",
@@ -32,11 +30,18 @@ export function GradeBadge({ pct, size = "md" }: GradeBadgeProps) {
   }[size];
 
   return (
-    <span
-      className={`inline-flex items-center font-semibold rounded-lg ${sizeClass}`}
-      style={{ background: `${color}1A`, color }}
-    >
-      {grade.letter}
+    <span className="inline-flex flex-col items-center gap-0.5">
+      <span
+        className={`inline-flex items-center font-semibold rounded-lg ${sizeClass}`}
+        style={{ background: `${color}1A`, color, opacity: isDefault ? 0.6 : 1 }}
+      >
+        {grade.letter}
+      </span>
+      {isDefault && showDefaultNote && (
+        <span className="text-[9px] leading-tight max-w-[7rem] text-center" style={{ color: "var(--color-muted)" }}>
+          {t("gradeDescNote")}
+        </span>
+      )}
     </span>
   );
 }

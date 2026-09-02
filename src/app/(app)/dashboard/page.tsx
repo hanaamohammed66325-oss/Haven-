@@ -225,12 +225,30 @@ export default function DashboardPage() {
                     className="flex flex-col items-center justify-center gap-2 text-center"
                   >
                     {shownGpa == null ? (
+                    gpaMode === "cumulative" ? (
                     <>
                       <div className="font-display text-4xl" style={{ color: "var(--color-muted)" }}>—</div>
                       <div className="text-xs max-w-[11rem]" style={{ color: "var(--color-muted)" }}>
-                        {gpaMode === "cumulative" ? t("gpaEnterCumulative") : t("noGradesYet")}
+                        {t("gpaEnterCumulative")}
                       </div>
                     </>
+                    ) : (
+                    <>
+                      <div className={revealGpa ? "haven-clear" : "haven-blur"}>
+                        <span className="font-display text-[40px] leading-none" style={{ color: "var(--color-brass)", opacity: 0.6 }}>
+                          5.00
+                        </span>
+                        <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
+                      </div>
+                      <div className="text-[10px] max-w-[12rem] text-center leading-snug" style={{ color: "var(--color-muted)" }}>
+                        {t("gradeDescNote")}
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
+                        {revealGpa ? <EyeOff size={12} /> : <Eye size={12} />}
+                        {revealGpa ? t("clickHide") : t("clickReveal")}
+                      </div>
+                    </>
+                    )
                   ) : (
                     <>
                       <div className={revealGpa ? "haven-clear" : "haven-blur"}>
@@ -510,28 +528,24 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             </span>
           </div>
 
-          {pct == null ? (
-            <span className="shrink-0 text-sm" style={{ color: "var(--color-muted)" }}>—</span>
-          ) : (
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label={revealed ? t("clickHide") : t("clickReveal")}
-              onClick={toggleGrade}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") toggleGrade(e);
-              }}
-              className="relative z-[2] shrink-0 flex flex-col items-end gap-1.5 cursor-pointer select-none"
-            >
-              <span className={revealed ? "haven-clear" : "haven-blur"}>
-                <GradeBadge pct={pct} size="md" />
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--color-muted)" }}>
-                {revealed ? <EyeOff size={11} /> : <Eye size={11} />}
-                {revealed ? t("clickHide") : t("clickReveal")}
-              </span>
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={revealed ? t("clickHide") : t("clickReveal")}
+            onClick={toggleGrade}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") toggleGrade(e);
+            }}
+            className="relative z-[2] shrink-0 flex flex-col items-end gap-1.5 cursor-pointer select-none"
+          >
+            <span className={revealed ? "haven-clear" : "haven-blur"}>
+              <GradeBadge pct={pct} size="md" />
             </span>
-          )}
+            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--color-muted)" }}>
+              {revealed ? <EyeOff size={11} /> : <Eye size={11} />}
+              {revealed ? t("clickHide") : t("clickReveal")}
+            </span>
+          </span>
         </div>
 
         {/* Grade + Attendance chips */}

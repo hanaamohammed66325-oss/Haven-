@@ -92,7 +92,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <GradeBadge pct={pct} size="lg" />
+          <GradeBadge pct={pct} size="lg" showDefaultNote />
           <button
             onClick={() => setEditing(true)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"

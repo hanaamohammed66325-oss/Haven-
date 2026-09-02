@@ -414,6 +414,7 @@ export const ar: Record<TranslationKey, string> = {
   emptyTitle: "لا توجد مقررات بعد",
   emptyHint: "موادك جاهزة في دقائق، بدون تعقيد.",
   noGradesYet: "لا توجد درجات كافية بعد",
+  gradeDescNote: "النظام تنازلي: يبدأ من A+ وينزل إذا نقصت أكثر من ٥ درجات",
   progressInfo: "مقدار ما مضى من الفصل، بحسب تاريخ بدايته ونهايته.",
 
   // Course card / grades
