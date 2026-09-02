@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, FlaskConical, Lock } from "lucide-react";
 import { Logo } from "./Logo";
+import { HaviLoader } from "./HaviLoader";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
 import { isVip, isBetaTester } from "@/lib/premium";
@@ -19,7 +20,7 @@ export function BetaGate({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  if (loading) return null;
+  if (loading) return <HaviLoader />;
 
   if (isVip(profile) || isBetaTester(profile)) {
     return <>{children}</>;

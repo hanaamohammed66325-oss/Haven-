@@ -179,6 +179,8 @@ const NOT_SIGNED_IN: MutationResult = { ok: false, error: "not signed in" };
 
 export interface StoreValue extends AppData {
   hydrated: boolean;
+  loadFailed: boolean;
+  retryLoad: () => void;
   setProfileName: (name: string) => void;
   setEmail: (email: string) => void;
   setProfilePhoto: (photo: string | null) => void;
@@ -253,6 +255,7 @@ export const StoreContext = createContext<StoreValue | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
   const [hydrated, setHydrated] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // Cloud bookkeeping kept in refs so the (stable) callbacks below always see
   // the latest value without being re-created.
@@ -263,6 +266,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // a real account switch apart from a token refresh on the same account.
   const currentUidRef = useRef<string | null>(null);
   const loadedOnceRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 3;
+  const [loadGeneration, setLoadGeneration] = useState(0);
+  const retryLoad = useCallback(() => {
+    retryCountRef.current = 0;
+    loadedOnceRef.current = false;
+    setLoadFailed(false);
+    setHydrated(false);
+    setLoadGeneration((g) => g + 1);
+  }, []);
   useEffect(() => {
     coursesRef.current = data.courses;
   }, [data.courses]);
@@ -502,9 +515,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // return early while !hydrated) instead of lying about the data, and
         // the retry below recovers as soon as the network does.
         if (!loadedOnceRef.current) {
-          window.setTimeout(() => {
-            if (!cancelled) void applyForUser(session);
-          }, 4000);
+          retryCountRef.current += 1;
+          if (retryCountRef.current >= MAX_RETRIES) {
+            setLoadFailed(true);
+          } else {
+            window.setTimeout(() => {
+              if (!cancelled) void applyForUser(session);
+            }, 4000);
+          }
         }
       }
     };
@@ -552,7 +570,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadGeneration]);
 
   // Persist to localStorage on change, once hydrated.
   //   • Signed IN: nothing — a signed-in account's data lives entirely in the
@@ -1392,6 +1411,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value: StoreValue = {
     ...data,
     hydrated,
+    loadFailed,
+    retryLoad,
     setProfileName,
     setEmail,
     setProfilePhoto,

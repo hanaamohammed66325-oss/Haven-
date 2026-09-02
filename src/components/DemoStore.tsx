@@ -230,6 +230,8 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     return {
       ...data,
       hydrated: true,
+      loadFailed: false,
+      retryLoad: () => {},
 
       setProfileName: (name) => patch({ profileName: name }),
       setEmail: (email) => patch({ email }),

@@ -24,12 +24,17 @@ function clearAll() {
   activeTimers = [];
 }
 
+function localDateStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function firedToday(id: string): boolean {
   try {
     const raw = localStorage.getItem(FIRED_KEY);
     if (!raw) return false;
     const obj = JSON.parse(raw) as { date: string; ids: string[] };
-    if (obj.date !== new Date().toISOString().slice(0, 10)) return false;
+    if (obj.date !== localDateStr()) return false;
     return obj.ids.includes(id);
   } catch {
     return false;
@@ -38,7 +43,7 @@ function firedToday(id: string): boolean {
 
 function markFired(id: string) {
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateStr();
     const raw = localStorage.getItem(FIRED_KEY);
     let obj: { date: string; ids: string[] } = { date: today, ids: [] };
     if (raw) {
@@ -93,23 +98,34 @@ function scheduleLectures(
   if (!prefs.lectures.enabled) return;
   if (!isWithinSemester(semester)) return;
   const now = Date.now();
-  const today = new Date().getDay();
+  const todayDay = new Date().getDay();
+  const tomorrowDay = (todayDay + 1) % 7;
 
   for (const course of courses) {
     for (const session of course.sessions) {
-      if (session.day !== today || !session.time) continue;
+      if (!session.time) continue;
       const m = /^(\d{1,2}):(\d{2})$/.exec(session.time);
       if (!m) continue;
 
-      const lectureMs = todayAt(Number(m[1]), Number(m[2]));
-      const fireAt = lectureMs - prefs.lectures.minutesBefore * 60_000;
-      const delay = fireAt - now;
-
-      const id = `lec-${course.id}-${session.id}-${session.time}`;
-      const body = lang === "ar"
-        ? `تبدأ خلال ${prefs.lectures.minutesBefore} دقيقة`
-        : `Starts in ${prefs.lectures.minutesBefore} min`;
-      scheduleAt(delay, course.name, body, id);
+      if (session.day === todayDay) {
+        const lectureMs = todayAt(Number(m[1]), Number(m[2]));
+        const fireAt = lectureMs - prefs.lectures.minutesBefore * 60_000;
+        const delay = fireAt - now;
+        const id = `lec-${course.id}-${session.id}-${session.time}`;
+        const body = lang === "ar"
+          ? `تبدأ خلال ${prefs.lectures.minutesBefore} دقيقة`
+          : `Starts in ${prefs.lectures.minutesBefore} min`;
+        scheduleAt(delay, course.name, body, id);
+      } else if (session.day === tomorrowDay) {
+        const tomorrowMs = todayAt(Number(m[1]), Number(m[2])) + 86400000;
+        const fireAt = tomorrowMs - prefs.lectures.minutesBefore * 60_000;
+        const delay = fireAt - now;
+        const id = `lec-${course.id}-${session.id}-${session.time}-tmrw`;
+        const body = lang === "ar"
+          ? `تبدأ خلال ${prefs.lectures.minutesBefore} دقيقة`
+          : `Starts in ${prefs.lectures.minutesBefore} min`;
+        scheduleAt(delay, course.name, body, id);
+      }
     }
   }
 }
@@ -127,7 +143,6 @@ function scheduleDailyDigest(
   if (!prefs.exams.enabled) return;
   const now = Date.now();
   const fireAt = todayAt(prefs.dailyReminderHour, 0);
-  if (fireAt - now <= 0) return;
 
   const maxDays = prefs.exams.days.length ? Math.max(...prefs.exams.days) : reminderDays;
   const items = collectUpcoming(courses, planner, semester, maxDays);
@@ -145,9 +160,15 @@ function scheduleDailyDigest(
     return `In ${it.diff} days: ${it.title}`;
   });
 
-  const id = `daily-${new Date().toISOString().slice(0, 10)}`;
+  const id = `daily-${localDateStr()}`;
   const title = lang === "ar" ? "Haven — القادم" : "Haven — Upcoming";
-  scheduleAt(fireAt - now, title, lines.join("\n"), id);
+  const delay = fireAt - now;
+  if (delay > 0) {
+    scheduleAt(delay, title, lines.join("\n"), id);
+  } else {
+    // App opened after the scheduled hour — fire immediately instead of skipping
+    fire(title, lines.join("\n"), id);
+  }
 }
 
 // ---- Task hour-based reminders ----

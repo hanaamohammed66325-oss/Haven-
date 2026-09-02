@@ -6,17 +6,20 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { Logo } from "./Logo";
+import { HaviLoader } from "./HaviLoader";
 import { ReminderToast } from "./ReminderToast";
 import { NotifScheduler } from "./NotifScheduler";
 import { TrialBanner } from "./TrialBanner";
 import { Footer } from "./Footer";
 import { useT } from "@/i18n";
+import { useStore } from "@/store";
 import { runPushAutoHeal } from "@/lib/pushHealthCheck";
 
 const STORAGE_KEY = "haven-sidebar-collapsed";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { t } = useT();
+  const { hydrated, loadFailed, retryLoad } = useStore();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   // Mobile nav drawer (< lg). The desktop rail hides itself below lg and this
@@ -73,6 +76,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
+
+  if (loadFailed) {
+    const lang = typeof document !== "undefined"
+      ? document.documentElement.getAttribute("lang") || "en"
+      : "en";
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          background: "var(--app-bg, #f3f0ea)",
+          zIndex: 9999,
+          textAlign: "center",
+          padding: 24,
+        }}
+      >
+        <div style={{ fontSize: 48, marginBottom: 8 }}>😔</div>
+        <p style={{ color: "var(--color-ink)", fontSize: 16, fontWeight: 500 }}>
+          {lang === "ar" ? "تعذّر تحميل بياناتك" : "Couldn’t load your data"}
+        </p>
+        <p style={{ color: "var(--color-muted)", fontSize: 14, maxWidth: 300 }}>
+          {lang === "ar"
+            ? "تحقّق من اتصالك بالإنترنت وحاول مرة أخرى"
+            : "Check your connection and try again"}
+        </p>
+        <button
+          type="button"
+          onClick={retryLoad}
+          className="haven-btn rounded-xl px-6 py-2.5 text-sm font-semibold"
+          style={{ marginTop: 8 }}
+        >
+          {lang === "ar" ? "إعادة المحاولة" : "Try again"}
+        </button>
+      </div>
+    );
+  }
+
+  if (!hydrated) return <HaviLoader />;
 
   return (
     <div className="flex min-h-dvh">
