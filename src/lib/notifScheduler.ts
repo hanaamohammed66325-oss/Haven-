@@ -125,11 +125,7 @@ function fire(title: string, body: string, id: string) {
 }
 
 function scheduleAt(ms: number, title: string, body: string, id: string) {
-  if (ms > MAX_DELAY) return;
-  if (ms <= 0) {
-    fire(title, body, id);
-    return;
-  }
+  if (ms <= 0 || ms > MAX_DELAY) return;
   pending.push({ fireAt: Date.now() + ms, title, body, id });
   activeTimers.push(setTimeout(() => fire(title, body, id), ms));
   startWatchdog();
