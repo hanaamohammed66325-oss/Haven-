@@ -1,7 +1,9 @@
 "use client";
 
+import { Info } from "lucide-react";
 import { pctToGrade } from "@/lib/grades";
 import { useT } from "@/i18n";
+import { InfoPopover } from "./InfoPopover";
 
 interface GradeBadgeProps {
   pct: number | null;
@@ -30,7 +32,7 @@ export function GradeBadge({ pct, size = "md", showDefaultNote = false }: GradeB
   }[size];
 
   return (
-    <span className="inline-flex flex-col items-center gap-0.5">
+    <span className="inline-flex items-center gap-1">
       <span
         className={`inline-flex items-center font-semibold rounded-lg ${sizeClass}`}
         style={{ background: `${color}1A`, color, opacity: isDefault ? 0.6 : 1 }}
@@ -38,9 +40,14 @@ export function GradeBadge({ pct, size = "md", showDefaultNote = false }: GradeB
         {grade.letter}
       </span>
       {isDefault && showDefaultNote && (
-        <span className="text-[9px] leading-tight max-w-[7rem] text-center" style={{ color: "var(--color-muted)" }}>
+        <InfoPopover
+          label={t("gradeDescNote")}
+          trigger={
+            <Info size={13} className="haven-nudge" style={{ color: "var(--color-muted)" }} />
+          }
+        >
           {t("gradeDescNote")}
-        </span>
+        </InfoPopover>
       )}
     </span>
   );

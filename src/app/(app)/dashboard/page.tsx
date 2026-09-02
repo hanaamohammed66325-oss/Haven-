@@ -235,13 +235,20 @@ export default function DashboardPage() {
                     ) : (
                     <>
                       <div className={revealGpa ? "haven-clear" : "haven-blur"}>
-                        <span className="font-display text-[40px] leading-none" style={{ color: "var(--color-brass)", opacity: 0.6 }}>
-                          5.00
+                        <span className="inline-flex items-center gap-1">
+                          <span className="font-display text-[40px] leading-none" style={{ color: "var(--color-brass)", opacity: 0.6 }}>
+                            5.00
+                          </span>
+                          <span className="text-base" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
+                          <InfoPopover
+                            label={t("gradeDescNote")}
+                            trigger={
+                              <Info size={14} className="haven-nudge" style={{ color: "var(--color-muted)" }} />
+                            }
+                          >
+                            {t("gradeDescNote")}
+                          </InfoPopover>
                         </span>
-                        <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
-                      </div>
-                      <div className="text-[10px] max-w-[12rem] text-center leading-snug" style={{ color: "var(--color-muted)" }}>
-                        {t("gradeDescNote")}
                       </div>
                       <div className="inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
                         {revealGpa ? <EyeOff size={12} /> : <Eye size={12} />}
