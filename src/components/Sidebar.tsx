@@ -24,7 +24,7 @@ import { Logo } from "./Logo";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
-import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES, hasActiveAccess, isBetaTester } from "@/lib/premium";
+import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES, hasActiveAccess } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface NavItem {
@@ -224,14 +224,6 @@ export function Sidebar({
           <div className="flex items-center gap-3 min-w-0">
             <Logo size={34} mono />
             <span className="font-display text-2xl text-white truncate">{t("appName")}</span>
-            {isBetaTester(profile) && (
-              <span
-                className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                style={{ background: "rgba(184,151,90,0.2)", color: "var(--color-brass)", border: "1px solid rgba(184,151,90,0.35)" }}
-              >
-                Beta
-              </span>
-            )}
           </div>
           <button
             onClick={onToggle}
