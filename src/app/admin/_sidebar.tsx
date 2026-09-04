@@ -120,7 +120,7 @@ export function AdminTopBar({
   const label = current[0].toUpperCase() + current.slice(1);
   return (
     <header
-      className="md:hidden sticky top-0 z-40 border-b flex items-center justify-between px-4 py-3"
+      className="haven-safe-top md:hidden sticky top-0 z-40 border-b flex items-center justify-between px-4 py-3"
       style={{ background: C.panel, borderColor: C.border }}
     >
       <button

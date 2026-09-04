@@ -194,9 +194,13 @@ html[lang="ar"] .font-display {
 /* Mobile nav drawer panel: fills its height and respects top/bottom insets so
    the brand row and the profile card at the very bottom stay clear of the notch
    and the home indicator. */
-.haven-drawer {
+.haven-safe-top {
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.haven-drawer {
+  padding-top: max(24px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
 }
 
 /* ---- Sidebar nav ---- */

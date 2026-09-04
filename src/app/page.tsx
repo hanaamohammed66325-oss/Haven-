@@ -47,7 +47,7 @@ export default function LandingPage() {
     loggedIn ? `/checkout?plan=${cycle}` : "/signin";
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
+    <div className="haven-safe-top relative min-h-dvh overflow-x-hidden">
 
       <div className="relative z-10 mx-auto w-full max-w-7xl px-6 md:px-10 lg:px-16">
         {/* Nav */}

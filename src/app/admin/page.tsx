@@ -171,7 +171,7 @@ function AdminPage() {
 function Screen({ children }: { children: React.ReactNode }) {
   const C = useC();
   return (
-    <div dir="ltr" className="min-h-dvh flex items-center justify-center p-4" style={{ background: C.bg, fontFamily: "'Inter', 'Tajawal', sans-serif" }}>
+    <div dir="ltr" className="haven-safe-top min-h-dvh flex items-center justify-center p-4" style={{ background: C.bg, fontFamily: "'Inter', 'Tajawal', sans-serif" }}>
       {children}
     </div>
   );
