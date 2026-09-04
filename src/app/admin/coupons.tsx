@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { useC, useS, callAdmin, fmtDate, fmtSar, Loading, SectionHeader } from "./_lib";
+import { useC, useS, callAdmin, fmtDate, fmtSar, Loading, SectionHeader, ErrorBanner } from "./_lib";
 
 interface Coupon {
   id: string; code: string; percent_off: number;
@@ -71,6 +71,7 @@ function CouponsTab({ session }: { session: Session }) {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newPercent, setNewPercent] = useState("");
   const [newMaxUses, setNewMaxUses] = useState("");
@@ -80,12 +81,13 @@ function CouponsTab({ session }: { session: Session }) {
   const [createError, setCreateError] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setLoadError("");
     const [cRes, iRes] = await Promise.all([
       callAdmin(session, "coupons_list"),
       callAdmin(session, "influencers_list"),
     ]);
     if (cRes?.ok) setCoupons(cRes.coupons ?? []);
+    else setLoadError(cRes?.error ?? "Failed to load coupons");
     if (iRes?.ok) setInfluencers(iRes.influencers ?? []);
     setLoading(false);
   }, [session]);
@@ -113,6 +115,8 @@ function CouponsTab({ session }: { session: Session }) {
 
   return (
     <div>
+      {loadError && <ErrorBanner message={loadError} onRetry={load} />}
+
       <div className="rounded-xl border p-5 mb-6" style={{ borderColor: C.border, background: C.panel }}>
         <h2 className="text-[13px] font-semibold uppercase tracking-wide mb-4" style={{ color: C.textDim }}>Create coupon</h2>
         <form onSubmit={create}>
@@ -190,13 +194,15 @@ function InfluencersTab({ session }: { session: Session }) {
   const S = useS();
   const [rows, setRows] = useState<Influencer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Influencer | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setLoadError("");
     const res = await callAdmin(session, "influencers_list");
     if (res?.ok) setRows(res.influencers ?? []);
+    else setLoadError(res?.error ?? "Failed to load influencers");
     setLoading(false);
   }, [session]);
   useEffect(() => { void load(); }, [load]);
@@ -214,6 +220,8 @@ function InfluencersTab({ session }: { session: Session }) {
         <SummaryStat label="Total revenue" value={fmtSar(totalRevenue)} accent={C.warning} />
         <SummaryStat label="Total commission owed" value={fmtSar(totalCommission)} accent={C.danger} />
       </div>
+
+      {loadError && <ErrorBanner message={loadError} onRetry={load} />}
 
       <div className="flex justify-end mb-4">
         <button onClick={() => setShowCreate(true)} style={S.btnPrimary}>+ Add influencer</button>

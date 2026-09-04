@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Badge, useC, useS, callAdmin, fmtDate, fmtSar, Loading, SectionHeader } from "./_lib";
+import { Badge, useC, useS, callAdmin, fmtDate, fmtSar, Loading, SectionHeader, useDebounce, ErrorBanner } from "./_lib";
 
 interface UserRow {
   id: string;
@@ -30,18 +30,21 @@ export function UsersSection({
   const [users, setUsers] = useState<UserRow[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [status, setStatus] = useState<string>("all");
   const [sort, setSort] = useState<string>("created_desc");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [offset, setOffset] = useState(0);
   const pageSize = 50;
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const res = await callAdmin(session, "users_list", { search, status, sort, limit: pageSize, offset });
+    setLoading(true); setError("");
+    const res = await callAdmin(session, "users_list", { search: debouncedSearch, status, sort, limit: pageSize, offset });
     if (res?.ok) { setUsers(res.users ?? []); setTotal(res.total ?? 0); }
+    else setError(res?.error ?? "Failed to load users");
     setLoading(false);
-  }, [session, search, status, sort, offset]);
+  }, [session, debouncedSearch, status, sort, offset]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -78,6 +81,8 @@ export function UsersSection({
           </div>
         }
       />
+
+      {error && <ErrorBanner message={error} onRetry={load} />}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -118,7 +123,7 @@ export function UsersSection({
                   <tr
                     key={u.id}
                     onClick={() => onOpenUser(u.id)}
-                    className="transition-colors hover:bg-[#111827] cursor-pointer"
+                    className="transition-colors admin-hover-row cursor-pointer"
                     style={{ borderBottom: `1px solid ${C.border}` }}
                   >
                     <td style={{ ...S.tableCell, fontWeight: 500 }}>{u.email}</td>

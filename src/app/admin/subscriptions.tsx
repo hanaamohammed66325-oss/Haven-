@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Badge, useC, useS, callAdmin, fmtDate, fmtDateTime, fmtSar, Loading, SectionHeader } from "./_lib";
+import { Badge, useC, useS, callAdmin, fmtDate, fmtSar, Loading, SectionHeader, useDebounce, ErrorBanner } from "./_lib";
 
 interface SubRow {
   id: string; user_id: string; email: string;
@@ -24,16 +24,19 @@ export function SubscriptionsSection({
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [offset, setOffset] = useState(0);
   const pageSize = 50;
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const res = await callAdmin(session, "subscriptions_list", { status, search, limit: pageSize, offset });
+    setLoading(true); setError("");
+    const res = await callAdmin(session, "subscriptions_list", { status, search: debouncedSearch, limit: pageSize, offset });
     if (res?.ok) { setRows(res.subscriptions ?? []); setTotal(res.total ?? 0); }
+    else setError(res?.error ?? "Failed to load subscriptions");
     setLoading(false);
-  }, [session, status, search, offset]);
+  }, [session, status, debouncedSearch, offset]);
   useEffect(() => { void load(); }, [load]);
 
   const filters = [
@@ -58,6 +61,8 @@ export function SubscriptionsSection({
           />
         }
       />
+
+      {error && <ErrorBanner message={error} onRetry={load} />}
 
       <div className="flex flex-wrap gap-2 mb-4">
         {filters.map((f) => (
@@ -96,7 +101,7 @@ export function SubscriptionsSection({
                   <tr
                     key={r.id}
                     onClick={() => onOpenUser(r.user_id)}
-                    className="transition-colors hover:bg-[#111827] cursor-pointer"
+                    className="transition-colors admin-hover-row cursor-pointer"
                     style={{ borderBottom: `1px solid ${C.border}` }}
                   >
                     <td style={{ ...S.tableCell, fontWeight: 500 }}>{r.email || "—"}</td>

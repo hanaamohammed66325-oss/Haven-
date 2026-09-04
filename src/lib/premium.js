@@ -12,13 +12,8 @@
 // Enforce premium — set to true. Access is granted only via VIP flag, trial, or active subscription.
 export const ENFORCE_PREMIUM = true;
 
-// VIP emails get Premium free forever (hardcoded — do NOT read from env or DB).
-// (Access itself is checked via profiles.is_vip, which the DB sets for these
-// accounts; the list is kept here for reference and any client-side display.)
-export const VIP_EMAILS = [
-  'hanaamohammed25366@gmail.com',
-  'lamesmohammed789@gmail.com',
-];
+// VIP access is checked server-side via profiles.is_vip (set by DB trigger).
+// No email list in the client bundle for security.
 
 // Free-tier limits
 export const FREE_COURSE_LIMIT = 3;

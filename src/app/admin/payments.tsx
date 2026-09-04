@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Badge, useC, useS, callAdmin, fmtDate, fmtSar, Loading, SectionHeader } from "./_lib";
+import { Badge, useC, useS, callAdmin, fmtDate, fmtSar, Loading, SectionHeader, useDebounce, ErrorBanner } from "./_lib";
 
 interface PayRow {
   subscription_id: string; user_id: string; email: string;
@@ -25,16 +25,19 @@ export function PaymentsSection({
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [offset, setOffset] = useState(0);
   const pageSize = 50;
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const res = await callAdmin(session, "payments_list", { status, search, limit: pageSize, offset });
+    setLoading(true); setError("");
+    const res = await callAdmin(session, "payments_list", { status, search: debouncedSearch, limit: pageSize, offset });
     if (res?.ok) { setRows(res.payments ?? []); setTotal(res.total ?? 0); }
+    else setError(res?.error ?? "Failed to load payments");
     setLoading(false);
-  }, [session, status, search, offset]);
+  }, [session, status, debouncedSearch, offset]);
   useEffect(() => { void load(); }, [load]);
 
   const filters = [
@@ -64,6 +67,8 @@ export function PaymentsSection({
           🔒 Haven does not store bank card data, CVV, or sensitive card details. Only transaction IDs, amounts, statuses, and dates are stored for management.
         </p>
       </div>
+
+      {error && <ErrorBanner message={error} onRetry={load} />}
 
       <div className="flex flex-wrap gap-2 mb-4">
         {filters.map((f) => (
@@ -98,11 +103,11 @@ export function PaymentsSection({
               {rows.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center" style={{ color: C.textFaint }}>No payments.</td></tr>
               ) : (
-                rows.map((r) => (
+                rows.map((r, i) => (
                   <tr
-                    key={r.subscription_id}
+                    key={`${r.subscription_id}-${r.created_at}-${i}`}
                     onClick={() => onOpenUser(r.user_id)}
-                    className="transition-colors hover:bg-[#111827] cursor-pointer"
+                    className="transition-colors admin-hover-row cursor-pointer"
                     style={{ borderBottom: `1px solid ${C.border}` }}
                   >
                     <td style={{ ...S.tableCell, fontFamily: "monospace", fontSize: 11, color: C.textDim }}>{r.transaction_id ? r.transaction_id.slice(0, 20) : "—"}</td>

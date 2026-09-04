@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { callAdmin, useC, fmtDateTime, fmtSar, StatCard, SectionHeader, Loading, timeAgo } from "./_lib";
+import { callAdmin, useC, fmtDateTime, fmtSar, StatCard, SectionHeader, Loading, timeAgo, ErrorBanner } from "./_lib";
 
 interface Metrics {
   total_users: number;
@@ -41,15 +41,17 @@ export function DashboardSection({ session }: { session: Session }) {
   const [revenue, setRevenue] = useState<DayPoint[]>([]);
   const [growth, setGrowth] = useState<DayPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setError("");
     const [m, r, c] = await Promise.all([
       callAdmin(session, "dashboard_metrics"),
       callAdmin(session, "dashboard_recent", { limit: 15 }),
       callAdmin(session, "dashboard_charts", { days: 30 }),
     ]);
     if (m?.ok) setMetrics(m.metrics);
+    else setError(m?.error ?? "Failed to load dashboard");
     if (r?.ok) setEvents(r.events ?? []);
     if (c?.ok) { setRevenue(c.revenue ?? []); setGrowth(c.user_growth ?? []); }
     setLoading(false);
@@ -69,6 +71,8 @@ export function DashboardSection({ session }: { session: Session }) {
           </button>
         }
       />
+
+      {error && <ErrorBanner message={error} onRetry={load} />}
 
       {metrics && (
         <div className="flex flex-col gap-4">
