@@ -516,7 +516,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0">
-            <h3 className="font-display text-lg truncate" style={{ color: "var(--color-ink)" }}>
+            <h3 className="font-display text-lg line-clamp-2" style={{ color: "var(--color-ink)" }}>
               {course.name}
             </h3>
             <span className="text-[12px] mt-1 block" style={{ color: "var(--color-muted)" }}>
