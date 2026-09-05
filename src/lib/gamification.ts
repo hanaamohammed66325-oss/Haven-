@@ -150,7 +150,10 @@ export function awardXP(
 export interface BadgeDef {
   id: string;
   icon: string;
+  /** Static base thresholds per tier — used as-is for non-adaptive badges,
+   *  overridden by getThreshold when the badge adapts to user data. */
   thresholds: number[];
+  getThreshold?: (tier: number, ctx: BadgeContext) => number;
   check: (g: GamificationState, ctx: BadgeContext, threshold: number) => boolean;
 }
 
@@ -159,6 +162,7 @@ export interface BadgeContext {
   planner: PlannerData;
   semesterGpa: number | null;
   semesterStartDate: string;
+  semesterWeeks: number;
 }
 
 function semesterWeeksElapsed(startDate: string): number {
@@ -203,6 +207,12 @@ function countGradedCourses(courses: Course[]): number {
   ).length;
 }
 
+function totalGradableComponents(courses: Course[]): number {
+  let n = 0;
+  for (const c of courses) for (const comp of c.components) if (comp.total > 0) n++;
+  return n;
+}
+
 export const BADGES: BadgeDef[] = [
   {
     id: "first-checkin",
@@ -214,9 +224,14 @@ export const BADGES: BadgeDef[] = [
     id: "integrated",
     icon: "🌟",
     thresholds: [3, 5, 0, -1],
+    getThreshold: (tier, ctx) => {
+      const n = ctx.courses.length;
+      if (n === 0) return 999;
+      if (tier >= 3) return tier === 4 ? -1 : 0;
+      return Math.min([3, 5][tier - 1], n);
+    },
     check: (_g, ctx, t) => {
       if (ctx.courses.length === 0) return false;
-      // -1 = all courses AND every component graded (finals-tier)
       if (t === -1) {
         return countQualifiedCourses(ctx.courses) >= ctx.courses.length &&
                countGradedCourses(ctx.courses) >= ctx.courses.length;
@@ -230,6 +245,12 @@ export const BADGES: BadgeDef[] = [
     id: "safe",
     icon: "🛡️",
     thresholds: [2, 6, 12, 16],
+    getThreshold: (tier, ctx) => {
+      const w = ctx.semesterWeeks;
+      if (w === 0) return 999;
+      const base = [2, 6, 12, 16][tier - 1];
+      return Math.min(base, w);
+    },
     check: (_g, ctx, t) => {
       if (ctx.courses.length === 0) return false;
       if (semesterWeeksElapsed(ctx.semesterStartDate) < t) return false;
@@ -251,6 +272,12 @@ export const BADGES: BadgeDef[] = [
     id: "committed",
     icon: "📚",
     thresholds: [1, 4, 10, 14],
+    getThreshold: (tier, ctx) => {
+      const w = ctx.semesterWeeks;
+      if (w === 0) return 999;
+      const base = [1, 4, 10, 14][tier - 1];
+      return Math.min(base, w);
+    },
     check: (_g, ctx, t) => {
       const withSessions = ctx.courses.filter((c) => c.sessions.length > 0);
       if (withSessions.length === 0) return false;
@@ -282,21 +309,32 @@ export const BADGES: BadgeDef[] = [
     id: "perfect-score",
     icon: "💯",
     thresholds: [1, 3, 5, 8],
+    getThreshold: (tier, ctx) => {
+      const total = totalGradableComponents(ctx.courses);
+      if (total === 0) return 999;
+      const pcts = [0.1, 0.25, 0.5, 0.75];
+      return Math.max([1, 2, 3, 4][tier - 1], Math.ceil(total * pcts[tier - 1]));
+    },
     check: (_g, ctx, t) => countPerfectScores(ctx.courses) >= t,
   },
 ];
+
+function resolveThreshold(def: BadgeDef, tier: number, ctx: BadgeContext): number {
+  if (def.getThreshold) return def.getThreshold(tier, ctx);
+  return def.thresholds[Math.min(tier, MAX_TIER) - 1];
+}
 
 export function checkBadges(
   state: GamificationState,
   ctx: BadgeContext
 ): { state: GamificationState; newBadges: string[]; tierAdvanced: boolean } {
-  const tierIdx = Math.min(state.badgeTier, MAX_TIER) - 1;
+  const tier = Math.min(state.badgeTier, MAX_TIER);
   const newBadges: string[] = [];
   let badges = [...state.badges];
 
   for (const def of BADGES) {
     if (badges.includes(def.id)) continue;
-    const threshold = def.thresholds[tierIdx];
+    const threshold = resolveThreshold(def, tier, ctx);
     if (def.check(state, ctx, threshold)) {
       badges.push(def.id);
       newBadges.push(def.id);
@@ -307,7 +345,6 @@ export function checkBadges(
 
   let nextState: GamificationState = { ...state, badges };
 
-  // All badges earned at current tier → advance
   let tierAdvanced = false;
   if (badges.length >= BADGES.length && state.badgeTier < MAX_TIER) {
     nextState = { ...nextState, badgeTier: state.badgeTier + 1, badges: [] };
@@ -317,9 +354,10 @@ export function checkBadges(
   return { state: nextState, newBadges, tierAdvanced };
 }
 
-export function getBadgeThreshold(id: string, tier: number): number {
+export function getBadgeThreshold(id: string, tier: number, ctx?: BadgeContext): number {
   const def = BADGES.find((b) => b.id === id);
   if (!def) return 0;
+  if (def.getThreshold && ctx) return def.getThreshold(tier, ctx);
   return def.thresholds[Math.min(tier, MAX_TIER) - 1];
 }
 

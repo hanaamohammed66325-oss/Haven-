@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
-import { BADGES, getBadgeThreshold, MAX_TIER, TIER_ICONS } from "@/lib/gamification";
+import { BADGES, getBadgeThreshold, MAX_TIER, TIER_ICONS, type BadgeContext } from "@/lib/gamification";
+import { semesterGPA } from "@/lib/grades";
 import { hasActiveAccess } from "@/lib/premium";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
 import { PENDING_EMAIL_CHANGE_KEY } from "@/lib/auth";
@@ -58,6 +59,9 @@ export default function ProfilePage() {
     email,
     profilePhoto,
     gamification,
+    courses,
+    planner,
+    semester,
     setProfileName,
     setProfilePhoto,
   } = useStore();
@@ -238,6 +242,13 @@ export default function ProfilePage() {
         const tier = gamification.badgeTier;
         const tierIcon = TIER_ICONS[Math.min(tier, MAX_TIER) - 1];
         const earnedCount = gamification.badges.length;
+        const badgeCtx: BadgeContext = {
+          courses,
+          planner,
+          semesterGpa: semesterGPA(courses),
+          semesterStartDate: semester.startDate,
+          semesterWeeks: semester.weeks,
+        };
         return (
           <Card padding="p-5 sm:p-8" className="haven-stagger mt-8">
             <div className="flex items-center justify-between mb-6">
@@ -258,7 +269,7 @@ export default function ProfilePage() {
               {BADGES.map((badge) => {
                 const earned = gamification.badges.includes(badge.id);
                 const key = badge.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
-                const threshold = getBadgeThreshold(badge.id, tier);
+                const threshold = getBadgeThreshold(badge.id, tier, badgeCtx);
                 const isDiamond = badge.id === "integrated" && threshold === -1;
                 const isAllCourses = badge.id === "integrated" && threshold === 0;
                 const nStr = String(threshold);

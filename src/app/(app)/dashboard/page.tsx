@@ -12,7 +12,7 @@ import { GradeBadge } from "@/components/GradeBadge";
 import { AttendanceBadge } from "@/components/AttendanceBadge";
 import { useSubscription } from "@/lib/subscription";
 import { hasActiveAccess } from "@/lib/premium";
-import { getLevel, getNextLevel, levelProgress, XP_REWARDS, TIER_ICONS, MAX_TIER } from "@/lib/gamification";
+import { getLevel, getNextLevel, levelProgress, XP_REWARDS, TIER_ICONS, MAX_TIER, STREAK_MILESTONES } from "@/lib/gamification";
 
 import { CountUp } from "@/components/CountUp";
 import { MiniCalendar } from "@/components/MiniCalendar";
@@ -69,13 +69,24 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!hydrated || appOpenDone.current) return;
     appOpenDone.current = true;
-    recordAppOpen();
+    const r = recordAppOpen();
+    if (!window.havi) return;
+    if (r.streakBroke) {
+      window.havi.poke();
+    } else if (STREAK_MILESTONES.includes(r.streakCurrent as (typeof STREAK_MILESTONES)[number])) {
+      window.havi.celebrate(1);
+    }
   }, [hydrated]);
 
   const handleCheckIn = useCallback(() => {
     const r = doCheckIn();
-    if (!r.alreadyDone && window.havi) {
+    if (r.alreadyDone || !window.havi) return;
+    if (r.tierAdvanced) {
       window.havi.celebrate(1);
+    } else if (r.newBadges.length > 0) {
+      window.havi.celebrate(0.8);
+    } else {
+      window.havi.celebrate(0.5);
     }
   }, [doCheckIn]);
 
@@ -165,33 +176,44 @@ export default function DashboardPage() {
         style={{ animationDelay: "0.06s" }}
       >
         {/* Check-in card (free) */}
-        <Card padding="p-5" className="flex items-center gap-4">
-          <button
-            onClick={handleCheckIn}
-            disabled={gamification.checkedInToday === new Date().toISOString().slice(0, 10)}
-            className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-lg transition-transform active:scale-90"
-            style={{
-              background: gamification.checkedInToday === new Date().toISOString().slice(0, 10)
-                ? "var(--color-surface-alt)"
-                : "var(--color-brass)",
-              color: gamification.checkedInToday === new Date().toISOString().slice(0, 10)
-                ? "var(--color-muted)"
-                : "#fff",
-            }}
-          >
-            {gamification.checkedInToday === new Date().toISOString().slice(0, 10) ? "✓" : "☀️"}
-          </button>
-          <div className="min-w-0">
-            <div className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
-              {t("gam_checkin")}
-            </div>
-            <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-              {gamification.checkedInToday === new Date().toISOString().slice(0, 10)
-                ? t("gam_checkinDone")
-                : t("gam_checkinReward", { n: String(XP_REWARDS.CHECK_IN) })}
-            </div>
-          </div>
-        </Card>
+        {(() => {
+          const checkedIn = gamification.checkedInToday === new Date().toISOString().slice(0, 10);
+          const streak = gamification.streak.current;
+          return (
+            <Card padding="p-5" className="flex items-center gap-4">
+              <button
+                onClick={handleCheckIn}
+                disabled={checkedIn}
+                className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-lg transition-transform active:scale-90"
+                style={{
+                  background: checkedIn ? "var(--color-surface-alt)" : "var(--color-brass)",
+                  color: checkedIn ? "var(--color-muted)" : "#fff",
+                }}
+              >
+                {checkedIn ? "✓" : "☀️"}
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+                  {t("gam_checkin")}
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                  {checkedIn
+                    ? streak > 1
+                      ? t("gam_checkinStreak", { n: String(streak) })
+                      : t("gam_checkinDone")
+                    : streak > 0
+                      ? t("gam_checkinReward", { n: String(XP_REWARDS.CHECK_IN) })
+                      : t("gam_checkinStartStreak")}
+                </div>
+                {gamification.totalCheckIns > 0 && (
+                  <div className="text-[10px] mt-1" style={{ color: "var(--color-muted)", opacity: 0.7 }}>
+                    {t("gam_checkinTotal", { n: String(gamification.totalCheckIns) })}
+                  </div>
+                )}
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* Streak card (free) */}
         <Card padding="p-5" className="flex items-center gap-4">

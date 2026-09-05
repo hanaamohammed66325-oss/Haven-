@@ -260,9 +260,9 @@ export interface StoreValue extends AppData {
   removeMissedSession: (courseId: string, missedId: string) => void;
   loadDemo: () => void;
   resetData: () => void;
-  recordAppOpen: () => { xpEarned: number; streakBroke: boolean };
-  doCheckIn: () => { xpEarned: number; alreadyDone: boolean; newBadges: string[] };
-  awardGamificationXP: (amount: number, reason: string) => { newBadges: string[] };
+  recordAppOpen: () => { xpEarned: number; streakBroke: boolean; streakCurrent: number };
+  doCheckIn: () => { xpEarned: number; alreadyDone: boolean; newBadges: string[]; tierAdvanced: boolean };
+  awardGamificationXP: (amount: number, reason: string) => { newBadges: string[]; tierAdvanced: boolean };
 }
 
 export const StoreContext = createContext<StoreValue | null>(null);
@@ -656,10 +656,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const recordAppOpen = useCallback(() => {
-    let result = { xpEarned: 0, streakBroke: false };
+    let result = { xpEarned: 0, streakBroke: false, streakCurrent: 0 };
     setData((d) => {
       const r = updateStreak(d.gamification);
-      result = { xpEarned: r.xpEarned, streakBroke: r.streakBroke };
+      result = { xpEarned: r.xpEarned, streakBroke: r.streakBroke, streakCurrent: r.state.streak.current };
       if (r.state === d.gamification) return d;
       persistGamification(r.state);
       return { ...d, gamification: r.state };
@@ -668,11 +668,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [persistGamification]);
 
   const doCheckIn = useCallback(() => {
-    let result = { xpEarned: 0, alreadyDone: false, newBadges: [] as string[] };
+    let result = { xpEarned: 0, alreadyDone: false, newBadges: [] as string[], tierAdvanced: false };
     setData((d) => {
       const r = gamCheckIn(d.gamification);
       if (r.alreadyDone) {
-        result = { xpEarned: 0, alreadyDone: true, newBadges: [] };
+        result = { xpEarned: 0, alreadyDone: true, newBadges: [], tierAdvanced: false };
         return d;
       }
       const ctx: BadgeContext = {
@@ -680,9 +680,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         planner: d.planner,
         semesterGpa: semesterGPA(d.courses),
         semesterStartDate: d.semester.startDate,
+        semesterWeeks: d.semester.weeks,
       };
       const br = checkBadges(r.state, ctx);
-      result = { xpEarned: r.xpEarned, alreadyDone: false, newBadges: br.newBadges };
+      result = { xpEarned: r.xpEarned, alreadyDone: false, newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
       persistGamification(br.state);
       return { ...d, gamification: br.state };
     });
@@ -691,7 +692,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const awardGamificationXP = useCallback(
     (amount: number, _reason: string) => {
-      let result = { newBadges: [] as string[] };
+      let result = { newBadges: [] as string[], tierAdvanced: false };
       setData((d) => {
         const next = awardXP(d.gamification, amount);
         const ctx: BadgeContext = {
@@ -699,9 +700,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           planner: d.planner,
           semesterGpa: semesterGPA(d.courses),
           semesterStartDate: d.semester.startDate,
+          semesterWeeks: d.semester.weeks,
         };
         const br = checkBadges(next, ctx);
-        result = { newBadges: br.newBadges };
+        result = { newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
         persistGamification(br.state);
         return { ...d, gamification: br.state };
       });

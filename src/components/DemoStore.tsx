@@ -357,9 +357,9 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }))),
 
       setHaviName: (name) => patch({ haviName: name || "Havi" }),
-      recordAppOpen: () => ({ xpEarned: 0, streakBroke: false }),
-      doCheckIn: () => ({ xpEarned: 0, alreadyDone: true, newBadges: [] }),
-      awardGamificationXP: () => ({ newBadges: [] }),
+      recordAppOpen: () => ({ xpEarned: 0, streakBroke: false, streakCurrent: 0 }),
+      doCheckIn: () => ({ xpEarned: 0, alreadyDone: true, newBadges: [], tierAdvanced: false }),
+      awardGamificationXP: () => ({ newBadges: [], tierAdvanced: false }),
       softDeleteCourse: (id) => {
         const found = data.courses.find((c) => c.id === id);
         if (found) setData((d) => ({ ...d, courses: d.courses.filter((c) => c.id !== id) }));
