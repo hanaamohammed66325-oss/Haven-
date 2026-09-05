@@ -266,12 +266,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // a real account switch apart from a token refresh on the same account.
   const currentUidRef = useRef<string | null>(null);
   const loadedOnceRef = useRef(false);
+  const loadingRef = useRef(false);
   const retryCountRef = useRef(0);
   const MAX_RETRIES = 3;
   const [loadGeneration, setLoadGeneration] = useState(0);
   const retryLoad = useCallback(() => {
     retryCountRef.current = 0;
     loadedOnceRef.current = false;
+    loadingRef.current = false;
     setLoadFailed(false);
     setHydrated(false);
     setLoadGeneration((g) => g + 1);
@@ -314,6 +316,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         taskOrder: [],
         courses: [],
       });
+      loadedOnceRef.current = true;
+      loadingRef.current = false;
       setHydrated(true);
     };
 
@@ -491,6 +495,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
           courses,
         });
+        loadedOnceRef.current = true;
+        loadingRef.current = false;
+        retryCountRef.current = 0;
         setHydrated(true);
 
         // One-time migration: backfill the canonical `calendar` pref for existing
@@ -504,23 +511,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("Haven: failed to load cloud data", e);
         if (cancelled) return;
-        // DO NOT publish defaults as if they were the user's real data. Doing
-        // that on a single dropped request showed a signed-in student an empty
-        // account — no courses, name reset to "Student", theme and language
-        // reverted, a semester starting today — rendered as settled truth with
-        // no error and no retry. It then wrote those wrong values into the
-        // boot cache, so the NEXT launch started wrong too.
-        //
-        // Leaving `hydrated` false keeps the app on its loading state (screens
-        // return early while !hydrated) instead of lying about the data, and
-        // the retry below recovers as soon as the network does.
+        loadingRef.current = false;
         if (!loadedOnceRef.current) {
           retryCountRef.current += 1;
           if (retryCountRef.current >= MAX_RETRIES) {
             setLoadFailed(true);
           } else {
             window.setTimeout(() => {
-              if (!cancelled) void applyForUser(session);
+              if (!cancelled && !loadingRef.current) {
+                loadingRef.current = true;
+                void applyForUser(session);
+              }
             }, 4000);
           }
         }
@@ -542,6 +543,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loggedInRef.current = false;
         semesterIdRef.current = null;
         loadedOnceRef.current = true;
+        loadingRef.current = false;
         clearHavenLocalStorage();
         setData(initialData);
         setHydrated(true);
@@ -550,17 +552,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const uid = session?.user?.id ?? null;
       const prev = currentUidRef.current;
-      // A token refresh / metadata update for the same account: nothing to do.
-      if (loadedOnceRef.current && uid === prev) return;
-      // A different account on this device: wipe the previous one's local data.
+      if ((loadedOnceRef.current || loadingRef.current) && uid === prev) return;
       if (prev !== null && prev !== uid) {
         clearHavenLocalStorage();
         setData(initialData);
       }
       currentUidRef.current = uid;
-      loadedOnceRef.current = true;
-      // Defer the load: calling Supabase auth-backed methods (db.* → getUser)
-      // synchronously inside this callback can deadlock the auth lock.
+      loadingRef.current = true;
       setTimeout(() => {
         if (!cancelled) apply(session);
       }, 0);
