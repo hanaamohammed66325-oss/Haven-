@@ -21,7 +21,10 @@ export const defaultGamification: GamificationState = {
   checkedInToday: null,
 };
 
-export const MAX_TIER = 3;
+export const MAX_TIER = 4;
+
+export const TIER_ICONS = ["🥉", "🥈", "🥇", "💎"] as const;
+export const TIER_KEYS = ["bronze", "silver", "gold", "diamond"] as const;
 
 // ── XP ─────────────────────────────────────────────────────────────────────
 
@@ -183,37 +186,50 @@ function countQualifiedCourses(courses: Course[]): number {
   ).length;
 }
 
-//                              Tier 1   Tier 2   Tier 3
-// first-checkin: check-ins       1       15       50
-// integrated:    courses         3        5        0 (0 = all)
-// safe:          weeks           2        6       12
-// organized:     tasks done      5       15       30
-// committed:     weeks           1        4       10
-// outstanding:   GPA           4.0      4.5     4.75
-// level-up:      XP            100      500     2000
-// perfect-score: perfects        1        3        5
+//                              Tier 1   Tier 2   Tier 3   Tier 4 (Diamond/Finals)
+// first-checkin: check-ins       1       15       50       100
+// integrated:    courses         3        5        0        0 (0 = all) + all graded
+// safe:          weeks           2        6       12       16 (full semester)
+// organized:     tasks done      5       15       30       50
+// committed:     weeks           1        4       10       14
+// outstanding:   GPA           4.0      4.5     4.75      4.9
+// level-up:      XP            100      500     2000     4000
+// perfect-score: perfects        1        3        5        8
+
+function countGradedCourses(courses: Course[]): number {
+  return courses.filter((c) =>
+    c.components.length > 0 &&
+    c.components.every((comp) => comp.score != null)
+  ).length;
+}
 
 export const BADGES: BadgeDef[] = [
   {
     id: "first-checkin",
     icon: "🚀",
-    thresholds: [1, 15, 50],
+    thresholds: [1, 15, 50, 100],
     check: (g, _ctx, t) => g.totalCheckIns >= t,
   },
   {
     id: "integrated",
     icon: "🌟",
-    thresholds: [3, 5, 0],
+    thresholds: [3, 5, 0, -1],
     check: (_g, ctx, t) => {
+      if (ctx.courses.length === 0) return false;
+      // -1 = all courses AND every component graded (finals-tier)
+      if (t === -1) {
+        return countQualifiedCourses(ctx.courses) >= ctx.courses.length &&
+               countGradedCourses(ctx.courses) >= ctx.courses.length;
+      }
       const min = t === 0 ? ctx.courses.length : t;
-      if (ctx.courses.length === 0 || ctx.courses.length < min) return false;
+      if (ctx.courses.length < min) return false;
       return countQualifiedCourses(ctx.courses) >= min;
     },
   },
   {
     id: "safe",
     icon: "🛡️",
-    thresholds: [2, 6, 12],
+    thresholds: [2, 6, 12, 16],
     check: (_g, ctx, t) => {
       if (ctx.courses.length === 0) return false;
       if (semesterWeeksElapsed(ctx.semesterStartDate) < t) return false;
@@ -228,13 +244,13 @@ export const BADGES: BadgeDef[] = [
   {
     id: "organized",
     icon: "📝",
-    thresholds: [5, 15, 30],
+    thresholds: [5, 15, 30, 50],
     check: (_g, ctx, t) => ctx.planner.notes.filter((n) => n.done).length >= t,
   },
   {
     id: "committed",
     icon: "📚",
-    thresholds: [1, 4, 10],
+    thresholds: [1, 4, 10, 14],
     check: (_g, ctx, t) => {
       const withSessions = ctx.courses.filter((c) => c.sessions.length > 0);
       if (withSessions.length === 0) return false;
@@ -248,7 +264,7 @@ export const BADGES: BadgeDef[] = [
   {
     id: "outstanding-gpa",
     icon: "🎓",
-    thresholds: [4.0, 4.5, 4.75],
+    thresholds: [4.0, 4.5, 4.75, 4.9],
     check: (_g, ctx, t) => {
       const hasGrades = ctx.courses.some((c) =>
         c.components.some((comp) => comp.score != null)
@@ -259,13 +275,13 @@ export const BADGES: BadgeDef[] = [
   {
     id: "level-up",
     icon: "🏆",
-    thresholds: [100, 500, 2000],
+    thresholds: [100, 500, 2000, 4000],
     check: (g, _ctx, t) => g.xp >= t,
   },
   {
     id: "perfect-score",
     icon: "💯",
-    thresholds: [1, 3, 5],
+    thresholds: [1, 3, 5, 8],
     check: (_g, ctx, t) => countPerfectScores(ctx.courses) >= t,
   },
 ];

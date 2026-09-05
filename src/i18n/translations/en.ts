@@ -855,6 +855,7 @@ export const en = {
   gam_tierLabel_1: "Bronze",
   gam_tierLabel_2: "Silver",
   gam_tierLabel_3: "Gold",
+  gam_tierLabel_4: "Diamond",
 
   gam_badge_firstCheckin: "Daily Regular",
   gam_badge_firstCheckin_desc: "Check in {n} times",
@@ -864,9 +865,11 @@ export const en = {
   gam_badge_integrated: "All-Rounder",
   gam_badge_integrated_desc: "Use grades + sessions in {n} courses",
   gam_badge_integrated_desc_all: "Use grades + sessions in all your courses",
+  gam_badge_integrated_desc_diamond: "Grade every component in all courses",
   gam_badge_integrated_why: "You're fully using the app for your courses",
   gam_badge_integrated_howToGet: "Add grades and sessions to {n} courses",
   gam_badge_integrated_howToGet_all: "Add grades and sessions to all your courses",
+  gam_badge_integrated_howToGet_diamond: "Enter every grade for every course — finish the semester!",
 
   gam_badge_safe: "Safe Zone",
   gam_badge_safe_desc: "Stay safe for {n}+ weeks",

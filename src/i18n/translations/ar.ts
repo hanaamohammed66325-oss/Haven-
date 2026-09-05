@@ -852,6 +852,7 @@ export const ar: Record<TranslationKey, string> = {
   gam_tierLabel_1: "برونزي",
   gam_tierLabel_2: "فضي",
   gam_tierLabel_3: "ذهبي",
+  gam_tierLabel_4: "ماسي",
 
   gam_badge_firstCheckin: "المواظب",
   gam_badge_firstCheckin_desc: "سجّل حضورك {n} مرة",
@@ -861,9 +862,11 @@ export const ar: Record<TranslationKey, string> = {
   gam_badge_integrated: "المتكامل",
   gam_badge_integrated_desc: "استخدم الدرجات والحصص في {n} مواد",
   gam_badge_integrated_desc_all: "استخدم الدرجات والحصص في كل موادك",
+  gam_badge_integrated_desc_diamond: "سجّل كل درجة في كل مادة",
   gam_badge_integrated_why: "تستخدم التطبيق بالكامل لموادك",
   gam_badge_integrated_howToGet: "أضف درجات وحصص لـ {n} مواد",
   gam_badge_integrated_howToGet_all: "أضف درجات وحصص لكل موادك",
+  gam_badge_integrated_howToGet_diamond: "سجّل كل درجة لكل مادة — أنهِ الفصل!",
 
   gam_badge_safe: "الآمن",
   gam_badge_safe_desc: "ابقَ آمن لمدة {n}+ أسابيع",

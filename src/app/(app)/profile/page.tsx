@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
-import { BADGES, getBadgeThreshold, MAX_TIER } from "@/lib/gamification";
+import { BADGES, getBadgeThreshold, MAX_TIER, TIER_ICONS } from "@/lib/gamification";
 import { hasActiveAccess } from "@/lib/premium";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
 import { PENDING_EMAIL_CHANGE_KEY } from "@/lib/auth";
@@ -236,7 +236,7 @@ export default function ProfilePage() {
       {/* ── Badges ──────────────────────────────────────────── */}
       {isPremium && (() => {
         const tier = gamification.badgeTier;
-        const tierStars = "⭐".repeat(Math.min(tier, MAX_TIER));
+        const tierIcon = TIER_ICONS[Math.min(tier, MAX_TIER) - 1];
         const earnedCount = gamification.badges.length;
         return (
           <Card padding="p-5 sm:p-8" className="haven-stagger mt-8">
@@ -247,7 +247,7 @@ export default function ProfilePage() {
               </h2>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium" style={{ color: "var(--color-brass)" }}>
-                  {tierStars} {t(`gam_tierLabel_${tier}` as TranslationKey)}
+                  {tierIcon} {t(`gam_tierLabel_${tier}` as TranslationKey)}
                 </span>
                 <span className="text-xs" style={{ color: "var(--color-muted)" }}>
                   {t("gam_tierProgress", { earned: String(earnedCount), total: String(BADGES.length) })}
@@ -259,8 +259,16 @@ export default function ProfilePage() {
                 const earned = gamification.badges.includes(badge.id);
                 const key = badge.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
                 const threshold = getBadgeThreshold(badge.id, tier);
+                const isDiamond = badge.id === "integrated" && threshold === -1;
                 const isAllCourses = badge.id === "integrated" && threshold === 0;
                 const nStr = String(threshold);
+                const howToGet = earned
+                  ? t(`gam_badge_${key}_why` as TranslationKey)
+                  : isDiamond
+                    ? t(`gam_badge_${key}_howToGet_diamond` as TranslationKey)
+                    : isAllCourses
+                      ? t(`gam_badge_${key}_howToGet_all` as TranslationKey)
+                      : t(`gam_badge_${key}_howToGet` as TranslationKey, { n: nStr });
                 return (
                   <div
                     key={badge.id}
@@ -275,11 +283,7 @@ export default function ProfilePage() {
                       {t(`gam_badge_${key}` as TranslationKey)}
                     </span>
                     <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                      {earned
-                        ? t(`gam_badge_${key}_why` as TranslationKey)
-                        : isAllCourses
-                          ? t(`gam_badge_${key}_howToGet_all` as TranslationKey)
-                          : t(`gam_badge_${key}_howToGet` as TranslationKey, { n: nStr })}
+                      {howToGet}
                     </span>
                   </div>
                 );
