@@ -7,6 +7,8 @@ export interface GamificationState {
   streak: { current: number; longest: number; lastActiveDate: string | null };
   xp: number;
   badges: string[];
+  badgeTier: number;
+  totalCheckIns: number;
   checkedInToday: string | null;
 }
 
@@ -14,8 +16,12 @@ export const defaultGamification: GamificationState = {
   streak: { current: 0, longest: 0, lastActiveDate: null },
   xp: 0,
   badges: [],
+  badgeTier: 1,
+  totalCheckIns: 0,
   checkedInToday: null,
 };
+
+export const MAX_TIER = 3;
 
 // ── XP ─────────────────────────────────────────────────────────────────────
 
@@ -121,6 +127,7 @@ export function checkIn(state: GamificationState): {
     state: {
       ...state,
       checkedInToday: today,
+      totalCheckIns: state.totalCheckIns + 1,
       xp: state.xp + XP_REWARDS.CHECK_IN,
     },
     xpEarned: XP_REWARDS.CHECK_IN,
@@ -135,12 +142,13 @@ export function awardXP(
   return { ...state, xp: state.xp + amount };
 }
 
-// ── Badges ─────────────────────────────────────────────────────────────────
+// ── Badges (tiered) ───────────────────────────────────────────────────────
 
 export interface BadgeDef {
   id: string;
   icon: string;
-  check: (g: GamificationState, ctx: BadgeContext) => boolean;
+  thresholds: number[];
+  check: (g: GamificationState, ctx: BadgeContext, threshold: number) => boolean;
 }
 
 export interface BadgeContext {
@@ -157,32 +165,58 @@ function semesterWeeksElapsed(startDate: string): number {
   return Math.floor(days / 7);
 }
 
+function countPerfectScores(courses: Course[]): number {
+  let count = 0;
+  for (const c of courses) {
+    for (const comp of c.components) {
+      if (comp.total > 0 && comp.score != null && comp.score >= comp.total) count++;
+    }
+  }
+  return count;
+}
+
+function countQualifiedCourses(courses: Course[]): number {
+  return courses.filter(
+    (c) =>
+      c.components.some((comp) => comp.score != null && comp.score > 0) &&
+      c.sessions.length > 0
+  ).length;
+}
+
+//                              Tier 1   Tier 2   Tier 3
+// first-checkin: check-ins       1       15       50
+// integrated:    courses         3        5        0 (0 = all)
+// safe:          weeks           2        6       12
+// organized:     tasks done      5       15       30
+// committed:     weeks           1        4       10
+// outstanding:   GPA           4.0      4.5     4.75
+// level-up:      XP            100      500     2000
+// perfect-score: perfects        1        3        5
+
 export const BADGES: BadgeDef[] = [
   {
     id: "first-checkin",
     icon: "🚀",
-    check: (g) => g.checkedInToday !== null,
+    thresholds: [1, 15, 50],
+    check: (g, _ctx, t) => g.totalCheckIns >= t,
   },
   {
     id: "integrated",
     icon: "🌟",
-    check: (_g, ctx) => {
-      if (ctx.courses.length < 5) return false;
-      return ctx.courses.every(
-        (c) =>
-          c.components.some(
-            (comp) => comp.score != null && comp.score > 0
-          ) &&
-          c.sessions.length > 0
-      );
+    thresholds: [3, 5, 0],
+    check: (_g, ctx, t) => {
+      const min = t === 0 ? ctx.courses.length : t;
+      if (ctx.courses.length === 0 || ctx.courses.length < min) return false;
+      return countQualifiedCourses(ctx.courses) >= min;
     },
   },
   {
     id: "safe",
     icon: "🛡️",
-    check: (_g, ctx) => {
+    thresholds: [2, 6, 12],
+    check: (_g, ctx, t) => {
       if (ctx.courses.length === 0) return false;
-      if (semesterWeeksElapsed(ctx.semesterStartDate) < 2) return false;
+      if (semesterWeeksElapsed(ctx.semesterStartDate) < t) return false;
       const withSessions = ctx.courses.filter((c) => c.sessions.length > 0);
       if (withSessions.length === 0) return false;
       return withSessions.every((c) => {
@@ -194,18 +228,17 @@ export const BADGES: BadgeDef[] = [
   {
     id: "organized",
     icon: "📝",
-    check: (_g, ctx) => {
-      const doneCount = ctx.planner.notes.filter((n) => n.done).length;
-      return doneCount >= 5;
-    },
+    thresholds: [5, 15, 30],
+    check: (_g, ctx, t) => ctx.planner.notes.filter((n) => n.done).length >= t,
   },
   {
     id: "committed",
     icon: "📚",
-    check: (_g, ctx) => {
+    thresholds: [1, 4, 10],
+    check: (_g, ctx, t) => {
       const withSessions = ctx.courses.filter((c) => c.sessions.length > 0);
       if (withSessions.length === 0) return false;
-      if (semesterWeeksElapsed(ctx.semesterStartDate) < 1) return false;
+      if (semesterWeeksElapsed(ctx.semesterStartDate) < t) return false;
       return withSessions.every((c) => {
         const missed = (c.missedSessions ?? []).filter((m) => !m.excused);
         return missed.length === 0;
@@ -215,50 +248,63 @@ export const BADGES: BadgeDef[] = [
   {
     id: "outstanding-gpa",
     icon: "🎓",
-    check: (_g, ctx) => {
+    thresholds: [4.0, 4.5, 4.75],
+    check: (_g, ctx, t) => {
       const hasGrades = ctx.courses.some((c) =>
         c.components.some((comp) => comp.score != null)
       );
-      return hasGrades && ctx.semesterGpa != null && ctx.semesterGpa >= 4.5;
+      return hasGrades && ctx.semesterGpa != null && ctx.semesterGpa >= t;
     },
   },
   {
     id: "level-up",
     icon: "🏆",
-    check: (g) => g.xp >= LEVELS[1].xp,
+    thresholds: [100, 500, 2000],
+    check: (g, _ctx, t) => g.xp >= t,
   },
   {
     id: "perfect-score",
     icon: "💯",
-    check: (_g, ctx) =>
-      ctx.courses.some((c) =>
-        c.components.some(
-          (comp) =>
-            comp.total > 0 &&
-            comp.score != null &&
-            comp.score >= comp.total
-        )
-      ),
+    thresholds: [1, 3, 5],
+    check: (_g, ctx, t) => countPerfectScores(ctx.courses) >= t,
   },
 ];
 
 export function checkBadges(
   state: GamificationState,
   ctx: BadgeContext
-): { state: GamificationState; newBadges: string[] } {
+): { state: GamificationState; newBadges: string[]; tierAdvanced: boolean } {
+  const tierIdx = Math.min(state.badgeTier, MAX_TIER) - 1;
   const newBadges: string[] = [];
   let badges = [...state.badges];
 
   for (const def of BADGES) {
     if (badges.includes(def.id)) continue;
-    if (def.check(state, ctx)) {
+    const threshold = def.thresholds[tierIdx];
+    if (def.check(state, ctx, threshold)) {
       badges.push(def.id);
       newBadges.push(def.id);
     }
   }
 
-  if (newBadges.length === 0) return { state, newBadges: [] };
-  return { state: { ...state, badges }, newBadges };
+  if (newBadges.length === 0) return { state, newBadges: [], tierAdvanced: false };
+
+  let nextState: GamificationState = { ...state, badges };
+
+  // All badges earned at current tier → advance
+  let tierAdvanced = false;
+  if (badges.length >= BADGES.length && state.badgeTier < MAX_TIER) {
+    nextState = { ...nextState, badgeTier: state.badgeTier + 1, badges: [] };
+    tierAdvanced = true;
+  }
+
+  return { state: nextState, newBadges, tierAdvanced };
+}
+
+export function getBadgeThreshold(id: string, tier: number): number {
+  const def = BADGES.find((b) => b.id === id);
+  if (!def) return 0;
+  return def.thresholds[Math.min(tier, MAX_TIER) - 1];
 }
 
 export function getBadgeDef(id: string): BadgeDef | undefined {

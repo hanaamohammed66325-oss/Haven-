@@ -212,7 +212,7 @@ function buildInitialData(): AppData {
     cumulativeHours: 52,
     notifPrefs: DEFAULT_NOTIF_PREFS,
     haviName: "Havi",
-    gamification: { streak: { current: 3, longest: 7, lastActiveDate: null }, xp: 45, badges: ["first-checkin"], checkedInToday: null },
+    gamification: { streak: { current: 3, longest: 7, lastActiveDate: null }, xp: 45, badges: ["first-checkin"], badgeTier: 1, totalCheckIns: 3, checkedInToday: null },
   };
 }
 

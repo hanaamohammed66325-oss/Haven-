@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
-import { BADGES, getBadgeDef, getLevel } from "@/lib/gamification";
+import { BADGES, getBadgeThreshold, MAX_TIER } from "@/lib/gamification";
 import { hasActiveAccess } from "@/lib/premium";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
 import { PENDING_EMAIL_CHANGE_KEY } from "@/lib/auth";
@@ -234,40 +234,60 @@ export default function ProfilePage() {
       <SubscriptionSection />
 
       {/* ── Badges ──────────────────────────────────────────── */}
-      {isPremium && (
-        <Card padding="p-5 sm:p-8" className="haven-stagger mt-8">
-          <h2 className="font-display text-lg mb-6 flex items-center gap-2" style={{ color: "var(--color-ink)" }}>
-            <Award size={20} style={{ color: "var(--color-brass)" }} />
-            {t("gam_badges")}
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {BADGES.map((badge) => {
-              const earned = gamification.badges.includes(badge.id);
-              const key = badge.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
-              return (
-                <div
-                  key={badge.id}
-                  className="flex flex-col items-center text-center gap-2 p-4 rounded-2xl transition-opacity"
-                  style={{
-                    opacity: earned ? 1 : 0.4,
-                    background: earned ? "var(--color-surface-alt)" : "transparent",
-                  }}
-                >
-                  <span className="text-3xl">{badge.icon}</span>
-                  <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>
-                    {t(`gam_badge_${key}` as TranslationKey)}
-                  </span>
-                  <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                    {earned
-                      ? t(`gam_badge_${key}_why` as TranslationKey)
-                      : t(`gam_badge_${key}_howToGet` as TranslationKey)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
+      {isPremium && (() => {
+        const tier = gamification.badgeTier;
+        const tierStars = "⭐".repeat(Math.min(tier, MAX_TIER));
+        const earnedCount = gamification.badges.length;
+        return (
+          <Card padding="p-5 sm:p-8" className="haven-stagger mt-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-display text-lg flex items-center gap-2" style={{ color: "var(--color-ink)" }}>
+                <Award size={20} style={{ color: "var(--color-brass)" }} />
+                {t("gam_badges")}
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium" style={{ color: "var(--color-brass)" }}>
+                  {tierStars} {t(`gam_tierLabel_${tier}` as TranslationKey)}
+                </span>
+                <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                  {t("gam_tierProgress", { earned: String(earnedCount), total: String(BADGES.length) })}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {BADGES.map((badge) => {
+                const earned = gamification.badges.includes(badge.id);
+                const key = badge.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+                const threshold = getBadgeThreshold(badge.id, tier);
+                const isAllCourses = badge.id === "integrated" && threshold === 0;
+                const nStr = String(threshold);
+                return (
+                  <div
+                    key={badge.id}
+                    className="flex flex-col items-center text-center gap-2 p-4 rounded-2xl transition-opacity"
+                    style={{
+                      opacity: earned ? 1 : 0.4,
+                      background: earned ? "var(--color-surface-alt)" : "transparent",
+                    }}
+                  >
+                    <span className="text-3xl">{badge.icon}</span>
+                    <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>
+                      {t(`gam_badge_${key}` as TranslationKey)}
+                    </span>
+                    <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                      {earned
+                        ? t(`gam_badge_${key}_why` as TranslationKey)
+                        : isAllCourses
+                          ? t(`gam_badge_${key}_howToGet_all` as TranslationKey)
+                          : t(`gam_badge_${key}_howToGet` as TranslationKey, { n: nStr })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Modals */}
       <ChangeEmailModal open={emailOpen} onClose={() => setEmailOpen(false)} />
