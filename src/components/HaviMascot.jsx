@@ -359,6 +359,8 @@ export default function HaviMascot({
   const [pos, setPos] = useState({ top: -9999, left: -9999 });
   const [visible, setVisible] = useState(false);
   const [reduced, setReduced] = useState(false);
+  const [showName, setShowName] = useState(false);
+  const nameTimerRef = useRef(null);
 
   const tRef = useRef(0);
   const posRef = useRef({ top: -9999, left: -9999 });
@@ -822,8 +824,15 @@ export default function HaviMascot({
   }, [activity, enterFromCard]);
 
   /* ---------------- poke reaction ---------------- */
+  const flashName = useCallback(() => {
+    if (nameTimerRef.current) clearTimeout(nameTimerRef.current);
+    setShowName(true);
+    nameTimerRef.current = setTimeout(() => setShowName(false), 2200);
+  }, []);
+
   const poke = useCallback(() => {
     if (squishRef.current) return; // already squishing
+    flashName();
 
     /* count clicks — every 3rd one switches to the next animation */
     clickCountRef.current += 1;
@@ -1364,7 +1373,7 @@ export default function HaviMascot({
             height: dispH,
             imageRendering: "pixelated",
             display: "block",
-            pointerEvents: "auto", // he can be poked
+            pointerEvents: "auto",
             cursor: "pointer",
           }}
           aria-label={haviName || "Havi"}
@@ -1372,6 +1381,30 @@ export default function HaviMascot({
           role="img"
         />
       </div>
+      {showName && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: -22,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "var(--color-surface, #fcfbf9)",
+            color: "var(--color-ink, #243640)",
+            fontSize: 11,
+            fontWeight: 600,
+            fontFamily: "'Inter', 'Tajawal', sans-serif",
+            padding: "2px 8px",
+            borderRadius: 8,
+            whiteSpace: "nowrap",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+            pointerEvents: "none",
+            animation: "haven-name-pop 0.25s ease-out",
+            zIndex: 41,
+          }}
+        >
+          {haviName || "Havi"}
+        </div>
+      )}
     </div>
   );
 }

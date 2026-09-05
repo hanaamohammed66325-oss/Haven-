@@ -549,8 +549,8 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
               <GradeBadge pct={pct} size="md" />
             </span>
             <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--color-muted)" }}>
-              {revealed ? <EyeOff size={11} /> : <Eye size={11} />}
-              {revealed ? t("clickHide") : t("clickReveal")}
+              {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
+              <span className="hidden sm:inline">{revealed ? t("clickHide") : t("clickReveal")}</span>
             </span>
           </span>
         </div>
