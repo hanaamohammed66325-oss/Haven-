@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil } from "lucide-react";
+import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil, Flame, Sparkles, Lock } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
@@ -10,6 +10,9 @@ import { CircularProgress } from "@/components/CircularProgress";
 import { InfoPopover } from "@/components/InfoPopover";
 import { GradeBadge } from "@/components/GradeBadge";
 import { AttendanceBadge } from "@/components/AttendanceBadge";
+import { useSubscription } from "@/lib/subscription";
+import { hasActiveAccess } from "@/lib/premium";
+import { getLevel, getNextLevel, levelProgress, XP_REWARDS } from "@/lib/gamification";
 
 import { CountUp } from "@/components/CountUp";
 import { MiniCalendar } from "@/components/MiniCalendar";
@@ -54,8 +57,27 @@ export default function DashboardPage() {
     setCumulativeGpa,
     setCumulativeHours,
   } = store;
+  const { gamification, recordAppOpen, doCheckIn, awardGamificationXP } = store;
+  const { profile, sub } = useSubscription();
+  const isPremium = hasActiveAccess(profile, sub);
+
   const [revealGpa, setRevealGpa] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
+
+  // Record app open (streak + XP) once per mount
+  const appOpenDone = useRef(false);
+  useEffect(() => {
+    if (!hydrated || appOpenDone.current) return;
+    appOpenDone.current = true;
+    recordAppOpen();
+  }, [hydrated]);
+
+  const handleCheckIn = useCallback(() => {
+    const r = doCheckIn();
+    if (!r.alreadyDone && window.havi) {
+      window.havi.celebrate(1);
+    }
+  }, [doCheckIn]);
 
   const progress = useMemo(() => semesterProgress(semester), [semester]);
   const gpa = useMemo(() => semesterGPA(courses), [courses]);
@@ -127,6 +149,119 @@ export default function DashboardPage() {
           {t("addCourse")}
         </Link>
       </header>
+
+      {/* ── Gamification strip ─────────────────────────────────── */}
+      <div
+        className="haven-fade-up grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10"
+        style={{ animationDelay: "0.06s" }}
+      >
+        {/* Check-in card (free) */}
+        <Card padding="p-5" className="flex items-center gap-4">
+          <button
+            onClick={handleCheckIn}
+            disabled={gamification.checkedInToday === new Date().toISOString().slice(0, 10)}
+            className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-lg transition-transform active:scale-90"
+            style={{
+              background: gamification.checkedInToday === new Date().toISOString().slice(0, 10)
+                ? "var(--color-surface-alt)"
+                : "var(--color-brass)",
+              color: gamification.checkedInToday === new Date().toISOString().slice(0, 10)
+                ? "var(--color-muted)"
+                : "#fff",
+            }}
+          >
+            {gamification.checkedInToday === new Date().toISOString().slice(0, 10) ? "✓" : "☀️"}
+          </button>
+          <div className="min-w-0">
+            <div className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+              {t("gam_checkin")}
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+              {gamification.checkedInToday === new Date().toISOString().slice(0, 10)
+                ? t("gam_checkinDone")
+                : t("gam_checkinReward", { n: String(XP_REWARDS.CHECK_IN) })}
+            </div>
+          </div>
+        </Card>
+
+        {/* Streak card (free) */}
+        <Card padding="p-5" className="flex items-center gap-4">
+          <div
+            className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center"
+            style={{ background: "var(--color-surface-alt)" }}
+          >
+            <Flame size={22} style={{ color: gamification.streak.current > 0 ? "#f59e0b" : "var(--color-muted)" }} />
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+              {t("gam_streak")}
+            </div>
+            <div className="text-lg font-display" style={{ color: "var(--color-ink)" }}>
+              {t("gam_streakDays", { n: String(gamification.streak.current) })}
+            </div>
+          </div>
+        </Card>
+
+        {/* XP / Level card (premium-gated) */}
+        <Card padding="p-5" className="flex items-center gap-4 sm:col-span-2 xl:col-span-1">
+          {isPremium ? (() => {
+            const lvl = getLevel(gamification.xp);
+            const next = getNextLevel(gamification.xp);
+            const pct = levelProgress(gamification.xp);
+            return (
+              <>
+                <div
+                  className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center"
+                  style={{ background: "var(--color-surface-alt)" }}
+                >
+                  <Sparkles size={22} style={{ color: "var(--color-brass)" }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+                      {t(`gam_level_${lvl.name}` as TranslationKey)}
+                    </span>
+                    <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                      {t("gam_level")} {lvl.level}
+                    </span>
+                  </div>
+                  <div
+                    className="mt-2 h-2 rounded-full overflow-hidden"
+                    style={{ background: "var(--color-surface-alt)" }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.round(pct * 100)}%`, background: "var(--color-brass)" }}
+                    />
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
+                    {next
+                      ? t("gam_xpProgress", { current: String(gamification.xp), next: String(next.xp) })
+                      : t("gam_maxLevel")}
+                  </div>
+                </div>
+              </>
+            );
+          })() : (
+            <>
+              <div
+                className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center"
+                style={{ background: "var(--color-surface-alt)" }}
+              >
+                <Lock size={20} style={{ color: "var(--color-muted)" }} />
+              </div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm" style={{ color: "var(--color-muted)" }}>
+                  {t("gam_xp")}
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                  {t("gam_premiumOnly")}
+                </div>
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
 
       {/* Two-column: main content + right panel */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_352px] gap-8">

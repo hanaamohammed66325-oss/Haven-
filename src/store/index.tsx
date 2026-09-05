@@ -28,6 +28,17 @@ import { supabase } from "@/lib/supabase";
 import { toISODate, addDays } from "@/lib/dates";
 import { addMinutesToTime } from "@/lib/format";
 import * as db from "@/lib/db";
+import {
+  defaultGamification,
+  updateStreak,
+  checkIn as gamCheckIn,
+  awardXP,
+  checkBadges,
+  type GamificationState,
+  type BadgeContext,
+  XP_REWARDS,
+} from "@/lib/gamification";
+import { semesterGPA } from "@/lib/grades";
 import type { Session } from "@supabase/supabase-js";
 
 // localStorage scope depends on whether someone is signed in:
@@ -117,6 +128,7 @@ const initialData: AppData = {
   cumulativeHours: 0,
   notifPrefs: DEFAULT_NOTIF_PREFS,
   haviName: "Havi",
+  gamification: defaultGamification,
 };
 
 // Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
@@ -248,6 +260,9 @@ export interface StoreValue extends AppData {
   removeMissedSession: (courseId: string, missedId: string) => void;
   loadDemo: () => void;
   resetData: () => void;
+  recordAppOpen: () => { xpEarned: number; streakBroke: boolean };
+  doCheckIn: () => { xpEarned: number; alreadyDone: boolean; newBadges: string[] };
+  awardGamificationXP: (amount: number, reason: string) => { newBadges: string[] };
 }
 
 export const StoreContext = createContext<StoreValue | null>(null);
@@ -471,6 +486,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // notifPrefs supersedes the legacy `reminderDays`; missing → defaults.
           notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
           haviName: str(prefs.haviName, "Havi") || "Havi",
+          gamification: {
+            ...defaultGamification,
+            ...((prefs.gamification as Partial<GamificationState>) ?? {}),
+            streak: {
+              ...defaultGamification.streak,
+              ...((prefs.gamification as Record<string, unknown>)?.streak as Record<string, unknown> ?? {}),
+            },
+          },
           semester: {
             ...defaultSemester,
             name: sem.name,
@@ -627,6 +650,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const persistGamification = useCallback(
+    (g: GamificationState) => persistPref({ gamification: g as unknown as Record<string, unknown> }),
+    [persistPref]
+  );
+
+  const recordAppOpen = useCallback(() => {
+    let result = { xpEarned: 0, streakBroke: false };
+    setData((d) => {
+      const r = updateStreak(d.gamification);
+      result = { xpEarned: r.xpEarned, streakBroke: r.streakBroke };
+      if (r.state === d.gamification) return d;
+      persistGamification(r.state);
+      return { ...d, gamification: r.state };
+    });
+    return result;
+  }, [persistGamification]);
+
+  const doCheckIn = useCallback(() => {
+    let result = { xpEarned: 0, alreadyDone: false, newBadges: [] as string[] };
+    setData((d) => {
+      const r = gamCheckIn(d.gamification);
+      if (r.alreadyDone) {
+        result = { xpEarned: 0, alreadyDone: true, newBadges: [] };
+        return d;
+      }
+      const ctx: BadgeContext = {
+        courses: d.courses,
+        planner: d.planner,
+        semesterGpa: semesterGPA(d.courses),
+        semesterStartDate: d.semester.startDate,
+      };
+      const br = checkBadges(r.state, ctx);
+      result = { xpEarned: r.xpEarned, alreadyDone: false, newBadges: br.newBadges };
+      persistGamification(br.state);
+      return { ...d, gamification: br.state };
+    });
+    return result;
+  }, [persistGamification]);
+
+  const awardGamificationXP = useCallback(
+    (amount: number, _reason: string) => {
+      let result = { newBadges: [] as string[] };
+      setData((d) => {
+        const next = awardXP(d.gamification, amount);
+        const ctx: BadgeContext = {
+          courses: d.courses,
+          planner: d.planner,
+          semesterGpa: semesterGPA(d.courses),
+          semesterStartDate: d.semester.startDate,
+        };
+        const br = checkBadges(next, ctx);
+        result = { newBadges: br.newBadges };
+        persistGamification(br.state);
+        return { ...d, gamification: br.state };
+      });
+      return result;
+    },
+    [persistGamification]
+  );
+
   const setProfileName = useCallback(
     (name: string) => {
       setData((d) => ({ ...d, profileName: name }));
@@ -730,13 +813,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Keep the colour in sync with the tag (colour isn't stored in the cloud).
     const withColor: Partial<PlannerNote> =
       patch.tag !== undefined ? { ...patch, color: colorForTag(patch.tag) } : patch;
-    setData((d) => ({
-      ...d,
-      planner: {
-        ...d.planner,
-        notes: d.planner.notes.map((n) => (n.id === id ? { ...n, ...withColor } : n)),
-      },
-    }));
+    setData((d) => {
+      if (patch.done === true) {
+        const prev = d.planner.notes.find((n) => n.id === id);
+        if (prev && !prev.done) {
+          awardGamificationXP(XP_REWARDS.COMPLETE_TASK, "complete_task");
+        }
+      }
+      return {
+        ...d,
+        planner: {
+          ...d.planner,
+          notes: d.planner.notes.map((n) => (n.id === id ? { ...n, ...withColor } : n)),
+        },
+      };
+    });
     if (loggedInRef.current) {
       const dbPatch: Parameters<typeof db.updatePlannerItem>[1] = {};
       if (patch.week !== undefined) dbPatch.week = patch.week;
@@ -751,7 +842,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
     }
-  }, []);
+  }, [awardGamificationXP]);
 
   const deletePlannerNote = useCallback((id: string) => {
     setData((d) => ({
@@ -1032,13 +1123,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : c
         ),
       }));
+      if (patch.score != null) {
+        const course = coursesRef.current.find((c) => c.id === courseId);
+        const prev = course?.components.find((c) => c.id === componentId);
+        if (prev && prev.score == null) {
+          awardGamificationXP(XP_REWARDS.LOG_GRADE, "log_grade");
+        }
+      }
       if (loggedInRef.current) {
         db.updateGradeComponent(componentId, patch).catch((e) =>
           console.error("Haven: failed to update grade component", e)
         );
       }
     },
-    []
+    [awardGamificationXP]
   );
 
   const deleteComponent = useCallback((courseId: string, componentId: string) => {
@@ -1280,12 +1378,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : c
         ),
       }));
+      awardGamificationXP(XP_REWARDS.LOG_ATTENDANCE, "log_attendance");
       return { ok: true };
     } catch (e) {
       console.error("Haven: failed to log absence", e);
       return { ok: false, error: asError(e) };
     }
-  }, []);
+  }, [awardGamificationXP]);
 
   const updateMissedSession = useCallback(
     (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null }) => {
@@ -1428,6 +1527,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCumulativeHours,
     setNotifPrefs,
     setHaviName,
+    recordAppOpen,
+    doCheckIn,
+    awardGamificationXP,
     setSemester,
     addCourse,
     updateCourse,

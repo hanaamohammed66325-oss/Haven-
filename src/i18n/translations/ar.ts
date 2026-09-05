@@ -815,4 +815,74 @@ export const ar: Record<TranslationKey, string> = {
   demo_final: "ما تحتاجه بالضبط في النهائي",
   demo_planner: "خطّط فصلك بالكامل",
   demo_themes: "خصّصه بالمظاهر",
+
+  // ── Gamification ──────────────────────────────────────────────
+  gam_streak: "السلسلة",
+  gam_streakDays: "{n} يوم",
+  gam_streakBroke: "انقطعت سلسلتك — ابدأ وحدة جديدة اليوم!",
+  gam_streakMilestone: "سلسلة {n} يوم! استمر!",
+  gam_checkin: "تسجيل الحضور اليومي",
+  gam_checkinBtn: "سجّل حضورك",
+  gam_checkinDone: "سجّلت حضورك اليوم!",
+  gam_checkinReward: "+{n} XP",
+  gam_xp: "XP",
+  gam_level: "المستوى",
+  gam_xpProgress: "{current} / {next} XP",
+  gam_maxLevel: "أعلى مستوى!",
+  gam_premiumOnly: "ترقّ لفتح XP والشارات",
+
+  // Levels
+  gam_level_newStudent: "طالب جديد",
+  gam_level_hardWorking: "مجتهد",
+  gam_level_outstanding: "متميّز",
+  gam_level_star: "نجم",
+  gam_level_scholar: "عالم",
+  gam_level_expert: "خبير",
+  gam_level_professor: "أستاذ",
+  gam_level_genius: "عبقري",
+
+  // Badges
+  gam_badges: "الشارات",
+  gam_badgesLocked: "مقفلة",
+  gam_badgesEarned: "محققة",
+
+  gam_badge_firstCheckin: "الانطلاقة",
+  gam_badge_firstCheckin_desc: "سجّل أول حضور يومي",
+  gam_badge_firstCheckin_why: "مكافأة لبدء عادة التسجيل اليومي",
+  gam_badge_firstCheckin_howToGet: "اضغط على بطاقة الحضور اليومي في الداشبورد",
+
+  gam_badge_integrated: "المتكامل",
+  gam_badge_integrated_desc: "استخدم كل الميزات في ٥+ مواد",
+  gam_badge_integrated_why: "يعني إنك تستخدم التطبيق بالكامل لكل موادك",
+  gam_badge_integrated_howToGet: "أضف درجات وحصص لـ ٥ مواد على الأقل",
+
+  gam_badge_safe: "الآمن",
+  gam_badge_safe_desc: "ما تجاوزت حد الغياب أبداً",
+  gam_badge_safe_why: "حافظت على حضورك في كل موادك",
+  gam_badge_safe_howToGet: "ابقَ تحت حد الحرمان في كل مادة لمدة أسبوعين+",
+
+  gam_badge_organized: "المنظّم",
+  gam_badge_organized_desc: "أنهِ ٥ مهام في المخطط",
+  gam_badge_organized_why: "التخطيط والإنجاز يعكس الانضباط",
+  gam_badge_organized_howToGet: "علّم ٥ مهام كمنجزة في المخطط",
+
+  gam_badge_committed: "الملتزم",
+  gam_badge_committed_desc: "صفر غيابات غير مبررة",
+  gam_badge_committed_why: "الحضور الكامل يدل على الالتزام",
+  gam_badge_committed_howToGet: "حافظ على صفر غيابات غير مبررة في كل موادك لأسبوع+",
+
+  gam_badge_outstandingGpa: "معدل متميّز",
+  gam_badge_outstandingGpa_desc: "حقق معدل فصلي ٤.٥+",
+  gam_badge_outstandingGpa_why: "أداء أكاديمي عالي في موادك",
+  gam_badge_outstandingGpa_howToGet: "سجّل درجاتك — معدلك الفصلي يحتاج يوصل ٤.٥ أو أعلى",
+
+  gam_badge_levelUp: "ارتقاء",
+  gam_badge_levelUp_desc: "اوصل لـ ١٠٠ XP",
+  gam_badge_levelUp_why: "استخدمت التطبيق بانتظام كافي للنمو",
+  gam_badge_levelUp_howToGet: "اكسب XP بفتح التطبيق والتسجيل اليومي وتسجيل الدرجات",
+
+  gam_badge_perfectScore: "الدرجة الكاملة",
+  gam_badge_perfectScore_desc: "جب الدرجة الكاملة في أي مكوّن",
+  gam_badge_perfectScore_why: "حصلت على الدرجة الكاملة في اختبار أو واجب",
+  gam_badge_perfectScore_howToGet: "حقق ١٠٠٪ في أي مكوّن مقيّم",
 };

@@ -818,6 +818,76 @@ export const en = {
   demo_final: "Exactly what you need on the final",
   demo_planner: "Plan your whole term",
   demo_themes: "Make it yours with themes",
+
+  // ── Gamification ──────────────────────────────────────────────
+  gam_streak: "Streak",
+  gam_streakDays: "{n} days",
+  gam_streakBroke: "Your streak reset — start a new one today!",
+  gam_streakMilestone: "{n}-day streak! Keep going!",
+  gam_checkin: "Daily Check-in",
+  gam_checkinBtn: "Check In",
+  gam_checkinDone: "Checked in today!",
+  gam_checkinReward: "+{n} XP",
+  gam_xp: "XP",
+  gam_level: "Level",
+  gam_xpProgress: "{current} / {next} XP",
+  gam_maxLevel: "Max Level!",
+  gam_premiumOnly: "Upgrade to unlock XP & Badges",
+
+  // Levels
+  gam_level_newStudent: "New Student",
+  gam_level_hardWorking: "Hard Working",
+  gam_level_outstanding: "Outstanding",
+  gam_level_star: "Star",
+  gam_level_scholar: "Scholar",
+  gam_level_expert: "Expert",
+  gam_level_professor: "Professor",
+  gam_level_genius: "Genius",
+
+  // Badges
+  gam_badges: "Badges",
+  gam_badgesLocked: "Locked",
+  gam_badgesEarned: "Earned",
+
+  gam_badge_firstCheckin: "First Launch",
+  gam_badge_firstCheckin_desc: "Do your first daily check-in",
+  gam_badge_firstCheckin_why: "Rewarded for starting the habit of checking in daily",
+  gam_badge_firstCheckin_howToGet: "Tap the Daily Check-in card on the dashboard",
+
+  gam_badge_integrated: "All-Rounder",
+  gam_badge_integrated_desc: "Use all features across 5+ courses",
+  gam_badge_integrated_why: "Shows you're fully using the app for every course",
+  gam_badge_integrated_howToGet: "Add grades and sessions to at least 5 courses",
+
+  gam_badge_safe: "Safe Zone",
+  gam_badge_safe_desc: "Never exceeded the attendance limit",
+  gam_badge_safe_why: "You kept your attendance in check across all courses",
+  gam_badge_safe_howToGet: "Stay below the withdrawal limit in every course for 2+ weeks",
+
+  gam_badge_organized: "Organized",
+  gam_badge_organized_desc: "Complete 5 planner tasks",
+  gam_badge_organized_why: "Planning and finishing tasks shows real discipline",
+  gam_badge_organized_howToGet: "Mark 5 tasks as done in the planner",
+
+  gam_badge_committed: "Committed",
+  gam_badge_committed_desc: "Zero unexcused absences",
+  gam_badge_committed_why: "Perfect attendance shows dedication",
+  gam_badge_committed_howToGet: "Keep zero unexcused absences across all courses for 1+ week",
+
+  gam_badge_outstandingGpa: "Outstanding GPA",
+  gam_badge_outstandingGpa_desc: "Achieve a semester GPA of 4.5+",
+  gam_badge_outstandingGpa_why: "Top academic performance across your courses",
+  gam_badge_outstandingGpa_howToGet: "Log your grades — your semester GPA needs to reach 4.5 or higher",
+
+  gam_badge_levelUp: "Level Up",
+  gam_badge_levelUp_desc: "Reach 100 XP",
+  gam_badge_levelUp_why: "You've consistently used the app enough to grow",
+  gam_badge_levelUp_howToGet: "Earn XP by opening the app, checking in, and logging grades",
+
+  gam_badge_perfectScore: "Perfect Score",
+  gam_badge_perfectScore_desc: "Get full marks on any component",
+  gam_badge_perfectScore_why: "You aced it — full marks on an exam or assignment",
+  gam_badge_perfectScore_howToGet: "Score 100% on any graded component",
 };
 
 export type TranslationKey = keyof typeof en;

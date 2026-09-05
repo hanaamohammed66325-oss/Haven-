@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Check, User, Trash2, Mail, Lock } from "lucide-react";
+import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
+import { BADGES, getBadgeDef, getLevel } from "@/lib/gamification";
+import { hasActiveAccess } from "@/lib/premium";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
 import { PENDING_EMAIL_CHANGE_KEY } from "@/lib/auth";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
+import type { TranslationKey } from "@/i18n/translations/en";
 import { useSubscription } from "@/lib/subscription";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
@@ -47,12 +50,14 @@ function resizeImage(file: File, max = 256): Promise<string> {
 export default function ProfilePage() {
   const { t } = useT();
   const router = useRouter();
-  const { refresh } = useSubscription();
+  const { profile, sub, refresh } = useSubscription();
+  const isPremium = hasActiveAccess(profile, sub);
   const {
     hydrated,
     profileName,
     email,
     profilePhoto,
+    gamification,
     setProfileName,
     setProfilePhoto,
   } = useStore();
@@ -227,6 +232,42 @@ export default function ProfilePage() {
 
       {/* Subscription management */}
       <SubscriptionSection />
+
+      {/* ── Badges ──────────────────────────────────────────── */}
+      {isPremium && (
+        <Card padding="p-5 sm:p-8" className="haven-stagger mt-8">
+          <h2 className="font-display text-lg mb-6 flex items-center gap-2" style={{ color: "var(--color-ink)" }}>
+            <Award size={20} style={{ color: "var(--color-brass)" }} />
+            {t("gam_badges")}
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {BADGES.map((badge) => {
+              const earned = gamification.badges.includes(badge.id);
+              const key = badge.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+              return (
+                <div
+                  key={badge.id}
+                  className="flex flex-col items-center text-center gap-2 p-4 rounded-2xl transition-opacity"
+                  style={{
+                    opacity: earned ? 1 : 0.4,
+                    background: earned ? "var(--color-surface-alt)" : "transparent",
+                  }}
+                >
+                  <span className="text-3xl">{badge.icon}</span>
+                  <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>
+                    {t(`gam_badge_${key}` as TranslationKey)}
+                  </span>
+                  <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                    {earned
+                      ? t(`gam_badge_${key}_why` as TranslationKey)
+                      : t(`gam_badge_${key}_howToGet` as TranslationKey)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Modals */}
       <ChangeEmailModal open={emailOpen} onClose={() => setEmailOpen(false)} />

@@ -212,6 +212,7 @@ function buildInitialData(): AppData {
     cumulativeHours: 52,
     notifPrefs: DEFAULT_NOTIF_PREFS,
     haviName: "Havi",
+    gamification: { streak: { current: 3, longest: 7, lastActiveDate: null }, xp: 45, badges: ["first-checkin"], checkedInToday: null },
   };
 }
 
@@ -356,6 +357,9 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }))),
 
       setHaviName: (name) => patch({ haviName: name || "Havi" }),
+      recordAppOpen: () => ({ xpEarned: 0, streakBroke: false }),
+      doCheckIn: () => ({ xpEarned: 0, alreadyDone: true, newBadges: [] }),
+      awardGamificationXP: () => ({ newBadges: [] }),
       softDeleteCourse: (id) => {
         const found = data.courses.find((c) => c.id === id);
         if (found) setData((d) => ({ ...d, courses: d.courses.filter((c) => c.id !== id) }));

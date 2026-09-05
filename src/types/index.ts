@@ -163,6 +163,7 @@ export interface AppData {
   notifPrefs: NotifPrefs;
   /** custom name for the Havi mascot (default "Havi") */
   haviName: string;
+  gamification: import("@/lib/gamification").GamificationState;
 }
 
 /** Semester-GPA card mode. "semester" = live GPA out of 5.0; "cumulative" =
