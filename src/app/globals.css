@@ -199,8 +199,7 @@ html[lang="ar"] .font-display {
 }
 
 .haven-drawer {
-  padding-top: max(24px, env(safe-area-inset-top, 0px));
-  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  padding: max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px));
 }
 
 /* ---- Sidebar nav ---- */
@@ -265,6 +264,24 @@ html[dir="rtl"] .haven-nav-active {
 @keyframes haven-name-pop {
   from { opacity: 0; transform: translateX(-50%) scale(0.8); }
   to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+.haven-name-label {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface, #fcfbf9);
+  color: var(--color-ink, #243640);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Inter', 'Tajawal', sans-serif;
+  padding: 2px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  pointer-events: none;
+  animation: haven-name-pop 0.25s ease-out;
+  z-index: 41;
 }
 
 /* ---- Entrance animations ---- */

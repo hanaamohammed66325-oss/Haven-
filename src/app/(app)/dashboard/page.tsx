@@ -548,9 +548,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             <span className={revealed ? "haven-clear" : "haven-blur"}>
               <GradeBadge pct={pct} size="md" />
             </span>
-            <span className="inline-flex items-center text-[11px]" style={{ color: "var(--color-muted)" }}>
-              {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
-            </span>
+            {revealed ? <EyeOff size={14} color="var(--color-muted)" /> : <Eye size={14} color="var(--color-muted)" />}
           </span>
         </div>
 

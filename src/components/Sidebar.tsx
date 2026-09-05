@@ -196,7 +196,7 @@ export function Sidebar({
       }
       style={
         mobile
-          ? { paddingInline: 24 }
+          ? undefined
           : {
               width: collapsed ? 76 : 272,
               padding: collapsed ? 14 : 26,

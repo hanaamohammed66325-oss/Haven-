@@ -824,6 +824,10 @@ export default function HaviMascot({
   }, [activity, enterFromCard]);
 
   /* ---------------- poke reaction ---------------- */
+  useEffect(() => {
+    return () => { if (nameTimerRef.current) clearTimeout(nameTimerRef.current); };
+  }, []);
+
   const flashName = useCallback(() => {
     if (nameTimerRef.current) clearTimeout(nameTimerRef.current);
     setShowName(true);
@@ -1382,28 +1386,7 @@ export default function HaviMascot({
         />
       </div>
       {showName && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: -22,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "var(--color-surface, #fcfbf9)",
-            color: "var(--color-ink, #243640)",
-            fontSize: 11,
-            fontWeight: 600,
-            fontFamily: "'Inter', 'Tajawal', sans-serif",
-            padding: "2px 8px",
-            borderRadius: 8,
-            whiteSpace: "nowrap",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-            pointerEvents: "none",
-            animation: "haven-name-pop 0.25s ease-out",
-            zIndex: 41,
-          }}
-        >
-          {haviName || "Havi"}
-        </div>
+        <div className="haven-name-label">{haviName || "Havi"}</div>
       )}
     </div>
   );
