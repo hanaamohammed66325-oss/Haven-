@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil, Flame, Sparkles, Lock } from "lucide-react";
+import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil, Flame, Sparkles, Lock, Target, CheckCircle2 } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
@@ -12,7 +12,7 @@ import { GradeBadge } from "@/components/GradeBadge";
 import { AttendanceBadge } from "@/components/AttendanceBadge";
 import { useSubscription } from "@/lib/subscription";
 import { hasActiveAccess } from "@/lib/premium";
-import { getLevel, getNextLevel, levelProgress, XP_REWARDS, TIER_ICONS, MAX_TIER, STREAK_MILESTONES } from "@/lib/gamification";
+import { getLevel, getNextLevel, levelProgress, XP_REWARDS, TIER_ICONS, MAX_TIER, STREAK_MILESTONES, type ChallengeItem } from "@/lib/gamification";
 
 import { CountUp } from "@/components/CountUp";
 import { MiniCalendar } from "@/components/MiniCalendar";
@@ -57,19 +57,20 @@ export default function DashboardPage() {
     setCumulativeGpa,
     setCumulativeHours,
   } = store;
-  const { gamification, recordAppOpen, doCheckIn, awardGamificationXP } = store;
+  const { gamification, recordAppOpen, doCheckIn, awardGamificationXP, refreshGamChallenges } = store;
   const { profile, sub } = useSubscription();
   const isPremium = hasActiveAccess(profile, sub);
 
   const [revealGpa, setRevealGpa] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
 
-  // Record app open (streak + XP) once per mount
+  // Record app open (streak + XP) + refresh challenges once per mount
   const appOpenDone = useRef(false);
   useEffect(() => {
     if (!hydrated || appOpenDone.current) return;
     appOpenDone.current = true;
     const r = recordAppOpen();
+    refreshGamChallenges();
     if (!window.havi) return;
     if (r.streakBroke) {
       window.havi.poke();
@@ -80,7 +81,9 @@ export default function DashboardPage() {
 
   const handleCheckIn = useCallback(() => {
     const r = doCheckIn();
-    if (r.alreadyDone || !window.havi) return;
+    if (r.alreadyDone) return;
+    refreshGamChallenges();
+    if (!window.havi) return;
     if (r.tierAdvanced) {
       window.havi.celebrate(1);
     } else if (r.newBadges.length > 0) {
@@ -88,7 +91,7 @@ export default function DashboardPage() {
     } else {
       window.havi.celebrate(0.5);
     }
-  }, [doCheckIn]);
+  }, [doCheckIn, refreshGamChallenges]);
 
   const progress = useMemo(() => semesterProgress(semester), [semester]);
   const gpa = useMemo(() => semesterGPA(courses), [courses]);
@@ -293,6 +296,14 @@ export default function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {/* ── Challenges card (premium) ──────────────────────── */}
+      {isPremium && gamification.challenges.daily.items.length > 0 && (
+        <ChallengesCard
+          daily={gamification.challenges.daily.items}
+          weekly={gamification.challenges.weekly.items}
+        />
+      )}
 
       {/* Two-column: main content + right panel */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_352px] gap-8">
@@ -839,6 +850,94 @@ function EmptyCourses() {
       <p className="max-w-sm text-[15px]" style={{ color: "var(--color-muted)" }}>
         {t("emptyHint")}
       </p>
+    </Card>
+  );
+}
+
+const CHALLENGE_KEYS: Record<string, string> = {
+  checkin: "gam_ch_checkin",
+  "log-grade": "gam_ch_logGrade",
+  "complete-task": "gam_ch_completeTask",
+  "open-streak": "gam_ch_openStreak",
+  "complete-n-tasks": "gam_ch_completeNTasks",
+  "checkin-week": "gam_ch_checkinWeek",
+  "log-all-course": "gam_ch_logAllCourse",
+};
+
+function ChallengesCard({ daily, weekly }: { daily: ChallengeItem[]; weekly: ChallengeItem[] }) {
+  const { t } = useT();
+  const doneCount = daily.filter((c) => c.done).length;
+  const allDone = doneCount === daily.length;
+
+  const renderItem = (item: ChallengeItem, idx: number) => {
+    const key = CHALLENGE_KEYS[item.type] ?? item.type;
+    const label = t(key as TranslationKey, {
+      course: item.params.courseName ?? "",
+      n: item.params.displayCount ?? "",
+    });
+    return (
+      <div
+        key={idx}
+        className="flex items-center gap-3 py-2"
+        style={{ opacity: item.done ? 0.5 : 1 }}
+      >
+        {item.done ? (
+          <CheckCircle2 size={18} style={{ color: "var(--color-success)", flexShrink: 0 }} />
+        ) : (
+          <div
+            className="w-[18px] h-[18px] rounded-full border-2 shrink-0"
+            style={{ borderColor: "var(--color-border)" }}
+          />
+        )}
+        <span
+          className="flex-1 text-sm"
+          style={{
+            color: item.done ? "var(--color-muted)" : "var(--color-ink)",
+            textDecoration: item.done ? "line-through" : "none",
+          }}
+        >
+          {label}
+        </span>
+        <span className="text-xs font-medium shrink-0" style={{ color: "var(--color-brass)" }}>
+          +{item.xp}
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <Card
+      padding="p-5"
+      className="haven-fade-up mb-10"
+      style={{ animationDelay: "0.08s" }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Target size={18} style={{ color: "var(--color-brass)" }} />
+          <span className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+            {t("gam_challenges")}
+          </span>
+        </div>
+        <span className="text-xs font-medium" style={{ color: allDone ? "var(--color-success)" : "var(--color-muted)" }}>
+          {allDone ? t("gam_challengesDone") : t("gam_challengeProgress", { done: String(doneCount), total: String(daily.length) })}
+        </span>
+      </div>
+
+      {daily.map((item, i) => renderItem(item, i))}
+
+      {weekly.length > 0 && (
+        <>
+          <div
+            className="mt-3 pt-3 border-t"
+            style={{ borderColor: "var(--color-border)" }}
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>
+              {t("gam_challengesWeekly")}
+            </span>
+          </div>
+          {weekly.map((item, i) => renderItem(item, i + daily.length))}
+        </>
+      )}
     </Card>
   );
 }

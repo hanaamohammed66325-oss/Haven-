@@ -834,6 +834,19 @@ export const ar: Record<TranslationKey, string> = {
   gam_maxLevel: "أعلى مستوى!",
   gam_premiumOnly: "ترقّ لفتح XP والشارات",
 
+  // Challenges
+  gam_challenges: "تحديات اليوم",
+  gam_challengesWeekly: "الأسبوعي",
+  gam_challengesDone: "أنجزت الكل!",
+  gam_challengeProgress: "{done}/{total}",
+  gam_ch_checkin: "سجّل حضورك اليوم",
+  gam_ch_logGrade: "سجّل درجة في {course}",
+  gam_ch_completeTask: "أنجز مهمة من مخططك",
+  gam_ch_openStreak: "حافظ على سلسلتك",
+  gam_ch_completeNTasks: "أنجز {n} مهام هالأسبوع",
+  gam_ch_checkinWeek: "سجّل حضورك {n} مرات هالأسبوع",
+  gam_ch_logAllCourse: "سجّل كل درجات {course}",
+
   // Levels
   gam_level_newStudent: "طالب جديد",
   gam_level_hardWorking: "مجتهد",

@@ -3,6 +3,23 @@ import { attendanceInfo } from "@/lib/grades";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export interface ChallengeItem {
+  type: string;
+  params: Record<string, string>;
+  xp: number;
+  done: boolean;
+}
+
+export interface ChallengeState {
+  daily: { date: string; items: ChallengeItem[] };
+  weekly: { weekStart: string; items: ChallengeItem[] };
+}
+
+export const defaultChallenges: ChallengeState = {
+  daily: { date: "", items: [] },
+  weekly: { weekStart: "", items: [] },
+};
+
 export interface GamificationState {
   streak: { current: number; longest: number; lastActiveDate: string | null };
   xp: number;
@@ -10,6 +27,7 @@ export interface GamificationState {
   badgeTier: number;
   totalCheckIns: number;
   checkedInToday: string | null;
+  challenges: ChallengeState;
 }
 
 export const defaultGamification: GamificationState = {
@@ -19,6 +37,7 @@ export const defaultGamification: GamificationState = {
   badgeTier: 1,
   totalCheckIns: 0,
   checkedInToday: null,
+  challenges: defaultChallenges,
 };
 
 export const MAX_TIER = 4;

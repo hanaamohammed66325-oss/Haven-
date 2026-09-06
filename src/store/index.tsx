@@ -38,6 +38,7 @@ import {
   type BadgeContext,
   XP_REWARDS,
 } from "@/lib/gamification";
+import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
 import { semesterGPA } from "@/lib/grades";
 import type { Session } from "@supabase/supabase-js";
 
@@ -263,6 +264,7 @@ export interface StoreValue extends AppData {
   recordAppOpen: () => { xpEarned: number; streakBroke: boolean; streakCurrent: number };
   doCheckIn: () => { xpEarned: number; alreadyDone: boolean; newBadges: string[]; tierAdvanced: boolean };
   awardGamificationXP: (amount: number, reason: string) => { newBadges: string[]; tierAdvanced: boolean };
+  refreshGamChallenges: () => { xpEarned: number; newlyCompleted: string[] };
 }
 
 export const StoreContext = createContext<StoreValue | null>(null);
@@ -493,6 +495,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ...defaultGamification.streak,
               ...((prefs.gamification as Record<string, unknown>)?.streak as Record<string, unknown> ?? {}),
             },
+            challenges: {
+              ...defaultGamification.challenges,
+              ...((prefs.gamification as Record<string, unknown>)?.challenges as Record<string, unknown> ?? {}),
+            },
           },
           semester: {
             ...defaultSemester,
@@ -712,6 +718,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [persistGamification]
   );
 
+  const refreshGamChallenges = useCallback(() => {
+    let result = { xpEarned: 0, newlyCompleted: [] as string[] };
+    setData((d) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const cCtx: ChallengeContext = {
+        courses: d.courses,
+        planner: d.planner,
+        gamification: d.gamification,
+        today,
+      };
+      const r = refreshChallenges(d.gamification, cCtx);
+      if (r.xpEarned === 0 && r.newlyCompleted.length === 0 && r.state === d.gamification) return d;
+      result = { xpEarned: r.xpEarned, newlyCompleted: r.newlyCompleted };
+      persistGamification(r.state);
+      return { ...d, gamification: r.state };
+    });
+    return result;
+  }, [persistGamification]);
+
   const setProfileName = useCallback(
     (name: string) => {
       setData((d) => ({ ...d, profileName: name }));
@@ -820,6 +845,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const prev = d.planner.notes.find((n) => n.id === id);
         if (prev && !prev.done) {
           awardGamificationXP(XP_REWARDS.COMPLETE_TASK, "complete_task");
+          refreshGamChallenges();
         }
       }
       return {
@@ -1130,6 +1156,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const prev = course?.components.find((c) => c.id === componentId);
         if (prev && prev.score == null) {
           awardGamificationXP(XP_REWARDS.LOG_GRADE, "log_grade");
+          refreshGamChallenges();
         }
       }
       if (loggedInRef.current) {
@@ -1381,6 +1408,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       }));
       awardGamificationXP(XP_REWARDS.LOG_ATTENDANCE, "log_attendance");
+      refreshGamChallenges();
       return { ok: true };
     } catch (e) {
       console.error("Haven: failed to log absence", e);
@@ -1532,6 +1560,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     recordAppOpen,
     doCheckIn,
     awardGamificationXP,
+    refreshGamChallenges,
     setSemester,
     addCourse,
     updateCourse,

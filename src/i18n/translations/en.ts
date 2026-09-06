@@ -837,6 +837,19 @@ export const en = {
   gam_maxLevel: "Max Level!",
   gam_premiumOnly: "Upgrade to unlock XP & Badges",
 
+  // Challenges
+  gam_challenges: "Today's Challenges",
+  gam_challengesWeekly: "Weekly",
+  gam_challengesDone: "All done!",
+  gam_challengeProgress: "{done}/{total}",
+  gam_ch_checkin: "Check in today",
+  gam_ch_logGrade: "Log a grade for {course}",
+  gam_ch_completeTask: "Complete a planner task",
+  gam_ch_openStreak: "Maintain your streak",
+  gam_ch_completeNTasks: "Complete {n} tasks this week",
+  gam_ch_checkinWeek: "Check in {n} times this week",
+  gam_ch_logAllCourse: "Log all grades for {course}",
+
   // Levels
   gam_level_newStudent: "New Student",
   gam_level_hardWorking: "Hard Working",
