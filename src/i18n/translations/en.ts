@@ -842,6 +842,8 @@ export const en = {
   gam_challengesWeekly: "Weekly",
   gam_challengesDone: "All done!",
   gam_challengeProgress: "{done}/{total}",
+  gam_ch_dueToday: "Complete \"{task}\" — due today!",
+  gam_ch_examPrep: "Prep for {exam} — tomorrow!",
   gam_ch_checkin: "Check in today",
   gam_ch_addTask: "Add a new planner task",
   gam_ch_completeTask: "Complete a planner task",

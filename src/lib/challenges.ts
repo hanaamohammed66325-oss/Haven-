@@ -1,4 +1,4 @@
-import type { Course, PlannerData } from "@/types";
+import type { Course, PlannerData, Semester } from "@/types";
 import type { GamificationState, ChallengeItem, ChallengeState } from "./gamification";
 import { defaultChallenges } from "./gamification";
 
@@ -7,6 +7,7 @@ import { defaultChallenges } from "./gamification";
 export interface ChallengeContext {
   courses: Course[];
   planner: PlannerData;
+  semester: Semester;
   gamification: GamificationState;
   today: string;
 }
@@ -26,6 +27,20 @@ function sundayOfWeek(dateStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// ── Date helpers ────────────────────────────────────────────────────────────
+
+function noteDate(semesterStart: string, week: number, day?: number): string {
+  const d = new Date(semesterStart + "T00:00:00");
+  d.setDate(d.getDate() + (week - 1) * 7 + (day ?? 0));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function tomorrow(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // ── Challenge definitions ────────────────────────────────────────────────────
 
 interface ChallengeDef {
@@ -36,7 +51,66 @@ interface ChallengeDef {
   isComplete: (ctx: ChallengeContext, params: Record<string, string>) => boolean;
 }
 
+const EXAM_TAGS = new Set(["tagExam", "tagQuiz"]);
+
 const DAILY_POOL: ChallengeDef[] = [
+  {
+    type: "due-today",
+    xp: 15,
+    canGenerate: (ctx) =>
+      ctx.planner.notes.some(
+        (n) =>
+          !n.done &&
+          n.day != null &&
+          noteDate(ctx.semester.startDate, n.week, n.day) === ctx.today
+      ),
+    generate: (ctx) => {
+      const due = ctx.planner.notes.filter(
+        (n) =>
+          !n.done &&
+          n.day != null &&
+          noteDate(ctx.semester.startDate, n.week, n.day) === ctx.today
+      );
+      const pick = due[dateHash(ctx.today, "due-today") % due.length];
+      return { taskId: pick.id, taskName: pick.text };
+    },
+    isComplete: (ctx, p) => {
+      const note = ctx.planner.notes.find((n) => n.id === p.taskId);
+      return !note || !!note.done;
+    },
+  },
+  {
+    type: "exam-prep",
+    xp: 20,
+    canGenerate: (ctx) => {
+      const tmrw = tomorrow(ctx.today);
+      if (ctx.planner.notes.some(
+        (n) => EXAM_TAGS.has(n.tag ?? "") && n.day != null &&
+          noteDate(ctx.semester.startDate, n.week, n.day) === tmrw
+      )) return true;
+      return ctx.courses.some((c) =>
+        c.components.some(
+          (comp) => comp.date === tmrw && (comp.type === "midterm" || comp.type === "final" || comp.type === "quiz")
+        )
+      );
+    },
+    generate: (ctx) => {
+      const tmrw = tomorrow(ctx.today);
+      const fromPlanner = ctx.planner.notes.find(
+        (n) => EXAM_TAGS.has(n.tag ?? "") && n.day != null &&
+          noteDate(ctx.semester.startDate, n.week, n.day) === tmrw
+      );
+      if (fromPlanner) return { examName: fromPlanner.text };
+      for (const c of ctx.courses) {
+        for (const comp of c.components) {
+          if (comp.date === tmrw && (comp.type === "midterm" || comp.type === "final" || comp.type === "quiz"))
+            return { examName: `${comp.name} — ${c.name}` };
+        }
+      }
+      return { examName: "" };
+    },
+    isComplete: (ctx) => ctx.gamification.checkedInToday === ctx.today,
+  },
   {
     type: "checkin",
     xp: 10,

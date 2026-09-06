@@ -855,6 +855,8 @@ function EmptyCourses() {
 }
 
 const CHALLENGE_KEYS: Record<string, string> = {
+  "due-today": "gam_ch_dueToday",
+  "exam-prep": "gam_ch_examPrep",
   checkin: "gam_ch_checkin",
   "add-task": "gam_ch_addTask",
   "complete-task": "gam_ch_completeTask",
@@ -874,6 +876,8 @@ function ChallengesCard({ daily, weekly }: { daily: ChallengeItem[]; weekly: Cha
     const label = t(key as TranslationKey, {
       course: item.params.courseName ?? "",
       n: item.params.displayCount ?? "",
+      task: item.params.taskName ?? "",
+      exam: item.params.examName ?? "",
     });
     return (
       <div

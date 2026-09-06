@@ -725,6 +725,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const cCtx: ChallengeContext = {
         courses: d.courses,
         planner: d.planner,
+        semester: d.semester,
         gamification: d.gamification,
         today,
       };
