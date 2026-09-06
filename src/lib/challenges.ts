@@ -45,35 +45,14 @@ const DAILY_POOL: ChallengeDef[] = [
     isComplete: (ctx) => ctx.gamification.checkedInToday === ctx.today,
   },
   {
-    type: "log-grade",
-    xp: 15,
-    canGenerate: (ctx) =>
-      ctx.courses.some((c) =>
-        c.components.some((comp) => comp.total > 0 && comp.score == null)
-      ),
-    generate: (ctx) => {
-      const ungraded: { cId: string; cName: string; idx: number; name: string }[] = [];
-      for (const c of ctx.courses) {
-        for (let i = 0; i < c.components.length; i++) {
-          const comp = c.components[i];
-          if (comp.total > 0 && comp.score == null)
-            ungraded.push({ cId: c.id, cName: c.name, idx: i, name: comp.name });
-        }
-      }
-      const pick = ungraded[dateHash(ctx.today, "log-grade") % ungraded.length];
-      return {
-        courseId: pick.cId,
-        courseName: pick.cName,
-        componentIndex: String(pick.idx),
-        componentName: pick.name,
-      };
-    },
-    isComplete: (ctx, p) => {
-      const course = ctx.courses.find((c) => c.id === p.courseId);
-      if (!course) return false;
-      const idx = parseInt(p.componentIndex);
-      return course.components[idx]?.score != null;
-    },
+    type: "add-task",
+    xp: 10,
+    canGenerate: () => true,
+    generate: (ctx) => ({
+      targetCount: String(ctx.planner.notes.length + 1),
+    }),
+    isComplete: (ctx, p) =>
+      ctx.planner.notes.length >= parseInt(p.targetCount),
   },
   {
     type: "complete-task",

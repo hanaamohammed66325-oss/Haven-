@@ -856,7 +856,7 @@ function EmptyCourses() {
 
 const CHALLENGE_KEYS: Record<string, string> = {
   checkin: "gam_ch_checkin",
-  "log-grade": "gam_ch_logGrade",
+  "add-task": "gam_ch_addTask",
   "complete-task": "gam_ch_completeTask",
   "open-streak": "gam_ch_openStreak",
   "complete-n-tasks": "gam_ch_completeNTasks",
