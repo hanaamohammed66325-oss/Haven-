@@ -830,6 +830,7 @@ export const en = {
   gam_checkinReward: "+{n} XP",
   gam_checkinStreak: "{n}-day streak — keep going!",
   gam_checkinStartStreak: "Start your streak today!",
+  gam_checkinTap: "Tap here to check in!",
   gam_checkinTotal: "{n} total check-ins",
   gam_xp: "XP",
   gam_level: "Level",

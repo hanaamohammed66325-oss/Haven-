@@ -112,13 +112,6 @@ const DAILY_POOL: ChallengeDef[] = [
     isComplete: (ctx) => ctx.gamification.checkedInToday === ctx.today,
   },
   {
-    type: "checkin",
-    xp: 10,
-    canGenerate: () => true,
-    generate: () => ({}),
-    isComplete: (ctx) => ctx.gamification.checkedInToday === ctx.today,
-  },
-  {
     type: "add-task",
     xp: 10,
     canGenerate: () => true,

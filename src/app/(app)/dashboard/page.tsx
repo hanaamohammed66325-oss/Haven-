@@ -184,17 +184,25 @@ export default function DashboardPage() {
           const streak = gamification.streak.current;
           return (
             <Card padding="p-5" className="flex items-center gap-4">
-              <button
-                onClick={handleCheckIn}
-                disabled={checkedIn}
-                className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-lg transition-transform active:scale-90"
-                style={{
-                  background: checkedIn ? "var(--color-surface-alt)" : "var(--color-brass)",
-                  color: checkedIn ? "var(--color-muted)" : "#fff",
-                }}
-              >
-                {checkedIn ? "✓" : "☀️"}
-              </button>
+              <div className="relative shrink-0">
+                <button
+                  onClick={handleCheckIn}
+                  disabled={checkedIn}
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg transition-transform active:scale-90"
+                  style={{
+                    background: checkedIn ? "var(--color-surface-alt)" : "var(--color-brass)",
+                    color: checkedIn ? "var(--color-muted)" : "#fff",
+                  }}
+                >
+                  {checkedIn ? "✓" : "☀️"}
+                </button>
+                {!checkedIn && gamification.totalCheckIns === 0 && (
+                  <span
+                    className="absolute -top-1 -end-1 w-3 h-3 rounded-full animate-ping"
+                    style={{ background: "var(--color-brass)" }}
+                  />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
                   {t("gam_checkin")}
@@ -204,9 +212,11 @@ export default function DashboardPage() {
                     ? streak > 1
                       ? t("gam_checkinStreak", { n: String(streak) })
                       : t("gam_checkinDone")
-                    : streak > 0
-                      ? t("gam_checkinReward", { n: String(XP_REWARDS.CHECK_IN) })
-                      : t("gam_checkinStartStreak")}
+                    : gamification.totalCheckIns === 0
+                      ? t("gam_checkinTap")
+                      : streak > 0
+                        ? t("gam_checkinReward", { n: String(XP_REWARDS.CHECK_IN) })
+                        : t("gam_checkinStartStreak")}
                 </div>
                 {gamification.totalCheckIns > 0 && (
                   <div className="text-[10px] mt-1" style={{ color: "var(--color-muted)", opacity: 0.7 }}>
@@ -857,7 +867,6 @@ function EmptyCourses() {
 const CHALLENGE_KEYS: Record<string, string> = {
   "due-today": "gam_ch_dueToday",
   "exam-prep": "gam_ch_examPrep",
-  checkin: "gam_ch_checkin",
   "add-task": "gam_ch_addTask",
   "complete-task": "gam_ch_completeTask",
   "open-streak": "gam_ch_openStreak",

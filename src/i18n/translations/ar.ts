@@ -827,6 +827,7 @@ export const ar: Record<TranslationKey, string> = {
   gam_checkinReward: "+{n} XP",
   gam_checkinStreak: "سلسلة {n} يوم — استمر!",
   gam_checkinStartStreak: "ابدأ سلسلتك اليوم!",
+  gam_checkinTap: "اضغط هنا عشان تسجّل حضورك!",
   gam_checkinTotal: "{n} تسجيل حضور",
   gam_xp: "XP",
   gam_level: "المستوى",
