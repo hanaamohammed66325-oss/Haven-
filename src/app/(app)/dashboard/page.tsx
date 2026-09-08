@@ -523,64 +523,6 @@ export default function DashboardPage() {
             <SmartSuggestions />
           </div>
 
-          {/* Smart suggestions — upcoming tasks/exams as individual cards */}
-          {upcoming.length > 0 && (
-            <div className="haven-fade-up mb-10" style={{ animationDelay: "0.12s" }}>
-              <div
-                className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1"
-                style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
-              >
-                {upcoming.map((item) => {
-                  const dueLabel = item.diffDays === 0
-                    ? t("dueToday")
-                    : item.diffDays === 1
-                      ? t("dueTomorrow")
-                      : t("dueInDays", { n: item.diffDays });
-                  const isExam = item.bucket === "exam";
-                  const accent = isExam ? "#C77E2E" : "var(--color-primary)";
-                  const icon = isExam ? "📝" : "📋";
-                  return (
-                    <Link
-                      key={`${item.date}-${item.name}`}
-                      href={item.href}
-                      className="shrink-0 rounded-2xl px-4 py-3 border transition-shadow hover:shadow-md"
-                      style={{
-                        scrollSnapAlign: "start",
-                        minWidth: 180,
-                        maxWidth: 240,
-                        borderColor: `${accent}30`,
-                        background: `${accent}08`,
-                      }}
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-base">{icon}</span>
-                        <span
-                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                          style={{ background: `${accent}18`, color: accent }}
-                        >
-                          {dueLabel}
-                        </span>
-                      </div>
-                      <div className="text-sm font-medium truncate" style={{ color: "var(--color-ink)" }}>
-                        {item.name}
-                      </div>
-                      {item.courseName && (
-                        <div className="text-[11px] truncate mt-0.5" style={{ color: "var(--color-muted)" }}>
-                          {item.courseName}
-                        </div>
-                      )}
-                      {item.time && (
-                        <div className="text-[10px] mt-1" style={{ color: "var(--color-muted)" }}>
-                          {item.time}
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Courses */}
           <div
             className="haven-fade-up flex items-center justify-between mb-6"

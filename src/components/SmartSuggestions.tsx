@@ -76,37 +76,36 @@ export function SmartSuggestions() {
       }
     }
 
-    // 3. Upcoming exams/quizzes (tomorrow or today)
+    // 3. Upcoming exams/quizzes — individual cards
     const upcoming = buildUpcoming(courses, planner, semester, now);
-    const urgentExams = upcoming.filter(
-      (u) => u.bucket === "exam" && u.diffDays <= 1
-    );
-    for (const exam of urgentExams.slice(0, 2)) {
-      const when = exam.diffDays === 0 ? t("smart_today") : t("smart_tomorrow");
+    for (const exam of upcoming.filter((u) => u.bucket === "exam")) {
+      const when =
+        exam.diffDays === 0 ? t("dueToday")
+        : exam.diffDays === 1 ? t("dueTomorrow")
+        : t("dueInDays", { n: exam.diffDays });
       items.push({
         id: `exam-${exam.date}-${exam.name}`,
         icon: <GraduationCap size={14} />,
-        text: t("smart_examSoon", {
-          name: exam.name,
-          course: exam.courseName ?? "",
-          when,
-        }),
+        text: `${exam.name}${exam.courseName ? ` · ${exam.courseName}` : ""} — ${when}`,
         href: exam.href,
-        color: "var(--color-primary)",
-        priority: 2,
+        color: "#C77E2E",
+        priority: exam.diffDays <= 1 ? 2 : 4,
       });
     }
 
-    // 4. Tasks due this week
-    const dueTasks = upcoming.filter((u) => u.bucket === "task");
-    if (dueTasks.length > 0) {
+    // 4. Tasks due — individual cards
+    for (const task of upcoming.filter((u) => u.bucket === "task")) {
+      const when =
+        task.diffDays === 0 ? t("dueToday")
+        : task.diffDays === 1 ? t("dueTomorrow")
+        : t("dueInDays", { n: task.diffDays });
       items.push({
-        id: "tasks-due",
+        id: `task-${task.date}-${task.name}`,
         icon: <ClipboardList size={14} />,
-        text: t("smart_tasksDue", { n: dueTasks.length }),
-        href: "/schedule",
-        color: "var(--color-brass)",
-        priority: 4,
+        text: `${task.name}${task.courseName ? ` · ${task.courseName}` : ""} — ${when}`,
+        href: task.href,
+        color: "var(--color-primary)",
+        priority: task.diffDays <= 1 ? 3 : 5,
       });
     }
 
