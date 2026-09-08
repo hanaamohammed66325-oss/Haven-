@@ -164,6 +164,44 @@ export interface AppData {
   /** custom name for the Havi mascot (default "Havi") */
   haviName: string;
   gamification: import("@/lib/gamification").GamificationState;
+  /** Pomodoro focus-timer configuration (per account, in preferences.pomodoroSettings). */
+  pomodoroSettings: PomodoroSettings;
+  /** Pomodoro session history + stats (per account, in preferences.pomodoroStats). */
+  pomodoroStats: PomodoroStats;
+}
+
+/** Which pond environment style the Pomodoro page renders. */
+export type PondStyle = "smooth" | "pixel";
+
+export interface PomodoroSettings {
+  focusMinutes: number;
+  shortBreakMinutes: number;
+  longBreakMinutes: number;
+  /** focus sessions before a long break */
+  sessionsBeforeLong: number;
+  pondStyle: PondStyle;
+  soundEnabled: boolean;
+  autoStartBreaks: boolean;
+  autoStartFocus: boolean;
+}
+
+/** One day's Pomodoro activity, kept in a rolling 30-day window. */
+export interface PomodoroSessionRecord {
+  date: string; // ISO YYYY-MM-DD
+  completedSessions: number;
+  totalFocusMinutes: number;
+  abandonedSessions: number;
+}
+
+export interface PomodoroStats {
+  totalSessions: number;
+  totalFocusMinutes: number;
+  longestDailyStreak: number;
+  currentDailyStreak: number;
+  lastSessionDate: string | null;
+  recentDays: PomodoroSessionRecord[];
+  /** lily pads currently floating in the pond (visual continuity across reloads) */
+  lilyPadCount: number;
 }
 
 /** Semester-GPA card mode. "semester" = live GPA out of 5.0; "cumulative" =

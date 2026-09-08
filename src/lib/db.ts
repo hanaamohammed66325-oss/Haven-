@@ -28,6 +28,25 @@ async function currentUserId(): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Per-user activity tracking (public.user_events)
+// ---------------------------------------------------------------------------
+/**
+ * Fire-and-forget activity event for the current user. No-ops when signed out
+ * and never throws — tracking must never break the app. Powers the admin
+ * activity feed (admin_user_activity UNIONs public.user_events).
+ */
+export async function logEvent(event: string, meta: Record<string, unknown> = {}): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return;
+    await supabase.from("user_events").insert({ user_id: uid, event, meta });
+  } catch {
+    // best-effort — ignore failures
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Subscription / premium entitlement (public.subscriptions)
 // ---------------------------------------------------------------------------
 

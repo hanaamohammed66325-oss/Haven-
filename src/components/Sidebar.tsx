@@ -9,6 +9,7 @@ import {
   ClipboardList,
   CalendarDays,
   Shield,
+  Timer,
   Settings,
   Lock,
   Globe,
@@ -25,6 +26,7 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
 import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES, hasActiveAccess } from "@/lib/premium";
+import { POMODORO_ENABLED } from "@/lib/featureFlags";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface NavItem {
@@ -40,6 +42,7 @@ const MENU: NavItem[] = [
   { href: "/assignments", labelKey: "nav_assignments", icon: ClipboardList },
   { href: "/schedule", labelKey: "nav_schedule", icon: CalendarDays },
   { href: "/attendance", labelKey: "nav_attendance", icon: Shield },
+  { href: "/pomodoro", labelKey: "nav_pomodoro", icon: Timer, locked: !POMODORO_ENABLED },
 ];
 
 const ACCOUNT: NavItem[] = [

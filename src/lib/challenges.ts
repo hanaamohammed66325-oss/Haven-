@@ -1,5 +1,5 @@
-import type { Course, PlannerData, Semester } from "@/types";
-import type { GamificationState, ChallengeItem, ChallengeState } from "./gamification";
+import type { Course, PlannerData, PomodoroStats, Semester } from "@/types";
+import type { GamificationState, ChallengeItem, ChallengeState, WeeklySnapshot } from "./gamification";
 import { defaultChallenges } from "./gamification";
 
 // ── Context ──────────────────────────────────────────────────────────────────
@@ -9,7 +9,14 @@ export interface ChallengeContext {
   planner: PlannerData;
   semester: Semester;
   gamification: GamificationState;
+  pomodoroStats: PomodoroStats;
   today: string;
+}
+
+/** Completed focus sessions recorded today, from the rolling stats window. */
+function pomodoroToday(ctx: ChallengeContext): number {
+  const rec = ctx.pomodoroStats.recentDays.find((r) => r.date === ctx.today);
+  return rec ? rec.completedSessions : 0;
 }
 
 // ── Deterministic shuffle seed ───────────────────────────────────────────────
@@ -138,12 +145,34 @@ const DAILY_POOL: ChallengeDef[] = [
     generate: () => ({}),
     isComplete: (ctx) => ctx.gamification.streak.lastActiveDate === ctx.today,
   },
+  {
+    type: "pomodoro-focus",
+    xp: 20,
+    canGenerate: () => true,
+    generate: (ctx) => ({
+      targetSessions: "2",
+      baseSessions: String(pomodoroToday(ctx)),
+    }),
+    isComplete: (ctx, p) =>
+      pomodoroToday(ctx) - parseInt(p.baseSessions) >= parseInt(p.targetSessions),
+  },
 ];
 
 const WEEKLY_POOL: ChallengeDef[] = [
   {
+    type: "checkin-week",
+    xp: 40,
+    canGenerate: () => true,
+    generate: (ctx) => ({
+      targetCheckins: String(ctx.gamification.totalCheckIns + 5),
+      displayCount: "5",
+    }),
+    isComplete: (ctx, p) =>
+      ctx.gamification.totalCheckIns >= parseInt(p.targetCheckins),
+  },
+  {
     type: "complete-n-tasks",
-    xp: 25,
+    xp: 35,
     canGenerate: (ctx) => ctx.planner.notes.filter((n) => !n.done).length >= 3,
     generate: (ctx) => {
       const incomplete = ctx.planner.notes.filter((n) => !n.done).length;
@@ -158,48 +187,88 @@ const WEEKLY_POOL: ChallengeDef[] = [
       ctx.planner.notes.filter((n) => n.done).length >= parseInt(p.targetCount),
   },
   {
-    type: "checkin-week",
-    xp: 30,
-    canGenerate: () => true,
-    generate: (ctx) => ({
-      targetCheckins: String(ctx.gamification.totalCheckIns + 5),
-      displayCount: "5",
-    }),
-    isComplete: (ctx, p) =>
-      ctx.gamification.totalCheckIns >= parseInt(p.targetCheckins),
-  },
-  {
-    type: "log-all-course",
-    xp: 30,
+    type: "log-marks-course",
+    xp: 45,
     canGenerate: (ctx) =>
       ctx.courses.some(
         (c) =>
           c.components.length > 0 &&
-          c.components.some((comp) => comp.score == null) &&
+          c.components.some((comp) => comp.type !== "final" && comp.score == null) &&
           c.components.some((comp) => comp.score != null)
       ),
     generate: (ctx) => {
       const partial = ctx.courses.filter(
         (c) =>
           c.components.length > 0 &&
-          c.components.some((comp) => comp.score == null) &&
+          c.components.some((comp) => comp.type !== "final" && comp.score == null) &&
           c.components.some((comp) => comp.score != null)
       );
-      const pick = partial[dateHash(ctx.today, "log-all") % partial.length];
+      const pick = partial[dateHash(ctx.today, "log-marks") % partial.length];
       return { courseId: pick.id, courseName: pick.name };
     },
     isComplete: (ctx, p) => {
       const course = ctx.courses.find((c) => c.id === p.courseId);
       if (!course || course.components.length === 0) return false;
-      return course.components.every((comp) => comp.score != null);
+      return course.components
+        .filter((comp) => comp.type !== "final")
+        .every((comp) => comp.score != null);
     },
+  },
+  {
+    type: "perfect-attendance-week",
+    xp: 50,
+    canGenerate: (ctx) => ctx.courses.length > 0,
+    generate: (ctx) => {
+      const total = ctx.courses.reduce(
+        (sum, c) => sum + c.missedSessions.length,
+        0
+      );
+      return { missedAtStart: String(total) };
+    },
+    isComplete: (ctx, p) => {
+      const total = ctx.courses.reduce(
+        (sum, c) => sum + c.missedSessions.length,
+        0
+      );
+      return total <= parseInt(p.missedAtStart);
+    },
+  },
+  {
+    type: "update-grades",
+    xp: 30,
+    canGenerate: (ctx) =>
+      ctx.courses.some((c) =>
+        c.components.some((comp) => comp.score == null && comp.type !== "final")
+      ),
+    generate: (ctx) => {
+      const graded = ctx.courses.reduce(
+        (sum, c) => sum + c.components.filter((comp) => comp.score != null).length,
+        0
+      );
+      return { gradedAtStart: String(graded), targetNew: "2" };
+    },
+    isComplete: (ctx, p) => {
+      const graded = ctx.courses.reduce(
+        (sum, c) => sum + c.components.filter((comp) => comp.score != null).length,
+        0
+      );
+      return graded >= parseInt(p.gradedAtStart) + parseInt(p.targetNew);
+    },
+  },
+  {
+    type: "pomodoro-streak",
+    xp: 50,
+    canGenerate: (ctx) => ctx.pomodoroStats.totalSessions > 0,
+    generate: () => ({ targetDays: "3" }),
+    isComplete: (ctx, p) =>
+      ctx.pomodoroStats.currentDailyStreak >= parseInt(p.targetDays),
   },
 ];
 
 // ── Generation ───────────────────────────────────────────────────────────────
 
 const DAILY_COUNT = 3;
-const WEEKLY_COUNT = 1;
+const WEEKLY_COUNT = 2;
 
 function pickChallenges(
   pool: ChallengeDef[],
@@ -222,14 +291,36 @@ function pickChallenges(
 
 // ── Refresh (generate + check completion) ────────────────────────────────────
 
+function countTasksDone(ctx: ChallengeContext): number {
+  return ctx.planner.notes.filter((n) => n.done).length;
+}
+
+function countGradesEntered(ctx: ChallengeContext): number {
+  return ctx.courses.reduce(
+    (sum, c) => sum + c.components.filter((comp) => comp.score != null).length,
+    0
+  );
+}
+
+export interface WeeklyReportData {
+  xpEarned: number;
+  checkIns: number;
+  tasksCompleted: number;
+  gradesEntered: number;
+  streak: number;
+}
+
 export function refreshChallenges(
   state: GamificationState,
   ctx: ChallengeContext
-): { state: GamificationState; xpEarned: number; newlyCompleted: string[] } {
+): { state: GamificationState; xpEarned: number; newlyCompleted: string[]; weeklyReport: WeeklyReportData | null } {
   const challenges: ChallengeState = state.challenges ?? defaultChallenges;
   let xpEarned = 0;
   const newlyCompleted: string[] = [];
   let changed = false;
+  let weeklyReport: WeeklyReportData | null = null;
+  let weeklySnapshot = state.weeklySnapshot ?? null;
+  let lastWeeklyReport = state.lastWeeklyReport ?? null;
 
   let daily = challenges.daily;
   if (daily.date !== ctx.today) {
@@ -242,12 +333,38 @@ export function refreshChallenges(
 
   const currentWeekStart = sundayOfWeek(ctx.today);
   let weekly = challenges.weekly;
-  if (weekly.weekStart !== currentWeekStart) {
+  const isNewWeek = weekly.weekStart !== currentWeekStart || weekly.items.length < WEEKLY_COUNT;
+
+  if (isNewWeek) {
+    // Compute report from last week's snapshot before resetting
+    if (weeklySnapshot && weeklySnapshot.weekStart !== currentWeekStart) {
+      const currentTasksDone = countTasksDone(ctx);
+      const currentGrades = countGradesEntered(ctx);
+      weeklyReport = {
+        xpEarned: state.xp - weeklySnapshot.xp,
+        checkIns: state.totalCheckIns - weeklySnapshot.totalCheckIns,
+        tasksCompleted: currentTasksDone - weeklySnapshot.tasksDone,
+        gradesEntered: currentGrades - weeklySnapshot.gradesEntered,
+        streak: state.streak.current,
+      };
+      lastWeeklyReport = weeklySnapshot;
+      changed = true;
+    }
+
+    // Save new snapshot for this week
+    weeklySnapshot = {
+      weekStart: currentWeekStart,
+      xp: state.xp,
+      totalCheckIns: state.totalCheckIns,
+      tasksDone: countTasksDone(ctx),
+      gradesEntered: countGradesEntered(ctx),
+    };
+    changed = true;
+
     weekly = {
       weekStart: currentWeekStart,
       items: pickChallenges(WEEKLY_POOL, WEEKLY_COUNT, ctx, currentWeekStart),
     };
-    changed = true;
   }
 
   const defMap = new Map<string, ChallengeDef>();
@@ -278,7 +395,7 @@ export function refreshChallenges(
     return item;
   });
 
-  if (!changed) return { state, xpEarned: 0, newlyCompleted: [] };
+  if (!changed) return { state, xpEarned: 0, newlyCompleted: [], weeklyReport: null };
 
   return {
     state: {
@@ -288,8 +405,11 @@ export function refreshChallenges(
         daily: { date: daily.date, items: updatedDaily },
         weekly: { weekStart: weekly.weekStart, items: updatedWeekly },
       },
+      weeklySnapshot,
+      lastWeeklyReport,
     },
     xpEarned,
     newlyCompleted,
+    weeklyReport,
   };
 }

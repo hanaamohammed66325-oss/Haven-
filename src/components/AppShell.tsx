@@ -8,12 +8,16 @@ import { Sidebar } from "./Sidebar";
 import { Logo } from "./Logo";
 import { HaviLoader } from "./HaviLoader";
 import { ReminderToast } from "./ReminderToast";
+import { AchievementToast } from "./AchievementToast";
+import { WeeklyReportModal } from "./WeeklyReportModal";
 import { NotifScheduler } from "./NotifScheduler";
 import { TrialBanner } from "./TrialBanner";
+import { EarlyAccessBanner } from "./EarlyAccessBanner";
 import { Footer } from "./Footer";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { runPushAutoHeal } from "@/lib/pushHealthCheck";
+import { logEvent } from "@/lib/db";
 
 const STORAGE_KEY = "haven-sidebar-collapsed";
 
@@ -44,6 +48,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void runPushAutoHeal();
   }, []);
+
+  // Per-user activity tracking (fire-and-forget; no-ops when signed out).
+  useEffect(() => {
+    void logEvent("app_open");
+  }, []);
+  useEffect(() => {
+    if (pathname) void logEvent("page_view", { path: pathname });
+  }, [pathname]);
 
   // Close the drawer whenever the route changes, so tapping a nav item both
   // navigates and dismisses the drawer without threading a handler everywhere.
@@ -171,12 +183,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             the viewport edge / hides under the phone home indicator in the PWA.
             Top/side padding is unchanged from before; only the bottom grew. */}
         <div className="mx-auto w-full max-w-[1600px] px-5 pt-6 sm:px-6 sm:pt-8 md:px-10 md:pt-12 pb-12">
+          <EarlyAccessBanner />
           <TrialBanner />
           {children}
         </div>
         <Footer />
       </main>
       <ReminderToast />
+      <AchievementToast />
+      <WeeklyReportModal />
       <NotifScheduler />
     </div>
   );

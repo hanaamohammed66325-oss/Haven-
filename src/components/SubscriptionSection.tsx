@@ -14,6 +14,7 @@ import {
   isInTrial,
   isActiveSubscriber,
   daysUntilTrialEnds,
+  ENFORCE_PREMIUM,
 } from "@/lib/premium";
 import { changePlan, type PlanCycle } from "@/lib/changePlan";
 import { formatLongDate } from "@/lib/dates";
@@ -81,6 +82,10 @@ export function SubscriptionSection() {
     const id = window.setTimeout(() => setToast(""), 6000);
     return () => window.clearTimeout(id);
   }, [toast]);
+
+  // Free launch — subscriptions are disabled app-wide; hide the whole section.
+  // (Placed after all hooks so hook order stays stable.)
+  if (!ENFORCE_PREMIUM) return null;
 
   const openConfirm = () => {
     setError("");

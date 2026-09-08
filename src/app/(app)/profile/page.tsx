@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
-import { BADGES, getBadgeThreshold, MAX_TIER, TIER_ICONS, type BadgeContext } from "@/lib/gamification";
+import { BADGES, badgesForTier, getBadgeThreshold, MAX_TIER, TIER_ICONS, type BadgeContext } from "@/lib/gamification";
 import { semesterGPA } from "@/lib/grades";
 import { hasActiveAccess } from "@/lib/premium";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
@@ -261,17 +261,18 @@ export default function ProfilePage() {
                   {tierIcon} {t(`gam_tierLabel_${tier}` as TranslationKey)}
                 </span>
                 <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                  {t("gam_tierProgress", { earned: String(earnedCount), total: String(BADGES.length) })}
+                  {t("gam_tierProgress", { earned: String(earnedCount), total: String(Math.ceil(badgesForTier(tier).length * 0.8)) })}
                 </span>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {BADGES.map((badge) => {
+              {badgesForTier(tier).map((badge) => {
                 const earned = gamification.badges.includes(badge.id);
                 const key = badge.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
                 const threshold = getBadgeThreshold(badge.id, tier, badgeCtx);
-                const isDiamond = badge.id === "integrated" && threshold === -1;
-                const isAllCourses = badge.id === "integrated" && threshold === 0;
+                const tieredBadges = new Set(["coursework-complete", "all-marks-complete"]);
+                const isDiamond = tieredBadges.has(badge.id) && threshold === -1;
+                const isAllCourses = tieredBadges.has(badge.id) && threshold === 0;
                 const nStr = String(threshold);
                 const howToGet = earned
                   ? t(`gam_badge_${key}_why` as TranslationKey)

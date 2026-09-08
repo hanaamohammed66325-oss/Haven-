@@ -8,6 +8,11 @@ import {
   AlertTriangle,
   CalendarCheck,
   Check,
+  Sparkles,
+  Trophy,
+  Medal,
+  Lightbulb,
+  Flame,
 } from "lucide-react";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -52,6 +57,7 @@ interface Scene {
 
 const SCENES: Scene[] = [
   { key: "demo_gpa", Icon: TrendingUp, duration: 4200, Comp: DashboardScene },
+  { key: "demo_momentum", Icon: Sparkles, duration: 5600, Comp: MomentumScene },
   { key: "demo_whatif", Icon: SlidersHorizontal, duration: 6800, Comp: WhatIfScene },
   { key: "demo_planner", Icon: CalendarRange, duration: 6400, Comp: PlannerScene },
   { key: "demo_attendance", Icon: AlertTriangle, duration: 4200, Comp: AttendanceScene },
@@ -241,6 +247,63 @@ function DashboardScene({ active, reduced }: { active: boolean; reduced: boolean
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Showcases the motivation layer: level/XP, streak, a live challenge, a smart
+// suggestion, and an earned badge — a visual snapshot of the new features.
+function MomentumScene({ active, reduced }: { active: boolean; reduced: boolean }) {
+  const { t } = useT();
+  const xp = useCountUp(1240, active, reduced);
+  const grown = active || reduced;
+  return (
+    <div className="flex flex-col gap-3.5 w-full">
+      {/* level + streak */}
+      <div className="flex items-center gap-4">
+        <AnimatedRing value={62} active={active} reduced={reduced} size={78}>
+          <div className="flex flex-col items-center leading-none">
+            <Trophy size={16} style={{ color: "var(--color-brass)" }} />
+            <span className="text-[11px] font-semibold mt-0.5" style={{ color: "var(--color-ink)" }}>Lv 5</span>
+          </div>
+        </AnimatedRing>
+        <div className="min-w-0">
+          <div className="font-display text-lg" style={{ color: "var(--color-ink)" }}>{t("demo_mLevel")}</div>
+          <div className="text-sm mt-0.5 tabular-nums" style={{ color: "var(--color-muted)" }}>
+            {Math.round(xp).toLocaleString()} <span className="text-xs">XP</span>
+          </div>
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+            style={{ background: "#FBF0E2", color: "var(--color-warning)" }}>
+            <Flame size={12} /> {t("demo_mStreak")}
+          </div>
+        </div>
+      </div>
+
+      {/* today's challenge with progress */}
+      <div className="rounded-2xl border p-3.5" style={{ borderColor: "var(--color-border)" }}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--color-ink)" }}>
+            <Trophy size={13} style={{ color: "var(--color-brass)" }} /> {t("demo_mChallenge")}
+          </span>
+          <span className="text-xs font-semibold tabular-nums" style={{ color: "var(--color-primary)" }}>2/3</span>
+        </div>
+        <div className="h-2 rounded-full" style={{ background: "var(--color-primary-soft)" }}>
+          <div className="h-2 rounded-full"
+            style={{ width: grown ? "66%" : "0%", background: "var(--color-primary)", transition: "width 1.1s cubic-bezier(0.22,1,0.36,1)" }} />
+        </div>
+      </div>
+
+      {/* smart suggestion + earned badge */}
+      <div className="flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
+          style={{ background: "#FBF0E2", color: "var(--color-warning)" }}>
+          <Lightbulb size={13} /> {t("demo_mSuggestion")}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
+          style={{ background: "#EDEBFB", color: "#7f77dd" }}>
+          <Medal size={13} /> {t("demo_mBadge")}
+        </span>
       </div>
     </div>
   );

@@ -5,8 +5,9 @@ import type { ReactNode } from "react";
 // the landing page footer/social strip, the /contact page, and Settings →
 // Contact us, so all three stay in sync from one place.
 //
-// Email and Instagram are live. WhatsApp is temporarily disabled (filtered
-// out of `contactChannels` below) until there's a confirmed number.
+// Only Email is live right now. WhatsApp and Instagram are kept defined below
+// but filtered out of `contactChannels`, so bringing either back is a one-line
+// change to the filter.
 // ============================================================================
 
 export const SUPPORT_EMAIL = "support@havenstudent.com";
@@ -56,6 +57,6 @@ const ALL_CHANNELS: ContactChannel[] = [
   },
 ];
 
-// WhatsApp temporarily excluded — TODO: drop this filter once WHATSAPP_URL
-// above is a real link, so it reappears everywhere contactChannels is used.
-export const contactChannels: ContactChannel[] = ALL_CHANNELS.filter((c) => c.label !== "WhatsApp");
+// Only Email is exposed for now. WhatsApp (no number) and Instagram are
+// excluded here — change this filter to bring either back everywhere at once.
+export const contactChannels: ContactChannel[] = ALL_CHANNELS.filter((c) => c.label === "Email");

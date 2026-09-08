@@ -7,7 +7,8 @@ import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Footer } from "@/components/Footer";
 import { useSubscription } from "@/lib/subscription";
-import { PLANS, FEATURES, PREMIUM_LIST, isVip, isInTrial, isActiveSubscriber, hasActiveAccess } from "@/lib/premium";
+import { PLANS, FEATURES, PREMIUM_LIST, isVip, isInTrial, isActiveSubscriber, hasActiveAccess, ENFORCE_PREMIUM } from "@/lib/premium";
+import { RedirectHome } from "@/components/RedirectHome";
 import { changePlan, planLabelKeyFor, type PlanCycle } from "@/lib/changePlan";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -25,6 +26,12 @@ const INCLUDED_KEYS: TranslationKey[] = [
 ];
 
 export default function PremiumPage() {
+  // Free launch — /premium is disabled; bounce to the dashboard.
+  if (!ENFORCE_PREMIUM) return <RedirectHome />;
+  return <PremiumPageInner />;
+}
+
+function PremiumPageInner() {
   const { t } = useT();
   usePageTitle("premiumPageTitle");
   const router = useRouter();

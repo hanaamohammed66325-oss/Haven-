@@ -9,8 +9,12 @@
 // the whole app stays open.
 // ---------------------------------------------------------------------------
 
-// Enforce premium — set to true. Access is granted only via VIP flag, trial, or active subscription.
-export const ENFORCE_PREMIUM = true;
+// FREE LAUNCH (temporary): premium enforcement is OFF, so every predicate below
+// reports "allowed / unlimited" and the whole app is free for everyone. No data
+// is deleted — subscription/VIP rows stay intact; flip this back to `true` to
+// re-enable paid gating exactly as before. All subscription/paywall UI is hidden
+// off this same switch.
+export const ENFORCE_PREMIUM = false;
 
 // VIP access is checked server-side via profiles.is_vip (set by DB trigger).
 // No email list in the client bundle for security.

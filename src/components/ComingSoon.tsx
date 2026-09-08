@@ -3,7 +3,7 @@
 import { Lock } from "lucide-react";
 import { useT } from "@/i18n";
 
-export function ComingSoon({ title }: { title: string }) {
+export function ComingSoon({ title, tag, desc }: { title: string; tag?: string; desc?: string }) {
   const { t } = useT();
   return (
     <div className="haven-fade-in flex flex-col items-center justify-center text-center py-24">
@@ -18,11 +18,16 @@ export function ComingSoon({ title }: { title: string }) {
       >
         <Lock size={26} />
       </div>
-      <h1 className="font-display text-2xl mb-3" style={{ color: "var(--color-ink)" }}>
+      <h1 className="font-display text-2xl" style={{ color: "var(--color-ink)" }}>
         {title}
       </h1>
-      <p className="max-w-sm text-[15px]" style={{ color: "var(--color-muted)" }}>
-        {t("comingSoonDesc")}
+      {tag && (
+        <p className="mt-1 text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
+          {tag}
+        </p>
+      )}
+      <p className="mt-3 max-w-sm text-[15px]" style={{ color: "var(--color-muted)" }}>
+        {desc ?? t("comingSoonDesc")}
       </p>
     </div>
   );

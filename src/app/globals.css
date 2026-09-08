@@ -358,6 +358,16 @@ html[dir="rtl"] .haven-nav-active {
   border-radius: var(--radius-card);
 }
 
+/* ---- Achievement toast ---- */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---- Scrollbar hide ---- */
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
 /* ---- Modal ---- */
 @keyframes haven-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes haven-modal-in {

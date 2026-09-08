@@ -20,7 +20,7 @@ import { UpcomingPanel } from "@/components/UpcomingPanel";
 import { buildUpcoming } from "@/lib/upcoming";
 import { GpaGoalCard } from "@/components/GpaGoalCard";
 import { WhatIfCard } from "@/components/WhatIfCard";
-import { NeedsAttentionCard } from "@/components/NeedsAttentionCard";
+import { SmartSuggestions } from "@/components/SmartSuggestions";
 import { CumulativeGpaModal } from "@/components/CumulativeGpaModal";
 import {
   semesterGPA,
@@ -518,9 +518,9 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          {/* Needs attention */}
-          <div className="haven-fade-up mb-12" style={{ animationDelay: "0.11s" }}>
-            <NeedsAttentionCard />
+          {/* Smart suggestions */}
+          <div className="haven-fade-up mb-8" style={{ animationDelay: "0.11s" }}>
+            <SmartSuggestions />
           </div>
 
           {/* Courses */}
@@ -872,7 +872,11 @@ const CHALLENGE_KEYS: Record<string, string> = {
   "open-streak": "gam_ch_openStreak",
   "complete-n-tasks": "gam_ch_completeNTasks",
   "checkin-week": "gam_ch_checkinWeek",
-  "log-all-course": "gam_ch_logAllCourse",
+  "log-marks-course": "gam_ch_logMarksCourse",
+  "perfect-attendance-week": "gam_ch_perfectAttendanceWeek",
+  "update-grades": "gam_ch_updateGrades",
+  "pomodoro-focus": "gam_ch_pomodoroFocus",
+  "pomodoro-streak": "gam_ch_pomodoroStreak",
 };
 
 function ChallengesCard({ daily, weekly }: { daily: ChallengeItem[]; weekly: ChallengeItem[] }) {
