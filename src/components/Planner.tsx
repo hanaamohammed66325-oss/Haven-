@@ -392,6 +392,8 @@ function TagEditor({
   showTime = false,
   time = null,
   onTime,
+  allowCustomColor = false,
+  color,
 }: {
   text: string;
   allowRename: boolean;
@@ -403,6 +405,10 @@ function TagEditor({
   showTime?: boolean;
   time?: string | null;
   onTime?: (v: string | null) => void;
+  /** show a colour wheel for a free custom colour (planner notes only) */
+  allowCustomColor?: boolean;
+  /** current note colour, used as the wheel's starting value */
+  color?: string;
 }) {
   const { t } = useT();
   return (
@@ -447,6 +453,24 @@ function TagEditor({
             style={{ background: tg.color, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.1)" }}
           />
         ))}
+        {allowCustomColor && (
+          <label
+            title={t("plannerCustomColor")}
+            aria-label={t("plannerCustomColor")}
+            className="relative h-5 w-5 rounded-full cursor-pointer transition-transform hover:scale-110 shrink-0"
+            style={{
+              background: "conic-gradient(#d9534f, #e89b4a, #f2d94e, #5fa98c, #477680, #8a6fb0, #d9534f)",
+              boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.15)",
+            }}
+          >
+            <input
+              type="color"
+              defaultValue={color ?? DEFAULT_NOTE_COLOR}
+              onChange={(e) => onPick("", e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+          </label>
+        )}
       </div>
       <div className="flex items-center justify-between">
         <button type="button" onClick={onDelete} className="text-[11px] font-medium" style={{ color: "var(--color-danger)" }}>
@@ -553,6 +577,8 @@ function WeekCard({
           showTime={canHaveTime}
           time={n.dueTime ?? null}
           onTime={(v) => onUpdate(n.id, { dueTime: v })}
+          allowCustomColor
+          color={n.color}
         />
       );
     }

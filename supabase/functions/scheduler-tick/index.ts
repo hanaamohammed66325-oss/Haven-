@@ -1,6 +1,8 @@
 // supabase/functions/scheduler-tick/index.ts
 // Cron-invoked edge function: sends push notifications for upcoming lectures.
-// Runs every 5 minutes via pg_cron + pg_net.
+// Runs every minute via pg_cron + pg_net; a WINDOW-minute send window plus an
+// atomic per-lecture claim (notifications_sent unique key) guarantees exactly
+// one push per lecture even though many ticks fall inside the window.
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import webpush from 'npm:web-push@3.6.7';
@@ -34,7 +36,7 @@ serve(async (req) => {
     // 1) Timetable entries for today
     const { data: entries, error: eErr } = await supabase
       .from('timetable_entries')
-      .select('id, user_id, course_id, semester_id, start_time')
+      .select('id, user_id, course_id, semester_id, start_time, room')
       .eq('day_of_week', todayDow);
 
     if (eErr) return json({ error: eErr.message }, 500);
@@ -81,18 +83,14 @@ serve(async (req) => {
       subsOf.get(s.user_id)!.push(s);
     }
 
-    // 4) Dedup
-    const keys = active.map((e: any) => `lec-${e.id}-${todayStr}`);
-    const { data: already } = await supabase
-      .from('notifications_sent')
-      .select('item_key')
-      .in('item_key', keys);
-    const sentKeys = new Set((already ?? []).map((r: any) => r.item_key));
-
-    // 5) Send
+    // 4) Send. Dedup is ATOMIC: we claim the per-lecture key by INSERTing into
+    // notifications_sent (which has a UNIQUE (user_id,item_key,kind) constraint)
+    // BEFORE sending. If the insert conflicts, another cron tick already claimed
+    // it this window, so we skip — no duplicate pushes even though the cron runs
+    // every minute across a multi-minute send window.
     let sent = 0;
     let cleaned = 0;
-    const toRecord: { user_id: string; item_key: string; kind: string }[] = [];
+    let recorded = 0;
 
     for (const entry of active) {
       const prefs = prefsOf.get(entry.user_id) ?? {};
@@ -110,21 +108,27 @@ serve(async (req) => {
 
       if (fireMins >= nowMins || fireMins < nowMins - WINDOW) continue;
 
-      const key = `lec-${entry.id}-${todayStr}`;
-      if (sentKeys.has(key)) continue;
-
       const subs = subsOf.get(entry.user_id);
       if (!subs?.length) continue;
 
+      const key = `lec-${entry.id}-${todayStr}`;
+
+      // Atomic claim — first tick to insert wins; a conflict means already sent.
+      const { data: claimed, error: claimErr } = await supabase
+        .from('notifications_sent')
+        .insert({ user_id: entry.user_id, item_key: key, kind: 'lecture' })
+        .select('id')
+        .maybeSingle();
+      if (claimErr || !claimed) continue; // conflict (23505) or error → skip
+      recorded++;
+
       const lang = prefs.language === 'en' ? 'en' : 'ar';
       const courseName = courseOf.get(entry.course_id) ?? 'Haven';
+      const room: string | null = entry.room ?? null;
       const payload = JSON.stringify({
-        title: courseName,
-        body:
-          lang === 'ar'
-            ? `تبدأ خلال ${minsBefore} دقيقة`
-            : `Starts in ${minsBefore} min`,
-        url: '/timetable',
+        title: `${courseName} 📚`,
+        body: lectureBody(lang, courseName, minsBefore, room),
+        url: '/schedule',
         id: key,
       });
 
@@ -143,23 +147,33 @@ serve(async (req) => {
           }
         }
       }
-
-      toRecord.push({ user_id: entry.user_id, item_key: key, kind: 'lecture' });
-      sentKeys.add(key);
     }
 
-    // 6) Record for dedup
-    if (toRecord.length) {
-      await supabase
-        .from('notifications_sent')
-        .insert(toRecord.map((r) => ({ ...r })));
-    }
-
-    return json({ checked: active.length, sent, cleaned, recorded: toRecord.length });
+    return json({ checked: active.length, sent, cleaned, recorded });
   } catch (err: any) {
     return json({ error: err.message }, 500);
   }
 });
+
+// Friendly, varied lecture-reminder body — casual tone, room, and an emoji.
+function lectureBody(lang: string, course: string, mins: number, room: string | null): string {
+  if (lang === 'en') {
+    const r = room ? ` — Room ${room}` : '';
+    const v = [
+      `Don't forget ${course}! Starts in ${mins} min${r} 🚀`,
+      `Heads up — ${course} is coming up${r} 📚`,
+      `Time for ${course}! Get ready${r} 🚀`,
+    ];
+    return v[Math.floor(Math.random() * v.length)];
+  }
+  const r = room ? ` — القاعة ${room}` : '';
+  const v = [
+    `لا تنسى ${course}! يبدأ بعد ${mins} دقيقة${r} 🚀`,
+    `يلا! عندك ${course} بعد شوي${r} 📚`,
+    `وقت ${course}! جهّز نفسك${r} 🚀`,
+  ];
+  return v[Math.floor(Math.random() * v.length)];
+}
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {

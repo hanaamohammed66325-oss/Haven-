@@ -104,7 +104,7 @@ export function SmartSuggestions() {
         id: "tasks-due",
         icon: <ClipboardList size={14} />,
         text: t("smart_tasksDue", { n: dueTasks.length }),
-        href: "/planner",
+        href: "/schedule",
         color: "var(--color-brass)",
         priority: 4,
       });

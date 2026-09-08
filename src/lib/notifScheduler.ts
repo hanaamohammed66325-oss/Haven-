@@ -19,6 +19,25 @@ const FIRED_KEY = "haven-notif-fired";
 // setTimeout max safe delay (~24.85 days). Values above this wrap to 1ms.
 const MAX_DELAY = 0x7fffffff;
 
+// Friendly, varied lecture-reminder body (mirrors the server push template).
+// The client has no room data, so room is omitted here.
+function lectureBody(lang: "en" | "ar", course: string, mins: number): string {
+  if (lang === "en") {
+    const v = [
+      `Don't forget ${course}! Starts in ${mins} min 🚀`,
+      `Heads up — ${course} is coming up 📚`,
+      `Time for ${course}! Get ready 🚀`,
+    ];
+    return v[Math.floor(Math.random() * v.length)];
+  }
+  const v = [
+    `لا تنسى ${course}! يبدأ بعد ${mins} دقيقة 🚀`,
+    `يلا! عندك ${course} بعد شوي 📚`,
+    `وقت ${course}! جهّز نفسك 🚀`,
+  ];
+  return v[Math.floor(Math.random() * v.length)];
+}
+
 function clearAll() {
   for (const t of activeTimers) clearTimeout(t);
   activeTimers = [];
@@ -112,19 +131,13 @@ function scheduleLectures(
         const fireAt = lectureMs - prefs.lectures.minutesBefore * 60_000;
         const delay = fireAt - now;
         const id = `lec-${course.id}-${session.id}-${session.time}`;
-        const body = lang === "ar"
-          ? `تبدأ خلال ${prefs.lectures.minutesBefore} دقيقة`
-          : `Starts in ${prefs.lectures.minutesBefore} min`;
-        scheduleAt(delay, course.name, body, id);
+        scheduleAt(delay, `${course.name} 📚`, lectureBody(lang, course.name, prefs.lectures.minutesBefore), id);
       } else if (session.day === tomorrowDay) {
         const tomorrowMs = todayAt(Number(m[1]), Number(m[2])) + 86400000;
         const fireAt = tomorrowMs - prefs.lectures.minutesBefore * 60_000;
         const delay = fireAt - now;
         const id = `lec-${course.id}-${session.id}-${session.time}-tmrw`;
-        const body = lang === "ar"
-          ? `تبدأ خلال ${prefs.lectures.minutesBefore} دقيقة`
-          : `Starts in ${prefs.lectures.minutesBefore} min`;
-        scheduleAt(delay, course.name, body, id);
+        scheduleAt(delay, `${course.name} 📚`, lectureBody(lang, course.name, prefs.lectures.minutesBefore), id);
       }
     }
   }
