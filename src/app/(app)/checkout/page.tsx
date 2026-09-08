@@ -22,7 +22,8 @@ import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription";
-import { PLANS, DEFAULT_PLAN_CYCLE } from "@/lib/premium";
+import { PLANS, DEFAULT_PLAN_CYCLE, ENFORCE_PREMIUM } from "@/lib/premium";
+import { RedirectHome } from "@/components/RedirectHome";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 const CREATE_SUBSCRIPTION_URL = `${SUPABASE_URL}/functions/v1/create-subscription`;
@@ -38,6 +39,8 @@ function planForCycle(cycle: string | null) {
 }
 
 export default function CheckoutPage() {
+  // Free launch — /checkout is disabled; bounce to the dashboard.
+  if (!ENFORCE_PREMIUM) return <RedirectHome />;
   return (
     <Suspense fallback={<div className="h-40" />}>
       <CheckoutInner />

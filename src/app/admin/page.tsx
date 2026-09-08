@@ -15,7 +15,6 @@ import { SubscriptionsSection } from "./subscriptions";
 import { PaymentsSection } from "./payments";
 import { SupportSection } from "./support";
 import { CouponsSection } from "./coupons";
-import { BetaSection } from "./beta";
 
 export default function AdminPageWrapper() {
   return (
@@ -140,7 +139,8 @@ function AdminPage() {
 
   // ---- Render: dashboard ----
   return (
-    <div dir="ltr" className="min-h-dvh flex" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', 'Tajawal', sans-serif" }}>
+    <div dir="ltr" className="min-h-dvh flex" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', 'Tajawal', sans-serif", "--admin-hover": C.mode === "light" ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)" } as React.CSSProperties}>
+      <style>{`.admin-hover-row:hover{background:var(--admin-hover)!important}`}</style>
       <AdminSidebar current={section} onChange={goSection} session={session} onSignOut={handleSignOut} badges={badges} />
       <AdminMobileDrawer open={drawerOpen} current={section} onChange={goSection} onClose={() => setDrawerOpen(false)} session={session} onSignOut={handleSignOut} />
 
@@ -161,8 +161,6 @@ function AdminPage() {
             <SupportSection session={session} />
           ) : section === "coupons" ? (
             <CouponsSection session={session} />
-          ) : section === "beta" ? (
-            <BetaSection session={session} />
           ) : null}
         </main>
       </div>
@@ -173,7 +171,7 @@ function AdminPage() {
 function Screen({ children }: { children: React.ReactNode }) {
   const C = useC();
   return (
-    <div dir="ltr" className="min-h-dvh flex items-center justify-center p-4" style={{ background: C.bg, fontFamily: "'Inter', 'Tajawal', sans-serif" }}>
+    <div dir="ltr" className="haven-safe-top min-h-dvh flex items-center justify-center p-4" style={{ background: C.bg, fontFamily: "'Inter', 'Tajawal', sans-serif" }}>
       {children}
     </div>
   );

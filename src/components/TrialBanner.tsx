@@ -5,7 +5,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
-import { isInTrial, isVip, daysUntilTrialEnds } from "@/lib/premium";
+import { isInTrial, isVip, daysUntilTrialEnds, ENFORCE_PREMIUM } from "@/lib/premium";
 
 // Slim, dismissible banner shown only while the current user is in trial.
 // Not shown for VIP or active/paid subscribers (isInTrial already excludes
@@ -15,6 +15,7 @@ export function TrialBanner() {
   const { sub, profile, loading } = useSubscription();
   const [dismissed, setDismissed] = useState(false);
 
+  if (!ENFORCE_PREMIUM) return null; // free launch — no trial/subscription UI
   if (loading || dismissed) return null;
   if (isVip(profile) || !isInTrial(sub)) return null;
 

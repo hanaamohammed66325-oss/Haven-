@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil } from "lucide-react";
+import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil, Flame, Sparkles, Lock, Target, CheckCircle2 } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
@@ -10,6 +10,9 @@ import { CircularProgress } from "@/components/CircularProgress";
 import { InfoPopover } from "@/components/InfoPopover";
 import { GradeBadge } from "@/components/GradeBadge";
 import { AttendanceBadge } from "@/components/AttendanceBadge";
+import { useSubscription } from "@/lib/subscription";
+import { hasActiveAccess } from "@/lib/premium";
+import { getLevel, getNextLevel, levelProgress, XP_REWARDS, TIER_ICONS, MAX_TIER, STREAK_MILESTONES, type ChallengeItem } from "@/lib/gamification";
 
 import { CountUp } from "@/components/CountUp";
 import { MiniCalendar } from "@/components/MiniCalendar";
@@ -17,7 +20,7 @@ import { UpcomingPanel } from "@/components/UpcomingPanel";
 import { buildUpcoming } from "@/lib/upcoming";
 import { GpaGoalCard } from "@/components/GpaGoalCard";
 import { WhatIfCard } from "@/components/WhatIfCard";
-import { NeedsAttentionCard } from "@/components/NeedsAttentionCard";
+import { SmartSuggestions } from "@/components/SmartSuggestions";
 import { CumulativeGpaModal } from "@/components/CumulativeGpaModal";
 import {
   semesterGPA,
@@ -54,8 +57,41 @@ export default function DashboardPage() {
     setCumulativeGpa,
     setCumulativeHours,
   } = store;
+  const { gamification, recordAppOpen, doCheckIn, awardGamificationXP, refreshGamChallenges } = store;
+  const { profile, sub } = useSubscription();
+  const isPremium = hasActiveAccess(profile, sub);
+
   const [revealGpa, setRevealGpa] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
+
+  // Record app open (streak + XP) + refresh challenges once per mount
+  const appOpenDone = useRef(false);
+  useEffect(() => {
+    if (!hydrated || appOpenDone.current) return;
+    appOpenDone.current = true;
+    const r = recordAppOpen();
+    refreshGamChallenges();
+    if (!window.havi) return;
+    if (r.streakBroke) {
+      window.havi.poke();
+    } else if (STREAK_MILESTONES.includes(r.streakCurrent as (typeof STREAK_MILESTONES)[number])) {
+      window.havi.celebrate(1);
+    }
+  }, [hydrated]);
+
+  const handleCheckIn = useCallback(() => {
+    const r = doCheckIn();
+    if (r.alreadyDone) return;
+    refreshGamChallenges();
+    if (!window.havi) return;
+    if (r.tierAdvanced) {
+      window.havi.celebrate(1);
+    } else if (r.newBadges.length > 0) {
+      window.havi.celebrate(0.8);
+    } else {
+      window.havi.celebrate(0.5);
+    }
+  }, [doCheckIn, refreshGamChallenges]);
 
   const progress = useMemo(() => semesterProgress(semester), [semester]);
   const gpa = useMemo(() => semesterGPA(courses), [courses]);
@@ -110,10 +146,19 @@ export default function DashboardPage() {
       >
         <div className="min-w-0">
           <h1
-            className="font-display text-[34px] leading-tight"
+            className="font-display text-[34px] leading-tight flex items-center gap-3 flex-wrap"
             style={{ color: "var(--color-ink)" }}
           >
             {greeting}
+            {isPremium && gamification.badgeTier >= 1 && (
+              <span
+                className="inline-flex items-center gap-1 text-base font-medium px-3 py-1 rounded-full"
+                style={{ background: "var(--color-surface-alt)", color: "var(--color-brass)" }}
+              >
+                {TIER_ICONS[Math.min(gamification.badgeTier, MAX_TIER) - 1]}
+                {t(`gam_tierLabel_${gamification.badgeTier}` as TranslationKey)}
+              </span>
+            )}
           </h1>
           <p className="text-[15px] mt-2.5" style={{ color: "var(--color-muted)" }}>
             {semester.name}
@@ -127,6 +172,148 @@ export default function DashboardPage() {
           {t("addCourse")}
         </Link>
       </header>
+
+      {/* ── Gamification strip ─────────────────────────────────── */}
+      <div
+        className="haven-fade-up grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10"
+        style={{ animationDelay: "0.06s" }}
+      >
+        {/* Check-in card (free) */}
+        {(() => {
+          const checkedIn = gamification.checkedInToday === new Date().toISOString().slice(0, 10);
+          const streak = gamification.streak.current;
+          return (
+            <Card padding="p-5" className="flex items-center gap-4">
+              <div className="relative shrink-0">
+                <button
+                  onClick={handleCheckIn}
+                  disabled={checkedIn}
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg transition-transform active:scale-90"
+                  style={{
+                    background: checkedIn ? "var(--color-surface-alt)" : "var(--color-brass)",
+                    color: checkedIn ? "var(--color-muted)" : "#fff",
+                  }}
+                >
+                  {checkedIn ? "✓" : "☀️"}
+                </button>
+                {!checkedIn && gamification.totalCheckIns === 0 && (
+                  <span
+                    className="absolute -top-1 -end-1 w-3 h-3 rounded-full animate-ping"
+                    style={{ background: "var(--color-brass)" }}
+                  />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+                  {t("gam_checkin")}
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                  {checkedIn
+                    ? streak > 1
+                      ? t("gam_checkinStreak", { n: String(streak) })
+                      : t("gam_checkinDone")
+                    : gamification.totalCheckIns === 0
+                      ? t("gam_checkinTap")
+                      : streak > 0
+                        ? t("gam_checkinReward", { n: String(XP_REWARDS.CHECK_IN) })
+                        : t("gam_checkinStartStreak")}
+                </div>
+                {gamification.totalCheckIns > 0 && (
+                  <div className="text-[10px] mt-1" style={{ color: "var(--color-muted)", opacity: 0.7 }}>
+                    {t("gam_checkinTotal", { n: String(gamification.totalCheckIns) })}
+                  </div>
+                )}
+              </div>
+            </Card>
+          );
+        })()}
+
+        {/* Streak card (free) */}
+        <Card padding="p-5" className="flex items-center gap-4">
+          <div
+            className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center"
+            style={{ background: "var(--color-surface-alt)" }}
+          >
+            <Flame size={22} style={{ color: gamification.streak.current > 0 ? "#f59e0b" : "var(--color-muted)" }} />
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+              {t("gam_streak")}
+            </div>
+            <div className="text-lg font-display" style={{ color: "var(--color-ink)" }}>
+              {t("gam_streakDays", { n: String(gamification.streak.current) })}
+            </div>
+          </div>
+        </Card>
+
+        {/* XP / Level card (premium-gated) */}
+        <Card padding="p-5" className="flex items-center gap-4 sm:col-span-2 xl:col-span-1">
+          {isPremium ? (() => {
+            const lvl = getLevel(gamification.xp);
+            const next = getNextLevel(gamification.xp);
+            const pct = levelProgress(gamification.xp);
+            return (
+              <>
+                <div
+                  className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center"
+                  style={{ background: "var(--color-surface-alt)" }}
+                >
+                  <Sparkles size={22} style={{ color: "var(--color-brass)" }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+                      {t(`gam_level_${lvl.name}` as TranslationKey)}
+                    </span>
+                    <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                      {t("gam_level")} {lvl.level}
+                    </span>
+                  </div>
+                  <div
+                    className="mt-2 h-2 rounded-full overflow-hidden"
+                    style={{ background: "var(--color-surface-alt)" }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.round(pct * 100)}%`, background: "var(--color-brass)" }}
+                    />
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
+                    {next
+                      ? t("gam_xpProgress", { current: String(gamification.xp), next: String(next.xp) })
+                      : t("gam_maxLevel")}
+                  </div>
+                </div>
+              </>
+            );
+          })() : (
+            <>
+              <div
+                className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center"
+                style={{ background: "var(--color-surface-alt)" }}
+              >
+                <Lock size={20} style={{ color: "var(--color-muted)" }} />
+              </div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm" style={{ color: "var(--color-muted)" }}>
+                  {t("gam_xp")}
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                  {t("gam_premiumOnly")}
+                </div>
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
+
+      {/* ── Challenges card (premium) ──────────────────────── */}
+      {isPremium && gamification.challenges.daily.items.length > 0 && (
+        <ChallengesCard
+          daily={gamification.challenges.daily.items}
+          weekly={gamification.challenges.weekly.items}
+        />
+      )}
 
       {/* Two-column: main content + right panel */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_352px] gap-8">
@@ -331,9 +518,9 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          {/* Needs attention */}
-          <div className="haven-fade-up mb-12" style={{ animationDelay: "0.11s" }}>
-            <NeedsAttentionCard />
+          {/* Smart suggestions */}
+          <div className="haven-fade-up mb-8" style={{ animationDelay: "0.11s" }}>
+            <SmartSuggestions />
           </div>
 
           {/* Smart suggestions — upcoming tasks/exams as individual cards */}
@@ -574,7 +761,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0">
-            <h3 className="font-display text-lg truncate" style={{ color: "var(--color-ink)" }}>
+            <h3 className="font-display text-lg line-clamp-2" style={{ color: "var(--color-ink)" }}>
               {course.name}
             </h3>
             <span className="text-[12px] mt-1 block" style={{ color: "var(--color-muted)" }}>
@@ -606,10 +793,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             <span className={revealed ? "haven-clear" : "haven-blur"}>
               <GradeBadge pct={pct} size="md" />
             </span>
-            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--color-muted)" }}>
-              {revealed ? <EyeOff size={11} /> : <Eye size={11} />}
-              {revealed ? t("clickHide") : t("clickReveal")}
-            </span>
+            {revealed ? <EyeOff size={14} color="var(--color-muted)" /> : <Eye size={14} color="var(--color-muted)" />}
           </span>
         </div>
 
@@ -734,6 +918,101 @@ function EmptyCourses() {
       <p className="max-w-sm text-[15px]" style={{ color: "var(--color-muted)" }}>
         {t("emptyHint")}
       </p>
+    </Card>
+  );
+}
+
+const CHALLENGE_KEYS: Record<string, string> = {
+  "due-today": "gam_ch_dueToday",
+  "exam-prep": "gam_ch_examPrep",
+  "add-task": "gam_ch_addTask",
+  "complete-task": "gam_ch_completeTask",
+  "open-streak": "gam_ch_openStreak",
+  "complete-n-tasks": "gam_ch_completeNTasks",
+  "checkin-week": "gam_ch_checkinWeek",
+  "log-marks-course": "gam_ch_logMarksCourse",
+  "perfect-attendance-week": "gam_ch_perfectAttendanceWeek",
+  "update-grades": "gam_ch_updateGrades",
+  "pomodoro-focus": "gam_ch_pomodoroFocus",
+  "pomodoro-streak": "gam_ch_pomodoroStreak",
+};
+
+function ChallengesCard({ daily, weekly }: { daily: ChallengeItem[]; weekly: ChallengeItem[] }) {
+  const { t } = useT();
+  const doneCount = daily.filter((c) => c.done).length;
+  const allDone = doneCount === daily.length;
+
+  const renderItem = (item: ChallengeItem, idx: number) => {
+    const key = CHALLENGE_KEYS[item.type] ?? item.type;
+    const label = t(key as TranslationKey, {
+      course: item.params.courseName ?? "",
+      n: item.params.displayCount ?? "",
+      task: item.params.taskName ?? "",
+      exam: item.params.examName ?? "",
+    });
+    return (
+      <div
+        key={idx}
+        className="flex items-center gap-3 py-2"
+        style={{ opacity: item.done ? 0.5 : 1 }}
+      >
+        {item.done ? (
+          <CheckCircle2 size={18} style={{ color: "var(--color-success)", flexShrink: 0 }} />
+        ) : (
+          <div
+            className="w-[18px] h-[18px] rounded-full border-2 shrink-0"
+            style={{ borderColor: "var(--color-border)" }}
+          />
+        )}
+        <span
+          className="flex-1 text-sm"
+          style={{
+            color: item.done ? "var(--color-muted)" : "var(--color-ink)",
+            textDecoration: item.done ? "line-through" : "none",
+          }}
+        >
+          {label}
+        </span>
+        <span className="text-xs font-medium shrink-0" style={{ color: "var(--color-brass)" }}>
+          +{item.xp}
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <Card
+      padding="p-5"
+      className="haven-fade-up mb-10"
+      style={{ animationDelay: "0.08s" }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Target size={18} style={{ color: "var(--color-brass)" }} />
+          <span className="font-medium text-sm" style={{ color: "var(--color-ink)" }}>
+            {t("gam_challenges")}
+          </span>
+        </div>
+        <span className="text-xs font-medium" style={{ color: allDone ? "var(--color-success)" : "var(--color-muted)" }}>
+          {allDone ? t("gam_challengesDone") : t("gam_challengeProgress", { done: String(doneCount), total: String(daily.length) })}
+        </span>
+      </div>
+
+      {daily.map((item, i) => renderItem(item, i))}
+
+      {weekly.length > 0 && (
+        <>
+          <div
+            className="mt-3 pt-3 border-t"
+            style={{ borderColor: "var(--color-border)" }}
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>
+              {t("gam_challengesWeekly")}
+            </span>
+          </div>
+          {weekly.map((item, i) => renderItem(item, i + daily.length))}
+        </>
+      )}
     </Card>
   );
 }

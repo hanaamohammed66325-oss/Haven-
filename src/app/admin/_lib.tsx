@@ -24,10 +24,21 @@ export async function callAdmin(
     },
     body: JSON.stringify({ action, ...params }),
   });
-  return res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: `Server error (${res.status})` };
+  return res.json().catch(() => ({ ok: false, error: "Invalid response" }));
 }
 
 export { supabase };
+
+// ---------- useDebounce ----------
+export function useDebounce<T>(value: T, ms = 300): T {
+  const [d, setD] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setD(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return d;
+}
 
 // ---------- Formatting ----------
 export const fmtDate = (iso?: string | null) =>
@@ -265,7 +276,7 @@ export function SectionHeader({ title, action }: { title: string; action?: React
   );
 }
 
-// ---------- Loading / Empty ----------
+// ---------- Loading / Empty / ErrorBanner ----------
 export function Loading({ text = "Loading…" }: { text?: string }) {
   const c = useC();
   return <p style={{ color: c.textDim }}>{text}</p>;
@@ -275,6 +286,15 @@ export function Empty({ text }: { text: string }) {
   return (
     <div className="rounded-xl border p-10 text-center" style={{ borderColor: c.border, color: c.textFaint }}>
       {text}
+    </div>
+  );
+}
+export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const c = useC();
+  return (
+    <div className="rounded-xl border p-4 mb-4 flex items-center justify-between gap-3" style={{ borderColor: c.tint(c.danger, "44"), background: c.dangerBg }}>
+      <p className="text-[13px]" style={{ color: c.danger }}>{message}</p>
+      {onRetry && <button onClick={onRetry} className="text-[12px] px-3 py-1.5 rounded-lg font-medium shrink-0" style={{ background: c.border, color: c.text, border: "none", cursor: "pointer" }}>Retry</button>}
     </div>
   );
 }

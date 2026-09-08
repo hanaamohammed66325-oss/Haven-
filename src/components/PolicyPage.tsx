@@ -18,20 +18,24 @@ export function PolicyPage({
   meta,
   en,
   ar,
+  notice,
 }: {
   titleEn: string;
   titleAr: string;
   meta: string;
   en: string;
   ar: string;
+  /** Optional highlighted callout shown above the meta (e.g. payments disabled). */
+  notice?: { en: string; ar: string };
 }) {
   const { t, lang } = useT();
   const { language, setLanguage } = useStore();
   const title = lang === "ar" ? titleAr : titleEn;
   const body = lang === "ar" ? ar : en;
+  const noticeText = notice ? (lang === "ar" ? notice.ar : notice.en) : null;
 
   return (
-    <div className="min-h-dvh flex flex-col">
+    <div className="haven-safe-top min-h-dvh flex flex-col">
       <header className="mx-auto w-full max-w-[720px] px-5 flex items-center justify-between py-6">
         <Link href="/" className="flex items-center gap-2.5">
           <Logo size={30} mono />
@@ -55,6 +59,15 @@ export function PolicyPage({
         <h1 className="font-display text-[32px] leading-tight mt-4 mb-4" style={{ color: "var(--color-ink)" }}>
           {title}
         </h1>
+        {noticeText && (
+          <div
+            className="mb-6 rounded-2xl px-4 py-3.5 text-[14px] leading-relaxed"
+            style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)" }}
+            role="note"
+          >
+            {noticeText}
+          </div>
+        )}
         <Markdown content={meta} className="mb-8 text-[13px]" />
         <Markdown content={body} />
       </main>

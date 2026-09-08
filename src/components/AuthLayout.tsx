@@ -20,7 +20,7 @@ export function AuthLayout({
   const { language, setLanguage } = useStore();
 
   return (
-    <div className="relative min-h-dvh flex flex-col px-5">
+    <div className="haven-safe-top relative min-h-dvh flex flex-col px-5">
       {/* Language toggle */}
       <button
         onClick={() => setLanguage(language === "en" ? "ar" : "en")}

@@ -2,6 +2,7 @@
 
 import { PolicyPage } from "@/components/PolicyPage";
 import { REFUND_META, REFUND_EN, REFUND_AR } from "@/lib/policies";
+import { paymentDisabledNotice } from "@/lib/featureFlags";
 
 export default function RefundPage() {
   return (
@@ -11,6 +12,7 @@ export default function RefundPage() {
       meta={REFUND_META}
       en={REFUND_EN}
       ar={REFUND_AR}
+      notice={paymentDisabledNotice()}
     />
   );
 }

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function OfflinePage() {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-24 px-6">
+    <div className="haven-safe-top flex flex-col items-center justify-center text-center py-24 px-6">
       <h1 className="font-display text-3xl mb-3" style={{ color: "var(--color-ink)" }}>
         لا يوجد اتصال بالإنترنت
       </h1>

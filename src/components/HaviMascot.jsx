@@ -359,6 +359,8 @@ export default function HaviMascot({
   const [pos, setPos] = useState({ top: -9999, left: -9999 });
   const [visible, setVisible] = useState(false);
   const [reduced, setReduced] = useState(false);
+  const [showName, setShowName] = useState(false);
+  const nameTimerRef = useRef(null);
 
   const tRef = useRef(0);
   const posRef = useRef({ top: -9999, left: -9999 });
@@ -822,8 +824,19 @@ export default function HaviMascot({
   }, [activity, enterFromCard]);
 
   /* ---------------- poke reaction ---------------- */
+  useEffect(() => {
+    return () => { if (nameTimerRef.current) clearTimeout(nameTimerRef.current); };
+  }, []);
+
+  const flashName = useCallback(() => {
+    if (nameTimerRef.current) clearTimeout(nameTimerRef.current);
+    setShowName(true);
+    nameTimerRef.current = setTimeout(() => setShowName(false), 2200);
+  }, []);
+
   const poke = useCallback(() => {
     if (squishRef.current) return; // already squishing
+    flashName();
 
     /* count clicks — every 3rd one switches to the next animation */
     clickCountRef.current += 1;
@@ -1364,7 +1377,7 @@ export default function HaviMascot({
             height: dispH,
             imageRendering: "pixelated",
             display: "block",
-            pointerEvents: "auto", // he can be poked
+            pointerEvents: "auto",
             cursor: "pointer",
           }}
           aria-label={haviName || "Havi"}
@@ -1372,6 +1385,9 @@ export default function HaviMascot({
           role="img"
         />
       </div>
+      {showName && (
+        <div className="haven-name-label">{haviName || "Havi"}</div>
+      )}
     </div>
   );
 }

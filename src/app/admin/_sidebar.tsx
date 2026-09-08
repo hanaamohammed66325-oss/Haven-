@@ -5,7 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
   | "dashboard" | "users" | "subscriptions" | "payments"
-  | "support" | "coupons" | "beta";
+  | "support" | "coupons";
 
 interface NavItem { id: AdminSection; label: string; icon: string; badge?: number | string; }
 
@@ -27,7 +27,6 @@ export function AdminSidebar({
     { id: "payments",      label: "Payments",      icon: "💰", badge: badges?.payments },
     { id: "support",       label: "Support",       icon: "🎫", badge: badges?.support },
     { id: "coupons",       label: "Coupons",       icon: "🏷️" },
-    { id: "beta",          label: "Beta",          icon: "🧪", badge: badges?.beta },
   ];
 
   return (
@@ -121,7 +120,7 @@ export function AdminTopBar({
   const label = current[0].toUpperCase() + current.slice(1);
   return (
     <header
-      className="md:hidden sticky top-0 z-40 border-b flex items-center justify-between px-4 py-3"
+      className="haven-safe-top md:hidden sticky top-0 z-40 border-b flex items-center justify-between px-4 py-3"
       style={{ background: C.panel, borderColor: C.border }}
     >
       <button

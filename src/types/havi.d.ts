@@ -28,8 +28,12 @@ declare global {
       sleep: () => void;
       watch: () => void;
       write: () => void;
+      /** squish animation — nudge reaction */
+      poke: () => void;
       /** recompute placement after cards mount / change */
       refresh: () => void;
+      /** relocate Havi to an element or CSS selector */
+      goTo: (elOrSelector: Element | string) => void;
       /** hop Havi to an element or selector, leaning left/right (v6) */
       jumpTo?: (elOrSelector: Element | string, corner?: "left" | "right") => void;
       /** play the doorway "enter page" animation (v7) */

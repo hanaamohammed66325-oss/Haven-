@@ -2,6 +2,7 @@
 
 import { PolicyPage } from "@/components/PolicyPage";
 import { TERMS_META, TERMS_EN, TERMS_AR } from "@/lib/policies";
+import { paymentDisabledNotice } from "@/lib/featureFlags";
 
 export default function TermsPage() {
   return (
@@ -11,6 +12,7 @@ export default function TermsPage() {
       meta={TERMS_META}
       en={TERMS_EN}
       ar={TERMS_AR}
+      notice={paymentDisabledNotice()}
     />
   );
 }

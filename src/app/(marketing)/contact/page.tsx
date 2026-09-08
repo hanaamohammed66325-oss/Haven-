@@ -6,7 +6,7 @@ import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
-import { SUPPORT_EMAIL, contactChannels } from "@/lib/contact";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 
 export default function ContactPage() {
   const { t, lang } = useT();
@@ -57,29 +57,7 @@ export default function ContactPage() {
           {SUPPORT_EMAIL}
         </a>
 
-        {/* The same channels as the landing page — Email · Instagram (WhatsApp
-            temporarily disabled, see @/lib/contact) */}
-        <div className="mt-8">
-          <p className="text-[13px] mb-3" style={{ color: "var(--color-muted)" }}>
-            {ar ? "أو تواصل معنا عبر:" : "Or reach us on:"}
-          </p>
-          <div className="flex items-center gap-3">
-            {contactChannels.map((c) => (
-              <a
-                key={c.label}
-                href={c.href}
-                aria-label={c.label}
-                title={c.label}
-                className="surface-card inline-flex items-center justify-center h-11 w-11 rounded-2xl transition-colors hover:text-[color:var(--color-primary)]"
-                style={{ color: "var(--color-muted)" }}
-              >
-                {c.svg}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        <p className="text-[13px] mt-6" style={{ color: "var(--color-muted)" }}>
+        <p className="text-[13px] mt-8" style={{ color: "var(--color-muted)" }}>
           {note}
         </p>
       </main>

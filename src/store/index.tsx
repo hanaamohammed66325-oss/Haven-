@@ -21,6 +21,8 @@ import type {
   Semester,
   ThemeId,
   GpaMode,
+  PomodoroSettings,
+  PomodoroStats,
 } from "@/types";
 import { DEFAULT_NOTIF_PREFS, normalizeNotifPrefs } from "@/lib/notifPrefs";
 import { demoCourses } from "@/lib/demo";
@@ -28,6 +30,18 @@ import { supabase } from "@/lib/supabase";
 import { toISODate, addDays } from "@/lib/dates";
 import { addMinutesToTime } from "@/lib/format";
 import * as db from "@/lib/db";
+import {
+  defaultGamification,
+  updateStreak,
+  checkIn as gamCheckIn,
+  awardXP,
+  checkBadges,
+  type GamificationState,
+  type BadgeContext,
+  XP_REWARDS,
+} from "@/lib/gamification";
+import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
+import { semesterGPA } from "@/lib/grades";
 import type { Session } from "@supabase/supabase-js";
 
 // localStorage scope depends on whether someone is signed in:
@@ -100,6 +114,41 @@ const defaultSemester: Semester = {
 
 const emptyPlanner: PlannerData = { notes: [], strokes: [], highlights: [], autoEdits: {} };
 
+const defaultPomodoroSettings: PomodoroSettings = {
+  focusMinutes: 25,
+  shortBreakMinutes: 5,
+  longBreakMinutes: 15,
+  sessionsBeforeLong: 4,
+  pondStyle: "smooth",
+  soundEnabled: true,
+  autoStartBreaks: false,
+  autoStartFocus: false,
+};
+
+const defaultPomodoroStats: PomodoroStats = {
+  totalSessions: 0,
+  totalFocusMinutes: 0,
+  longestDailyStreak: 0,
+  currentDailyStreak: 0,
+  lastSessionDate: null,
+  recentDays: [],
+  lilyPadCount: 0,
+};
+
+const POMODORO_HISTORY_LIMIT = 30;
+
+// Fire the achievement toast when new badges are earned or the tier advances.
+// `newTier` is passed in so each caller keeps its own tier-base semantics.
+function emitAchievement(newBadges: string[], tierAdvanced: boolean, newTier: number) {
+  if (newBadges.length > 0 || tierAdvanced) {
+    setTimeout(
+      () => window.dispatchEvent(new CustomEvent("haven-achievement", { detail: { newBadges, tierAdvanced, newTier } })),
+      0
+    );
+  }
+}
+
+
 const initialData: AppData = {
   profileName: "Student",
   email: "",
@@ -117,6 +166,9 @@ const initialData: AppData = {
   cumulativeHours: 0,
   notifPrefs: DEFAULT_NOTIF_PREFS,
   haviName: "Havi",
+  gamification: defaultGamification,
+  pomodoroSettings: defaultPomodoroSettings,
+  pomodoroStats: defaultPomodoroStats,
 };
 
 // Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
@@ -248,6 +300,16 @@ export interface StoreValue extends AppData {
   removeMissedSession: (courseId: string, missedId: string) => void;
   loadDemo: () => void;
   resetData: () => void;
+  recordAppOpen: () => { xpEarned: number; streakBroke: boolean; streakCurrent: number };
+  doCheckIn: () => { xpEarned: number; alreadyDone: boolean; newBadges: string[]; tierAdvanced: boolean };
+  awardGamificationXP: (amount: number, reason: string) => { newBadges: string[]; tierAdvanced: boolean };
+  refreshGamChallenges: () => { xpEarned: number; newlyCompleted: string[] };
+  /** Update Pomodoro timer settings; persisted to preferences.pomodoroSettings. */
+  setPomodoroSettings: (patch: Partial<PomodoroSettings>) => void;
+  /** Record a completed focus session (stats + XP + challenges + a new lily pad). */
+  recordPomodoroComplete: () => { xpEarned: number; lilyPadCount: number };
+  /** Record an abandoned focus session (withers a lily pad). */
+  recordPomodoroAbandon: () => void;
 }
 
 export const StoreContext = createContext<StoreValue | null>(null);
@@ -266,12 +328,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // a real account switch apart from a token refresh on the same account.
   const currentUidRef = useRef<string | null>(null);
   const loadedOnceRef = useRef(false);
+  const loadingRef = useRef(false);
   const retryCountRef = useRef(0);
   const MAX_RETRIES = 3;
   const [loadGeneration, setLoadGeneration] = useState(0);
   const retryLoad = useCallback(() => {
     retryCountRef.current = 0;
     loadedOnceRef.current = false;
+    loadingRef.current = false;
     setLoadFailed(false);
     setHydrated(false);
     setLoadGeneration((g) => g + 1);
@@ -314,6 +378,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         taskOrder: [],
         courses: [],
       });
+      loadedOnceRef.current = true;
+      loadingRef.current = false;
       setHydrated(true);
     };
 
@@ -467,6 +533,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // notifPrefs supersedes the legacy `reminderDays`; missing → defaults.
           notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
           haviName: str(prefs.haviName, "Havi") || "Havi",
+          pomodoroSettings: {
+            ...defaultPomodoroSettings,
+            ...((prefs.pomodoroSettings as Partial<PomodoroSettings>) ?? {}),
+          },
+          pomodoroStats: {
+            ...defaultPomodoroStats,
+            ...((prefs.pomodoroStats as Partial<PomodoroStats>) ?? {}),
+            recentDays: Array.isArray((prefs.pomodoroStats as PomodoroStats | undefined)?.recentDays)
+              ? (prefs.pomodoroStats as PomodoroStats).recentDays.slice(-POMODORO_HISTORY_LIMIT)
+              : [],
+          },
+          gamification: {
+            ...defaultGamification,
+            ...((prefs.gamification as Partial<GamificationState>) ?? {}),
+            streak: {
+              ...defaultGamification.streak,
+              ...((prefs.gamification as Record<string, unknown>)?.streak as Record<string, unknown> ?? {}),
+            },
+            challenges: {
+              ...defaultGamification.challenges,
+              ...((prefs.gamification as Record<string, unknown>)?.challenges as Record<string, unknown> ?? {}),
+            },
+          },
           semester: {
             ...defaultSemester,
             name: sem.name,
@@ -491,6 +580,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
           courses,
         });
+        loadedOnceRef.current = true;
+        loadingRef.current = false;
+        retryCountRef.current = 0;
         setHydrated(true);
 
         // One-time migration: backfill the canonical `calendar` pref for existing
@@ -504,23 +596,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("Haven: failed to load cloud data", e);
         if (cancelled) return;
-        // DO NOT publish defaults as if they were the user's real data. Doing
-        // that on a single dropped request showed a signed-in student an empty
-        // account — no courses, name reset to "Student", theme and language
-        // reverted, a semester starting today — rendered as settled truth with
-        // no error and no retry. It then wrote those wrong values into the
-        // boot cache, so the NEXT launch started wrong too.
-        //
-        // Leaving `hydrated` false keeps the app on its loading state (screens
-        // return early while !hydrated) instead of lying about the data, and
-        // the retry below recovers as soon as the network does.
+        loadingRef.current = false;
         if (!loadedOnceRef.current) {
           retryCountRef.current += 1;
           if (retryCountRef.current >= MAX_RETRIES) {
             setLoadFailed(true);
           } else {
             window.setTimeout(() => {
-              if (!cancelled) void applyForUser(session);
+              if (!cancelled && !loadingRef.current) {
+                loadingRef.current = true;
+                void applyForUser(session);
+              }
             }, 4000);
           }
         }
@@ -542,6 +628,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loggedInRef.current = false;
         semesterIdRef.current = null;
         loadedOnceRef.current = true;
+        loadingRef.current = false;
         clearHavenLocalStorage();
         setData(initialData);
         setHydrated(true);
@@ -550,17 +637,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const uid = session?.user?.id ?? null;
       const prev = currentUidRef.current;
-      // A token refresh / metadata update for the same account: nothing to do.
-      if (loadedOnceRef.current && uid === prev) return;
-      // A different account on this device: wipe the previous one's local data.
+      if ((loadedOnceRef.current || loadingRef.current) && uid === prev) return;
       if (prev !== null && prev !== uid) {
         clearHavenLocalStorage();
         setData(initialData);
       }
       currentUidRef.current = uid;
-      loadedOnceRef.current = true;
-      // Defer the load: calling Supabase auth-backed methods (db.* → getUser)
-      // synchronously inside this callback can deadlock the auth lock.
+      loadingRef.current = true;
       setTimeout(() => {
         if (!cancelled) apply(session);
       }, 0);
@@ -628,6 +711,185 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       console.error("Haven: failed to save preferences", e)
     );
   }, []);
+
+  const persistGamification = useCallback(
+    (g: GamificationState) => persistPref({ gamification: g as unknown as Record<string, unknown> }),
+    [persistPref]
+  );
+
+  const recordAppOpen = useCallback(() => {
+    let result = { xpEarned: 0, streakBroke: false, streakCurrent: 0 };
+    setData((d) => {
+      const r = updateStreak(d.gamification);
+      result = { xpEarned: r.xpEarned, streakBroke: r.streakBroke, streakCurrent: r.state.streak.current };
+      if (r.state === d.gamification) return d;
+      persistGamification(r.state);
+      return { ...d, gamification: r.state };
+    });
+    return result;
+  }, [persistGamification]);
+
+  const doCheckIn = useCallback(() => {
+    let result = { xpEarned: 0, alreadyDone: false, newBadges: [] as string[], tierAdvanced: false };
+    setData((d) => {
+      const r = gamCheckIn(d.gamification);
+      if (r.alreadyDone) {
+        result = { xpEarned: 0, alreadyDone: true, newBadges: [], tierAdvanced: false };
+        return d;
+      }
+      db.logEvent("check_in"); // per-user activity tracking
+      const ctx: BadgeContext = {
+        courses: d.courses,
+        planner: d.planner,
+        semesterGpa: semesterGPA(d.courses),
+        semesterStartDate: d.semester.startDate,
+        semesterWeeks: d.semester.weeks,
+      };
+      const br = checkBadges(r.state, ctx);
+      result = { xpEarned: r.xpEarned, alreadyDone: false, newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
+      emitAchievement(br.newBadges, br.tierAdvanced, br.state.badgeTier + (br.tierAdvanced ? 1 : 0));
+      persistGamification(br.state);
+      return { ...d, gamification: br.state };
+    });
+    return result;
+  }, [persistGamification]);
+
+  const awardGamificationXP = useCallback(
+    (amount: number, reason: string) => {
+      db.logEvent(reason, { xp: amount }); // per-user activity tracking (fire-and-forget)
+      let result = { newBadges: [] as string[], tierAdvanced: false };
+      setData((d) => {
+        const next = awardXP(d.gamification, amount);
+        const ctx: BadgeContext = {
+          courses: d.courses,
+          planner: d.planner,
+          semesterGpa: semesterGPA(d.courses),
+          semesterStartDate: d.semester.startDate,
+          semesterWeeks: d.semester.weeks,
+        };
+        const br = checkBadges(next, ctx);
+        result = { newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
+        emitAchievement(br.newBadges, br.tierAdvanced, next.badgeTier + (br.tierAdvanced ? 1 : 0));
+        persistGamification(br.state);
+        return { ...d, gamification: br.state };
+      });
+      return result;
+    },
+    [persistGamification]
+  );
+
+  const refreshGamChallenges = useCallback(() => {
+    let result = { xpEarned: 0, newlyCompleted: [] as string[] };
+    setData((d) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const cCtx: ChallengeContext = {
+        courses: d.courses,
+        planner: d.planner,
+        semester: d.semester,
+        gamification: d.gamification,
+        pomodoroStats: d.pomodoroStats,
+        today,
+      };
+      const r = refreshChallenges(d.gamification, cCtx);
+      if (r.xpEarned === 0 && r.newlyCompleted.length === 0 && !r.weeklyReport && r.state === d.gamification) return d;
+      result = { xpEarned: r.xpEarned, newlyCompleted: r.newlyCompleted };
+      if (r.weeklyReport) {
+        setTimeout(() => window.dispatchEvent(new CustomEvent("haven-weekly-report", { detail: r.weeklyReport })), 0);
+      }
+      persistGamification(r.state);
+      return { ...d, gamification: r.state };
+    });
+    return result;
+  }, [persistGamification]);
+
+  // --- Pomodoro ------------------------------------------------------------
+
+  const setPomodoroSettings = useCallback(
+    (patch: Partial<PomodoroSettings>) => {
+      let merged: PomodoroSettings = defaultPomodoroSettings;
+      setData((d) => {
+        merged = { ...d.pomodoroSettings, ...patch };
+        return { ...d, pomodoroSettings: merged };
+      });
+      persistPref({ pomodoroSettings: merged as unknown as Record<string, unknown> });
+    },
+    [persistPref]
+  );
+
+  // A focus session finished. Bump lifetime + today's counters, roll the daily
+  // streak, add a lily pad, then hand off to the XP/challenge systems.
+  const recordPomodoroComplete = useCallback(() => {
+    let result = { xpEarned: 0, lilyPadCount: 0 };
+    setData((d) => {
+      const today = toISODate(new Date());
+      const focusMin = d.pomodoroSettings.focusMinutes;
+      const prev = d.pomodoroStats;
+
+      const recentDays = [...prev.recentDays];
+      const idx = recentDays.findIndex((r) => r.date === today);
+      if (idx >= 0) {
+        recentDays[idx] = {
+          ...recentDays[idx],
+          completedSessions: recentDays[idx].completedSessions + 1,
+          totalFocusMinutes: recentDays[idx].totalFocusMinutes + focusMin,
+        };
+      } else {
+        recentDays.push({ date: today, completedSessions: 1, totalFocusMinutes: focusMin, abandonedSessions: 0 });
+      }
+      while (recentDays.length > POMODORO_HISTORY_LIMIT) recentDays.shift();
+
+      // daily streak: same day keeps it, yesterday extends, a gap resets to 1.
+      let current = prev.currentDailyStreak;
+      const last = prev.lastSessionDate;
+      if (last === today) {
+        current = Math.max(1, current);
+      } else if (last) {
+        const gap = Math.round(
+          (new Date(today + "T00:00:00").getTime() - new Date(last + "T00:00:00").getTime()) / 86400000
+        );
+        current = gap === 1 ? current + 1 : 1;
+      } else {
+        current = 1;
+      }
+
+      const stats: PomodoroStats = {
+        totalSessions: prev.totalSessions + 1,
+        totalFocusMinutes: prev.totalFocusMinutes + focusMin,
+        currentDailyStreak: current,
+        longestDailyStreak: Math.max(prev.longestDailyStreak, current),
+        lastSessionDate: today,
+        recentDays,
+        lilyPadCount: prev.lilyPadCount + 1,
+      };
+      result = { xpEarned: XP_REWARDS.COMPLETE_POMODORO, lilyPadCount: stats.lilyPadCount };
+      persistPref({ pomodoroStats: stats as unknown as Record<string, unknown> });
+      return { ...d, pomodoroStats: stats };
+    });
+    awardGamificationXP(XP_REWARDS.COMPLETE_POMODORO, "complete_pomodoro");
+    refreshGamChallenges();
+    return result;
+  }, [persistPref, awardGamificationXP, refreshGamChallenges]);
+
+  // A focus session was given up. Record the abandon; the pond stays alive —
+  // the withered pad regrows rather than permanently shrinking the pond, so
+  // lilyPadCount is preserved (the scene plays the wither → regrow drama).
+  const recordPomodoroAbandon = useCallback(() => {
+    setData((d) => {
+      const today = toISODate(new Date());
+      const prev = d.pomodoroStats;
+      const recentDays = [...prev.recentDays];
+      const idx = recentDays.findIndex((r) => r.date === today);
+      if (idx >= 0) {
+        recentDays[idx] = { ...recentDays[idx], abandonedSessions: recentDays[idx].abandonedSessions + 1 };
+      } else {
+        recentDays.push({ date: today, completedSessions: 0, totalFocusMinutes: 0, abandonedSessions: 1 });
+      }
+      while (recentDays.length > POMODORO_HISTORY_LIMIT) recentDays.shift();
+      const stats: PomodoroStats = { ...prev, recentDays };
+      persistPref({ pomodoroStats: stats as unknown as Record<string, unknown> });
+      return { ...d, pomodoroStats: stats };
+    });
+  }, [persistPref]);
 
   const setProfileName = useCallback(
     (name: string) => {
@@ -732,13 +994,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Keep the colour in sync with the tag (colour isn't stored in the cloud).
     const withColor: Partial<PlannerNote> =
       patch.tag !== undefined ? { ...patch, color: colorForTag(patch.tag) } : patch;
-    setData((d) => ({
-      ...d,
-      planner: {
-        ...d.planner,
-        notes: d.planner.notes.map((n) => (n.id === id ? { ...n, ...withColor } : n)),
-      },
-    }));
+    setData((d) => {
+      if (patch.done === true) {
+        const prev = d.planner.notes.find((n) => n.id === id);
+        if (prev && !prev.done) {
+          awardGamificationXP(XP_REWARDS.COMPLETE_TASK, "complete_task");
+          refreshGamChallenges();
+        }
+      }
+      return {
+        ...d,
+        planner: {
+          ...d.planner,
+          notes: d.planner.notes.map((n) => (n.id === id ? { ...n, ...withColor } : n)),
+        },
+      };
+    });
     if (loggedInRef.current) {
       const dbPatch: Parameters<typeof db.updatePlannerItem>[1] = {};
       if (patch.week !== undefined) dbPatch.week = patch.week;
@@ -753,7 +1024,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
     }
-  }, []);
+  }, [awardGamificationXP]);
 
   const deletePlannerNote = useCallback((id: string) => {
     setData((d) => ({
@@ -1034,13 +1305,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : c
         ),
       }));
+      if (patch.score != null) {
+        const course = coursesRef.current.find((c) => c.id === courseId);
+        const prev = course?.components.find((c) => c.id === componentId);
+        if (prev && prev.score == null) {
+          awardGamificationXP(XP_REWARDS.LOG_MARKS, "log_marks");
+          refreshGamChallenges();
+        }
+      }
       if (loggedInRef.current) {
         db.updateGradeComponent(componentId, patch).catch((e) =>
           console.error("Haven: failed to update grade component", e)
         );
       }
     },
-    []
+    [awardGamificationXP]
   );
 
   const deleteComponent = useCallback((courseId: string, componentId: string) => {
@@ -1282,12 +1561,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : c
         ),
       }));
+      awardGamificationXP(XP_REWARDS.LOG_ATTENDANCE, "log_attendance");
+      refreshGamChallenges();
       return { ok: true };
     } catch (e) {
       console.error("Haven: failed to log absence", e);
       return { ok: false, error: asError(e) };
     }
-  }, []);
+  }, [awardGamificationXP]);
 
   const updateMissedSession = useCallback(
     (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null }) => {
@@ -1430,6 +1711,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCumulativeHours,
     setNotifPrefs,
     setHaviName,
+    recordAppOpen,
+    doCheckIn,
+    awardGamificationXP,
+    refreshGamChallenges,
+    setPomodoroSettings,
+    recordPomodoroComplete,
+    recordPomodoroAbandon,
     setSemester,
     addCourse,
     updateCourse,

@@ -55,16 +55,22 @@ const SHADE_TAG_ORDER = ["tagHoliday", "tagExam", "tagQuiz"] as const;
  *  → equal hard-edged bands so every colour stays visible instead of one
  *  overriding the rest. Returns undefined when there's nothing to shade. */
 function shadeImage(notes: PlannerNote[]): string | undefined {
-  const present = SHADE_TAG_ORDER.filter((k) => notes.some((n) => n.tag === k));
-  if (!present.length) return undefined;
-  const tint = (k: string) => `${tagColorOf(k)}24`; // ~14% alpha — light version
-  if (present.length === 1) {
-    const c = tint(present[0]);
+  // Which shade-eligible whole-week notes are present, in a stable order. Each
+  // tint uses the note's ACTUAL colour (which the user may have customised via
+  // the colour wheel) rather than the tag's fixed colour, so recolouring a note
+  // updates the week/day shade too.
+  const shaded = SHADE_TAG_ORDER
+    .map((k) => notes.find((n) => n.tag === k))
+    .filter((n): n is PlannerNote => !!n);
+  if (!shaded.length) return undefined;
+  const tint = (c: string) => `${c}24`; // ~14% alpha — light version
+  if (shaded.length === 1) {
+    const c = tint(shaded[0].color);
     return `linear-gradient(0deg, ${c} 0%, ${c} 100%)`;
   }
-  const n = present.length;
-  const stops = present
-    .map((k, i) => `${tint(k)} ${((i / n) * 100).toFixed(2)}% ${(((i + 1) / n) * 100).toFixed(2)}%`)
+  const n = shaded.length;
+  const stops = shaded
+    .map((note, i) => `${tint(note.color)} ${((i / n) * 100).toFixed(2)}% ${(((i + 1) / n) * 100).toFixed(2)}%`)
     .join(", ");
   return `linear-gradient(180deg, ${stops})`;
 }
@@ -392,6 +398,9 @@ function TagEditor({
   showTime = false,
   time = null,
   onTime,
+  allowCustomColor = false,
+  color,
+  onColor,
 }: {
   text: string;
   allowRename: boolean;
@@ -403,6 +412,12 @@ function TagEditor({
   showTime?: boolean;
   time?: string | null;
   onTime?: (v: string | null) => void;
+  /** show a colour wheel for a free custom colour (planner notes only) */
+  allowCustomColor?: boolean;
+  /** current note colour, used as the wheel's starting value */
+  color?: string;
+  /** change ONLY the colour, keeping the note's tag/type intact */
+  onColor?: (color: string) => void;
 }) {
   const { t } = useT();
   return (
@@ -447,6 +462,24 @@ function TagEditor({
             style={{ background: tg.color, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.1)" }}
           />
         ))}
+        {allowCustomColor && (
+          <label
+            title={t("plannerCustomColor")}
+            aria-label={t("plannerCustomColor")}
+            className="relative h-5 w-5 rounded-full cursor-pointer transition-transform hover:scale-110 shrink-0"
+            style={{
+              background: "conic-gradient(#d9534f, #e89b4a, #f2d94e, #5fa98c, #477680, #8a6fb0, #d9534f)",
+              boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.15)",
+            }}
+          >
+            <input
+              type="color"
+              defaultValue={color ?? DEFAULT_NOTE_COLOR}
+              onChange={(e) => onColor?.(e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+          </label>
+        )}
       </div>
       <div className="flex items-center justify-between">
         <button type="button" onClick={onDelete} className="text-[11px] font-medium" style={{ color: "var(--color-danger)" }}>
@@ -553,6 +586,9 @@ function WeekCard({
           showTime={canHaveTime}
           time={n.dueTime ?? null}
           onTime={(v) => onUpdate(n.id, { dueTime: v })}
+          allowCustomColor
+          color={n.color}
+          onColor={(color) => onUpdate(n.id, { color })}
         />
       );
     }

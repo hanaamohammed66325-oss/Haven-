@@ -12,6 +12,14 @@ import {
   Globe,
   MousePointer2,
   GraduationCap,
+  Lock,
+  Lightbulb,
+  Trophy,
+  Medal,
+  BarChart3,
+  Leaf,
+  Bell,
+  Timer,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { HeroDemo } from "@/components/HeroDemo";
@@ -21,7 +29,7 @@ import { Footer } from "@/components/Footer";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { supabase } from "@/lib/supabase";
-import { PLANS } from "@/lib/premium";
+import { PLANS, ENFORCE_PREMIUM } from "@/lib/premium";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 export default function LandingPage() {
@@ -47,7 +55,7 @@ export default function LandingPage() {
     loggedIn ? `/checkout?plan=${cycle}` : "/signin";
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
+    <div className="haven-safe-top relative min-h-dvh overflow-x-hidden">
 
       <div className="relative z-10 mx-auto w-full max-w-7xl px-6 md:px-10 lg:px-16">
         {/* Nav */}
@@ -192,7 +200,56 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Pricing */}
+        {/* What's new — the features shipped this round */}
+        <section id="new" className="pb-32">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide mb-5"
+              style={{ background: "var(--color-brass)", color: "#1a1410" }}
+            >
+              <Sparkles size={13} /> {t("land_newEyebrow")}
+            </span>
+            <h2 className="font-display text-3xl md:text-4xl" style={{ color: "var(--color-ink)" }}>
+              {t("land_newTitle")}
+            </h2>
+            <p className="mt-5 text-lg" style={{ color: "var(--color-muted)" }}>
+              {t("land_newSubtitle")}
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <NewCard accent="#e89b4a" icon={<Lightbulb size={22} />} title={t("land_n1Title")} desc={t("land_n1Desc")} />
+            <NewCard accent="#b8975a" icon={<Trophy size={22} />} title={t("land_n2Title")} desc={t("land_n2Desc")} />
+            <NewCard accent="#7f77dd" icon={<Medal size={22} />} title={t("land_n3Title")} desc={t("land_n3Desc")} />
+            <NewCard accent="#477680" icon={<BarChart3 size={22} />} title={t("land_n4Title")} desc={t("land_n4Desc")} />
+            <NewCard accent="#5fa98c" icon={<Leaf size={22} />} title={t("land_n5Title")} desc={t("land_n5Desc")} />
+            <NewCard accent="#4a90d9" icon={<Bell size={22} />} title={t("land_n6Title")} desc={t("land_n6Desc")} />
+          </div>
+
+          {/* Pomodoro — coming soon highlight */}
+          <div className="surface-card haven-card mt-6 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div
+              className="flex items-center justify-center rounded-2xl shrink-0"
+              style={{ width: 60, height: 60, background: "color-mix(in srgb, var(--color-primary) 15%, transparent)", color: "var(--color-primary)" }}
+            >
+              <Timer size={28} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <h3 className="font-display text-xl" style={{ color: "var(--color-ink)" }}>{t("land_pomTitle")}</h3>
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                  style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
+                >
+                  <Lock size={11} /> {t("comingSoon")}
+                </span>
+              </div>
+              <p className="text-[15px] leading-relaxed" style={{ color: "var(--color-muted)" }}>{t("land_pomDesc")}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing — shown, but plans read "coming soon" during the free launch */}
         <section id="pricing" className="pb-32">
           <div className="text-center max-w-2xl mx-auto mb-10">
             <h2 className="font-display text-3xl md:text-4xl" style={{ color: "var(--color-ink)" }}>
@@ -210,7 +267,7 @@ export default function LandingPage() {
               style={{ color: "var(--color-primary)" }}
             >
               <Sparkles size={17} style={{ color: "var(--color-brass)" }} />
-              {t("land_pricingFreeHighlight")}
+              {ENFORCE_PREMIUM ? t("land_pricingFreeHighlight") : t("land_pricingSoon")}
             </div>
           </div>
 
@@ -250,13 +307,24 @@ export default function LandingPage() {
                     {t(p.perMonthKey as TranslationKey)}
                   </div>
 
-                  <Link
-                    href={startFreeHref(p.cycle)}
-                    className="haven-btn mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
-                  >
-                    <Sparkles size={16} />
-                    {t("land_pricingStartFree")}
-                  </Link>
+                  {ENFORCE_PREMIUM ? (
+                    <Link
+                      href={startFreeHref(p.cycle)}
+                      className="haven-btn mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
+                    >
+                      <Sparkles size={16} />
+                      {t("land_pricingStartFree")}
+                    </Link>
+                  ) : (
+                    <div
+                      className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium cursor-not-allowed select-none"
+                      style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
+                      aria-disabled="true"
+                    >
+                      <Lock size={15} />
+                      {t("comingSoon")}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -345,6 +413,32 @@ function FeatureCard({
       </div>
       <h3 className="font-display text-xl mb-3" style={{ color: "var(--color-ink)" }}>{title}</h3>
       <p className="text-[15px] leading-relaxed" style={{ color: "var(--color-muted)" }}>{desc}</p>
+    </div>
+  );
+}
+
+// Colorful card for the "What's new" grid — a per-feature accent tint.
+function NewCard({
+  icon,
+  title,
+  desc,
+  accent,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  accent: string;
+}) {
+  return (
+    <div className="surface-card haven-card haven-card--hover rounded-3xl p-7">
+      <div
+        className="flex items-center justify-center rounded-2xl mb-5"
+        style={{ width: 50, height: 50, background: `color-mix(in srgb, ${accent} 15%, transparent)`, color: accent }}
+      >
+        {icon}
+      </div>
+      <h3 className="font-display text-lg mb-2" style={{ color: "var(--color-ink)" }}>{title}</h3>
+      <p className="text-[14.5px] leading-relaxed" style={{ color: "var(--color-muted)" }}>{desc}</p>
     </div>
   );
 }

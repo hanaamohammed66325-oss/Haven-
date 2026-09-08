@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Badge, useC, useS, callAdmin, fmtDateTime, Loading, SectionHeader, timeAgo } from "./_lib";
+import { Badge, useC, useS, callAdmin, fmtDateTime, Loading, SectionHeader, timeAgo, useDebounce, ErrorBanner } from "./_lib";
 
 interface Ticket {
   id: string; user_id: string | null; user_email: string;
@@ -23,16 +23,21 @@ export function SupportSection({ session }: { session: Session }) {
   const [status, setStatus] = useState("all");
   const [priority, setPriority] = useState("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState<Ticket | null>(null);
+  const [offset, setOffset] = useState(0);
+  const pageSize = 50;
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const res = await callAdmin(session, "tickets_list", { status, priority, search });
+    setLoading(true); setError("");
+    const res = await callAdmin(session, "tickets_list", { status, priority, search: debouncedSearch, limit: pageSize, offset });
     if (res?.ok) { setRows(res.tickets ?? []); setTotal(res.total ?? 0); }
+    else setError(res?.error ?? "Failed to load tickets");
     setLoading(false);
-  }, [session, status, priority, search]);
+  }, [session, status, priority, debouncedSearch, offset]);
   useEffect(() => { void load(); }, [load]);
 
   return (
@@ -44,7 +49,7 @@ export function SupportSection({ session }: { session: Session }) {
             <input
               type="text" placeholder="Search…"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
               style={{ ...S.input, width: 200, fontSize: 13 }}
             />
             <button onClick={() => setShowCreate(true)} style={S.btnPrimary}>+ New ticket</button>
@@ -52,16 +57,18 @@ export function SupportSection({ session }: { session: Session }) {
         }
       />
 
+      {error && <ErrorBanner message={error} onRetry={load} />}
+
       <div className="flex flex-wrap gap-2 mb-4">
         <span className="text-[11px] uppercase tracking-wide me-2 self-center" style={{ color: C.textFaint }}>Status:</span>
         {[["all","All"],["open","Open"],["pending","Pending"],["resolved","Resolved"],["closed","Closed"]].map(([id, l]) => (
-          <button key={id} onClick={() => setStatus(id)} className="rounded-full px-3 py-1 text-[12px] font-medium" style={{ background: status === id ? C.primarySoft : C.border, color: status === id ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}>{l}</button>
+          <button key={id} onClick={() => { setStatus(id); setOffset(0); }} className="rounded-full px-3 py-1 text-[12px] font-medium" style={{ background: status === id ? C.primarySoft : C.border, color: status === id ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}>{l}</button>
         ))}
       </div>
       <div className="flex flex-wrap gap-2 mb-4">
         <span className="text-[11px] uppercase tracking-wide me-2 self-center" style={{ color: C.textFaint }}>Priority:</span>
         {[["all","All"],["low","Low"],["normal","Normal"],["high","High"],["urgent","Urgent"]].map(([id, l]) => (
-          <button key={id} onClick={() => setPriority(id)} className="rounded-full px-3 py-1 text-[12px] font-medium" style={{ background: priority === id ? C.primarySoft : C.border, color: priority === id ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}>{l}</button>
+          <button key={id} onClick={() => { setPriority(id); setOffset(0); }} className="rounded-full px-3 py-1 text-[12px] font-medium" style={{ background: priority === id ? C.primarySoft : C.border, color: priority === id ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}>{l}</button>
         ))}
       </div>
 
@@ -85,7 +92,7 @@ export function SupportSection({ session }: { session: Session }) {
                   <tr
                     key={t.id}
                     onClick={() => setSelected(t)}
-                    className="transition-colors hover:bg-[#111827] cursor-pointer"
+                    className="transition-colors admin-hover-row cursor-pointer"
                     style={{ borderBottom: `1px solid ${C.border}` }}
                   >
                     <td style={{ ...S.tableCell, fontWeight: 500 }}>{t.subject}</td>
@@ -100,6 +107,19 @@ export function SupportSection({ session }: { session: Session }) {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {total > pageSize && (
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-[12px]" style={{ color: C.textDim }}>
+            Showing {offset + 1}–{Math.min(offset + pageSize, total)} of {total.toLocaleString()}
+          </span>
+          <div className="flex gap-2">
+            <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))} style={{ ...S.btnSec, opacity: offset === 0 ? 0.5 : 1 }}>← Prev</button>
+            <button disabled={offset + pageSize >= total} onClick={() => setOffset(offset + pageSize)} style={{ ...S.btnSec, opacity: offset + pageSize >= total ? 0.5 : 1 }}>Next →</button>
+          </div>
         </div>
       )}
 
@@ -120,12 +140,13 @@ function TicketModal({
   const [messages, setMessages] = useState<Message[]>([]);
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
+  const [fieldSaving, setFieldSaving] = useState(false);
   const [current, setCurrent] = useState<Ticket>(ticket);
 
   const load = useCallback(async () => {
-    const res = await callAdmin(session, "ticket_detail", { ticket_id: current.id });
+    const res = await callAdmin(session, "ticket_detail", { ticket_id: ticket.id });
     if (res?.ok) { setMessages(res.messages ?? []); setCurrent(res.ticket); }
-  }, [session, current.id]);
+  }, [session, ticket.id]);
   useEffect(() => { void load(); }, [load]);
 
   const sendReply = async () => {
@@ -136,8 +157,10 @@ function TicketModal({
     setSaving(false);
   };
   const changeField = async (patch: Record<string, string>) => {
+    setFieldSaving(true);
     const res = await callAdmin(session, "ticket_update", { ticket_id: current.id, ...patch });
     if (res?.ok) { setCurrent(res.ticket); onChanged(); }
+    setFieldSaving(false);
   };
 
   return (
@@ -152,26 +175,27 @@ function TicketModal({
         </div>
 
         {/* Controls */}
-        <div className="flex flex-wrap gap-3 p-4 border-b" style={{ borderColor: C.border, background: C.panel }}>
+        <div className="flex flex-wrap items-end gap-3 p-4 border-b" style={{ borderColor: C.border, background: C.panel, opacity: fieldSaving ? 0.6 : 1 }}>
           <div>
             <label style={S.label}>Status</label>
-            <select value={current.status} onChange={(e) => changeField({ status: e.target.value })} style={{ ...S.input, width: "auto" }}>
+            <select value={current.status} onChange={(e) => changeField({ status: e.target.value })} disabled={fieldSaving} style={{ ...S.input, width: "auto" }}>
               <option value="open">Open</option><option value="pending">Pending</option><option value="resolved">Resolved</option><option value="closed">Closed</option>
             </select>
           </div>
           <div>
             <label style={S.label}>Priority</label>
-            <select value={current.priority} onChange={(e) => changeField({ priority: e.target.value })} style={{ ...S.input, width: "auto" }}>
+            <select value={current.priority} onChange={(e) => changeField({ priority: e.target.value })} disabled={fieldSaving} style={{ ...S.input, width: "auto" }}>
               <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option>
             </select>
           </div>
           <div>
             <label style={S.label}>Category</label>
-            <select value={current.category} onChange={(e) => changeField({ category: e.target.value })} style={{ ...S.input, width: "auto" }}>
+            <select value={current.category} onChange={(e) => changeField({ category: e.target.value })} disabled={fieldSaving} style={{ ...S.input, width: "auto" }}>
               <option value="general">General</option><option value="account">Account</option><option value="login">Login</option>
               <option value="subscription">Subscription</option><option value="payment">Payment</option><option value="technical">Technical</option><option value="other">Other</option>
             </select>
           </div>
+          {fieldSaving && <span className="text-[11px] pb-2" style={{ color: C.textDim }}>Saving…</span>}
         </div>
 
         {/* Messages */}
