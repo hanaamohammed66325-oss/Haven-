@@ -76,9 +76,9 @@ export function SmartSuggestions() {
       }
     }
 
-    // 3. Upcoming exams/quizzes — individual cards
+    // 3. Upcoming exams/quizzes — individual cards (7-day window)
     const upcoming = buildUpcoming(courses, planner, semester, now);
-    for (const exam of upcoming.filter((u) => u.bucket === "exam")) {
+    for (const exam of upcoming.filter((u) => u.bucket === "exam" && u.diffDays <= 7)) {
       const when =
         exam.diffDays === 0 ? t("dueToday")
         : exam.diffDays === 1 ? t("dueTomorrow")
