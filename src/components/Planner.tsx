@@ -394,6 +394,7 @@ function TagEditor({
   onTime,
   allowCustomColor = false,
   color,
+  onColor,
 }: {
   text: string;
   allowRename: boolean;
@@ -409,6 +410,8 @@ function TagEditor({
   allowCustomColor?: boolean;
   /** current note colour, used as the wheel's starting value */
   color?: string;
+  /** change ONLY the colour, keeping the note's tag/type intact */
+  onColor?: (color: string) => void;
 }) {
   const { t } = useT();
   return (
@@ -466,7 +469,7 @@ function TagEditor({
             <input
               type="color"
               defaultValue={color ?? DEFAULT_NOTE_COLOR}
-              onChange={(e) => onPick("", e.target.value)}
+              onChange={(e) => onColor?.(e.target.value)}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
           </label>
@@ -579,6 +582,7 @@ function WeekCard({
           onTime={(v) => onUpdate(n.id, { dueTime: v })}
           allowCustomColor
           color={n.color}
+          onColor={(color) => onUpdate(n.id, { color })}
         />
       );
     }
