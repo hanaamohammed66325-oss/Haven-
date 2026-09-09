@@ -1,4 +1,5 @@
 import type { Course, PlannerData, PomodoroStats, Semester } from "@/types";
+import { POMODORO_ENABLED } from "@/lib/featureFlags";
 import type { GamificationState, ChallengeItem, ChallengeState, WeeklySnapshot } from "./gamification";
 import { defaultChallenges } from "./gamification";
 
@@ -148,7 +149,8 @@ const DAILY_POOL: ChallengeDef[] = [
   {
     type: "pomodoro-focus",
     xp: 20,
-    canGenerate: () => true,
+    // Pomodoro is not launched yet — never offer this challenge until it is.
+    canGenerate: () => POMODORO_ENABLED,
     generate: (ctx) => ({
       targetSessions: "2",
       baseSessions: String(pomodoroToday(ctx)),
@@ -258,7 +260,7 @@ const WEEKLY_POOL: ChallengeDef[] = [
   {
     type: "pomodoro-streak",
     xp: 50,
-    canGenerate: (ctx) => ctx.pomodoroStats.totalSessions > 0,
+    canGenerate: (ctx) => POMODORO_ENABLED && ctx.pomodoroStats.totalSessions > 0,
     generate: () => ({ targetDays: "3" }),
     isComplete: (ctx, p) =>
       ctx.pomodoroStats.currentDailyStreak >= parseInt(p.targetDays),
@@ -365,6 +367,21 @@ export function refreshChallenges(
       weekStart: currentWeekStart,
       items: pickChallenges(WEEKLY_POOL, WEEKLY_COUNT, ctx, currentWeekStart),
     };
+  }
+
+  // Drop challenges for locked features that may already sit in the active set.
+  if (!POMODORO_ENABLED) {
+    const disabled = new Set(["pomodoro-focus", "pomodoro-streak"]);
+    const dFiltered = daily.items.filter((it) => !disabled.has(it.type));
+    if (dFiltered.length !== daily.items.length) {
+      daily = { ...daily, items: dFiltered };
+      changed = true;
+    }
+    const wFiltered = weekly.items.filter((it) => !disabled.has(it.type));
+    if (wFiltered.length !== weekly.items.length) {
+      weekly = { ...weekly, items: wFiltered };
+      changed = true;
+    }
   }
 
   const defMap = new Map<string, ChallengeDef>();
