@@ -44,9 +44,13 @@ html {
   -moz-osx-font-smoothing: grayscale;
   /* Paint the theme background on the ROOT too, not just <body>. On mobile the
      body's 100dvh can fall short of the visual viewport (dynamic toolbar,
-     overscroll), and a bare <html> would show through as a white strip at the
-     bottom — including behind the fixed loader. */
-  background: var(--app-bg);
+     overscroll, safe-area), and a bare <html> shows through as a white strip at
+     the bottom — including behind the fixed loader. iOS Safari ignores
+     `background-attachment: fixed`, so a SOLID background-color is what actually
+     fills the overscroll/safe-area canvas; the gradient layers on top. Each
+     theme overrides the solid color below. */
+  background-color: #edeae3;
+  background-image: var(--app-bg);
   background-attachment: fixed;
 }
 
@@ -458,6 +462,7 @@ html[data-theme="midnight"] {
     radial-gradient(900px 600px at -8% 0%, rgba(95, 169, 184, 0.14) 0%, transparent 58%),
     radial-gradient(1000px 700px at 100% 0%, rgba(200, 168, 110, 0.08) 0%, transparent 55%),
     linear-gradient(180deg, #0f1b22 0%, #0a1217 100%);
+  background-color: #0a1217;
 }
 
 /* 3) Rose Quartz */
@@ -476,6 +481,7 @@ html[data-theme="rose"] {
     radial-gradient(900px 600px at -8% 0%, rgba(179, 115, 127, 0.12) 0%, transparent 58%),
     radial-gradient(1100px 700px at 100% 0%, rgba(192, 138, 114, 0.1) 0%, transparent 55%),
     linear-gradient(180deg, #f7f0f1 0%, #f0e8e9 100%);
+  background-color: #f0e8e9;
 }
 
 /* 4) Lavender */
@@ -494,6 +500,7 @@ html[data-theme="lavender"] {
     radial-gradient(900px 600px at -8% 0%, rgba(126, 111, 176, 0.13) 0%, transparent 58%),
     radial-gradient(1100px 700px at 100% 0%, rgba(184, 154, 106, 0.08) 0%, transparent 55%),
     linear-gradient(180deg, #f3f0f9 0%, #ede9f4 100%);
+  background-color: #ede9f4;
 }
 
 /* 5) Sand & Clay */
@@ -512,6 +519,7 @@ html[data-theme="sand"] {
     radial-gradient(900px 600px at -8% 0%, rgba(176, 122, 82, 0.12) 0%, transparent 58%),
     radial-gradient(1100px 700px at 100% 0%, rgba(169, 137, 85, 0.1) 0%, transparent 55%),
     linear-gradient(180deg, #f6efe5 0%, #efe6d9 100%);
+  background-color: #efe6d9;
 }
 
 /* 6) Forest */
@@ -530,6 +538,7 @@ html[data-theme="forest"] {
     radial-gradient(900px 600px at -8% 0%, rgba(63, 125, 90, 0.13) 0%, transparent 58%),
     radial-gradient(1100px 700px at 100% 0%, rgba(184, 151, 90, 0.08) 0%, transparent 55%),
     linear-gradient(180deg, #eef3ec 0%, #e7eee6 100%);
+  background-color: #e7eee6;
 }
 
 /* 7) Ocean */
@@ -548,6 +557,7 @@ html[data-theme="ocean"] {
     radial-gradient(900px 600px at -8% 0%, rgba(58, 110, 165, 0.13) 0%, transparent 58%),
     radial-gradient(1100px 700px at 100% 0%, rgba(184, 151, 90, 0.07) 0%, transparent 55%),
     linear-gradient(180deg, #eef3f8 0%, #e6edf3 100%);
+  background-color: #e6edf3;
 }
 
 /* 8) Mono — calm neutral greyscale */
@@ -565,4 +575,5 @@ html[data-theme="mono"] {
   --app-bg:
     radial-gradient(900px 600px at -8% 0%, rgba(74, 79, 84, 0.1) 0%, transparent 58%),
     linear-gradient(180deg, #f2f2f2 0%, #eaeaea 100%);
+  background-color: #eaeaea;
 }
