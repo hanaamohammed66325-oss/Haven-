@@ -31,6 +31,13 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
   const left = Math.max(0, 100 - used);
   const advice = finalAdvice(course);
 
+  // Share of the course weight that is actually graded — drives the
+  // "provisional" note so a single graded item doesn't read as a final grade.
+  const gradedWeight = course.components
+    .filter((c) => c.score != null && c.total > 0)
+    .reduce((s, c) => s + (Number(c.weight) || 0), 0);
+  const gradedPct = used > 0 ? (gradedWeight / used) * 100 : 0;
+
   const border = { borderColor: "var(--color-border)" };
 
   // Add three standard, fully-editable grade components in one click. Only
@@ -92,7 +99,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <GradeBadge pct={pct} size="lg" showDefaultNote />
+          <GradeBadge pct={pct} size="lg" showDefaultNote gradedPct={gradedPct} showProvisional />
           <button
             onClick={() => setEditing(true)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"

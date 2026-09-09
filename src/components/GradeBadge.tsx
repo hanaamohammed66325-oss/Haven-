@@ -9,6 +9,11 @@ interface GradeBadgeProps {
   pct: number | null;
   size?: "sm" | "md" | "lg";
   showDefaultNote?: boolean;
+  /** Share of the course weight graded so far (0–100). When set and below 100
+   *  (with a grade present) a "provisional" caption is shown. */
+  gradedPct?: number;
+  /** Render the provisional caption below the letter (used on the course page). */
+  showProvisional?: boolean;
 }
 
 function gradeColor(points: number): string {
@@ -18,7 +23,13 @@ function gradeColor(points: number): string {
   return "#D9534F"; // danger
 }
 
-export function GradeBadge({ pct, size = "md", showDefaultNote = false }: GradeBadgeProps) {
+export function GradeBadge({
+  pct,
+  size = "md",
+  showDefaultNote = false,
+  gradedPct,
+  showProvisional = false,
+}: GradeBadgeProps) {
   const { t } = useT();
   const isDefault = pct == null;
   const displayPct = pct ?? 100;
@@ -31,7 +42,11 @@ export function GradeBadge({ pct, size = "md", showDefaultNote = false }: GradeB
     lg: "text-lg px-3 py-1",
   }[size];
 
-  return (
+  // Provisional: a grade exists but only part of the course weight is graded.
+  const isProvisional =
+    !isDefault && gradedPct != null && gradedPct > 0 && gradedPct < 100;
+
+  const badge = (
     <span className="inline-flex items-center gap-1">
       <span
         className={`inline-flex items-center font-semibold rounded-lg ${sizeClass}`}
@@ -51,4 +66,17 @@ export function GradeBadge({ pct, size = "md", showDefaultNote = false }: GradeB
       )}
     </span>
   );
+
+  if (isProvisional && showProvisional) {
+    return (
+      <span className="inline-flex flex-col items-end gap-0.5">
+        {badge}
+        <span className="text-[10px] leading-none" style={{ color: "var(--color-muted)" }}>
+          {t("gradeProvisional", { pct: Math.round(gradedPct!) })}
+        </span>
+      </span>
+    );
+  }
+
+  return badge;
 }

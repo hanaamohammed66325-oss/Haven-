@@ -434,7 +434,9 @@ export const en = {
   emptyTitle: "No courses yet",
   emptyHint: "Your courses, ready in minutes — no hassle.",
   noGradesYet: "Not enough grades yet",
-  gradeDescNote: "Descending system: starts at A+ and drops if you lose more than 5 marks",
+  gradeDescNote: "Starting estimate, shown as A+ until you enter your first mark — then it reflects your graded work.",
+  gradeProvisional: "Provisional · {pct}% graded",
+  gpaProvisional: "Provisional — from graded work so far",
   progressInfo: "How far along the semester is, based on its start and end dates.",
 
   // Course card / grades

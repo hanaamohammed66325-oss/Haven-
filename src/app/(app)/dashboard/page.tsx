@@ -408,9 +408,17 @@ export default function DashboardPage() {
                     </InfoPopover>
                   </div>
 
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setRevealGpa((v) => !v)}
-                    className="flex flex-col items-center justify-center gap-2 text-center"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setRevealGpa((v) => !v);
+                      }
+                    }}
+                    className="flex flex-col items-center justify-center gap-2 text-center cursor-pointer"
                   >
                     {shownGpa == null ? (
                     gpaMode === "cumulative" ? (
@@ -452,13 +460,18 @@ export default function DashboardPage() {
                         </span>
                         <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
                       </div>
+                      {gpaMode === "semester" && (
+                        <div className="text-[10px] leading-none" style={{ color: "var(--color-muted)" }}>
+                          {t("gpaProvisional")}
+                        </div>
+                      )}
                       <div className="inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
                         {revealGpa ? <EyeOff size={12} /> : <Eye size={12} />}
                         {revealGpa ? t("clickHide") : t("clickReveal")}
                       </div>
                     </>
                   )}
-                  </button>
+                  </div>
                 </div>
 
                 {/* Cumulative inputs — the current GPA the projection starts from */}
