@@ -83,8 +83,10 @@ const DAILY_POOL: ChallengeDef[] = [
       return { taskId: pick.id, taskName: pick.text };
     },
     isComplete: (ctx, p) => {
+      // Complete ONLY when the task still exists AND is marked done. A missing
+      // task means it was DELETED, not finished — deleting must never award XP.
       const note = ctx.planner.notes.find((n) => n.id === p.taskId);
-      return !note || !!note.done;
+      return !!note && !!note.done;
     },
   },
   {
