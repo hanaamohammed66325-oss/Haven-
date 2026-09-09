@@ -26,6 +26,16 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
     webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
 
+    let sent = 0;
+    let cleaned = 0;
+    let recorded = 0;
+
+    // 0) OUTBOX — deliver client-queued smart reminders that are due now. This
+    // runs FIRST and independently of lectures so it still fires on days with no
+    // timetable entries. The client precomputes the content and send time; here
+    // we only deliver, claiming each row atomically so a row is sent exactly once.
+    const scheduledSent = await deliverOutbox(supabase, webpush, () => { cleaned++; });
+
     // Riyadh time (UTC+3)
     const riyadhMs = Date.now() + 3 * 3_600_000;
     const nowRiyadh = new Date(riyadhMs);
@@ -40,7 +50,7 @@ serve(async (req) => {
       .eq('day_of_week', todayDow);
 
     if (eErr) return json({ error: eErr.message }, 500);
-    if (!entries?.length) return json({ sent: 0, msg: 'no entries today' });
+    if (!entries?.length) return json({ sent, cleaned, recorded, scheduledSent, msg: 'no entries today' });
 
     // 2) Active semesters covering today
     const semIds = [...new Set(entries.map((e: any) => e.semester_id))];
@@ -56,7 +66,7 @@ serve(async (req) => {
     );
 
     const active = entries.filter((e: any) => activeSemIds.has(e.semester_id));
-    if (!active.length) return json({ sent: 0, msg: 'no active entries' });
+    if (!active.length) return json({ sent, cleaned, recorded, scheduledSent, msg: 'no active entries' });
 
     // 3) Profiles, push subscriptions, course names
     const userIds = [...new Set(active.map((e: any) => e.user_id))];
@@ -88,10 +98,6 @@ serve(async (req) => {
     // BEFORE sending. If the insert conflicts, another cron tick already claimed
     // it this window, so we skip — no duplicate pushes even though the cron runs
     // every minute across a multi-minute send window.
-    let sent = 0;
-    let cleaned = 0;
-    let recorded = 0;
-
     for (const entry of active) {
       const prefs = prefsOf.get(entry.user_id) ?? {};
       const lp = prefs.notifPrefs?.lectures ?? {};
@@ -149,11 +155,82 @@ serve(async (req) => {
       }
     }
 
-    return json({ checked: active.length, sent, cleaned, recorded });
+    return json({ checked: active.length, sent, cleaned, recorded, scheduledSent });
   } catch (err: any) {
     return json({ error: err.message }, 500);
   }
 });
+
+// Deliver client-queued reminders from the scheduled_pushes outbox that are due
+// now and not yet sent. Each row is claimed atomically (flip sent_at only while
+// still null) so exactly one cron tick delivers it. `onClean` is called whenever
+// a dead (404/410) subscription is pruned. Returns how many pushes were sent.
+async function deliverOutbox(
+  supabase: any,
+  webpush: any,
+  onClean: () => void,
+): Promise<number> {
+  const nowIso = new Date().toISOString();
+  const { data: due } = await supabase
+    .from('scheduled_pushes')
+    .select('id, user_id, dedup_key, title, body')
+    .is('sent_at', null)
+    .lte('send_at', nowIso)
+    .limit(200);
+
+  if (!due?.length) return 0;
+
+  const dueUserIds = [...new Set(due.map((r: any) => r.user_id))];
+  const { data: dueSubs } = await supabase
+    .from('push_subscriptions')
+    .select('user_id, id, endpoint, p256dh, auth')
+    .in('user_id', dueUserIds);
+
+  const subsOf = new Map<string, any[]>();
+  for (const s of dueSubs ?? []) {
+    if (!subsOf.has(s.user_id)) subsOf.set(s.user_id, []);
+    subsOf.get(s.user_id)!.push(s);
+  }
+
+  let scheduledSent = 0;
+  for (const row of due) {
+    // Atomic claim — only the first tick to flip sent_at delivers this row.
+    const { data: claimed } = await supabase
+      .from('scheduled_pushes')
+      .update({ sent_at: nowIso })
+      .eq('id', row.id)
+      .is('sent_at', null)
+      .select('id')
+      .maybeSingle();
+    if (!claimed) continue;
+
+    const subs = subsOf.get(row.user_id);
+    if (!subs?.length) continue;
+
+    const payload = JSON.stringify({
+      title: row.title,
+      body: row.body,
+      url: '/dashboard',
+      id: row.dedup_key,
+    });
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload,
+          { TTL: 6 * 3600 },
+        );
+        scheduledSent++;
+      } catch (err: any) {
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+          onClean();
+        }
+      }
+    }
+  }
+  return scheduledSent;
+}
 
 // Friendly, varied lecture-reminder body — casual tone, room, and an emoji.
 function lectureBody(lang: string, course: string, mins: number, room: string | null): string {

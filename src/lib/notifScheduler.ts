@@ -11,7 +11,16 @@
 // ---------------------------------------------------------------------------
 
 import type { Course, NotifPrefs, PlannerData, Semester } from "@/types";
-import { collectUpcoming, plannerItemDate } from "./reminders";
+import { plannerItemDate } from "./reminders";
+
+/** A single, ready-to-fire smart reminder (built in the React layer from
+ *  buildSmartSuggestions, so the notification says the same smart thing the
+ *  dashboard chips do). */
+export interface SmartAlert {
+  id: string;
+  title: string;
+  body: string;
+}
 
 let activeTimers: ReturnType<typeof setTimeout>[] = [];
 const FIRED_KEY = "haven-notif-fired";
@@ -143,44 +152,22 @@ function scheduleLectures(
   }
 }
 
-// ---- Daily digest (exams, assignments, planner deadlines) ----
+// ---- Daily smart reminder (single, highest-priority suggestion) ----
 
-function scheduleDailyDigest(
-  courses: Course[],
-  planner: PlannerData,
-  semester: Semester,
-  prefs: NotifPrefs,
-  reminderDays: number,
-  lang: "en" | "ar",
-) {
-  if (!prefs.exams.enabled) return;
+// One notification a day carrying the SINGLE most relevant suggestion (nearest
+// deadline / attendance risk / low grade …), not a stacked list. The content is
+// computed in the React layer (buildSmartSuggestions) and passed in ready-made.
+function scheduleSmartDaily(alert: SmartAlert | null, prefs: NotifPrefs) {
+  if (!prefs.exams.enabled || !alert) return;
   const now = Date.now();
   const fireAt = todayAt(prefs.dailyReminderHour, 0);
-
-  const maxDays = prefs.exams.days.length ? Math.max(...prefs.exams.days) : reminderDays;
-  const items = collectUpcoming(courses, planner, semester, maxDays);
-  const filtered = items.filter((it) => prefs.exams.days.some((d) => it.diff <= d));
-  if (!filtered.length) return;
-
-  const lines = filtered.map((it) => {
-    if (lang === "ar") {
-      if (it.diff === 0) return `اليوم: ${it.title}`;
-      if (it.diff === 1) return `غداً: ${it.title}`;
-      return `بعد ${it.diff} أيام: ${it.title}`;
-    }
-    if (it.diff === 0) return `Today: ${it.title}`;
-    if (it.diff === 1) return `Tomorrow: ${it.title}`;
-    return `In ${it.diff} days: ${it.title}`;
-  });
-
-  const id = `daily-${localDateStr()}`;
-  const title = lang === "ar" ? "Haven — القادم" : "Haven — Upcoming";
+  const id = `smart-${localDateStr()}`;
   const delay = fireAt - now;
   if (delay > 0) {
-    scheduleAt(delay, title, lines.join("\n"), id);
+    scheduleAt(delay, alert.title, alert.body, id);
   } else {
-    // App opened after the scheduled hour — fire immediately instead of skipping
-    fire(title, lines.join("\n"), id);
+    // App opened after the scheduled hour — fire immediately instead of skipping.
+    fire(alert.title, alert.body, id);
   }
 }
 
@@ -225,15 +212,15 @@ export function scheduleAll(
   planner: PlannerData,
   semester: Semester,
   notifPrefs: NotifPrefs,
-  reminderDays: number,
   lang: "en" | "ar",
+  smartAlert: SmartAlert | null,
 ) {
   clearAll();
   if (typeof window === "undefined") return;
   if (!("Notification" in window) || Notification.permission !== "granted") return;
 
   scheduleLectures(courses, notifPrefs, semester, lang);
-  scheduleDailyDigest(courses, planner, semester, notifPrefs, reminderDays, lang);
+  scheduleSmartDaily(smartAlert, notifPrefs);
   scheduleTasks(planner, semester, notifPrefs, lang);
 }
 

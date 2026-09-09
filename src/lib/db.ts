@@ -46,6 +46,39 @@ export async function logEvent(event: string, meta: Record<string, unknown> = {}
   }
 }
 
+/**
+ * Queue a push reminder for later delivery (the "outbox"). The CLIENT computes
+ * the smart content and the exact send time; the scheduler-tick edge function
+ * delivers it even when the app is closed. Upsert on (user_id, dedup_key) keeps
+ * one row per logical reminder (e.g. one per day) — re-running refreshes the
+ * content but never clears `sent_at`, so a delivered reminder is not re-sent.
+ * Fire-and-forget; never throws.
+ */
+export async function enqueueScheduledPush(p: {
+  dedupKey: string;
+  sendAt: string; // ISO timestamp
+  title: string;
+  body: string;
+}): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return;
+    await supabase.from("scheduled_pushes").upsert(
+      {
+        user_id: uid,
+        dedup_key: p.dedupKey,
+        send_at: p.sendAt,
+        title: p.title,
+        body: p.body,
+      },
+      { onConflict: "user_id,dedup_key" }
+    );
+  } catch {
+    // best-effort — ignore failures
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Subscription / premium entitlement (public.subscriptions)
 // ---------------------------------------------------------------------------
