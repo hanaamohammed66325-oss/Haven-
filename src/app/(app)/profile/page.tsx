@@ -15,6 +15,7 @@ import { useSubscription } from "@/lib/subscription";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
 import { SubscriptionSection } from "@/components/SubscriptionSection";
+import { BadgeCrest } from "@/components/BadgeCrest";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -290,7 +291,7 @@ export default function ProfilePage() {
                       background: earned ? "var(--color-surface-alt)" : "transparent",
                     }}
                   >
-                    <span className="text-3xl">{badge.icon}</span>
+                    <BadgeCrest id={badge.id} tier={tier} size={60} />
                     <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>
                       {t(`gam_badge_${key}` as TranslationKey)}
                     </span>

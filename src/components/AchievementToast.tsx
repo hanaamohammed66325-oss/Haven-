@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Trophy, X } from "lucide-react";
 import { useT } from "@/i18n";
 import { BADGES } from "@/lib/gamification";
+import { BadgeCrest } from "@/components/BadgeCrest";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface AchievementEvent {
@@ -116,7 +117,7 @@ export function AchievementToast() {
                     : "var(--color-surface-alt)",
                 }}
               >
-                <span>{badge!.icon}</span>
+                <BadgeCrest id={badge!.id} tier={latest.newTier} size={22} />
                 <span className="font-medium">
                   {t(`gam_badge_${key}` as TranslationKey)}
                 </span>
