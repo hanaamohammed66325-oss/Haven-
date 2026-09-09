@@ -11,7 +11,7 @@ import { MAX_TIER } from "@/lib/gamification";
 interface Palette { light: string; mid: string; dark: string; ring: string; }
 
 const TIER_METAL: (Palette & { pip: string })[] = [
-  { light: "#e7b989", mid: "#c08a4e", dark: "#7c531f", ring: "#8a5f2c", pip: "#7c531f" }, // bronze
+  { light: "#dca070", mid: "#ad6636", dark: "#6d3d1b", ring: "#8c4f26", pip: "#7a4420" }, // bronze (copper)
   { light: "#f2f5f9", mid: "#c4cad3", dark: "#7f8895", ring: "#98a1ad", pip: "#7f8895" }, // silver
   { light: "#f6df94", mid: "#dbb851", dark: "#9a7614", ring: "#b8922f", pip: "#9a7614" }, // gold
   { light: "#ecfdfd", mid: "#a9e2e6", dark: "#3f8f97", ring: "#79c2c8", pip: "#3f8f97" }, // diamond
@@ -104,6 +104,58 @@ export function BadgeCrest({ id, tier, size = 64 }: { id: string; tier: number; 
       height={Math.round((size * 145) / 120)}
       aria-hidden="true"
       style={{ display: "block" }}
+      dangerouslySetInnerHTML={{ __html: inner }}
+    />
+  );
+}
+
+// Tier indicator: the metal-shield crest with a star (bronze → diamond) — the
+// exact "Tiers" design from the preview. Shown next to the tier label.
+const STAR_GLYPH = `<path d="M12 3.5l2.35 4.76 5.25.76-3.8 3.7.9 5.23L12 15.9l-4.7 2.46.9-5.23-3.8-3.7 5.25-.76L12 3.5z"/>`;
+
+export function TierMedal({ tier, size = 28 }: { tier: number; size?: number }) {
+  const rawUid = useId();
+  const uid = "tm" + rawUid.replace(/[^a-zA-Z0-9]/g, "");
+  const tierIdx = Math.min(Math.max(tier, 1), MAX_TIER) - 1;
+  const t = TIER_METAL[tierIdx];
+  const tierNum = tierIdx + 1;
+  const laurelOpacity = [0.28, 0.4, 0.55, 0.7][tierIdx];
+
+  let pips = "";
+  for (let i = 0; i < 4; i++) {
+    const x = 60 + (i - 1.5) * 11;
+    pips += `<circle cx="${x}" cy="132" r="3.4" fill="${i < tierNum ? t.pip : "none"}" stroke="${t.ring}" stroke-width="1.4"/>`;
+  }
+  const gem = tierNum === 4
+    ? `<path d="M60 6 l6 6 -6 7 -6 -7z" fill="#fff" fill-opacity=".9" stroke="${t.ring}" stroke-width="1.3" stroke-linejoin="round"/>`
+    : `<circle cx="60" cy="12.5" r="5.5" fill="${t.light}" stroke="${t.ring}" stroke-width="1.4"/>`;
+
+  const inner = `
+    <defs>
+      <linearGradient id="${uid}m" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${t.light}"/><stop offset="0.5" stop-color="${t.mid}"/><stop offset="1" stop-color="${t.dark}"/>
+      </linearGradient>
+      <linearGradient id="${uid}s" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ffffff" stop-opacity=".55"/><stop offset="0.4" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${laurel(-1, t.mid, laurelOpacity)}
+    ${laurel(1, t.mid, laurelOpacity)}
+    ${gem}
+    <path d="M60 20 L94 30 V64 C94 92 78 108 60 118 C42 108 26 92 26 64 V30 Z" fill="url(#${uid}m)" stroke="${t.dark}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M60 20 L94 30 V64 C94 92 78 108 60 118 C42 108 26 92 26 64 V30 Z" fill="url(#${uid}s)"/>
+    <path d="M60 29 L86 37 V63 C86 86 73 99 60 108 C47 99 34 86 34 63 V37 Z" fill="none" stroke="${t.ring}" stroke-width="1.4" stroke-opacity=".85"/>
+    <circle cx="60" cy="63" r="24" fill="${t.light}" fill-opacity=".35" stroke="${t.ring}" stroke-width="1.2"/>
+    <g transform="translate(60 63) scale(1.75) translate(-12 -12)" fill="none" stroke="${t.dark}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${STAR_GLYPH}</g>
+    ${pips}
+  `;
+  return (
+    <svg
+      viewBox="0 0 120 145"
+      width={size}
+      height={Math.round((size * 145) / 120)}
+      aria-hidden="true"
+      style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}
       dangerouslySetInnerHTML={{ __html: inner }}
     />
   );

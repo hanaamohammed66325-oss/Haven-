@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
-import { BADGES, badgesForTier, getBadgeThreshold, getBadgePercent, MAX_TIER, TIER_ICONS, type BadgeContext } from "@/lib/gamification";
+import { BADGES, badgesForTier, getBadgeThreshold, getBadgePercent, type BadgeContext } from "@/lib/gamification";
 import { semesterGPA } from "@/lib/grades";
 import { hasActiveAccess } from "@/lib/premium";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
@@ -15,7 +15,7 @@ import { useSubscription } from "@/lib/subscription";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
 import { SubscriptionSection } from "@/components/SubscriptionSection";
-import { BadgeCrest } from "@/components/BadgeCrest";
+import { BadgeCrest, TierMedal } from "@/components/BadgeCrest";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -241,7 +241,6 @@ export default function ProfilePage() {
       {/* ── Badges ──────────────────────────────────────────── */}
       {isPremium && (() => {
         const tier = gamification.badgeTier;
-        const tierIcon = TIER_ICONS[Math.min(tier, MAX_TIER) - 1];
         const earnedCount = gamification.badges.length;
         const badgeCtx: BadgeContext = {
           courses,
@@ -258,8 +257,9 @@ export default function ProfilePage() {
                 {t("gam_badges")}
               </h2>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium" style={{ color: "var(--color-brass)" }}>
-                  {tierIcon} {t(`gam_tierLabel_${tier}` as TranslationKey)}
+                <span className="text-sm font-medium inline-flex items-center gap-1.5" style={{ color: "var(--color-brass)" }}>
+                  <TierMedal tier={tier} size={30} />
+                  {t(`gam_tierLabel_${tier}` as TranslationKey)}
                 </span>
                 <span className="text-xs" style={{ color: "var(--color-muted)" }}>
                   {t("gam_tierProgress", { earned: String(earnedCount), total: String(Math.ceil(badgesForTier(tier).length * 0.8)) })}

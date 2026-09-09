@@ -12,7 +12,8 @@ import { GradeBadge } from "@/components/GradeBadge";
 import { AttendanceBadge } from "@/components/AttendanceBadge";
 import { useSubscription } from "@/lib/subscription";
 import { hasActiveAccess } from "@/lib/premium";
-import { getLevel, getNextLevel, levelProgress, XP_REWARDS, TIER_ICONS, MAX_TIER, STREAK_MILESTONES, type ChallengeItem } from "@/lib/gamification";
+import { getLevel, getNextLevel, levelProgress, XP_REWARDS, STREAK_MILESTONES, type ChallengeItem } from "@/lib/gamification";
+import { TierMedal } from "@/components/BadgeCrest";
 
 import { CountUp } from "@/components/CountUp";
 import { MiniCalendar } from "@/components/MiniCalendar";
@@ -155,7 +156,7 @@ export default function DashboardPage() {
                 className="inline-flex items-center gap-1 text-base font-medium px-3 py-1 rounded-full"
                 style={{ background: "var(--color-surface-alt)", color: "var(--color-brass)" }}
               >
-                {TIER_ICONS[Math.min(gamification.badgeTier, MAX_TIER) - 1]}
+                <TierMedal tier={gamification.badgeTier} size={26} />
                 {t(`gam_tierLabel_${gamification.badgeTier}` as TranslationKey)}
               </span>
             )}
