@@ -1044,7 +1044,7 @@ export const en = {
   gam_badge_perfectScore: "Perfect Score",
   gam_badge_perfectScore_desc: "Get {n} full marks",
   gam_badge_perfectScore_why: "Full marks earned!",
-  gam_badge_perfectScore_howToGet: "Score 100% on {n} graded components",
+  gam_badge_perfectScore_howToGet: "Score {pct}%+ on {n} graded components",
 };
 
 export type TranslationKey = keyof typeof en;

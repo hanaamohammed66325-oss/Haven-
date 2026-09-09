@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
-import { BADGES, badgesForTier, getBadgeThreshold, MAX_TIER, TIER_ICONS, type BadgeContext } from "@/lib/gamification";
+import { BADGES, badgesForTier, getBadgeThreshold, getBadgePercent, MAX_TIER, TIER_ICONS, type BadgeContext } from "@/lib/gamification";
 import { semesterGPA } from "@/lib/grades";
 import { hasActiveAccess } from "@/lib/premium";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
@@ -280,7 +280,7 @@ export default function ProfilePage() {
                     ? t(`gam_badge_${key}_howToGet_diamond` as TranslationKey)
                     : isAllCourses
                       ? t(`gam_badge_${key}_howToGet_all` as TranslationKey)
-                      : t(`gam_badge_${key}_howToGet` as TranslationKey, { n: nStr });
+                      : t(`gam_badge_${key}_howToGet` as TranslationKey, { n: nStr, pct: String(getBadgePercent(badge.id, tier) ?? "") });
                 return (
                   <div
                     key={badge.id}

@@ -1041,5 +1041,5 @@ export const ar: Record<TranslationKey, string> = {
   gam_badge_perfectScore: "الدرجة الكاملة",
   gam_badge_perfectScore_desc: "احصل على {n} درجات كاملة",
   gam_badge_perfectScore_why: "حققت درجات كاملة!",
-  gam_badge_perfectScore_howToGet: "احصل على ١٠٠٪ في {n} اختبارات أو واجبات",
+  gam_badge_perfectScore_howToGet: "احصل على {pct}٪ فأعلى في {n} اختبارات أو واجبات",
 };

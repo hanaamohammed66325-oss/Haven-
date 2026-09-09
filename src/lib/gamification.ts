@@ -188,7 +188,7 @@ export interface BadgeDef {
   /** Minimum tier required for this badge to appear (1-4). Default: 1 (all tiers). */
   minTier?: number;
   getThreshold?: (tier: number, ctx: BadgeContext) => number;
-  check: (g: GamificationState, ctx: BadgeContext, threshold: number) => boolean;
+  check: (g: GamificationState, ctx: BadgeContext, threshold: number, tier: number) => boolean;
 }
 
 export interface BadgeContext {
@@ -206,11 +206,18 @@ function semesterWeeksElapsed(startDate: string): number {
   return Math.floor(days / 7);
 }
 
-function countPerfectScores(courses: Course[]): number {
+// perfect-score badge — per tier: the minimum score % and how many graded
+// components must reach it. Bronze 60%/2, Silver 75%/3, Gold 85%/4, Diamond 100%/5.
+export const PERFECT_SCORE_PCT = [60, 75, 85, 100];
+const PERFECT_SCORE_COUNT = [2, 3, 4, 5];
+
+/** Non-final graded components whose score is at least `pct` (0..1) of total. */
+function countScoresAtLeast(courses: Course[], pct: number): number {
   let count = 0;
   for (const c of courses) {
     for (const comp of c.components) {
-      if (comp.total > 0 && comp.score != null && comp.score >= comp.total) count++;
+      if (comp.type === "final") continue;
+      if (comp.total > 0 && comp.score != null && comp.score / comp.total >= pct) count++;
     }
   }
   return count;
@@ -231,7 +238,7 @@ function countQualifiedCourses(courses: Course[]): number {
 // committed:     weeks           1        4       10       14
 // outstanding:   GPA           4.0      4.5     4.75      4.9
 // level-up:      XP            100      500     2000     4000
-// perfect-score: perfects        1        3        5        8
+// perfect-score: %/count      60%/2    75%/3    85%/4   100%/5
 
 function countGradedCourses(courses: Course[]): number {
   return courses.filter((c) =>
@@ -383,15 +390,10 @@ export const BADGES: BadgeDef[] = [
   {
     id: "perfect-score",
     icon: "💯",
-    thresholds: [1, 2, 4, 8],
-    getThreshold: (tier, ctx) => {
-      let total = 0;
-      for (const c of ctx.courses) for (const comp of c.components) if (comp.total > 0 && comp.type !== "final") total++;
-      if (total === 0) return 999;
-      const pcts = [0.05, 0.15, 0.3, 0.5];
-      return Math.max([1, 2, 3, 5][tier - 1], Math.ceil(total * pcts[tier - 1]));
-    },
-    check: (_g, ctx, t) => countPerfectScores(ctx.courses) >= t,
+    thresholds: PERFECT_SCORE_COUNT,
+    getThreshold: (tier) => PERFECT_SCORE_COUNT[Math.min(tier, MAX_TIER) - 1],
+    check: (_g, ctx, t, tier) =>
+      countScoresAtLeast(ctx.courses, PERFECT_SCORE_PCT[Math.min(tier, MAX_TIER) - 1] / 100) >= t,
   },
 ];
 
@@ -416,7 +418,7 @@ export function checkBadges(
   for (const def of eligible) {
     if (badges.includes(def.id)) continue;
     const threshold = resolveThreshold(def, tier, ctx);
-    if (def.check(state, ctx, threshold)) {
+    if (def.check(state, ctx, threshold, tier)) {
       badges.push(def.id);
       newBadges.push(def.id);
     }
@@ -445,6 +447,12 @@ export function getBadgeThreshold(id: string, tier: number, ctx?: BadgeContext):
 
 export function getBadgeDef(id: string): BadgeDef | undefined {
   return BADGES.find((b) => b.id === id);
+}
+
+/** For perfect-score, the minimum score % required at `tier`; null for others. */
+export function getBadgePercent(id: string, tier: number): number | null {
+  if (id !== "perfect-score") return null;
+  return PERFECT_SCORE_PCT[Math.min(tier, MAX_TIER) - 1];
 }
 
 // ── Streak milestone markers ───────────────────────────────────────────────
