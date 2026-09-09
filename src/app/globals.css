@@ -42,6 +42,12 @@ html {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Paint the theme background on the ROOT too, not just <body>. On mobile the
+     body's 100dvh can fall short of the visual viewport (dynamic toolbar,
+     overscroll), and a bare <html> would show through as a white strip at the
+     bottom — including behind the fixed loader. */
+  background: var(--app-bg);
+  background-attachment: fixed;
 }
 
 html[lang="ar"] {
