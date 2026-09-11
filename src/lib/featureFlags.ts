@@ -5,7 +5,7 @@
 import { ENFORCE_PREMIUM } from "./premium";
 
 /** Pomodoro is built but held behind a "coming soon" lock for the initial launch. */
-export const POMODORO_ENABLED = false;
+export const POMODORO_ENABLED = true;
 
 /**
  * Free-launch notice shown atop billing-related policy pages while payments are
