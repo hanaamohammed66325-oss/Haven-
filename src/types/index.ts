@@ -170,19 +170,21 @@ export interface AppData {
   pomodoroStats: PomodoroStats;
 }
 
-/** Which pond environment style the Pomodoro page renders. */
-export type PondStyle = "smooth" | "pixel";
-
 export interface PomodoroSettings {
   focusMinutes: number;
   shortBreakMinutes: number;
   longBreakMinutes: number;
   /** focus sessions before a long break */
   sessionsBeforeLong: number;
-  pondStyle: PondStyle;
   soundEnabled: boolean;
   autoStartBreaks: boolean;
   autoStartFocus: boolean;
+  /** per-course chosen lily-pad shape (courseId → species index). Absent = the
+   *  course's default species derived from its id. */
+  padSpecies?: Record<string, number>;
+  /** per-course chosen bloom colour (courseId → hex). Overrides the course's own
+   *  colour in the pond; absent = the course colour, else a hashed fallback. */
+  padColors?: Record<string, string>;
 }
 
 /** One day's Pomodoro activity, kept in a rolling 30-day window. */
@@ -191,6 +193,15 @@ export interface PomodoroSessionRecord {
   completedSessions: number;
   totalFocusMinutes: number;
   abandonedSessions: number;
+}
+
+/** One completed focus session, kept as a single lily pad in the pond. Carries
+ *  which course it was spent on so the pond can bloom that subject's colour — the
+ *  lake becomes a living map of what the student actually studied. */
+export interface PomodoroPad {
+  date: string; // ISO YYYY-MM-DD
+  courseId: string | null; // null = "General" (no specific course)
+  minutes: number;
 }
 
 export interface PomodoroStats {
@@ -202,6 +213,9 @@ export interface PomodoroStats {
   recentDays: PomodoroSessionRecord[];
   /** lily pads currently floating in the pond (visual continuity across reloads) */
   lilyPadCount: number;
+  /** per-session pads (newest last), each tagged with the course it was spent on.
+   *  May be shorter than lilyPadCount for sessions logged before this existed. */
+  pads: PomodoroPad[];
 }
 
 /** Semester-GPA card mode. "semester" = live GPA out of 5.0; "cumulative" =

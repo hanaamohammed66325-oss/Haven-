@@ -119,7 +119,6 @@ const defaultPomodoroSettings: PomodoroSettings = {
   shortBreakMinutes: 5,
   longBreakMinutes: 15,
   sessionsBeforeLong: 4,
-  pondStyle: "smooth",
   soundEnabled: true,
   autoStartBreaks: false,
   autoStartFocus: false,
@@ -133,9 +132,13 @@ const defaultPomodoroStats: PomodoroStats = {
   lastSessionDate: null,
   recentDays: [],
   lilyPadCount: 0,
+  pads: [],
 };
 
 const POMODORO_HISTORY_LIMIT = 30;
+// Keep the newest N pads with per-course detail; older sessions still count in
+// lilyPadCount but render as plain (unassigned) pads. Bounds the JSONB size.
+const POMODORO_PAD_LIMIT = 200;
 
 // Fire the achievement toast when new badges are earned or the tier advances.
 // `newTier` is passed in so each caller keeps its own tier-base semantics.
@@ -307,7 +310,7 @@ export interface StoreValue extends AppData {
   /** Update Pomodoro timer settings; persisted to preferences.pomodoroSettings. */
   setPomodoroSettings: (patch: Partial<PomodoroSettings>) => void;
   /** Record a completed focus session (stats + XP + challenges + a new lily pad). */
-  recordPomodoroComplete: () => { xpEarned: number; lilyPadCount: number };
+  recordPomodoroComplete: (courseId?: string | null) => { xpEarned: number; lilyPadCount: number };
   /** Record an abandoned focus session (withers a lily pad). */
   recordPomodoroAbandon: () => void;
 }
@@ -542,6 +545,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...((prefs.pomodoroStats as Partial<PomodoroStats>) ?? {}),
             recentDays: Array.isArray((prefs.pomodoroStats as PomodoroStats | undefined)?.recentDays)
               ? (prefs.pomodoroStats as PomodoroStats).recentDays.slice(-POMODORO_HISTORY_LIMIT)
+              : [],
+            pads: Array.isArray((prefs.pomodoroStats as PomodoroStats | undefined)?.pads)
+              ? (prefs.pomodoroStats as PomodoroStats).pads.slice(-POMODORO_PAD_LIMIT)
               : [],
           },
           gamification: {
@@ -818,7 +824,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // A focus session finished. Bump lifetime + today's counters, roll the daily
   // streak, add a lily pad, then hand off to the XP/challenge systems.
-  const recordPomodoroComplete = useCallback(() => {
+  const recordPomodoroComplete = useCallback((courseId: string | null = null) => {
     let result = { xpEarned: 0, lilyPadCount: 0 };
     setData((d) => {
       const today = toISODate(new Date());
@@ -852,6 +858,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         current = 1;
       }
 
+      const pads = [...prev.pads, { date: today, courseId, minutes: focusMin }];
+      while (pads.length > POMODORO_PAD_LIMIT) pads.shift();
+
       const stats: PomodoroStats = {
         totalSessions: prev.totalSessions + 1,
         totalFocusMinutes: prev.totalFocusMinutes + focusMin,
@@ -860,6 +869,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         lastSessionDate: today,
         recentDays,
         lilyPadCount: prev.lilyPadCount + 1,
+        pads,
       };
       result = { xpEarned: XP_REWARDS.COMPLETE_POMODORO, lilyPadCount: stats.lilyPadCount };
       persistPref({ pomodoroStats: stats as unknown as Record<string, unknown> });

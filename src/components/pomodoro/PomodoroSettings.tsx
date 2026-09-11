@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Waves, Grid3x3 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useT } from "@/i18n";
-import type { PomodoroSettings as Settings, PondStyle } from "@/types";
+import type { PomodoroSettings as Settings } from "@/types";
 
 interface Props {
   settings: Settings;
@@ -102,21 +102,6 @@ export function PomodoroSettings({ settings, onChange, disabled }: Props) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
 
-  const styleBtn = (val: PondStyle, label: string, Icon: typeof Waves) => (
-    <button
-      onClick={() => onChange({ pondStyle: val })}
-      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium flex-1 justify-center"
-      style={{
-        border: settings.pondStyle === val ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
-        background: settings.pondStyle === val ? "var(--color-primary-soft)" : "transparent",
-        color: settings.pondStyle === val ? "var(--color-primary-dark)" : "var(--color-muted)",
-      }}
-    >
-      <Icon size={16} />
-      {label}
-    </button>
-  );
-
   return (
     <div className="haven-card p-4">
       <button
@@ -135,15 +120,6 @@ export function PomodoroSettings({ settings, onChange, disabled }: Props) {
 
       {open && (
         <div className="mt-3 flex flex-col divide-y" style={{ borderColor: "var(--color-border)" }}>
-          <div className="pb-3">
-            <span className="text-sm mb-2 block" style={{ color: "var(--color-ink)" }}>
-              {t("pom_pondStyle")}
-            </span>
-            <div className="flex gap-2">
-              {styleBtn("smooth", t("pom_styleSmooth"), Waves)}
-              {styleBtn("pixel", t("pom_stylePixel"), Grid3x3)}
-            </div>
-          </div>
           <Stepper
             label={t("pom_focusDuration")}
             value={settings.focusMinutes}

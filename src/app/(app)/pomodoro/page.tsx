@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bell, X, Trees } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
 import { canUseHavi } from "@/lib/premium";
 import { PondScene } from "@/components/pomodoro/PondScene";
+import { GroveModal } from "@/components/pomodoro/GroveModal";
 import { TimerControls } from "@/components/pomodoro/TimerControls";
 import { PomodoroSettings } from "@/components/pomodoro/PomodoroSettings";
 import { PomodoroStats } from "@/components/pomodoro/PomodoroStats";
@@ -70,9 +71,21 @@ function fireNotif(title: string, body: string, tag: string) {
   }
 }
 
+// Deterministic per-course identity: a stable hash → fallback bloom colour, plus
+// the pad species + flower type (so every subject always grows the same plant).
+const BLOOM_FALLBACK = ["#e86f9e", "#f2c14e", "#7db6f0", "#c48be0", "#5fce9e", "#ef8f4b", "#e0576b", "#8fd0ff"];
+function hashId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h;
+}
+function fallbackColor(id: string): string {
+  return BLOOM_FALLBACK[hashId(id) % BLOOM_FALLBACK.length];
+}
+
 export default function PomodoroPage() {
   const store = useStore();
-  const { hydrated, pomodoroSettings, pomodoroStats, setPomodoroSettings, recordPomodoroComplete, recordPomodoroAbandon } = store;
+  const { hydrated, courses, pomodoroSettings, pomodoroStats, setPomodoroSettings, recordPomodoroComplete, recordPomodoroAbandon } = store;
   const { t, dir } = useT();
   usePageTitle("nav_pomodoro");
   const { sub, profile } = useSubscription();
@@ -82,6 +95,54 @@ export default function PomodoroPage() {
   const [celebrateSignal, setCelebrateSignal] = useState(0);
   const [witherSignal, setWitherSignal] = useState(0);
   const [notifBanner, setNotifBanner] = useState(false);
+  const [groveOpen, setGroveOpen] = useState(false);
+  const [focusCourseId, setFocusCourseId] = useState<string | null>(null);
+  const focusCourseRef = useRef<string | null>(null);
+  focusCourseRef.current = focusCourseId;
+
+  // Colour of the bloom each earned pad carries (by the course it was spent on),
+  // plus a legend of subjects → colours + counts. This turns the pond into a map
+  // of what the student actually studied.
+  const padColorsMap = pomodoroSettings.padColors;
+  const courseColor = useCallback(
+    (id: string | null): string | null => {
+      if (!id) return null;
+      if (padColorsMap?.[id]) return padColorsMap[id];
+      const c = courses.find((x) => x.id === id);
+      if (!c) return null;
+      return c.color || fallbackColor(id);
+    },
+    [courses, padColorsMap],
+  );
+  // For now every pad is the same shape + bloom; only the COLOUR varies by subject.
+  // New leaf shapes / flowers / creatures unlock later via challenge rewards.
+  const padSpecs = useMemo(
+    () =>
+      pomodoroStats.pads.map((p) =>
+        p.courseId
+          ? { key: p.courseId, color: courseColor(p.courseId), species: 0, flower: 0 }
+          : { key: "__general", color: null, species: 0, flower: 0 },
+      ),
+    [pomodoroStats.pads, courseColor],
+  );
+  const lakeLegend = useMemo(() => {
+    const m = new Map<string, { key: string; name: string; color: string; count: number }>();
+    for (const p of pomodoroStats.pads) {
+      if (!p.courseId) continue; // "General" sessions have no colour to chart
+      const c = courses.find((x) => x.id === p.courseId);
+      const entry = m.get(p.courseId) ?? { key: p.courseId, name: c ? c.name : t("pom_generalFocus"), color: courseColor(p.courseId) || "#9fb0a5", count: 0 };
+      entry.count += 1;
+      m.set(p.courseId, entry);
+    }
+    return [...m.values()].sort((a, b) => b.count - a.count);
+  }, [pomodoroStats.pads, courses, courseColor, t]);
+
+  const setCourseColor = useCallback(
+    (courseId: string, color: string) => {
+      setPomodoroSettings({ padColors: { ...(padColorsMap ?? {}), [courseId]: color } });
+    },
+    [setPomodoroSettings, padColorsMap],
+  );
 
   const deadlineRef = useRef<number | null>(null);
   const settingsRef = useRef<PomSettings>(pomodoroSettings);
@@ -101,7 +162,7 @@ export default function PomodoroPage() {
     const s = settingsRef.current;
     if (s.soundEnabled) playChime();
     fireNotif(t("pom_title"), t("pom_notifFocusDone"), "pom-focus-done");
-    recordPomodoroComplete();
+    recordPomodoroComplete(focusCourseRef.current);
     setCelebrateSignal((n) => n + 1);
     setTimer((prev) => {
       const done = completeFocus(prev);
@@ -227,7 +288,6 @@ export default function PomodoroPage() {
         style={{ height: "clamp(280px, 44vh, 460px)" }}
       >
         <PondScene
-          style={pomodoroSettings.pondStyle}
           lilyPadCount={pomodoroStats.lilyPadCount}
           baseMood={baseMood}
           showHavi={showHavi}
@@ -235,7 +295,29 @@ export default function PomodoroPage() {
           celebrateSignal={celebrateSignal}
           witherSignal={witherSignal}
         />
+        <button
+          onClick={() => setGroveOpen(true)}
+          className="haven-fade-up absolute bottom-3 end-3 z-10 flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium shadow-sm transition-colors"
+          style={{
+            background: "var(--color-surface)",
+            color: "var(--color-ink)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          <Trees size={16} style={{ color: "var(--color-primary)" }} />
+          {t("pom_grove")}
+        </button>
       </div>
+
+      <GroveModal
+        open={groveOpen}
+        onClose={() => setGroveOpen(false)}
+        lilyPadCount={pomodoroStats.lilyPadCount}
+        showHavi={showHavi}
+        padSpecs={padSpecs}
+        legend={lakeLegend}
+        onSetColor={setCourseColor}
+      />
 
       <div className="mx-auto max-w-4xl">
         <header className="haven-fade-up mb-5">
@@ -274,6 +356,27 @@ export default function PomodoroPage() {
             {t("pom_haviPremium")}
           </p>
         )}
+
+        <div className="haven-fade-up mb-4 flex items-center justify-center gap-2 text-sm">
+          <label htmlFor="focus-course" style={{ color: "var(--color-muted)" }}>
+            {t("pom_focusOn")}
+          </label>
+          <select
+            id="focus-course"
+            value={focusCourseId ?? ""}
+            onChange={(e) => setFocusCourseId(e.target.value || null)}
+            disabled={running}
+            className="rounded-lg px-3 py-1.5 text-sm"
+            style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-ink)" }}
+          >
+            <option value="">{t("pom_generalFocus")}</option>
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="haven-fade-up mb-6">
           <TimerControls

@@ -18,7 +18,11 @@ interface Props {
   onAbandon: () => void;
 }
 
-const R = 52;
+// viewBox is kept equal to the rendered pixel size so nothing is scaled/clipped.
+const SIZE = 184;
+const STROKE = 10;
+const CENTER = SIZE / 2;
+const R = CENTER - STROKE / 2 - 4;
 const CIRC = 2 * Math.PI * R;
 
 export function TimerControls({
@@ -40,35 +44,40 @@ export function TimerControls({
   const ringColor = isBreak ? "var(--color-success)" : "var(--color-primary)";
 
   return (
-    <div className="flex flex-col items-center gap-5">
-      <div className="relative" style={{ width: 148, height: 148 }}>
-        <svg width={148} height={148} viewBox="0 0 128 128" className="-rotate-90">
-          <circle cx={64} cy={64} r={R} fill="none" stroke="var(--color-border)" strokeWidth={8} />
+    <div className="flex flex-col items-center gap-4">
+      <div className="relative" style={{ width: SIZE, height: SIZE }}>
+        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="-rotate-90">
+          <circle cx={CENTER} cy={CENTER} r={R} fill="none" stroke="var(--color-border)" strokeWidth={STROKE} opacity={0.55} />
           <circle
-            cx={64}
-            cy={64}
+            cx={CENTER}
+            cy={CENTER}
             r={R}
             fill="none"
             stroke={ringColor}
-            strokeWidth={8}
+            strokeWidth={STROKE}
             strokeLinecap="round"
             strokeDasharray={CIRC}
             strokeDashoffset={CIRC * (1 - Math.min(1, Math.max(0, progress)))}
             style={{ transition: "stroke-dashoffset 0.9s linear, stroke 0.4s ease" }}
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center">
           <span
-            className="font-display tracking-tight"
-            style={{ fontSize: 34, color: "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}
+            className="font-display tabular-nums"
+            style={{ fontSize: 46, lineHeight: 1, letterSpacing: "-0.01em", color: "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}
           >
             {clock}
           </span>
-          <span className="haven-label" style={{ color: "var(--color-muted)" }}>
-            {t(phaseLabelKey as Parameters<typeof t>[0])}
-          </span>
         </div>
       </div>
+
+      {/* Phase label sits BELOW the ring so a long label can never overflow it. */}
+      <span
+        className="haven-label"
+        style={{ color: running ? ringColor : "var(--color-muted)", letterSpacing: "0.1em", transition: "color 0.4s ease" }}
+      >
+        {t(phaseLabelKey as Parameters<typeof t>[0])}
+      </span>
 
       {sessionTotal > 0 && (
         <div className="flex items-center gap-1.5" aria-hidden>

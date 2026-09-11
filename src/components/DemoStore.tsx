@@ -213,8 +213,8 @@ function buildInitialData(): AppData {
     notifPrefs: DEFAULT_NOTIF_PREFS,
     haviName: "Havi",
     gamification: { streak: { current: 3, longest: 7, lastActiveDate: null }, xp: 45, badges: ["first-checkin"], badgeTier: 1, totalCheckIns: 3, checkedInToday: null, challenges: { daily: { date: "", items: [] }, weekly: { weekStart: "", items: [] } }, weeklySnapshot: null, lastWeeklyReport: null },
-    pomodoroSettings: { focusMinutes: 25, shortBreakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4, pondStyle: "smooth", soundEnabled: true, autoStartBreaks: false, autoStartFocus: false },
-    pomodoroStats: { totalSessions: 0, totalFocusMinutes: 0, longestDailyStreak: 0, currentDailyStreak: 0, lastSessionDate: null, recentDays: [], lilyPadCount: 1 },
+    pomodoroSettings: { focusMinutes: 25, shortBreakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4, soundEnabled: true, autoStartBreaks: false, autoStartFocus: false },
+    pomodoroStats: { totalSessions: 0, totalFocusMinutes: 0, longestDailyStreak: 0, currentDailyStreak: 0, lastSessionDate: null, recentDays: [], lilyPadCount: 1, pads: [] },
   };
 }
 

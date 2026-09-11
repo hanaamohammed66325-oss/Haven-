@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   renderPond,
   buildLilyPads,
+  padWorldX,
   PAD_SLOT_COUNT,
   type PondState,
   type HaviMood,
@@ -15,10 +16,8 @@ import {
   type SkyPalette,
   type TimeOfDay,
 } from "@/lib/pomodoro/timeOfDay";
-import type { PondStyle } from "@/types";
 
 interface Props {
-  style: PondStyle;
   /** completed sessions so far; pads shown = this + 1 (home pad + one per session) */
   lilyPadCount: number;
   baseMood: "idle" | "studying" | "resting";
@@ -33,12 +32,11 @@ interface Props {
 const FRAME_MS = 66; // ~15 fps
 const JUMP_TICKS = 16;
 const FISH_TICKS = 42; // desk-pull intro at the start of a focus session
-const REACT_TICKS = 46;
+const REACT_TICKS = 52; // celebrate / sad hold (matches the wither→regrow length)
 const FADE_TICKS = 26;
 const PREVIEW_MAX = 0.45;
 
 export function PondScene({
-  style,
   lilyPadCount,
   baseMood,
   showHavi,
@@ -54,9 +52,12 @@ export function PondScene({
   const opacityRef = useRef<number[]>([]);
   const previewOpRef = useRef(0);
   const haviPadRef = useRef(Math.max(0, lilyPadCount));
+  const camXRef = useRef(0);
+  const camInitRef = useRef(false);
   const jumpRef = useRef<{ from: number; to: number; start: number } | null>(null);
   const reactRef = useRef<{ mood: HaviMood; start: number } | null>(null);
   const reviveRef = useRef<{ index: number; start: number } | null>(null);
+  const deadRef = useRef<Set<number>>(new Set()); // pads that died and never return
   const studyStartRef = useRef(-9999);
   const prevBaseRef = useRef(baseMood);
 
@@ -65,7 +66,6 @@ export function PondScene({
   const paletteFromRef = useRef<SkyPalette>(paletteRef.current);
   const transitionRef = useRef(1);
 
-  const styleRef = useRef(style);
   const baseMoodRef = useRef(baseMood);
   const showHaviRef = useRef(showHavi);
   const dirRef = useRef(dir);
@@ -74,7 +74,6 @@ export function PondScene({
   const celebrateSeen = useRef(celebrateSignal);
   const witherSeen = useRef(witherSignal);
 
-  styleRef.current = style;
   baseMoodRef.current = baseMood;
   showHaviRef.current = showHavi;
   dirRef.current = dir;
@@ -99,12 +98,13 @@ export function PondScene({
     jumpRef.current = { from: haviPadRef.current, to: newIdx, start: tickRef.current };
   }, [celebrateSignal]);
 
-  // Wither: a pad withers, Havi goes sad, then the pad regrows fresh (the pond
-  // stays alive — one dies, another grows in its place).
+  // Wither: the pad BEHIND Havi (the one he just left) dies — it browns and
+  // sinks while Havi turns to watch it, saddened — then a fresh pad regrows in
+  // its place so the pond stays alive.
   useEffect(() => {
     if (witherSignal === witherSeen.current) return;
     witherSeen.current = witherSignal;
-    const dyingIdx = Math.max(0, countRef.current - 1);
+    const dyingIdx = Math.max(0, haviPadRef.current - 1);
     reviveRef.current = { index: dyingIdx, start: tickRef.current };
     reactRef.current = { mood: "sad", start: tickRef.current };
     previewOpRef.current = 0;
@@ -166,9 +166,12 @@ export function PondScene({
         paletteRef.current = SKY_PALETTES[targetTodRef.current];
       }
 
-      // pad fade-in
+      // pad fade-in (dead pads are pinned at 0 and never rise again)
       const op = opacityRef.current;
-      for (let i = 0; i < op.length; i++) if (op[i] < 1) op[i] = Math.min(1, op[i] + 1 / FADE_TICKS);
+      for (let i = 0; i < op.length; i++) {
+        if (deadRef.current.has(i)) { op[i] = 0; continue; }
+        if (op[i] < 1) op[i] = Math.min(1, op[i] + 1 / FADE_TICKS);
+      }
 
       // preview of the next pad while focusing
       if (focusActive && countRef.current < PAD_SLOT_COUNT && !jumpRef.current) {
@@ -216,40 +219,53 @@ export function PondScene({
         else mood = reactRef.current.mood;
       }
 
-      // wither → regrow: phase 1 the pad browns and sinks, phase 2 a fresh one
-      // rises in its place.
+      // Death: the pad browns, shrinks and sinks under the water, then is gone
+      // for good (opacity stays 0 — abandoning a session costs that pad forever).
       if (reviveRef.current) {
         const r = reviveRef.current;
         const el = tk - r.start;
-        if (el >= FADE_TICKS * 2) {
+        const DEATH = Math.round(FADE_TICKS * 1.6);
+        if (el >= DEATH) {
           reviveRef.current = null;
-          opacityRef.current[r.index] = 1;
+          deadRef.current.add(r.index); // vanished — never regrows
+          opacityRef.current[r.index] = 0;
         } else if (r.index < pads.length) {
-          if (el < FADE_TICKS) {
-            const prog = el / FADE_TICKS;
-            pads[r.index] = {
-              ...pads[r.index],
-              dying: Math.min(1, prog + 0.15),
-              opacity: Math.max(0.05, 1 - prog),
-              ry: pads[r.index].ry * (1 - prog * 0.5),
-              cy: pads[r.index].cy + prog * 10,
-            };
-          } else {
-            const rp = (el - FADE_TICKS) / FADE_TICKS;
-            pads[r.index] = {
-              ...pads[r.index],
-              dying: 0,
-              opacity: rp,
-              ry: pads[r.index].ry * (0.5 + rp * 0.5),
-            };
-          }
+          const prog = el / DEATH;
+          opacityRef.current[r.index] = Math.max(0, 1 - prog);
+          pads[r.index] = {
+            ...pads[r.index],
+            dying: Math.min(1, prog + 0.2),
+            opacity: Math.max(0, 1 - prog),
+            rx: pads[r.index].rx * (1 - prog * 0.35),
+            ry: pads[r.index].ry * (1 - prog * 0.6),
+            cy: pads[r.index].cy + prog * 16,
+          };
         }
+      }
+
+      // Camera follows Havi horizontally: his pad sits ~38% from the left so the
+      // next (fading-in) pad stays visible to the right. On a jump the target
+      // slides to the new pad, and the whole scene scrolls to catch up.
+      let activeCx = jump
+        ? padWorldX(jump.from) + (padWorldX(jump.to) - padWorldX(jump.from)) * jump.progress
+        : padWorldX(Math.min(haviPadRef.current, countRef.current - 1));
+      // While a pad behind Havi is dying, pan halfway toward it so the grief is
+      // on-screen (Havi turns to watch it wither).
+      if (reviveRef.current) {
+        const dyingCx = padWorldX(reviveRef.current.index);
+        activeCx = (activeCx + dyingCx) / 2;
+      }
+      const camTarget = activeCx - w * 0.38;
+      if (!camInitRef.current) {
+        camXRef.current = camTarget;
+        camInitRef.current = true;
+      } else {
+        camXRef.current += (camTarget - camXRef.current) * (reducedRef.current ? 1 : 0.09);
       }
 
       const state: PondState = {
         w,
         h,
-        style: styleRef.current,
         palette: paletteRef.current,
         lilyPads: pads,
         haviPadIndex: haviPadRef.current,
@@ -258,6 +274,7 @@ export function PondScene({
         fishProgress,
         showHavi: showHaviRef.current,
         tick: tk,
+        camX: camXRef.current,
         reducedMotion: reducedRef.current,
         dir: dirRef.current,
       };
@@ -285,7 +302,6 @@ export function PondScene({
         width: "100%",
         height: "100%",
         background: "transparent",
-        imageRendering: style === "pixel" ? "pixelated" : "auto",
       }}
     />
   );
