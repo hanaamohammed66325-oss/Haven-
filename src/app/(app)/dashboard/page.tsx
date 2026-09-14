@@ -32,6 +32,7 @@ import {
   STATUS_COLOR,
 } from "@/lib/grades";
 import { creditHoursLabel } from "@/lib/format";
+import { toISODate } from "@/lib/dates";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -181,7 +182,7 @@ export default function DashboardPage() {
       >
         {/* Check-in card (free) */}
         {(() => {
-          const checkedIn = gamification.checkedInToday === new Date().toISOString().slice(0, 10);
+          const checkedIn = gamification.checkedInToday === toISODate(new Date());
           const streak = gamification.streak.current;
           return (
             <Card padding="p-5" className="flex items-center gap-4">

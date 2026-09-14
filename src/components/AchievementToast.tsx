@@ -63,7 +63,7 @@ export function AchievementToast() {
       style={{
         background: latest.tierAdvanced
           ? "linear-gradient(135deg, var(--color-brass), var(--color-primary))"
-          : "var(--card-bg)",
+          : "var(--color-surface)",
         boxShadow: "var(--shadow-card-hover)",
         border: latest.tierAdvanced ? "none" : "1px solid var(--color-border)",
         color: latest.tierAdvanced ? "#fff" : "var(--color-ink)",

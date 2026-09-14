@@ -327,6 +327,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const semesterIdRef = useRef<string | null>(null);
   const loggedInRef = useRef(false);
   const coursesRef = useRef<Course[]>([]);
+  // Mirror of the planner so mutations can read the pre-change note synchronously
+  // (to detect a real "just completed" transition) WITHOUT doing it inside a
+  // setData updater — matching how updateComponent reads coursesRef.
+  const plannerRef = useRef<PlannerData>(emptyPlanner);
   // The user id the in-memory store is currently populated for, so we can tell
   // a real account switch apart from a token refresh on the same account.
   const currentUidRef = useRef<string | null>(null);
@@ -346,6 +350,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     coursesRef.current = data.courses;
   }, [data.courses]);
+  useEffect(() => {
+    plannerRef.current = data.planner;
+  }, [data.planner]);
 
   // Load (and re-load) the store from auth state. A single onAuthStateChange
   // listener drives everything: the initial session, sign-in, sign-out, and
@@ -647,6 +654,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (prev !== null && prev !== uid) {
         clearHavenLocalStorage();
         setData(initialData);
+        // CRITICAL: mark unhydrated until the switched-in account's real data
+        // loads. Otherwise consumers keep seeing `hydrated === true` over the
+        // zeroed `initialData`, and a gamification effect (e.g. the dashboard's
+        // recordAppOpen) can run against the zeros and PERSIST them to the new
+        // account — wiping its streak / XP / check-ins. applyForUser flips this
+        // back to true once the real gamification is in state.
+        setHydrated(false);
       }
       currentUidRef.current = uid;
       loadingRef.current = true;
@@ -787,7 +801,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const refreshGamChallenges = useCallback(() => {
     let result = { xpEarned: 0, newlyCompleted: [] as string[] };
     setData((d) => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = toISODate(new Date());
       const cCtx: ChallengeContext = {
         courses: d.courses,
         planner: d.planner,
@@ -1004,22 +1018,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Keep the colour in sync with the tag (colour isn't stored in the cloud).
     const withColor: Partial<PlannerNote> =
       patch.tag !== undefined ? { ...patch, color: colorForTag(patch.tag) } : patch;
-    setData((d) => {
-      if (patch.done === true) {
-        const prev = d.planner.notes.find((n) => n.id === id);
-        if (prev && !prev.done) {
-          awardGamificationXP(XP_REWARDS.COMPLETE_TASK, "complete_task");
-          refreshGamChallenges();
-        }
-      }
-      return {
-        ...d,
-        planner: {
-          ...d.planner,
-          notes: d.planner.notes.map((n) => (n.id === id ? { ...n, ...withColor } : n)),
-        },
-      };
-    });
+    // Detect a real "just completed" transition from the current snapshot BEFORE
+    // mutating, so the XP + challenge refresh run AFTER setData (never inside the
+    // updater — an impure updater double-fires under StrictMode and can miss the
+    // refresh). Mirrors updateComponent's pattern.
+    const prevNote = plannerRef.current.notes.find((n) => n.id === id);
+    const justCompleted = patch.done === true && !!prevNote && !prevNote.done;
+    setData((d) => ({
+      ...d,
+      planner: {
+        ...d.planner,
+        notes: d.planner.notes.map((n) => (n.id === id ? { ...n, ...withColor } : n)),
+      },
+    }));
+    if (justCompleted) {
+      awardGamificationXP(XP_REWARDS.COMPLETE_TASK, "complete_task");
+      refreshGamChallenges();
+    }
     if (loggedInRef.current) {
       const dbPatch: Parameters<typeof db.updatePlannerItem>[1] = {};
       if (patch.week !== undefined) dbPatch.week = patch.week;
@@ -1034,7 +1049,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
     }
-  }, [awardGamificationXP]);
+  }, [awardGamificationXP, refreshGamChallenges]);
 
   const deletePlannerNote = useCallback((id: string) => {
     setData((d) => ({

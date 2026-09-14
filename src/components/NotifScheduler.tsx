@@ -7,8 +7,7 @@ import { scheduleAll, cancelAll, type SmartAlert } from "@/lib/notifScheduler";
 import { buildSmartSuggestions } from "@/lib/smartSuggestions";
 import { enqueueScheduledPush } from "@/lib/db";
 
-function todayISO(): string {
-  const d = new Date();
+function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -19,34 +18,38 @@ export function NotifScheduler() {
   useEffect(() => {
     if (!hydrated) return;
 
-    // Highest-priority suggestion → the day's single smart reminder. Skip the
-    // "all good" filler; it's reassurance for the dashboard, not a notification.
+    // Highest-priority suggestion → the day's single smart reminder. On a calm
+    // day (nothing urgent → "all good") fall back to a friendly study nudge so
+    // the daily reminder still arrives, instead of going silent.
     const top = buildSmartSuggestions(
       { courses, planner, semester, gamification, gpaGoal },
       t
     )[0];
-    const smartAlert: SmartAlert | null =
-      top && top.kind !== "all-good"
-        ? { id: top.id, title: lang === "ar" ? "Haven — تذكير" : "Haven — Reminder", body: top.text }
-        : null;
+    const body = top && top.kind !== "all-good" ? top.text : t("smart_studyNudge");
+    const smartAlert: SmartAlert = {
+      id: top?.kind !== "all-good" ? (top?.id ?? "study-nudge") : "study-nudge",
+      title: lang === "ar" ? "Haven — تذكير" : "Haven — Reminder",
+      body,
+    };
 
     // In-tab timers (fires while the app is open, and catches up on open).
     scheduleAll(courses, planner, semester, notifPrefs, lang, smartAlert);
 
-    // Outbox: queue today's reminder for server delivery so it still arrives
-    // when the app is CLOSED. Only when the reminder hour is still ahead today
-    // (a past hour is already handled in-tab, so a push would be stale/dup).
-    if (smartAlert && notifPrefs.exams.enabled) {
+    // Outbox: queue the reminder for SERVER delivery so it arrives even when the
+    // app is CLOSED. Schedule the next occurrence of the daily reminder hour —
+    // today if it's still ahead, otherwise tomorrow — so opening the app at any
+    // time of day always leaves a push queued. dedupKey is per send-date, so the
+    // server sends it exactly once and re-opening the app just refreshes content.
+    if (notifPrefs.exams.enabled) {
       const sendAt = new Date();
       sendAt.setHours(notifPrefs.dailyReminderHour, 0, 0, 0);
-      if (sendAt.getTime() > Date.now()) {
-        void enqueueScheduledPush({
-          dedupKey: `smart-${todayISO()}`,
-          sendAt: sendAt.toISOString(),
-          title: smartAlert.title,
-          body: smartAlert.body,
-        });
-      }
+      if (sendAt.getTime() <= Date.now()) sendAt.setDate(sendAt.getDate() + 1);
+      void enqueueScheduledPush({
+        dedupKey: `smart-${isoDate(sendAt)}`,
+        sendAt: sendAt.toISOString(),
+        title: smartAlert.title,
+        body: smartAlert.body,
+      });
     }
 
     return cancelAll;

@@ -51,7 +51,7 @@ export function SmartSuggestions() {
             key={s.id}
             className="flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm whitespace-nowrap shrink-0 transition-colors"
             style={{
-              background: "var(--card-bg)",
+              background: "var(--color-surface)",
               border: `1.5px solid color-mix(in srgb, ${s.color} 30%, transparent)`,
               color: "var(--color-ink)",
             }}

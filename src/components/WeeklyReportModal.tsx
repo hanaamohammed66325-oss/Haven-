@@ -46,7 +46,7 @@ export function WeeklyReportModal() {
       <div
         className="w-full max-w-[360px] rounded-3xl p-6 animate-[slideUp_0.4s_ease-out]"
         style={{
-          background: "linear-gradient(160deg, var(--card-bg) 0%, color-mix(in srgb, var(--color-primary) 8%, var(--card-bg)) 100%)",
+          background: "linear-gradient(160deg, var(--color-surface) 0%, color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)) 100%)",
           boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
         }}
       >
@@ -114,7 +114,7 @@ export function WeeklyReportModal() {
           <div className="flex items-center gap-2">
             <CheckCircle2 size={16} style={{ color: "var(--color-primary)" }} />
             <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>
-              {t("wr_level", { level: level.name })}
+              {t("wr_level", { level: t(`gam_level_${level.name}` as Parameters<typeof t>[0]) })}
             </span>
           </div>
         </div>
