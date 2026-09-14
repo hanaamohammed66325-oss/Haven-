@@ -32,6 +32,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Free tools — the search-acquisition funnel.
     page("/tools/", 0.9, "weekly"),
     page("/tools/gpa-calculator/", 0.9, "weekly"),
+    page("/tools/absence-calculator/", 0.9, "weekly"),
     // Auth entry points.
     page("/signup/", 0.7, "monthly"),
     page("/signin/", 0.5, "monthly"),

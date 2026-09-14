@@ -196,6 +196,16 @@ export default function GpaCalculatorPage() {
             أنشئ حسابك المجاني
           </Link>
         </section>
+
+        <p className="text-center text-sm mt-8">
+          <Link href="/tools/absence-calculator/" className="hover:underline" style={{ color: "var(--color-primary)" }}>
+            جرّب أيضاً: حاسبة الغياب والحرمان
+          </Link>
+          <span className="mx-2 opacity-50">·</span>
+          <Link href="/tools/" className="hover:underline" style={{ color: "var(--color-primary)" }}>
+            كل الأدوات
+          </Link>
+        </p>
       </main>
 
       <Footer />

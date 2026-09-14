@@ -71,6 +71,9 @@ export default function LandingPage() {
             <a href="#top" className="transition-colors hover:text-[color:var(--color-ink)]">{t("land_navHome")}</a>
             <a href="#features" className="transition-colors hover:text-[color:var(--color-ink)]">{t("land_navFeatures")}</a>
             <a href="#cta" className="transition-colors hover:text-[color:var(--color-ink)]">{t("land_navHow")}</a>
+            <Link href="/tools" className="transition-colors hover:text-[color:var(--color-ink)]">
+              {lang === "ar" ? "أدوات مجانية" : "Free tools"}
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">

@@ -8,6 +8,7 @@ import { useT } from "@/i18n";
 // Bilingual, reads the active locale. "Haven" always stays Latin.
 
 const LINKS: { href: string; en: string; ar: string }[] = [
+  { href: "/tools", en: "Free tools", ar: "أدوات مجانية" },
   { href: "/privacy", en: "Privacy Policy", ar: "سياسة الخصوصية" },
   { href: "/terms", en: "Terms of Service", ar: "الشروط والأحكام" },
   { href: "/refund", en: "Refund Policy", ar: "سياسة الاسترجاع" },

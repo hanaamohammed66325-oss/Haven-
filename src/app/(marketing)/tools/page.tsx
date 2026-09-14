@@ -44,10 +44,10 @@ const TOOLS: Tool[] = [
     desc: "احسب معدلك الفصلي والتراكمي — نظام ٥.٠ و٤.٠.",
   },
   {
-    href: null,
+    href: "/tools/absence-calculator/",
     icon: <CalendarX2 size={22} />,
     title: "حاسبة الغياب والحرمان",
-    desc: "اعرف كم غياب باقٍ لك قبل الحرمان من المادة. قريباً.",
+    desc: "اعرف كم غياب باقٍ لك قبل الحرمان من المادة.",
   },
   {
     href: null,
