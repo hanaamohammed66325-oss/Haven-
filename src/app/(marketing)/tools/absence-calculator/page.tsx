@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
 import { AbsenceCalculatorTool } from "@/components/tools/AbsenceCalculatorTool";
+import { ShareButton } from "@/components/tools/ShareButton";
 
 // PUBLIC, no-login absence / حرمان calculator. Server Component so it emits its
 // own Arabic metadata + static body at build time for search + AI engines.
@@ -103,9 +104,12 @@ export default function AbsenceCalculatorPage() {
             Haven
           </span>
         </Link>
-        <Link href="/signup/" className="haven-btn inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold">
-          ابدأ مجاناً
-        </Link>
+        <div className="flex items-center gap-2">
+          <ShareButton title={TITLE} path={URL_PATH} />
+          <Link href="/signup/" className="haven-btn inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold">
+            ابدأ مجاناً
+          </Link>
+        </div>
       </header>
 
       <main className="mx-auto w-full max-w-[760px] px-5 flex-1 pb-16">

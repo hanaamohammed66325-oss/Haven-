@@ -49,8 +49,8 @@ interface Row {
 let nextId = 4;
 const makeRow = (): Row => ({ id: nextId++, name: "", credits: "3", grade: "A" });
 
-export function GpaCalculatorTool() {
-  const [scale, setScale] = useState<Scale>("5");
+export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale }) {
+  const [scale, setScale] = useState<Scale>(defaultScale);
   const [rows, setRows] = useState<Row[]>([
     { id: 1, name: "", credits: "3", grade: "A+" },
     { id: 2, name: "", credits: "3", grade: "A" },

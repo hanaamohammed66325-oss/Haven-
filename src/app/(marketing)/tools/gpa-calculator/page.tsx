@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
 import { GpaCalculatorTool } from "@/components/tools/GpaCalculatorTool";
+import { UNIVERSITIES } from "@/lib/tools/universities";
+import { ShareButton } from "@/components/tools/ShareButton";
 
 // PUBLIC, no-login GPA calculator — the flagship SEO landing page. This is a
 // Server Component (unlike the older "use client" marketing pages) so it emits
@@ -114,12 +116,15 @@ export default function GpaCalculatorPage() {
             Haven
           </span>
         </Link>
-        <Link
-          href="/signup/"
-          className="haven-btn inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold"
-        >
-          ابدأ مجاناً
-        </Link>
+        <div className="flex items-center gap-2">
+          <ShareButton title={TITLE} path={URL_PATH} />
+          <Link
+            href="/signup/"
+            className="haven-btn inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold"
+          >
+            ابدأ مجاناً
+          </Link>
+        </div>
       </header>
 
       <main className="mx-auto w-full max-w-[760px] px-5 flex-1 pb-16">
@@ -152,6 +157,26 @@ export default function GpaCalculatorPage() {
             أما المعدل التراكمي فيدمج معدلك السابق وساعاتك المكتسبة مع مواد الفصل
             الحالي، والحاسبة أعلاه تحسبه لك تلقائياً عند إدخال بياناتك السابقة.
           </p>
+        </section>
+
+        {/* Per-university pages — internal links that spread crawl + rank the
+            long-tail "حاسبة معدل جامعة X" queries. */}
+        <section className="mb-10">
+          <h2 className="font-display text-2xl mb-4" style={{ color: "var(--color-ink)" }}>
+            حاسبة المعدل حسب جامعتك
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {UNIVERSITIES.map((u) => (
+              <Link
+                key={u.slug}
+                href={`/tools/gpa-calculator/${u.slug}/`}
+                className="rounded-full px-3.5 py-1.5 text-[13px] transition-colors hover:border-[var(--color-primary)]"
+                style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+              >
+                {u.name}
+              </Link>
+            ))}
+          </div>
         </section>
 
         {/* FAQ (mirrors the FAQPage structured data). */}
