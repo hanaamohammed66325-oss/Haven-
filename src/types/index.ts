@@ -179,9 +179,6 @@ export interface PomodoroSettings {
   soundEnabled: boolean;
   autoStartBreaks: boolean;
   autoStartFocus: boolean;
-  /** per-course chosen lily-pad shape (courseId → species index). Absent = the
-   *  course's default species derived from its id. */
-  padSpecies?: Record<string, number>;
   /** per-course chosen bloom colour (courseId → hex). Overrides the course's own
    *  colour in the pond; absent = the course colour, else a hashed fallback. */
   padColors?: Record<string, string>;

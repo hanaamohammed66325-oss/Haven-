@@ -1034,6 +1034,10 @@ export interface GrovePadSpec {
 export const PAD_SPECIES = 5;
 export const PAD_FLOWERS = 4;
 
+// Fallback spec for an out-of-range pad index (module-scope so it isn't
+// reallocated on every frame).
+const PLAIN_SPEC: GrovePadSpec = { key: "__general", color: null, species: 0, flower: 0 };
+
 // Deterministic scatter of the earned pads over the water using a sunflower
 // (phyllotaxis) spiral, so any count fills the pond evenly without overlap.
 const GOLDEN_ANGLE = 2.399963229728653;
@@ -1106,7 +1110,6 @@ export function renderGrove(ctx: CanvasRenderingContext2D, s: GroveState): void 
   // ring, not a solid raft of pads. Sunflower spiral, centre kept clear for Havi.
   interface Item { kind: "pad" | "tree" | "grass"; x: number; y: number; r: number; spec: GrovePadSpec; bug: boolean; seed: number; }
   const items: Item[] = [];
-  const PLAIN: GrovePadSpec = { key: "__general", color: null, species: 0, flower: 0 };
   const RT = 0.82; // beyond this fraction the session is shore greenery, not a pad
   const edgeX = w * 0.46;
   const edgeY = h * 0.46;
@@ -1117,8 +1120,8 @@ export function renderGrove(ctx: CanvasRenderingContext2D, s: GroveState): void 
   const shown = filtered ? filtered.length : earned;
   const padBase = Math.max(15, Math.min(42, (Math.min(openRX, openRY) / Math.sqrt(shown + 3)) * 1.15));
   const specAt = (k: number): GrovePadSpec => {
-    if (filtered) return filtered[k - 1] ?? PLAIN;
-    return s.padSpecs && k - 1 < s.padSpecs.length ? s.padSpecs[k - 1] : PLAIN;
+    if (filtered) return filtered[k - 1] ?? PLAIN_SPEC;
+    return s.padSpecs && k - 1 < s.padSpecs.length ? s.padSpecs[k - 1] : PLAIN_SPEC;
   };
   for (let k = 1; k <= shown; k++) {
     const R = 0.2 + Math.sqrt(k / (shown + 1)) * 0.8;
@@ -1143,7 +1146,7 @@ export function renderGrove(ctx: CanvasRenderingContext2D, s: GroveState): void 
         x: cx + Math.cos(ang) * (openRX * RT + lt * (edgeX - openRX * RT)),
         y: cy + Math.sin(ang) * (openRY * RT + lt * (edgeY - openRY * RT)),
         r: padBase * (k % 2 === 0 ? 1.0 : 0.72),
-        spec: PLAIN,
+        spec: PLAIN_SPEC,
         bug: false,
         seed: k,
       });

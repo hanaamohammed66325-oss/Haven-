@@ -27,9 +27,9 @@ const FRAME_MS = 66; // ~15 fps, matching the timer scene
 type View = "auto" | "day" | "night";
 
 /**
- * A top-down view of every lily pad the student has grown. Each subject grows a
- * distinct plant; the pond can be filtered to one subject, re-shaped per subject,
- * and viewed by day or night. Opened from the Pomodoro page.
+ * A top-down view of every lily pad the student has grown. The pond can be
+ * filtered to one subject, recoloured per subject, and viewed by day or night.
+ * Opened from the Pomodoro page.
  */
 export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, legend, onSetColor }: Props) {
   const { t } = useT();

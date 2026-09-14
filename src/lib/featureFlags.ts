@@ -4,7 +4,7 @@
 
 import { ENFORCE_PREMIUM } from "./premium";
 
-/** Pomodoro is built but held behind a "coming soon" lock for the initial launch. */
+/** Pomodoro focus page — live. Set to `false` to hide the page and its nav entry. */
 export const POMODORO_ENABLED = true;
 
 /**
