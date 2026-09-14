@@ -34,6 +34,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page("/tools/", 0.9, "weekly"),
     page("/tools/gpa-calculator/", 0.9, "weekly"),
     page("/tools/absence-calculator/", 0.9, "weekly"),
+    page("/tools/planner/", 0.9, "weekly"),
     // Programmatic per-university GPA pages (long-tail search reach).
     ...UNIVERSITIES.map((u) => page(`/tools/gpa-calculator/${u.slug}/`, 0.7, "monthly")),
     // Auth entry points.

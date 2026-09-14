@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Calculator, CalendarX2, Percent, ArrowLeft } from "lucide-react";
+import { Calculator, CalendarX2, ClipboardList, Percent, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
 
@@ -48,6 +48,12 @@ const TOOLS: Tool[] = [
     icon: <CalendarX2 size={22} />,
     title: "حاسبة الغياب والحرمان",
     desc: "اعرف كم غياب باقٍ لك قبل الحرمان من المادة.",
+  },
+  {
+    href: "/tools/planner/",
+    icon: <ClipboardList size={22} />,
+    title: "مخطط الفصل الدراسي",
+    desc: "رتّب اختباراتك وواجباتك على أسابيع الفصل.",
   },
   {
     href: null,
