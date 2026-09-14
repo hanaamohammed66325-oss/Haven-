@@ -91,6 +91,8 @@ export const en = {
   checkoutCardNamePlaceholder: "Name on card",
   checkoutFieldsSimulated: "These fields are simulated — nothing is sent or saved",
   checkoutStartTrial: "Start free trial",
+  checkoutSecurePayment: "You'll be taken to noon's secure page to enter your card. Haven never sees your card details.",
+  checkoutPayNow: "Continue to secure payment",
   checkoutProcessing: "Processing…",
   checkoutErrActive: "You already have an active subscription.",
   checkoutErrIneligible: "This account isn't eligible for a new free trial.",

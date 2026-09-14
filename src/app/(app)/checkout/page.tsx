@@ -15,18 +15,17 @@
 // already works and is provider-agnostic.
 // ---------------------------------------------------------------------------
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Sparkles, ShieldCheck } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
-import { useSubscription } from "@/lib/subscription";
 import { PLANS, DEFAULT_PLAN_CYCLE, ENFORCE_PREMIUM } from "@/lib/premium";
 import { RedirectHome } from "@/components/RedirectHome";
 import type { TranslationKey } from "@/i18n/translations/en";
 
-const CREATE_SUBSCRIPTION_URL = `${SUPABASE_URL}/functions/v1/create-subscription`;
+const NOON_INITIATE_URL = `${SUPABASE_URL}/functions/v1/noon-initiate`;
 const VALIDATE_COUPON_URL = `${SUPABASE_URL}/functions/v1/validate-coupon`;
 
 const fieldBase =
@@ -50,9 +49,7 @@ export default function CheckoutPage() {
 
 function CheckoutInner() {
   const { t } = useT();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { refresh } = useSubscription();
   usePageTitle("checkoutTitle");
 
   const cycle = useMemo(() => {
@@ -64,12 +61,6 @@ function CheckoutInner() {
     () => PLANS.find((p) => p.cycle === cycle) ?? PLANS[0],
     [cycle]
   );
-
-  // ---- Simulated card fields (never leave the browser) ----
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvc, setCvc] = useState("");
 
   // ---- Coupon ----
   const [couponCode, setCouponCode] = useState("");
@@ -121,10 +112,11 @@ function CheckoutInner() {
   }, []);
 
   /**
-   * Start the trial. No gateway is contacted — the simulated card fields are
-   * discarded and only the plan (and coupon, if any) is sent.
+   * Begin payment via noon's hosted checkout. We only send the plan (+ coupon);
+   * the edge function creates the order and returns noon's payment page URL, and
+   * the browser is redirected there to enter card details on noon (never here).
    */
-  const startTrial = useCallback(
+  const startPayment = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError("");
@@ -136,7 +128,7 @@ function CheckoutInner() {
           setSubmitting(false);
           return;
         }
-        const res = await fetch(CREATE_SUBSCRIPTION_URL, {
+        const res = await fetch(NOON_INITIATE_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -149,9 +141,9 @@ function CheckoutInner() {
           }),
         });
         const json = await res.json().catch(() => ({}));
-        if (res.ok && json?.ok) {
-          await refresh();
-          router.replace("/profile?subscribed=1");
+        if (res.ok && json?.ok && json?.paymentUrl) {
+          // Leave the app for noon's hosted payment page.
+          window.location.href = String(json.paymentUrl);
           return;
         }
         setError(json?.error ? String(json.error) : t("checkoutErrGeneric"));
@@ -160,7 +152,7 @@ function CheckoutInner() {
       }
       setSubmitting(false);
     },
-    [cycle, appliedCoupon, refresh, router, t]
+    [cycle, appliedCoupon, t]
   );
 
   const discounted = appliedCoupon
@@ -174,14 +166,6 @@ function CheckoutInner() {
       <h1 className="font-display text-[32px] leading-tight" style={{ color: "var(--color-ink)" }}>
         {t("checkoutTitle")}
       </h1>
-
-      {/* Simulation notice — this build has no payment processor connected. */}
-      <div
-        className="mt-5 rounded-xl px-4 py-3 text-[13px] leading-relaxed"
-        style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
-      >
-        {t("checkoutMockBanner")}
-      </div>
 
       {/* Plan summary */}
       <Card padding="p-5 sm:p-6" className="mt-6">
@@ -267,88 +251,25 @@ function CheckoutInner() {
         </Card>
       )}
 
-      {/* Simulated card form */}
-      <form onSubmit={startTrial}>
+      {/* Payment — handled entirely on noon's secure hosted page. Haven never
+          sees card data; this button just starts the order and redirects. */}
+      <form onSubmit={startPayment}>
         <Card padding="p-5 sm:p-6" className="mt-4">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2">
             <ShieldCheck size={15} style={{ color: "var(--color-muted)" }} />
             <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-              {t("checkoutFieldsSimulated")}
+              {t("checkoutSecurePayment")}
             </span>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-                {t("checkoutCardName")}
-              </label>
-              <input
-                className={fieldBase}
-                style={border}
-                value={cardName}
-                placeholder={t("checkoutCardNamePlaceholder")}
-                onChange={(e) => setCardName(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-                {t("checkoutCardNumber")}
-              </label>
-              <input
-                className={fieldBase}
-                style={border}
-                value={cardNumber}
-                placeholder="4242 4242 4242 4242"
-                inputMode="numeric"
-                onChange={(e) => setCardNumber(e.target.value)}
-                autoComplete="off"
-                dir="ltr"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-                  {t("checkoutExpiry")}
-                </label>
-                <input
-                  className={fieldBase}
-                  style={border}
-                  value={expiry}
-                  placeholder="12 / 30"
-                  onChange={(e) => setExpiry(e.target.value)}
-                  autoComplete="off"
-                  dir="ltr"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-                  {t("checkoutCvc")}
-                </label>
-                <input
-                  className={fieldBase}
-                  style={border}
-                  value={cvc}
-                  placeholder="123"
-                  inputMode="numeric"
-                  onChange={(e) => setCvc(e.target.value)}
-                  autoComplete="off"
-                  dir="ltr"
-                />
-              </div>
-            </div>
-          </div>
-
           {error && (
-            <p className="text-[13px] mt-4" style={{ color: "#c0392b" }}>{error}</p>
+            <p className="text-[13px] mt-3" style={{ color: "#c0392b" }}>{error}</p>
           )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="haven-btn mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold"
+            className="haven-btn mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold"
             style={{ opacity: submitting ? 0.6 : 1 }}
           >
             {submitting ? (
@@ -359,7 +280,7 @@ function CheckoutInner() {
             ) : (
               <>
                 <Sparkles size={16} />
-                {t("checkoutStartTrial")}
+                {t("checkoutPayNow")}
               </>
             )}
           </button>

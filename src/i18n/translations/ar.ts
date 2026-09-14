@@ -93,6 +93,8 @@ export const ar: Record<TranslationKey, string> = {
   checkoutCardNamePlaceholder: "الاسم على البطاقة",
   checkoutFieldsSimulated: "هذه الحقول تجريبية — لا يتم إرسالها أو حفظها",
   checkoutStartTrial: "ابدأ التجربة المجانية",
+  checkoutSecurePayment: "بيتم تحويلك لصفحة نون الآمنة لإدخال بطاقتك. Haven ما يشوف بيانات بطاقتك إطلاقاً.",
+  checkoutPayNow: "المتابعة للدفع الآمن",
   checkoutProcessing: "جارٍ المعالجة…",
   checkoutErrActive: "لديك اشتراك نشط بالفعل.",
   checkoutErrIneligible: "هذا الحساب غير مؤهل لتجربة مجانية جديدة.",
