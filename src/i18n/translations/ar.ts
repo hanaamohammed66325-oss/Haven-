@@ -461,6 +461,16 @@ export const ar: Record<TranslationKey, string> = {
   tour_courseSave: "احفظ — وتنضاف مادتك",
   tour_courseAdded: "تمام! انضافت مادتك. نفس الطريقة لباقي موادك.",
   tour_notifWhere: "من «الإعدادات ← الإشعارات» فعّل التذكيرات عشان ما يفوتك اختبار ولا محاضرة.",
+  tour_addComponent: "من «إضافة عنصر» تضيف اختبارات ودرجات المادة.",
+  tour_itemName: "اسم العنصر — مثلاً: كويز ١.",
+  tour_itemType: "نوعه: كويز، ميدترم، واجب، مشروع، أو فاينل.",
+  tour_itemWeight: "وزنه من الدرجة (٪) — كم يحسب من المئة.",
+  tour_itemTotal: "الدرجة الكاملة للعنصر — مثلاً من ١٠.",
+  tour_itemScore: "درجتك اللي حصّلتها — والمعدل يتحدّث تلقائياً.",
+  tour_itemSave: "احفظ، وينضاف العنصر ويتحسب في معدلك.",
+  tour_itemAdded: "تمام! عنصر الدرجة انضاف والمعدل تحدّث.",
+  tour_notifHere: "من هنا تفعّل التذكيرات — محاضراتك واختباراتك توصلك قبلها بوقت. لا تنساها!",
+  tour_haviIntro: "أنا Havi، بوريك كل شي في Haven خطوة خطوة.",
 
   // Schedule (Planner + Timetable tabs)
   scheduleSubtitle: "خطّط فصلك وتابع حصصك الأسبوعية.",

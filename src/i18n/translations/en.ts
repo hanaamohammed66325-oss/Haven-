@@ -460,6 +460,16 @@ export const en = {
   tour_courseSave: "Save — and your course is added",
   tour_courseAdded: "Done! Your course is added. Same steps for the rest.",
   tour_notifWhere: "From Settings → Notifications, turn on reminders so you never miss an exam or lecture.",
+  tour_addComponent: "Use \"Add item\" to add a course's exams and grades.",
+  tour_itemName: "The item's name — e.g. Quiz 1.",
+  tour_itemType: "Its type: quiz, midterm, assignment, project, or final.",
+  tour_itemWeight: "Its weight (%) — how much it counts toward 100.",
+  tour_itemTotal: "The item's full mark — e.g. out of 10.",
+  tour_itemScore: "The score you got — your GPA updates automatically.",
+  tour_itemSave: "Save, and the item is added and counted in your GPA.",
+  tour_itemAdded: "Done! The grade item was added and your GPA updated.",
+  tour_notifHere: "Turn reminders on here — lectures and exams reach you ahead of time. Don't skip this!",
+  tour_haviIntro: "I'm Havi — I'll show you everything in Haven, step by step.",
 
   // Schedule (Planner + Timetable tabs)
   scheduleSubtitle: "Plan your term and see your weekly classes.",

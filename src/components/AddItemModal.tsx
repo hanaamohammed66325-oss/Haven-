@@ -107,10 +107,10 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
       title={isEdit ? t("editItem") : t("addItem")}
       footer={
         <div className="flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
+          <button type="button" data-tour="item-cancel" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
             {t("cancel")}
           </button>
-          <button type="submit" form="add-item-form" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
+          <button type="submit" form="add-item-form" data-tour="item-save" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
             {saving ? t("saving") : isEdit ? t("save") : t("addItem")}
           </button>
         </div>
@@ -123,13 +123,13 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
         {/* Name */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemName")}</label>
-          <input className={field} style={border} value={name} placeholder={t("itemNamePlaceholder")} onChange={(e) => setName(e.target.value)} autoFocus />
+          <input data-tour="item-name" className={field} style={border} value={name} placeholder={t("itemNamePlaceholder")} onChange={(e) => setName(e.target.value)} autoFocus />
         </div>
 
         {/* Type */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemType")}</label>
-          <select className={field} style={border} value={type} onChange={(e) => setType(e.target.value as ComponentType)}>
+          <select data-tour="item-type" className={field} style={border} value={type} onChange={(e) => setType(e.target.value as ComponentType)}>
             {COMPONENT_TYPES.map((ty) => (
               <option key={ty} value={ty}>{t(`type_${ty}` as const)}</option>
             ))}
@@ -137,7 +137,7 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
         </div>
 
         {/* Weight + unit */}
-        <div className="flex flex-col gap-1.5">
+        <div data-tour="item-weight" className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemWeight")}</label>
           <div className="flex gap-2">
             {/* Percentages are capped at 100; points have no meaningful ceiling. */}
@@ -171,7 +171,7 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
         {/* Item total score */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemOutOf")}</label>
-          <input className={field} style={border} type="number" min="0" step="any" value={total} onChange={(e) => setTotal(e.target.value)} />
+          <input data-tour="item-total" className={field} style={border} type="number" min="0" step="any" value={total} onChange={(e) => setTotal(e.target.value)} />
           <p className="text-[11px] leading-snug" style={{ color: "var(--color-muted)" }}>{t("itemOutOfHelp")}</p>
         </div>
 
@@ -203,7 +203,7 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
         </div>
 
         {/* Score (optional) */}
-        <div className="flex flex-col gap-1.5">
+        <div data-tour="item-score" className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
             {t("itemScore")} <span style={{ opacity: 0.7 }}>({t("optional")})</span>
           </label>

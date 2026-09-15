@@ -133,6 +133,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
               {t("autofill")}
             </button>
             <button
+              data-tour="add-component"
               onClick={() => setAddingItem(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
               style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}

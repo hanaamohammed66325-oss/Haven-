@@ -287,7 +287,7 @@ export function NotificationsSettings() {
           : null;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div data-tour="notif-section" className="flex flex-col gap-3">
       {infoText && (
         <p className="text-sm" style={{ color: "var(--color-muted)" }}>
           {infoText}
