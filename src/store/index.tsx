@@ -169,6 +169,7 @@ const initialData: AppData = {
   cumulativeHours: 0,
   notifPrefs: DEFAULT_NOTIF_PREFS,
   haviName: "Havi",
+  onboardingSeen: false,
   gamification: defaultGamification,
   pomodoroSettings: defaultPomodoroSettings,
   pomodoroStats: defaultPomodoroStats,
@@ -263,6 +264,8 @@ export interface StoreValue extends AppData {
   setNotifPrefs: (next: NotifPrefs) => void;
   /** Custom name for Havi mascot; persisted to preferences.haviName. */
   setHaviName: (name: string) => void;
+  /** Mark the first-run onboarding walkthrough as completed/skipped. */
+  completeOnboarding: () => void;
   setSemester: (patch: Partial<Semester>) => void;
   addCourse: (course: {
     name: string;
@@ -543,6 +546,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // notifPrefs supersedes the legacy `reminderDays`; missing → defaults.
           notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
           haviName: str(prefs.haviName, "Havi") || "Havi",
+          onboardingSeen: prefs.onboardingSeen === true,
           pomodoroSettings: {
             ...defaultPomodoroSettings,
             ...((prefs.pomodoroSettings as Partial<PomodoroSettings>) ?? {}),
@@ -1162,6 +1166,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [persistPref]
   );
 
+  const completeOnboarding = useCallback(() => {
+    setData((d) => (d.onboardingSeen ? d : { ...d, onboardingSeen: true }));
+    persistPref({ onboardingSeen: true });
+  }, [persistPref]);
+
   const setSemester = useCallback((patch: Partial<Semester>) => {
     setData((d) => ({ ...d, semester: { ...d.semester, ...patch } }));
     // Mirror the cloud-backed fields to the active semesters row. name/weeks/
@@ -1736,6 +1745,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCumulativeHours,
     setNotifPrefs,
     setHaviName,
+    completeOnboarding,
     recordAppOpen,
     doCheckIn,
     awardGamificationXP,

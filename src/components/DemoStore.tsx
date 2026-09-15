@@ -212,6 +212,7 @@ function buildInitialData(): AppData {
     cumulativeHours: 52,
     notifPrefs: DEFAULT_NOTIF_PREFS,
     haviName: "Havi",
+    onboardingSeen: true,
     gamification: { streak: { current: 3, longest: 7, lastActiveDate: null }, xp: 45, badges: ["first-checkin"], badgeTier: 1, totalCheckIns: 3, checkedInToday: null, challenges: { daily: { date: "", items: [] }, weekly: { weekStart: "", items: [] } }, weeklySnapshot: null, lastWeeklyReport: null },
     pomodoroSettings: { focusMinutes: 25, shortBreakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4, soundEnabled: true, autoStartBreaks: false, autoStartFocus: false },
     pomodoroStats: { totalSessions: 0, totalFocusMinutes: 0, longestDailyStreak: 0, currentDailyStreak: 0, lastSessionDate: null, recentDays: [], lilyPadCount: 1, pads: [] },
@@ -363,6 +364,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }))),
 
       setHaviName: (name) => patch({ haviName: name || "Havi" }),
+      completeOnboarding: () => {},
       recordAppOpen: () => ({ xpEarned: 0, streakBroke: false, streakCurrent: 0 }),
       doCheckIn: () => ({ xpEarned: 0, alreadyDone: true, newBadges: [], tierAdvanced: false }),
       awardGamificationXP: () => ({ newBadges: [], tierAdvanced: false }),

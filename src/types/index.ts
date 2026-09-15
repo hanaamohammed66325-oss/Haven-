@@ -163,6 +163,9 @@ export interface AppData {
   notifPrefs: NotifPrefs;
   /** custom name for the Havi mascot (default "Havi") */
   haviName: string;
+  /** whether the first-run onboarding walkthrough has been completed/skipped
+   *  (per account, in preferences.onboardingSeen). Drives the one-time tour. */
+  onboardingSeen: boolean;
   gamification: import("@/lib/gamification").GamificationState;
   /** Pomodoro focus-timer configuration (per account, in preferences.pomodoroSettings). */
   pomodoroSettings: PomodoroSettings;

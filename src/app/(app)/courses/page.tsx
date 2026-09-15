@@ -106,6 +106,7 @@ export default function CoursesPage() {
           {t("nav_courses")}
         </h1>
         <button
+          data-tour="add-course"
           onClick={() => (canAdd ? setAdding(true) : setGateOpen(true))}
           className="haven-btn shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium"
         >

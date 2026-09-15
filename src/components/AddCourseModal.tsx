@@ -73,11 +73,11 @@ export function AddCourseModal({ open, onClose, onSubmit, initial, defaultLimit 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("courseName")}</label>
-          <input className={field} style={border} value={name} placeholder={t("courseNamePlaceholder")} onChange={(e) => setName(e.target.value)} autoFocus />
+          <input data-tour="course-name" className={field} style={border} value={name} placeholder={t("courseNamePlaceholder")} onChange={(e) => setName(e.target.value)} autoFocus />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("creditHours")}</label>
-          <input className={field} style={border} type="number" min="1" step="1" value={credits} onChange={(e) => setCredits(e.target.value)} />
+          <input data-tour="course-credits" className={field} style={border} type="number" min="1" step="1" value={credits} onChange={(e) => setCredits(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("withdrawalLimitLabel")}</label>
@@ -90,7 +90,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial, defaultLimit 
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
             {t("cancel")}
           </button>
-          <button type="submit" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
+          <button type="submit" data-tour="course-save" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
             {saving ? t("saving") : isEdit ? t("save") : t("addCourse")}
           </button>
         </div>

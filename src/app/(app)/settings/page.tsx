@@ -180,6 +180,20 @@ export default function SettingsPage() {
         {t("settingsSubtitle")}
       </p>
 
+      {/* User guide — reopen the first-run onboarding tour anytime. */}
+      <Section title={t("ob_settings_t")}>
+        <p className="text-[13px] mb-4 -mt-1" style={{ color: "var(--color-muted)" }}>
+          {t("ob_settings_desc")}
+        </p>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("haven:onboarding"))}
+          className="haven-btn rounded-xl px-5 py-2.5 text-sm font-semibold"
+        >
+          {t("ob_settings_btn")}
+        </button>
+      </Section>
+
       {/* Preferences */}
       <Section title={t("sectionPreferences")}>
         <div className="divide-y" style={divider}>

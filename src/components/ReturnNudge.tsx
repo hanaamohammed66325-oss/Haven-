@@ -46,13 +46,16 @@ const REASONS = {
 type Key = Parameters<ReturnType<typeof useT>["t"]>[0];
 
 export function ReturnNudge() {
-  const { hydrated, courses } = useStore();
+  const { hydrated, courses, onboardingSeen } = useStore();
   const { t } = useT();
   const router = useRouter();
   const [reason, setReason] = useState<Reason | null>(null);
 
   useEffect(() => {
     if (!hydrated) return;
+    // The first-run onboarding tour owns a brand-new user's first session;
+    // don't stack a nudge on top of it. Once the tour is done, nudges resume.
+    if (!onboardingSeen) return;
 
     // Read (window, not useSearchParams — keeps this off the Suspense path that
     // static export otherwise requires) and clear the re-engage flag.

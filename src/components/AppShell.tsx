@@ -12,6 +12,7 @@ import { AchievementToast } from "./AchievementToast";
 import { WeeklyReportModal } from "./WeeklyReportModal";
 import { NotifScheduler } from "./NotifScheduler";
 import { ReturnNudge } from "./ReturnNudge";
+import { Onboarding } from "./Onboarding";
 import { TrialBanner } from "./TrialBanner";
 import { EarlyAccessBanner } from "./EarlyAccessBanner";
 import { Footer } from "./Footer";
@@ -194,6 +195,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <AchievementToast />
       <WeeklyReportModal />
       <NotifScheduler />
+      <Onboarding />
       <ReturnNudge />
     </div>
   );
