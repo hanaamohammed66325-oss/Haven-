@@ -380,6 +380,24 @@ export const en = {
   smart_gpaGoal: "GPA {current} — push a bit more to reach {goal}",
   smart_allGood: "Everything's on track!",
   smart_studyNudge: "Feel like studying? Open Haven and knock out a task 📚",
+  smart_examTomorrow: "You've got {exam} tomorrow — want to review a bit?",
+  smart_taskTomorrowSoon: "{task} is due tomorrow — knock it out now before it slips your mind?",
+  smart_manyTasksTomorrow: "You've got {n} things due tomorrow — want to start now?",
+
+  // Re-engagement / return nudge (in-app modal).
+  nudge_titleNotif: "Don't miss a thing",
+  nudge_bodyNotif: "Reminders keep you from missing an exam or a lecture.",
+  nudge_ctaNotif: "Turn on reminders",
+  nudge_titleCourses: "Finish setting up?",
+  nudge_bodyCourses: "Your courses are missing — adding them takes a minute and we'll start tracking your GPA.",
+  nudge_ctaCourses: "Add courses",
+  nudge_titleGrades: "Your GPA is waiting for a first grade",
+  nudge_bodyGrades: "Your courses are ready. Add your grades so we can calculate your GPA.",
+  nudge_ctaGrades: "Add grades",
+  nudge_titleBack: "Welcome back",
+  nudge_bodyBack: "Your studies missed you. A quick grade update shows where you stand.",
+  nudge_ctaOpen: "Open my dashboard",
+  nudge_later: "Later",
 
   // Schedule (Planner + Timetable tabs)
   scheduleSubtitle: "Plan your term and see your weekly classes.",

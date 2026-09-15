@@ -379,6 +379,26 @@ export const ar: Record<TranslationKey, string> = {
   smart_gpaGoal: "معدلك {current} — شوي وتوصل {goal}",
   smart_allGood: "كل شيء تمام!",
   smart_studyNudge: "قربت وقت المذاكرة؟ افتح Haven وخلّص مهمة 📚",
+  smart_examTomorrow: "عندك اختبار {exam} بكرة — نبدأ نراجع له شوي؟",
+  smart_taskTomorrowSoon: "عندك {task} بكرة — نخلّصه الحين قبل ما ننساه؟",
+  smart_manyTasksTomorrow: "عندك {n} مهام بكرة — نبدأ ننجزها من الحين؟",
+
+  // Re-engagement / return nudge (in-app modal). Copy is gender-neutral:
+  // masdar buttons + no verbs directed at the reader, so it reads the same
+  // for everyone.
+  nudge_titleNotif: "لا يفوتك شي",
+  nudge_bodyNotif: "التذكيرات تساعدك ما يفوتك اختبار ولا محاضرة.",
+  nudge_ctaNotif: "تفعيل التذكيرات",
+  nudge_titleCourses: "نكمّل حسابك؟",
+  nudge_bodyCourses: "ناقص موادك — إضافتها تاخذ دقيقة ونبدأ نحسب لك المعدل.",
+  nudge_ctaCourses: "إضافة المواد",
+  nudge_titleGrades: "معدلك بانتظار أول درجة",
+  nudge_bodyGrades: "موادك جاهزة. باقي درجاتك عشان نحسب معدلك.",
+  nudge_ctaGrades: "إضافة الدرجات",
+  nudge_titleBack: "أهلاً برجعتك",
+  nudge_bodyBack: "مذاكرتك ما نستك. تحديث سريع لدرجاتك يبيّن لك وين وصلت.",
+  nudge_ctaOpen: "فتح لوحتي",
+  nudge_later: "لاحقاً",
 
   // Schedule (Planner + Timetable tabs)
   scheduleSubtitle: "خطّط فصلك وتابع حصصك الأسبوعية.",

@@ -102,33 +102,55 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
     }
   }
 
-  // 3. Upcoming exams/quizzes — individual (7-day window)
+  // 3. Upcoming exams/quizzes — individual (7-day window). A "tomorrow" exam
+  // gets a warm, conversational nudge ("got an exam tomorrow — review a bit?")
+  // instead of the dry "Name · Course — Tomorrow" line.
   const upcoming = buildUpcoming(courses, planner, semester, now);
   for (const exam of upcoming.filter((u) => u.bucket === "exam" && u.diffDays <= 7)) {
-    const when =
-      exam.diffDays === 0 ? t("dueToday")
-      : exam.diffDays === 1 ? t("dueTomorrow")
-      : t("dueInDays", { n: exam.diffDays });
+    const text =
+      exam.diffDays === 1
+        ? t("smart_examTomorrow", { exam: exam.name })
+        : `${exam.name}${exam.courseName ? ` · ${exam.courseName}` : ""} — ${
+            exam.diffDays === 0 ? t("dueToday") : t("dueInDays", { n: exam.diffDays })
+          }`;
     items.push({
       id: `exam-${exam.date}-${exam.name}`,
       kind: "exam",
-      text: `${exam.name}${exam.courseName ? ` · ${exam.courseName}` : ""} — ${when}`,
+      text,
       href: exam.href,
       color: "#C77E2E",
       priority: exam.diffDays <= 1 ? 2 : 4,
     });
   }
 
-  // 4. Tasks due — individual
-  for (const task of upcoming.filter((u) => u.bucket === "task")) {
-    const when =
-      task.diffDays === 0 ? t("dueToday")
-      : task.diffDays === 1 ? t("dueTomorrow")
-      : t("dueInDays", { n: task.diffDays });
+  // 4. Tasks due. When several land tomorrow, one "you've got N things due
+  // tomorrow — want to start now?" nudge beats a wall of individual lines; a
+  // lone task tomorrow gets its own conversational "knock it out now" nudge.
+  const tasks = upcoming.filter((u) => u.bucket === "task");
+  const tomorrowTasks = tasks.filter((task) => task.diffDays === 1);
+  const collapseTomorrow = tomorrowTasks.length >= 3;
+  if (collapseTomorrow) {
+    items.push({
+      id: "tasks-tomorrow-many",
+      kind: "task",
+      text: t("smart_manyTasksTomorrow", { n: tomorrowTasks.length }),
+      href: "/assignments",
+      color: "var(--color-primary)",
+      priority: 3,
+    });
+  }
+  for (const task of tasks) {
+    if (collapseTomorrow && task.diffDays === 1) continue; // folded into the aggregate
+    const text =
+      task.diffDays === 1
+        ? t("smart_taskTomorrowSoon", { task: task.name })
+        : `${task.name}${task.courseName ? ` · ${task.courseName}` : ""} — ${
+            task.diffDays === 0 ? t("dueToday") : t("dueInDays", { n: task.diffDays })
+          }`;
     items.push({
       id: `task-${task.date}-${task.name}`,
       kind: "task",
-      text: `${task.name}${task.courseName ? ` · ${task.courseName}` : ""} — ${when}`,
+      text,
       href: task.href,
       color: "var(--color-primary)",
       priority: task.diffDays <= 1 ? 3 : 5,
