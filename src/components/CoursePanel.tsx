@@ -78,6 +78,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
       className="overflow-hidden"
       data-havi-role="course"
       data-havi-course-id={course.id}
+      data-tour="course-panel"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 p-5 sm:p-8 border-b" style={border}>

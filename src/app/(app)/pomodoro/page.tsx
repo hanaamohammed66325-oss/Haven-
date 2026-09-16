@@ -284,6 +284,7 @@ export default function PomodoroPage() {
       {/* Full-bleed pond banner: spans the full content width, fades top/bottom
           into the page, height adapts to the viewport. */}
       <div
+        data-tour="pom-pond"
         className="haven-fade-up relative -mx-5 sm:-mx-6 md:-mx-10 -mt-6 sm:-mt-8 md:-mt-12 mb-6"
         style={{ height: "clamp(280px, 44vh, 460px)" }}
       >

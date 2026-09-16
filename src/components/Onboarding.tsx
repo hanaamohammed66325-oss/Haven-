@@ -51,11 +51,14 @@ type Action =
   | { kind: "type"; ar: string; en: string; enter?: boolean }
   | { kind: "selectFirst" };
 
+type Scope = "page" | "pageLast" | "modal";
+
 interface Beat {
   page: PageKey;
   target?: string;
-  /** "page" = anchor inside the demo scroll area; "modal" = a modal portaled to <body>. */
-  scope?: "page" | "modal";
+  /** "page" = first anchor in the demo scroll area; "pageLast" = the LAST one
+   *  (e.g. the just-added course); "modal" = a modal portaled to <body>. */
+  scope?: Scope;
   callout?: TranslationKey;
   title?: TranslationKey;
   line?: TranslationKey;
@@ -81,24 +84,24 @@ const BEATS: Beat[] = [
   { page: "courses", target: "course-name", scope: "modal", callout: "tour_courseName", action: { kind: "type", ar: "الأحياء", en: "Biology" }, hold: 500 },
   { page: "courses", target: "course-credits", scope: "modal", callout: "tour_courseCredits", action: { kind: "type", ar: "3", en: "3" }, hold: 500 },
   { page: "courses", target: "course-save", scope: "modal", callout: "tour_courseSave", action: { kind: "click" }, hold: 900 },
-  { page: "courses", title: "ob_courses_t", line: "tour_courseAdded", hold: 2200 },
+  { page: "courses", target: "course-panel", scope: "pageLast", title: "ob_courses_t", line: "tour_courseAdded", hold: 2600 },
 
-  // ── Courses: add a grade item live, field by field ───────────────────
+  // ── Grade item — added to the NEW (empty) course, field by field ─────
   { page: "courses", title: "ob_grades_t", line: "ob_grades_p1", hold: 2400 },
-  { page: "courses", target: "add-component", callout: "tour_addComponent", action: { kind: "click" }, hold: 600 },
-  { page: "courses", target: "item-name", scope: "modal", callout: "tour_itemName", action: { kind: "type", ar: "كويز ٣", en: "Quiz 3" }, hold: 500 },
+  { page: "courses", target: "add-component", scope: "pageLast", callout: "tour_addComponent", action: { kind: "click" }, hold: 600 },
+  { page: "courses", target: "item-name", scope: "modal", callout: "tour_itemName", action: { kind: "type", ar: "كويز ١", en: "Quiz 1" }, hold: 500 },
   { page: "courses", target: "item-type", scope: "modal", callout: "tour_itemType", hold: 2000 },
-  { page: "courses", target: "item-weight", scope: "modal", callout: "tour_itemWeight", action: { kind: "type", ar: "40", en: "40" }, hold: 600 },
+  { page: "courses", target: "item-weight", scope: "modal", callout: "tour_itemWeight", action: { kind: "type", ar: "10", en: "10" }, hold: 600 },
   { page: "courses", target: "item-total", scope: "modal", callout: "tour_itemTotal", action: { kind: "type", ar: "10", en: "10" }, hold: 600 },
   { page: "courses", target: "item-score", scope: "modal", callout: "tour_itemScore", action: { kind: "type", ar: "9", en: "9" }, hold: 700 },
   { page: "courses", target: "item-save", scope: "modal", callout: "tour_itemSave", action: { kind: "click" }, closeIfStuck: true, hold: 900 },
-  { page: "courses", title: "ob_grades_t", line: "tour_itemAdded", hold: 2200 },
+  { page: "courses", target: "course-panel", scope: "pageLast", title: "ob_grades_t", line: "tour_itemAdded", hold: 2600 },
 
-  // ── Courses: add a lecture (session) live ────────────────────────────
+  // ── Lecture (session) — added to the NEW course ──────────────────────
   { page: "courses", title: "ob_lect_t", line: "ob_lect_p1", hold: 2400 },
-  { page: "courses", target: "sessions-box", callout: "tour_sessionsBox", hold: 2600 },
-  { page: "courses", target: "add-session", callout: "tour_addSession", action: { kind: "click" }, hold: 900 },
-  { page: "courses", target: "sessions-box", callout: "tour_sessionSet", hold: 3000 },
+  { page: "courses", target: "sessions-box", scope: "pageLast", callout: "tour_sessionsBox", hold: 2600 },
+  { page: "courses", target: "add-session", scope: "pageLast", callout: "tour_addSession", action: { kind: "click" }, hold: 900 },
+  { page: "courses", target: "sessions-box", scope: "pageLast", callout: "tour_sessionSet", hold: 3000 },
 
   // ── Tasks ────────────────────────────────────────────────────────────
   { page: "assignments", title: "ob_tasks_t", line: "ob_tasks_p1", hold: 2600 },
@@ -126,9 +129,10 @@ const BEATS: Beat[] = [
   { page: "attendance", title: "ob_att_t", line: "tour_attDone", hold: 2400 },
 
   // ── Pomodoro ─────────────────────────────────────────────────────────
-  { page: "pomodoro", title: "ob_pom_t", line: "ob_pom_p1", hold: 2800 },
+  { page: "pomodoro", title: "ob_pom_t", line: "ob_pom_p1", hold: 2600 },
+  { page: "pomodoro", target: "pom-pond", callout: "tour_pomPond", hold: 3000 },
   { page: "pomodoro", target: "pom-focus-course", callout: "tour_pomFocus", action: { kind: "selectFirst" }, hold: 1600 },
-  { page: "pomodoro", target: "pom-timer", callout: "tour_pomStart", hold: 3000 },
+  { page: "pomodoro", target: "pom-start", callout: "tour_pomStart", hold: 3000 },
   { page: "pomodoro", target: "pom-grove", callout: "tour_pomGrove", hold: 2600 },
 
   // ── Settings: explain every section, end on notifications ────────────
@@ -241,11 +245,12 @@ export function Onboarding() {
     const vw = window.innerWidth, vh = window.innerHeight;
 
     if (!el) {
-      // Page-intro: centre the pair in the clear lower band of the demo panel.
+      // Page-intro (welcome / finish / section headers): sit at the TOP of the
+      // demo panel, above the content — never over the elements.
       const box = boxRef.current?.getBoundingClientRect();
       const cx = box ? box.left + box.width / 2 : vw / 2;
-      const bottom = box ? box.bottom : vh;
-      const y = clamp(bottom - UNIT_H - 20, 16, vh - UNIT_H - 12);
+      const top = box ? box.top : 0;
+      const y = clamp(top + 76, 12, vh - UNIT_H - 12);
       const x = clamp(cx - UNIT_W / 2, 12, vw - UNIT_W - 12);
       setGuide({ x, y, noteFirst: false, pose, text, title, visible: true, arrow: null });
       return;
@@ -294,15 +299,16 @@ export function Onboarding() {
     });
   }, [aimAt]);
 
-  const locate = useCallback((name: string, scope: "page" | "modal"): HTMLElement | null => {
+  const locate = useCallback((name: string, scope: Scope): HTMLElement | null => {
     const visible = (el: HTMLElement) => el.offsetParent !== null || el.getClientRects().length > 0;
     const root: ParentNode = scope === "modal" ? document : (scrollRef.current ?? document);
     const els = Array.from(root.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)).filter(visible);
     if (!els.length) return null;
-    return scope === "modal" ? els[els.length - 1] : els[0];
+    // modal + pageLast take the last match; page takes the first.
+    return scope === "page" ? els[0] : els[els.length - 1];
   }, []);
 
-  const waitFor = useCallback((name: string, scope: "page" | "modal", timeout = 2500): Promise<HTMLElement | null> => {
+  const waitFor = useCallback((name: string, scope: Scope, timeout = 2500): Promise<HTMLElement | null> => {
     return new Promise((res) => {
       const t0 = performance.now();
       const tick = () => {
@@ -389,15 +395,17 @@ export function Onboarding() {
         const scope = beat.scope ?? "page";
         const el = beat.target ? await waitFor(beat.target, scope) : null;
         if (beat.target && !el) { anchorRef.current = null; setGuide((g) => ({ ...g, visible: false })); continue; }
-        if (el && scope === "page") await scrollToEl(el);
         if (!alive()) return;
 
         const pose: "books" | "write" = beat.action ? "write" : "books";
         const text = beat.callout ? t(beat.callout) : beat.line ? t(beat.line) : "";
         const title = beat.title ? t(beat.title) : undefined;
+        // Anchor + place FIRST, then scroll — so Havi tracks the target as it
+        // glides into view instead of hanging up top and snapping down.
         anchorRef.current = { el, text, title, pose };
         aimAt(el, text, title, pose);
-        await sleep(el ? 900 : 550);
+        if (el && scope !== "modal") await scrollToEl(el);
+        await sleep(el ? 520 : 560);
 
         if (beat.action && el) {
           if (!alive()) return;
@@ -480,9 +488,9 @@ export function Onboarding() {
   const Current = PAGES[page].Comp;
 
   const Note = guide.text ? (
-    <div className="rounded-2xl px-4 py-3" style={{ width: NOTE_W, background: "var(--color-ink)", color: "#fff", boxShadow: "0 12px 34px rgba(0,0,0,0.34)" }}>
+    <div className="rounded-2xl px-4 py-3" style={{ width: NOTE_W, background: "var(--color-surface)", color: "var(--color-ink)", border: "1px solid var(--color-border)", boxShadow: "0 14px 36px rgba(20,30,36,0.18)" }}>
       {guide.title && <div className="font-display text-[15px] mb-1" style={{ color: "var(--color-brass)" }}>{guide.title}</div>}
-      <div className="text-[13px] leading-relaxed">{guide.text}</div>
+      <div className="text-[13px] leading-relaxed" style={{ color: "var(--color-ink)" }}>{guide.text}</div>
     </div>
   ) : null;
   const Havi = <TourHavi pose={guide.pose} size={HAVI_SIZE} reduced={reduced} />;
@@ -604,7 +612,7 @@ export function Onboarding() {
           <div style={{
             position: "fixed", left: 0, top: 0,
             transform: `translate(${guide.x}px, ${guide.y}px)`,
-            transition: "transform 0.6s cubic-bezier(0.5,0,0.2,1), opacity 0.3s ease",
+            transition: "transform 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease",
             opacity: guide.visible ? 1 : 0,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: GAP }} role="note">

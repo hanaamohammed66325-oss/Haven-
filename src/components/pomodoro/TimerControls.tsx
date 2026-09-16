@@ -97,7 +97,7 @@ export function TimerControls({
 
       <div className="flex items-center gap-3">
         {phase === "idle" && (
-          <button onClick={onStart} className="haven-btn flex items-center gap-2 px-6 py-2.5">
+          <button onClick={onStart} data-tour="pom-start" className="haven-btn flex items-center gap-2 px-6 py-2.5">
             <Play size={18} />
             {t("pom_start")}
           </button>

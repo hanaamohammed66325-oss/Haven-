@@ -497,6 +497,7 @@ export const en = {
   ob_pom_p1: "A study timer — every focus session you finish grows a new lily pad in your lake.",
   tour_pomFocus: "Pick the course you're studying so the session is colored by its name.",
   tour_pomStart: "Tap \"Start\" to begin a focus session. Quit midway and a pad withers — see it through.",
+  tour_pomPond: "This is your lake — a lily pad grows each time you finish a focus session, coloured by its subject.",
   tour_pomGrove: "Your \"lake\" collects every pad by subject — a map of everything you've studied.",
   ob_settings_intro_t: "Settings",
   ob_settings_intro_p: "Tune Haven to fit you — let's go through each section.",

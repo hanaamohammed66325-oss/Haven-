@@ -195,6 +195,13 @@ const demoSemester: Semester = {
 };
 
 function buildInitialData(): AppData {
+  const courses = demoCourses();
+  // A pond that already looks lived-in: several lily pads, each coloured by the
+  // subject it was earned on (so the tour's lake is full and colourful, not bare).
+  const pads = courses
+    .flatMap((c) => [c.id, c.id]) // ~2 sessions per subject
+    .slice(0, 9)
+    .map((courseId, i) => ({ date: dayOffset(-i), courseId, minutes: 25 }));
   return {
     profileName: "Sara",
     email: "sara@example.com",
@@ -203,7 +210,7 @@ function buildInitialData(): AppData {
     language: "en",
     theme: "haven",
     semester: demoSemester,
-    courses: demoCourses(),
+    courses,
     planner: demoPlanner(),
     taskOrder: [],
     reminderDays: 2,
@@ -215,7 +222,7 @@ function buildInitialData(): AppData {
     onboardingSeen: true,
     gamification: { streak: { current: 3, longest: 7, lastActiveDate: null }, xp: 45, badges: ["first-checkin"], badgeTier: 1, totalCheckIns: 3, checkedInToday: null, challenges: { daily: { date: "", items: [] }, weekly: { weekStart: "", items: [] } }, weeklySnapshot: null, lastWeeklyReport: null },
     pomodoroSettings: { focusMinutes: 25, shortBreakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4, soundEnabled: true, autoStartBreaks: false, autoStartFocus: false },
-    pomodoroStats: { totalSessions: 0, totalFocusMinutes: 0, longestDailyStreak: 0, currentDailyStreak: 0, lastSessionDate: null, recentDays: [], lilyPadCount: 1, pads: [] },
+    pomodoroStats: { totalSessions: pads.length, totalFocusMinutes: pads.length * 25, longestDailyStreak: 4, currentDailyStreak: 2, lastSessionDate: dayOffset(0), recentDays: [], lilyPadCount: pads.length, pads },
   };
 }
 
