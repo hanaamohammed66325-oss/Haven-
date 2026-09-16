@@ -120,12 +120,13 @@ export function AttendanceSection({ course }: { course: Course }) {
       </div>
 
       {/* Weekly sessions editor */}
-      <div className="rounded-xl border p-4" style={border}>
+      <div data-tour="sessions-box" className="rounded-xl border p-4" style={border}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
             {t("weeklySessionsLabel")}
           </span>
           <button
+            data-tour="add-session"
             onClick={() => runAdd(addSession(course.id, { day: 0, minutes: 60 }))}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
             style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}

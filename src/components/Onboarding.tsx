@@ -9,6 +9,7 @@ import {
 import { Logo } from "./Logo";
 import { DemoStoreProvider } from "./DemoStore";
 import { TourHavi } from "./tour/TourHavi";
+import { TourContext } from "./tour/TourContext";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -21,14 +22,13 @@ import PomodoroPage from "@/app/(app)/pomodoro/page";
 import SettingsPage from "@/app/(app)/settings/page";
 
 // ---------------------------------------------------------------------------
-// Guided live tour — the first-run onboarding. Havi (the mascot) travels to each
-// control on the REAL app pages (rendered against the demo store, so nothing
-// touches the user's data), reading his books while a note BESIDE him (never on
-// top of the thing he's pointing at) explains it — and on most pages he actually
-// DOES things: adds a course + grade item, tags a planner week, sets a class
-// time, logs an absence. It covers every page and ends on Settings, pointing at
-// where reminders are turned on. Shown once (onboardingSeen), reopenable from
-// Settings.
+// Guided live tour — the first-run onboarding. Havi (the mascot, identical to
+// the in-app sprite) travels to each control on the REAL app pages (rendered
+// against the demo store, so nothing touches the user's data) with a note stuck
+// to his side, and actually DOES things: adds a course + grade item + a lecture,
+// tags a planner week, sets a class time, logs an absence. A quick-nav bar up
+// top jumps straight to the parts that matter most. Shown once (onboardingSeen),
+// reopenable from Settings.
 // ---------------------------------------------------------------------------
 
 type PageKey =
@@ -54,8 +54,7 @@ type Action =
 interface Beat {
   page: PageKey;
   target?: string;
-  /** where the anchor lives: "page" = inside the demo scroll area (first match);
-   *  "modal" = a modal the demo opened, portaled to <body> (last match). */
+  /** "page" = anchor inside the demo scroll area; "modal" = a modal portaled to <body>. */
   scope?: "page" | "modal";
   callout?: TranslationKey;
   title?: TranslationKey;
@@ -94,6 +93,12 @@ const BEATS: Beat[] = [
   { page: "courses", target: "item-score", scope: "modal", callout: "tour_itemScore", action: { kind: "type", ar: "9", en: "9" }, hold: 700 },
   { page: "courses", target: "item-save", scope: "modal", callout: "tour_itemSave", action: { kind: "click" }, closeIfStuck: true, hold: 900 },
   { page: "courses", title: "ob_grades_t", line: "tour_itemAdded", hold: 2200 },
+
+  // ── Courses: add a lecture (session) live ────────────────────────────
+  { page: "courses", title: "ob_lect_t", line: "ob_lect_p1", hold: 2400 },
+  { page: "courses", target: "sessions-box", callout: "tour_sessionsBox", hold: 2600 },
+  { page: "courses", target: "add-session", callout: "tour_addSession", action: { kind: "click" }, hold: 900 },
+  { page: "courses", target: "sessions-box", callout: "tour_sessionSet", hold: 3000 },
 
   // ── Tasks ────────────────────────────────────────────────────────────
   { page: "assignments", title: "ob_tasks_t", line: "ob_tasks_p1", hold: 2600 },
@@ -141,8 +146,26 @@ const BEATS: Beat[] = [
   { page: "dashboard", title: "ob_finish_t", line: "ob_finish_p1", hold: 3000 },
 ];
 
-const HAVI = 76;
+// Quick-nav chips → jump straight to the beats that matter most.
+const QUICK: { label: TranslationKey; anchor: string }[] = [
+  { label: "tour_jump_notif", anchor: "notif-section" },
+  { label: "tour_jump_course", anchor: "add-course" },
+  { label: "tour_jump_item", anchor: "add-component" },
+  { label: "tour_jump_lecture", anchor: "add-session" },
+  { label: "tour_jump_semester", anchor: "set-dates" },
+];
+
+// Havi sprite geometry (size 72 → integer scale 3 → 84×69 px on screen).
+const HAVI_SIZE = 72;
+const HAVI_W = 84;
+const HAVI_H = 69;
+const NOTE_W = 236;
+const GAP = 14;
+const UNIT_W = HAVI_W + GAP + NOTE_W; // Havi + gap + note
+const UNIT_H = 140; // generous estimate for vertical clamping
+
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 function setNativeValue(el: HTMLInputElement, value: string) {
   const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
@@ -150,8 +173,13 @@ function setNativeValue(el: HTMLInputElement, value: string) {
   el.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-interface HaviState { x: number; y: number; pose: "books" | "write"; visible: boolean; }
-interface CalloutState { text: string; x: number; y: number; title?: string; }
+interface Guide {
+  x: number; y: number;
+  noteFirst: boolean; // true → [note][Havi]; false → [Havi][note]
+  pose: "books" | "write";
+  text: string; title?: string;
+  visible: boolean;
+}
 
 export function Onboarding() {
   const { hydrated, onboardingSeen, completeOnboarding } = useStore();
@@ -162,8 +190,7 @@ export function Onboarding() {
   const [page, setPage] = useState<PageKey>("dashboard");
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [havi, setHavi] = useState<HaviState>({ x: 0, y: 0, pose: "books", visible: false });
-  const [callout, setCallout] = useState<CalloutState | null>(null);
+  const [guide, setGuide] = useState<Guide>({ x: 0, y: 0, noteFirst: false, pose: "books", text: "", visible: false });
   const [reduced, setReduced] = useState(false);
 
   const boxRef = useRef<HTMLDivElement>(null);
@@ -195,78 +222,56 @@ export function Onboarding() {
   const finish = useCallback(() => {
     runToken.current++;
     setOpen(false);
-    setCallout(null);
-    setHavi((c) => ({ ...c, visible: false }));
+    setGuide((g) => ({ ...g, visible: false }));
     completeOnboarding();
   }, [completeOnboarding]);
 
-  // Place Havi and his note to the SIDE of the target so neither ever covers
-  // what he's pointing at. Havi hugs the element on whichever side has room; the
-  // note sits just beyond Havi, further from the element. Falls back to below/
-  // above when there's no horizontal room, and to bottom-centre for page-intros.
+  // Position Havi + his attached note as ONE unit, right at the target: beside it
+  // when there's room, otherwise just below (or above) it — never dropped to the
+  // screen corner. Because the page is scrolled so the target sits high, the unit
+  // below it stays on-screen and never covers what Havi points at.
   const aimAt = useCallback((el: HTMLElement | null, text: string, title: string | undefined, pose: "books" | "write") => {
-    const CW = 250, NOTE_H = 116, GAP = 12, NGAP = 10;
     const vw = window.innerWidth, vh = window.innerHeight;
 
     if (!el) {
-      // Page-intro: Havi + note in the clear bottom band of the demo panel (just
-      // above the controls bar), so the page being introduced stays fully visible.
+      // Page-intro: centre the pair in the clear lower band of the demo panel.
       const box = boxRef.current?.getBoundingClientRect();
-      const bottom = box ? box.bottom : vh;
       const cx = box ? box.left + box.width / 2 : vw / 2;
-      const hy = Math.min(vh - HAVI - 18, bottom - HAVI - 72);
-      const hx = cx - HAVI / 2;
-      setHavi({ x: hx, y: hy, pose, visible: true });
-      setCallout({ text, title, x: Math.min(vw - CW - 12, Math.max(12, cx - CW / 2)), y: Math.max(12, hy - NOTE_H - 6) });
+      const bottom = box ? box.bottom : vh;
+      const y = clamp(bottom - UNIT_H - 20, 16, vh - UNIT_H - 12);
+      const x = clamp(cx - UNIT_W / 2, 12, vw - UNIT_W - 12);
+      setGuide({ x, y, noteFirst: false, pose, text, title, visible: true });
       return;
     }
 
     const r = el.getBoundingClientRect();
-    const cy = r.top + r.height / 2;
-    const roomRight = vw - r.right;
-    const roomLeft = r.left;
-    const needSide = HAVI + GAP + NGAP + CW;
+    const cy = r.top + r.height / 2, ecx = r.left + r.width / 2;
+    const need = HAVI_W + GAP + NOTE_W + GAP;
 
-    let hx: number, hy: number, nx: number, ny: number;
-
-    if (roomRight >= needSide) {
-      // Right of element: [element] Havi Note
-      hx = r.right + GAP;
-      nx = hx + HAVI + NGAP;
-      hy = Math.max(10, Math.min(vh - HAVI - 10, cy - HAVI / 2));
-      ny = Math.max(10, Math.min(vh - NOTE_H - 10, cy - NOTE_H / 2));
-    } else if (roomLeft >= needSide) {
-      // Left of element: Note Havi [element]
-      hx = r.left - GAP - HAVI;
-      nx = hx - NGAP - CW;
-      hy = Math.max(10, Math.min(vh - HAVI - 10, cy - HAVI / 2));
-      ny = Math.max(10, Math.min(vh - NOTE_H - 10, cy - NOTE_H / 2));
-    } else {
-      // No room beside the target (narrow screens / very wide targets): sit Havi
-      // and the note in the clear bottom band of the viewport, near the target's
-      // horizontal centre. The target was just scrolled to centre, so the bottom
-      // band never covers what Havi is pointing at.
-      const cx = Math.min(vw - 12, Math.max(12, r.left + r.width / 2));
-      hy = vh - HAVI - 24;
-      hx = Math.max(12, Math.min(vw - HAVI - 12, cx - HAVI / 2));
-      ny = hy - NOTE_H - 8;
-      nx = Math.max(12, Math.min(vw - CW - 12, cx - CW / 2));
+    if (vw - r.right >= need) {
+      // Right of the element: [element] Havi note
+      setGuide({ x: r.right + GAP, y: clamp(cy - HAVI_H / 2, 12, vh - UNIT_H - 12), noteFirst: false, pose, text, title, visible: true });
+      return;
     }
-
-    setHavi({ x: hx, y: hy, pose, visible: true });
-    setCallout({ text, title, x: Math.max(12, Math.min(vw - CW - 12, nx)), y: ny });
+    if (r.left >= need) {
+      // Left of the element: note Havi [element]
+      const totalW = NOTE_W + GAP + HAVI_W;
+      setGuide({ x: r.left - GAP - totalW, y: clamp(cy - HAVI_H / 2, 12, vh - UNIT_H - 12), noteFirst: true, pose, text, title, visible: true });
+      return;
+    }
+    // No side room → below the element (or above if it's near the bottom),
+    // centred under it, Havi pointing at it.
+    const belowY = r.bottom + GAP;
+    const y = belowY + UNIT_H <= vh - 12 ? belowY : Math.max(12, r.top - GAP - UNIT_H);
+    const x = clamp(ecx - UNIT_W / 2, 12, vw - UNIT_W - 12);
+    setGuide({ x, y, noteFirst: false, pose, text, title, visible: true });
   }, []);
 
   const locate = useCallback((name: string, scope: "page" | "modal"): HTMLElement | null => {
-    // Only ever return a VISIBLE match — pages render responsive duplicates
-    // (e.g. the planner toolbar has a mobile + a desktop copy, one display:none),
-    // and a hidden element has a zero rect that would send Havi to the corner.
     const visible = (el: HTMLElement) => el.offsetParent !== null || el.getClientRects().length > 0;
     const root: ParentNode = scope === "modal" ? document : (scrollRef.current ?? document);
     const els = Array.from(root.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)).filter(visible);
     if (!els.length) return null;
-    // modal anchors live at the end of the DOM (portaled last); page anchors take
-    // the first visible hit.
     return scope === "modal" ? els[els.length - 1] : els[0];
   }, []);
 
@@ -283,6 +288,19 @@ export function Onboarding() {
     });
   }, [locate]);
 
+  // Smoothly scroll a page-scoped target into the UPPER area of the demo panel,
+  // so Havi glides down to it and the note below never covers it. The TOUR does
+  // the scrolling — the user never has to.
+  const scrollToEl = useCallback(async (el: HTMLElement) => {
+    const c = scrollRef.current;
+    if (!c) return;
+    const cr = c.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    const target = c.scrollTop + (er.top - cr.top) - Math.min(120, cr.height * 0.2);
+    c.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+    await sleep(650);
+  }, []);
+
   const typeInto = useCallback(async (host: HTMLElement, value: string, enter: boolean, alive: () => boolean) => {
     const input = (host.matches?.("input,textarea,select") ? host : host.querySelector<HTMLElement>("input,textarea,select")) as HTMLInputElement | HTMLSelectElement | null;
     if (!input) return;
@@ -294,7 +312,6 @@ export function Onboarding() {
       return;
     }
     const inp = input as HTMLInputElement;
-    // A native time input takes the whole value at once (no per-char typing).
     if (inp.type === "time") {
       setNativeValue(inp, value);
       inp.dispatchEvent(new Event("change", { bubbles: true }));
@@ -306,7 +323,6 @@ export function Onboarding() {
       setNativeValue(inp, value.slice(0, i));
       await sleep(72);
     }
-    // Commit patterns for controlled + custom (BoundedNumberInput) fields.
     inp.dispatchEvent(new Event("change", { bubbles: true }));
     if (enter) inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     inp.dispatchEvent(new Event("focusout", { bubbles: true }));
@@ -323,37 +339,35 @@ export function Onboarding() {
     sel.dispatchEvent(new Event("change", { bubbles: true }));
   }, []);
 
-  // The scripted run.
-  useEffect(() => {
-    if (!open || !mounted) return;
+  // The scripted runner — can start at any beat (used by the quick-nav jumps).
+  const runFrom = useCallback((start: number) => {
     const token = ++runToken.current;
     const alive = () => token === runToken.current && openRef.current;
+    setPaused(false);
 
     (async () => {
       currentPage.current = null;
-      await sleep(350);
-      for (let k = 0; k < BEATS.length; k++) {
+      await sleep(250);
+      for (let k = start; k < BEATS.length; k++) {
         if (!alive()) return;
         setIdx(k);
         const beat = BEATS[k];
         const pageChanged = beat.page !== currentPage.current;
         currentPage.current = beat.page;
         setPage(beat.page);
-        // Reset the scroll to the top when the page changes so the first beat on
-        // a page starts from a known position, then scrollIntoView takes over.
         if (pageChanged && scrollRef.current) scrollRef.current.scrollTop = 0;
-        await sleep(pageChanged ? 750 : 300);
+        await sleep(pageChanged ? 760 : 300);
         if (!alive()) return;
 
         const scope = beat.scope ?? "page";
         const el = beat.target ? await waitFor(beat.target, scope) : null;
-        if (beat.target && !el) { setCallout(null); setHavi((c) => ({ ...c, visible: false })); continue; }
-        if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); await sleep(320); }
+        if (beat.target && !el) { setGuide((g) => ({ ...g, visible: false })); continue; }
+        if (el && scope === "page") await scrollToEl(el);
         if (!alive()) return;
 
         const pose: "books" | "write" = beat.action ? "write" : "books";
         aimAt(el, beat.callout ? t(beat.callout) : beat.line ? t(beat.line) : "", beat.title ? t(beat.title) : undefined, pose);
-        await sleep(el ? 950 : 550);
+        await sleep(el ? 900 : 550);
 
         if (beat.action && el) {
           if (!alive()) return;
@@ -361,11 +375,7 @@ export function Onboarding() {
             el.click();
             if (beat.closeIfStuck) {
               await sleep(500);
-              // If the modal didn't close (e.g. a field didn't validate), close
-              // it via its Cancel button so the tour never stalls behind a modal.
-              if (alive() && locate("item-name", "modal")) {
-                locate("item-cancel", "modal")?.click();
-              }
+              if (alive() && locate("item-name", "modal")) locate("item-cancel", "modal")?.click();
             }
           } else if (beat.action.kind === "selectFirst") {
             selectFirst(el);
@@ -384,17 +394,27 @@ export function Onboarding() {
       }
       if (alive()) finish();
     })();
+  }, [aimAt, finish, lang, locate, scrollToEl, selectFirst, t, typeInto, waitFor]);
 
+  const runFromRef = useRef(runFrom);
+  runFromRef.current = runFrom;
+
+  useEffect(() => {
+    if (!open || !mounted) return;
+    runFromRef.current(0);
     return () => { runToken.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mounted]);
 
+  const jumpTo = (anchor: string) => {
+    const i = BEATS.findIndex((b) => b.target === anchor);
+    if (i >= 0) runFromRef.current(i);
+  };
+
   const replay = () => {
     setPaused(false);
     setIdx(0);
-    runToken.current++;
-    setOpen(false);
-    requestAnimationFrame(() => setOpen(true));
+    runFromRef.current(0);
   };
 
   useEffect(() => {
@@ -409,6 +429,14 @@ export function Onboarding() {
   if (!open || !mounted) return null;
   const Current = PAGES[page].Comp;
 
+  const Note = guide.text ? (
+    <div className="rounded-2xl px-4 py-3" style={{ width: NOTE_W, background: "var(--color-ink)", color: "#fff", boxShadow: "0 12px 34px rgba(0,0,0,0.34)" }}>
+      {guide.title && <div className="font-display text-[15px] mb-1" style={{ color: "var(--color-brass)" }}>{guide.title}</div>}
+      <div className="text-[13px] leading-relaxed">{guide.text}</div>
+    </div>
+  ) : null;
+  const Havi = <TourHavi pose={guide.pose} size={HAVI_SIZE} reduced={reduced} />;
+
   return (
     <>
       {createPortal(
@@ -422,45 +450,61 @@ export function Onboarding() {
             className="relative flex flex-col w-[96vw] max-w-[1160px] h-[90vh] max-h-[880px] rounded-3xl overflow-hidden"
             style={{ background: "var(--color-surface)", boxShadow: "0 30px 90px rgba(0,0,0,0.45)" }}
           >
-            <button onClick={finish} aria-label={t("close")}
-              className="absolute top-3 end-3 z-30 flex items-center justify-center h-9 w-9 rounded-full"
-              style={{ background: "var(--color-surface)", color: "var(--color-muted)", boxShadow: "var(--shadow-card)" }}>
-              <X size={18} />
-            </button>
-            <div className="absolute top-4 start-4 z-30 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium"
-              style={{ background: "var(--color-brass-soft)", color: "var(--color-brass)" }}>
-              <Sparkles size={12} />{t("tour_sample")}
-            </div>
-
-            <DemoStoreProvider>
-              <div className="flex-1 min-h-0 flex" style={{ background: "var(--color-canvas)" }}>
-                <aside className="haven-sidebar hidden md:flex shrink-0 flex-col" style={{ width: 208, padding: 18 }}>
-                  <div className="flex items-center gap-2 mb-6 px-1">
-                    <Logo size={26} mono />
-                    <span className="font-display text-xl text-white">{t("appName")}</span>
-                  </div>
-                  <nav className="flex flex-col gap-1">
-                    {NAV_ORDER.map((k) => {
-                      const active = k === page; const Icon = PAGES[k].Icon;
-                      return (
-                        <div key={k}
-                          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${active ? "haven-nav-active text-white" : ""}`}
-                          style={active ? undefined : { color: "rgba(231,239,240,0.7)" }}>
-                          <Icon size={17} style={active ? { color: "var(--color-brass)" } : undefined} />
-                          <span>{t(PAGES[k].nav)}</span>
-                        </div>
-                      );
-                    })}
-                  </nav>
-                </aside>
-
-                <div ref={scrollRef} className="flex-1 min-w-0 relative overflow-y-auto">
-                  <div key={page} className="haven-fade-in p-4 sm:p-8 min-h-full" style={{ pointerEvents: "none" }}>
-                    <Current />
-                  </div>
+            {/* Top bar: close · quick-nav chips · sample badge */}
+            <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
+              <button onClick={finish} aria-label={t("close")}
+                className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
+                <X size={18} />
+              </button>
+              <div className="flex-1 min-w-0 overflow-x-auto">
+                <div className="flex items-center gap-1.5 w-max">
+                  <span className="text-[11px] font-medium shrink-0 me-1" style={{ color: "var(--color-muted)" }}>{t("tour_jumpTo")}</span>
+                  {QUICK.map((q) => (
+                    <button key={q.anchor} onClick={() => jumpTo(q.anchor)}
+                      className="shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors hover:brightness-95"
+                      style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}>
+                      {t(q.label)}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </DemoStoreProvider>
+              <div className="shrink-0 hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium"
+                style={{ background: "var(--color-brass-soft)", color: "var(--color-brass)" }}>
+                <Sparkles size={12} />{t("tour_sample")}
+              </div>
+            </div>
+
+            <TourContext.Provider value={true}>
+              <DemoStoreProvider>
+                <div className="flex-1 min-h-0 flex" style={{ background: "var(--color-canvas)" }}>
+                  <aside className="haven-sidebar hidden md:flex shrink-0 flex-col" style={{ width: 208, padding: 18 }}>
+                    <div className="flex items-center gap-2 mb-6 px-1">
+                      <Logo size={26} mono />
+                      <span className="font-display text-xl text-white">{t("appName")}</span>
+                    </div>
+                    <nav className="flex flex-col gap-1">
+                      {NAV_ORDER.map((k) => {
+                        const active = k === page; const Icon = PAGES[k].Icon;
+                        return (
+                          <div key={k}
+                            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${active ? "haven-nav-active text-white" : ""}`}
+                            style={active ? undefined : { color: "rgba(231,239,240,0.7)" }}>
+                            <Icon size={17} style={active ? { color: "var(--color-brass)" } : undefined} />
+                            <span>{t(PAGES[k].nav)}</span>
+                          </div>
+                        );
+                      })}
+                    </nav>
+                  </aside>
+
+                  <div ref={scrollRef} className="flex-1 min-w-0 relative overflow-y-auto">
+                    <div key={page} className="haven-fade-in p-4 sm:p-8 min-h-full" style={{ pointerEvents: "none" }}>
+                      <Current />
+                    </div>
+                  </div>
+                </div>
+              </DemoStoreProvider>
+            </TourContext.Provider>
 
             {/* Controls */}
             <div className="shrink-0 border-t px-4 sm:px-6 py-3" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
@@ -489,29 +533,19 @@ export function Onboarding() {
         document.body
       )}
 
-      {/* Havi guide + note — top-level portal above every app modal. */}
+      {/* Havi + note travel together as one unit, above every app modal. */}
       {createPortal(
-        <div className="pointer-events-none fixed inset-0 z-[80]" aria-hidden={!havi.visible}>
+        <div className="pointer-events-none fixed inset-0 z-[80]" aria-hidden={!guide.visible}>
           <div style={{
             position: "fixed", left: 0, top: 0,
-            transform: `translate(${havi.x}px, ${havi.y}px)`,
-            transition: "transform 0.75s cubic-bezier(0.5,0,0.2,1)",
-            opacity: havi.visible ? 1 : 0,
+            transform: `translate(${guide.x}px, ${guide.y}px)`,
+            transition: "transform 0.7s cubic-bezier(0.5,0,0.2,1), opacity 0.3s ease",
+            opacity: guide.visible ? 1 : 0,
           }}>
-            <TourHavi pose={havi.pose} size={HAVI} reduced={reduced} />
-          </div>
-          {callout && (
-            <div className="max-w-[250px] rounded-2xl px-4 py-3"
-              style={{
-                position: "fixed", left: callout.x, top: callout.y,
-                background: "var(--color-ink)", color: "#fff",
-                boxShadow: "0 12px 34px rgba(0,0,0,0.32)",
-                transition: "left 0.55s ease, top 0.55s ease",
-              }} role="note">
-              {callout.title && <div className="font-display text-[15px] mb-1" style={{ color: "var(--color-brass)" }}>{callout.title}</div>}
-              <div className="text-[13px] leading-relaxed">{callout.text}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: GAP }} role="note">
+              {guide.noteFirst ? <>{Note}{Havi}</> : <>{Havi}{Note}</>}
             </div>
-          )}
+          </div>
         </div>,
         document.body
       )}

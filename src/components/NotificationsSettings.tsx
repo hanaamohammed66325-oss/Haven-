@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useT } from "@/i18n";
+import { useInTour } from "./tour/TourContext";
 import {
   PUSH_ENABLED_KEY,
   urlBase64ToUint8Array,
@@ -59,6 +60,7 @@ function isStandalone(): boolean {
 
 export function NotificationsSettings() {
   const { t, lang } = useT();
+  const inTour = useInTour();
   const [state, setState] = useState<NotifState>("checking");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -137,8 +139,10 @@ export function NotificationsSettings() {
     return result.subscribed ? "on" : "enable";
   }, [uid]);
 
-  // Initial detection on mount.
+  // Initial detection on mount. Skipped inside the tour — it renders its own
+  // illustrative preview and shouldn't probe the Push API (or log its absence).
   useEffect(() => {
+    if (inTour) return;
     let cancelled = false;
     (async () => {
       const next = await detect().catch(() => "unsupported" as NotifState);
@@ -151,7 +155,7 @@ export function NotificationsSettings() {
     return () => {
       cancelled = true;
     };
-  }, [detect]);
+  }, [detect, inTour]);
 
   const enable = useCallback(async () => {
     setError("");
@@ -276,6 +280,21 @@ export function NotificationsSettings() {
 
   // Defensive: logged out — the whole section renders nothing.
   if (state === "hidden") return null;
+
+  // Inside the onboarding tour we render an illustrative "enable" preview rather
+  // than the live Push detection — so the walkthrough always shows the real
+  // enable control, never a browser-support message that depends on the tab.
+  if (inTour) {
+    return (
+      <div data-tour="notif-section" className="flex flex-col gap-3">
+        <p className="text-sm" style={{ color: "var(--color-muted)" }}>{t("notifTourIntro")}</p>
+        <span className="haven-btn inline-flex items-center gap-2 self-start px-5 py-2.5 rounded-xl text-sm font-medium">
+          <Bell size={16} />
+          {t("notifEnable")}
+        </span>
+      </div>
+    );
+  }
 
   const infoText =
     state === "unsupported"
