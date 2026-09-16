@@ -173,12 +173,14 @@ function setNativeValue(el: HTMLInputElement, value: string) {
   el.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+interface Arrow { x1: number; y1: number; x2: number; y2: number; }
 interface Guide {
   x: number; y: number;
   noteFirst: boolean; // true → [note][Havi]; false → [Havi][note]
   pose: "books" | "write";
   text: string; title?: string;
   visible: boolean;
+  arrow?: Arrow | null; // subtle pointer from Havi to the element he's explaining
 }
 
 export function Onboarding() {
@@ -199,6 +201,10 @@ export function Onboarding() {
   const pausedRef = useRef(false);
   const openRef = useRef(false);
   const currentPage = useRef<PageKey | null>(null);
+  // The element (and its note) Havi is currently glued to — so he can re-anchor
+  // whenever the view scrolls or resizes and never drift off his target.
+  const anchorRef = useRef<{ el: HTMLElement | null; text: string; title?: string; pose: "books" | "write" } | null>(null);
+  const rafRepos = useRef(0);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
@@ -221,6 +227,7 @@ export function Onboarding() {
 
   const finish = useCallback(() => {
     runToken.current++;
+    anchorRef.current = null;
     setOpen(false);
     setGuide((g) => ({ ...g, visible: false }));
     completeOnboarding();
@@ -240,7 +247,7 @@ export function Onboarding() {
       const bottom = box ? box.bottom : vh;
       const y = clamp(bottom - UNIT_H - 20, 16, vh - UNIT_H - 12);
       const x = clamp(cx - UNIT_W / 2, 12, vw - UNIT_W - 12);
-      setGuide({ x, y, noteFirst: false, pose, text, title, visible: true });
+      setGuide({ x, y, noteFirst: false, pose, text, title, visible: true, arrow: null });
       return;
     }
 
@@ -248,24 +255,44 @@ export function Onboarding() {
     const cy = r.top + r.height / 2, ecx = r.left + r.width / 2;
     const need = HAVI_W + GAP + NOTE_W + GAP;
 
+    let x: number, y: number, noteFirst: boolean;
     if (vw - r.right >= need) {
       // Right of the element: [element] Havi note
-      setGuide({ x: r.right + GAP, y: clamp(cy - HAVI_H / 2, 12, vh - UNIT_H - 12), noteFirst: false, pose, text, title, visible: true });
-      return;
-    }
-    if (r.left >= need) {
+      x = r.right + GAP; y = clamp(cy - HAVI_H / 2, 12, vh - UNIT_H - 12); noteFirst = false;
+    } else if (r.left >= need) {
       // Left of the element: note Havi [element]
-      const totalW = NOTE_W + GAP + HAVI_W;
-      setGuide({ x: r.left - GAP - totalW, y: clamp(cy - HAVI_H / 2, 12, vh - UNIT_H - 12), noteFirst: true, pose, text, title, visible: true });
-      return;
+      x = r.left - GAP - (NOTE_W + GAP + HAVI_W); y = clamp(cy - HAVI_H / 2, 12, vh - UNIT_H - 12); noteFirst = true;
+    } else {
+      // No side room → below the element (or above if it's near the bottom).
+      const belowY = r.bottom + GAP;
+      y = belowY + UNIT_H <= vh - 12 ? belowY : Math.max(12, r.top - GAP - UNIT_H);
+      x = clamp(ecx - UNIT_W / 2, 12, vw - UNIT_W - 12); noteFirst = false;
     }
-    // No side room → below the element (or above if it's near the bottom),
-    // centred under it, Havi pointing at it.
-    const belowY = r.bottom + GAP;
-    const y = belowY + UNIT_H <= vh - 12 ? belowY : Math.max(12, r.top - GAP - UNIT_H);
-    const x = clamp(ecx - UNIT_W / 2, 12, vw - UNIT_W - 12);
-    setGuide({ x, y, noteFirst: false, pose, text, title, visible: true });
+
+    // Arrow: from Havi's edge to the nearest point on the element's border.
+    const hleft = noteFirst ? x + NOTE_W + GAP : x;
+    const hcx = hleft + HAVI_W / 2, hcy = y + HAVI_H / 2;
+    const ex = clamp(hcx, r.left, r.right), ey = clamp(hcy, r.top, r.bottom);
+    const dx = ex - hcx, dy = ey - hcy;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const arrow: Arrow = {
+      x1: hcx + ux * (HAVI_W / 2 - 2), y1: hcy + uy * (HAVI_H / 2 - 2),
+      x2: ex - ux * 4, y2: ey - uy * 4,
+    };
+    setGuide({ x, y, noteFirst, pose, text, title, visible: true, arrow });
   }, []);
+
+  // Re-place Havi + note (+ arrow) against the live element rect — called on any
+  // scroll/resize so the guide stays glued to whatever it's explaining.
+  const reanchor = useCallback(() => {
+    if (rafRepos.current) return;
+    rafRepos.current = requestAnimationFrame(() => {
+      rafRepos.current = 0;
+      const a = anchorRef.current;
+      if (a) aimAt(a.el, a.text, a.title, a.pose);
+    });
+  }, [aimAt]);
 
   const locate = useCallback((name: string, scope: "page" | "modal"): HTMLElement | null => {
     const visible = (el: HTMLElement) => el.offsetParent !== null || el.getClientRects().length > 0;
@@ -361,12 +388,15 @@ export function Onboarding() {
 
         const scope = beat.scope ?? "page";
         const el = beat.target ? await waitFor(beat.target, scope) : null;
-        if (beat.target && !el) { setGuide((g) => ({ ...g, visible: false })); continue; }
+        if (beat.target && !el) { anchorRef.current = null; setGuide((g) => ({ ...g, visible: false })); continue; }
         if (el && scope === "page") await scrollToEl(el);
         if (!alive()) return;
 
         const pose: "books" | "write" = beat.action ? "write" : "books";
-        aimAt(el, beat.callout ? t(beat.callout) : beat.line ? t(beat.line) : "", beat.title ? t(beat.title) : undefined, pose);
+        const text = beat.callout ? t(beat.callout) : beat.line ? t(beat.line) : "";
+        const title = beat.title ? t(beat.title) : undefined;
+        anchorRef.current = { el, text, title, pose };
+        aimAt(el, text, title, pose);
         await sleep(el ? 900 : 550);
 
         if (beat.action && el) {
@@ -426,6 +456,26 @@ export function Onboarding() {
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [open, finish]);
 
+  // Keep Havi glued to his target: re-anchor on scroll/resize, and lock manual
+  // scrolling of the demo panel (the tour drives it via scrollTo) so the content
+  // never slides out from under him.
+  useEffect(() => {
+    if (!open || !mounted) return;
+    const c = scrollRef.current;
+    const onReanchor = () => reanchor();
+    const lock = (e: Event) => e.preventDefault();
+    c?.addEventListener("scroll", onReanchor, { passive: true });
+    window.addEventListener("resize", onReanchor);
+    c?.addEventListener("wheel", lock, { passive: false });
+    c?.addEventListener("touchmove", lock, { passive: false });
+    return () => {
+      c?.removeEventListener("scroll", onReanchor);
+      window.removeEventListener("resize", onReanchor);
+      c?.removeEventListener("wheel", lock);
+      c?.removeEventListener("touchmove", lock);
+    };
+  }, [open, mounted, reanchor]);
+
   if (!open || !mounted) return null;
   const Current = PAGES[page].Comp;
 
@@ -450,27 +500,23 @@ export function Onboarding() {
             className="relative flex flex-col w-[96vw] max-w-[1160px] h-[90vh] max-h-[880px] rounded-3xl overflow-hidden"
             style={{ background: "var(--color-surface)", boxShadow: "0 30px 90px rgba(0,0,0,0.45)" }}
           >
-            {/* Top bar: close · quick-nav chips · sample badge */}
-            <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
+            {/* Top bar: close · "jump to" quick-nav chips */}
+            <div className="shrink-0 flex items-center gap-3 px-3 sm:px-4 border-b" style={{ height: 58, borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
               <button onClick={finish} aria-label={t("close")}
                 className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
                 <X size={18} />
               </button>
-              <div className="flex-1 min-w-0 overflow-x-auto">
-                <div className="flex items-center gap-1.5 w-max">
-                  <span className="text-[11px] font-medium shrink-0 me-1" style={{ color: "var(--color-muted)" }}>{t("tour_jumpTo")}</span>
+              <span className="hidden md:inline shrink-0 text-[12px] font-medium" style={{ color: "var(--color-muted)" }}>{t("tour_jumpTo")}</span>
+              <div className="flex-1 min-w-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+                <div className="flex items-center gap-2 w-max py-1 pe-1">
                   {QUICK.map((q) => (
                     <button key={q.anchor} onClick={() => jumpTo(q.anchor)}
-                      className="shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors hover:brightness-95"
-                      style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}>
+                      className="shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] font-medium whitespace-nowrap transition-colors hover:bg-[var(--color-primary-soft)] hover:border-[var(--color-primary)]"
+                      style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
                       {t(q.label)}
                     </button>
                   ))}
                 </div>
-              </div>
-              <div className="shrink-0 hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium"
-                style={{ background: "var(--color-brass-soft)", color: "var(--color-brass)" }}>
-                <Sparkles size={12} />{t("tour_sample")}
               </div>
             </div>
 
@@ -517,6 +563,9 @@ export function Onboarding() {
                   className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
                   <RotateCcw size={16} />
                 </button>
+                <span className="hidden lg:inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>
+                  <Sparkles size={12} style={{ color: "var(--color-brass)" }} />{t("tour_sample")}
+                </span>
                 <div className="flex-1 flex items-center justify-center gap-1 flex-wrap">
                   {BEATS.map((_, i) => (
                     <span key={i} className="h-1.5 rounded-full transition-all"
@@ -533,13 +582,29 @@ export function Onboarding() {
         document.body
       )}
 
-      {/* Havi + note travel together as one unit, above every app modal. */}
+      {/* Havi + note travel together as one unit, above every app modal, with a
+          subtle arrow pointing at what he's explaining. */}
       {createPortal(
         <div className="pointer-events-none fixed inset-0 z-[80]" aria-hidden={!guide.visible}>
+          {guide.visible && guide.arrow && (
+            <svg className="fixed inset-0" width="100%" height="100%" style={{ overflow: "visible" }} aria-hidden>
+              <defs>
+                <marker id="tour-arrowhead" markerWidth="8" markerHeight="8" refX="5" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" fill="var(--color-brass)" />
+                </marker>
+              </defs>
+              <line
+                x1={guide.arrow.x1} y1={guide.arrow.y1} x2={guide.arrow.x2} y2={guide.arrow.y2}
+                stroke="var(--color-brass)" strokeWidth={2.5} strokeLinecap="round"
+                markerEnd="url(#tour-arrowhead)"
+                style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.25))" }}
+              />
+            </svg>
+          )}
           <div style={{
             position: "fixed", left: 0, top: 0,
             transform: `translate(${guide.x}px, ${guide.y}px)`,
-            transition: "transform 0.7s cubic-bezier(0.5,0,0.2,1), opacity 0.3s ease",
+            transition: "transform 0.6s cubic-bezier(0.5,0,0.2,1), opacity 0.3s ease",
             opacity: guide.visible ? 1 : 0,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: GAP }} role="note">

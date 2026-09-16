@@ -268,6 +268,23 @@ export function NotificationsSettings() {
     }
   }, [lang, t]);
 
+  // Inside the onboarding tour we render an illustrative "enable" preview rather
+  // than the live Push detection — so the walkthrough always shows the real
+  // enable control (never a spinner or a browser-support message that depends on
+  // the tab). Checked FIRST so the notif-section anchor always exists for the
+  // tour to point its note at.
+  if (inTour) {
+    return (
+      <div data-tour="notif-section" className="flex flex-col gap-3">
+        <p className="text-sm" style={{ color: "var(--color-muted)" }}>{t("notifTourIntro")}</p>
+        <span className="haven-btn inline-flex items-center gap-2 self-start px-5 py-2.5 rounded-xl text-sm font-medium">
+          <Bell size={16} />
+          {t("notifEnable")}
+        </span>
+      </div>
+    );
+  }
+
   // Health check in flight (on iOS PWA first mount, serviceWorker.ready can take
   // 1–2s). Show a subtle spinner rather than committing to A–E prematurely.
   if (state === "checking") {
@@ -280,21 +297,6 @@ export function NotificationsSettings() {
 
   // Defensive: logged out — the whole section renders nothing.
   if (state === "hidden") return null;
-
-  // Inside the onboarding tour we render an illustrative "enable" preview rather
-  // than the live Push detection — so the walkthrough always shows the real
-  // enable control, never a browser-support message that depends on the tab.
-  if (inTour) {
-    return (
-      <div data-tour="notif-section" className="flex flex-col gap-3">
-        <p className="text-sm" style={{ color: "var(--color-muted)" }}>{t("notifTourIntro")}</p>
-        <span className="haven-btn inline-flex items-center gap-2 self-start px-5 py-2.5 rounded-xl text-sm font-medium">
-          <Bell size={16} />
-          {t("notifEnable")}
-        </span>
-      </div>
-    );
-  }
 
   const infoText =
     state === "unsupported"
