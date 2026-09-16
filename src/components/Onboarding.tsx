@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X, Play, Pause, RotateCcw, Sparkles,
-  LayoutDashboard, BookOpen, ClipboardList, CalendarDays, ShieldCheck, Settings as SettingsIcon,
+  LayoutDashboard, BookOpen, ClipboardList, CalendarDays, ShieldCheck, Timer, Settings as SettingsIcon,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { DemoStoreProvider } from "./DemoStore";
@@ -17,18 +17,23 @@ import CoursesPage from "@/app/(app)/courses/page";
 import TasksPage from "@/app/(app)/assignments/page";
 import SchedulePage from "@/app/(app)/schedule/page";
 import AttendancePage from "@/app/(app)/attendance/page";
+import PomodoroPage from "@/app/(app)/pomodoro/page";
 import SettingsPage from "@/app/(app)/settings/page";
 
 // ---------------------------------------------------------------------------
 // Guided live tour — the first-run onboarding. Havi (the mascot) travels to each
 // control on the REAL app pages (rendered against the demo store, so nothing
-// touches the user's data), reading his books while a note beside him explains
-// what it is — and on the Courses page he actually DOES things: adds a course,
-// then adds a grade item field-by-field. It ends on Settings, pointing at where
-// reminders are turned on. Shown once (onboardingSeen), reopenable from Settings.
+// touches the user's data), reading his books while a note BESIDE him (never on
+// top of the thing he's pointing at) explains it — and on most pages he actually
+// DOES things: adds a course + grade item, tags a planner week, sets a class
+// time, logs an absence. It covers every page and ends on Settings, pointing at
+// where reminders are turned on. Shown once (onboardingSeen), reopenable from
+// Settings.
 // ---------------------------------------------------------------------------
 
-type PageKey = "dashboard" | "courses" | "assignments" | "schedule" | "attendance" | "settings";
+type PageKey =
+  | "dashboard" | "courses" | "assignments" | "schedule"
+  | "attendance" | "pomodoro" | "settings";
 
 const PAGES: Record<PageKey, { Comp: React.ComponentType; nav: TranslationKey; Icon: typeof LayoutDashboard }> = {
   dashboard: { Comp: DashboardPage, nav: "nav_dashboard", Icon: LayoutDashboard },
@@ -36,13 +41,15 @@ const PAGES: Record<PageKey, { Comp: React.ComponentType; nav: TranslationKey; I
   assignments: { Comp: TasksPage, nav: "nav_assignments", Icon: ClipboardList },
   schedule: { Comp: SchedulePage, nav: "nav_schedule", Icon: CalendarDays },
   attendance: { Comp: AttendancePage, nav: "nav_attendance", Icon: ShieldCheck },
+  pomodoro: { Comp: PomodoroPage, nav: "nav_pomodoro", Icon: Timer },
   settings: { Comp: SettingsPage, nav: "nav_settings", Icon: SettingsIcon },
 };
-const NAV_ORDER: PageKey[] = ["dashboard", "courses", "assignments", "schedule", "attendance", "settings"];
+const NAV_ORDER: PageKey[] = ["dashboard", "courses", "assignments", "schedule", "attendance", "pomodoro", "settings"];
 
 type Action =
   | { kind: "click" }
-  | { kind: "type"; ar: string; en: string };
+  | { kind: "type"; ar: string; en: string; enter?: boolean }
+  | { kind: "selectFirst" };
 
 interface Beat {
   page: PageKey;
@@ -54,49 +61,87 @@ interface Beat {
   title?: TranslationKey;
   line?: TranslationKey;
   action?: Action;
-  /** after a save click, press Escape if the modal is still open (defensive). */
+  /** after a save click, click item-cancel if the modal is still open (defensive). */
   closeIfStuck?: boolean;
   hold?: number;
 }
 
 const BEATS: Beat[] = [
-  { page: "dashboard", title: "ob_welcome_t", line: "tour_haviIntro", hold: 2600 },
-  { page: "dashboard", title: "ob_dash_t", line: "ob_dash_p1", hold: 2400 },
-  { page: "dashboard", title: "ob_dash_t", line: "ob_dash_p3", hold: 2200 },
+  // ── Dashboard ────────────────────────────────────────────────────────
+  { page: "dashboard", title: "ob_welcome_t", line: "tour_haviIntro", hold: 2800 },
+  { page: "dashboard", target: "dash-overview", callout: "tour_dashOverview", hold: 3000 },
+  { page: "dashboard", target: "dash-gpa", callout: "tour_dashGpa", hold: 3000 },
+  { page: "dashboard", target: "dash-checkin", callout: "tour_dashCheckin", hold: 2800 },
+  { page: "dashboard", target: "dash-smart", callout: "tour_dashSmart", hold: 2800 },
+  { page: "dashboard", target: "dash-upcoming", callout: "tour_dashUpcoming", hold: 2600 },
+  { page: "dashboard", target: "dash-whatif", callout: "tour_dashWhatif", hold: 2800 },
 
-  { page: "courses", title: "ob_courses_t", line: "ob_courses_p3", hold: 2200 },
+  // ── Courses: add a course live ───────────────────────────────────────
+  { page: "courses", title: "ob_courses_t", line: "ob_courses_p3", hold: 2400 },
   { page: "courses", target: "add-course", callout: "tour_addCourseBtn", action: { kind: "click" }, hold: 500 },
   { page: "courses", target: "course-name", scope: "modal", callout: "tour_courseName", action: { kind: "type", ar: "الأحياء", en: "Biology" }, hold: 500 },
   { page: "courses", target: "course-credits", scope: "modal", callout: "tour_courseCredits", action: { kind: "type", ar: "3", en: "3" }, hold: 500 },
-  { page: "courses", target: "course-save", scope: "modal", callout: "tour_courseSave", action: { kind: "click" }, hold: 800 },
+  { page: "courses", target: "course-save", scope: "modal", callout: "tour_courseSave", action: { kind: "click" }, hold: 900 },
   { page: "courses", title: "ob_courses_t", line: "tour_courseAdded", hold: 2200 },
 
-  { page: "courses", title: "ob_grades_t", line: "ob_grades_p1", hold: 2200 },
+  // ── Courses: add a grade item live, field by field ───────────────────
+  { page: "courses", title: "ob_grades_t", line: "ob_grades_p1", hold: 2400 },
   { page: "courses", target: "add-component", callout: "tour_addComponent", action: { kind: "click" }, hold: 600 },
   { page: "courses", target: "item-name", scope: "modal", callout: "tour_itemName", action: { kind: "type", ar: "كويز ٣", en: "Quiz 3" }, hold: 500 },
-  { page: "courses", target: "item-type", scope: "modal", callout: "tour_itemType", hold: 1900 },
+  { page: "courses", target: "item-type", scope: "modal", callout: "tour_itemType", hold: 2000 },
   { page: "courses", target: "item-weight", scope: "modal", callout: "tour_itemWeight", action: { kind: "type", ar: "40", en: "40" }, hold: 600 },
   { page: "courses", target: "item-total", scope: "modal", callout: "tour_itemTotal", action: { kind: "type", ar: "10", en: "10" }, hold: 600 },
-  { page: "courses", target: "item-score", scope: "modal", callout: "tour_itemScore", action: { kind: "type", ar: "9", en: "9" }, hold: 600 },
-  { page: "courses", target: "item-save", scope: "modal", callout: "tour_itemSave", action: { kind: "click" }, closeIfStuck: true, hold: 800 },
+  { page: "courses", target: "item-score", scope: "modal", callout: "tour_itemScore", action: { kind: "type", ar: "9", en: "9" }, hold: 700 },
+  { page: "courses", target: "item-save", scope: "modal", callout: "tour_itemSave", action: { kind: "click" }, closeIfStuck: true, hold: 900 },
   { page: "courses", title: "ob_grades_t", line: "tour_itemAdded", hold: 2200 },
 
-  { page: "attendance", title: "ob_att_t", line: "ob_att_p1", hold: 2400 },
-  { page: "attendance", title: "ob_att_t", line: "ob_att_p2", hold: 2600 },
-  { page: "attendance", title: "ob_att_t", line: "ob_att_p3", hold: 2200 },
+  // ── Tasks ────────────────────────────────────────────────────────────
+  { page: "assignments", title: "ob_tasks_t", line: "ob_tasks_p1", hold: 2600 },
+  { page: "assignments", title: "ob_tasks_t", line: "ob_tasks_p2", hold: 2600 },
 
+  // ── Schedule: planner (add a tag live) then timetable (set a time live) ─
   { page: "schedule", title: "ob_sched_t", line: "ob_sched_p1", hold: 2600 },
-  { page: "schedule", title: "ob_sched_t", line: "ob_sched_p2", hold: 2600 },
-  { page: "schedule", title: "ob_sched_t", line: "ob_sched_p3", hold: 2200 },
+  { page: "schedule", target: "planner-toolbar", callout: "tour_plannerToolbar", hold: 3000 },
+  { page: "schedule", target: "planner-tag", callout: "tour_plannerAddTag", action: { kind: "click" }, hold: 1600 },
+  { page: "schedule", title: "ob_sched_t", line: "tour_plannerAdded", hold: 2400 },
+  { page: "schedule", target: "sched-tab-timetable", callout: "tour_timetableTab", action: { kind: "click" }, hold: 900 },
+  { page: "schedule", target: "tt-select", callout: "tour_ttSelect", action: { kind: "selectFirst" }, hold: 900 },
+  { page: "schedule", target: "tt-from", callout: "tour_ttFrom", action: { kind: "type", ar: "09:00", en: "09:00" }, hold: 700 },
+  { page: "schedule", target: "tt-to", callout: "tour_ttTo", action: { kind: "type", ar: "10:00", en: "10:00" }, hold: 700 },
+  { page: "schedule", target: "tt-apply", callout: "tour_ttApply", action: { kind: "click" }, hold: 900 },
+  { page: "schedule", title: "ob_sched_t", line: "tour_ttDone", hold: 2400 },
 
-  { page: "assignments", title: "ob_tasks_t", line: "ob_tasks_p1", hold: 2400 },
+  // ── Attendance: explain, then log an absence live ────────────────────
+  { page: "attendance", title: "ob_att_t", line: "ob_att_p1", hold: 2600 },
+  { page: "attendance", target: "att-rule", callout: "tour_attRule", hold: 2800 },
+  { page: "attendance", target: "att-card", callout: "tour_attCard", hold: 3200 },
+  { page: "attendance", target: "att-expand", callout: "tour_attExpand", action: { kind: "click" }, hold: 900 },
+  { page: "attendance", target: "att-log", callout: "tour_attLog", action: { kind: "click" }, hold: 900 },
+  { page: "attendance", target: "att-save", callout: "tour_attSave", action: { kind: "click" }, hold: 1000 },
+  { page: "attendance", title: "ob_att_t", line: "tour_attDone", hold: 2400 },
 
-  { page: "settings", target: "notif-section", callout: "tour_notifHere", hold: 3200 },
+  // ── Pomodoro ─────────────────────────────────────────────────────────
+  { page: "pomodoro", title: "ob_pom_t", line: "ob_pom_p1", hold: 2800 },
+  { page: "pomodoro", target: "pom-focus-course", callout: "tour_pomFocus", action: { kind: "selectFirst" }, hold: 1600 },
+  { page: "pomodoro", target: "pom-timer", callout: "tour_pomStart", hold: 3000 },
+  { page: "pomodoro", target: "pom-grove", callout: "tour_pomGrove", hold: 2600 },
 
-  { page: "dashboard", title: "ob_finish_t", line: "ob_finish_p1", hold: 2600 },
+  // ── Settings: explain every section, end on notifications ────────────
+  { page: "settings", title: "ob_settings_intro_t", line: "ob_settings_intro_p", hold: 2600 },
+  { page: "settings", target: "set-haviname", callout: "tour_setHaviName", hold: 2600 },
+  { page: "settings", target: "set-theme", callout: "tour_setTheme", hold: 2800 },
+  { page: "settings", target: "set-dates", callout: "tour_setDates", hold: 3000 },
+  { page: "settings", target: "set-attendance", callout: "tour_setAttendance", hold: 3000 },
+  { page: "settings", target: "set-reminders", callout: "tour_setReminders", hold: 2800 },
+  { page: "settings", target: "notif-section", callout: "tour_notifHere", hold: 3600 },
+  { page: "settings", target: "set-data", callout: "tour_setData", hold: 2800 },
+  { page: "settings", target: "set-guide", callout: "tour_setGuide", hold: 3000 },
+
+  // ── Finish ───────────────────────────────────────────────────────────
+  { page: "dashboard", title: "ob_finish_t", line: "ob_finish_p1", hold: 3000 },
 ];
 
-const HAVI = 66;
+const HAVI = 76;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 function setNativeValue(el: HTMLInputElement, value: string) {
@@ -105,7 +150,7 @@ function setNativeValue(el: HTMLInputElement, value: string) {
   el.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-interface CursorState { x: number; y: number; pose: "books" | "write"; visible: boolean; }
+interface HaviState { x: number; y: number; pose: "books" | "write"; visible: boolean; }
 interface CalloutState { text: string; x: number; y: number; title?: string; }
 
 export function Onboarding() {
@@ -117,7 +162,7 @@ export function Onboarding() {
   const [page, setPage] = useState<PageKey>("dashboard");
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [havi, setHavi] = useState<CursorState>({ x: 0, y: 0, pose: "books", visible: false });
+  const [havi, setHavi] = useState<HaviState>({ x: 0, y: 0, pose: "books", visible: false });
   const [callout, setCallout] = useState<CalloutState | null>(null);
   const [reduced, setReduced] = useState(false);
 
@@ -155,37 +200,74 @@ export function Onboarding() {
     completeOnboarding();
   }, [completeOnboarding]);
 
-  // Place Havi next to the element (or bottom-centre for a page-intro) with the
-  // note anchored just above him. Viewport coordinates: Havi + note ride a
-  // top-level portal above every app modal.
+  // Place Havi and his note to the SIDE of the target so neither ever covers
+  // what he's pointing at. Havi hugs the element on whichever side has room; the
+  // note sits just beyond Havi, further from the element. Falls back to below/
+  // above when there's no horizontal room, and to bottom-centre for page-intros.
   const aimAt = useCallback((el: HTMLElement | null, text: string, title: string | undefined, pose: "books" | "write") => {
-    const CW = 252, NOTE_H = 96;
+    const CW = 250, NOTE_H = 116, GAP = 12, NGAP = 10;
     const vw = window.innerWidth, vh = window.innerHeight;
+
     if (!el) {
+      // Page-intro: Havi + note in the clear bottom band of the demo panel (just
+      // above the controls bar), so the page being introduced stays fully visible.
       const box = boxRef.current?.getBoundingClientRect();
-      const hx = (box ? box.left + box.width / 2 : vw / 2) - HAVI / 2;
-      const hy = box ? box.top + box.height * 0.5 : vh * 0.5;
+      const bottom = box ? box.bottom : vh;
+      const cx = box ? box.left + box.width / 2 : vw / 2;
+      const hy = Math.min(vh - HAVI - 18, bottom - HAVI - 72);
+      const hx = cx - HAVI / 2;
       setHavi({ x: hx, y: hy, pose, visible: true });
-      setCallout({ text, title, x: Math.min(vw - CW - 12, Math.max(12, hx + HAVI / 2 - CW / 2)), y: Math.max(12, hy - NOTE_H - 10) });
+      setCallout({ text, title, x: Math.min(vw - CW - 12, Math.max(12, cx - CW / 2)), y: Math.max(12, hy - NOTE_H - 6) });
       return;
     }
+
     const r = el.getBoundingClientRect();
-    let hx = r.left - HAVI - 10;
-    if (hx < 10) hx = Math.min(vw - HAVI - 10, r.right + 10);
-    const hy = Math.max(10, Math.min(vh - HAVI - 10, r.top + r.height / 2 - HAVI / 2));
-    const cx = hx + HAVI / 2;
-    let ny = hy - NOTE_H - 8;
-    if (ny < 8) ny = hy + HAVI + 8;
+    const cy = r.top + r.height / 2;
+    const roomRight = vw - r.right;
+    const roomLeft = r.left;
+    const needSide = HAVI + GAP + NGAP + CW;
+
+    let hx: number, hy: number, nx: number, ny: number;
+
+    if (roomRight >= needSide) {
+      // Right of element: [element] Havi Note
+      hx = r.right + GAP;
+      nx = hx + HAVI + NGAP;
+      hy = Math.max(10, Math.min(vh - HAVI - 10, cy - HAVI / 2));
+      ny = Math.max(10, Math.min(vh - NOTE_H - 10, cy - NOTE_H / 2));
+    } else if (roomLeft >= needSide) {
+      // Left of element: Note Havi [element]
+      hx = r.left - GAP - HAVI;
+      nx = hx - NGAP - CW;
+      hy = Math.max(10, Math.min(vh - HAVI - 10, cy - HAVI / 2));
+      ny = Math.max(10, Math.min(vh - NOTE_H - 10, cy - NOTE_H / 2));
+    } else {
+      // No room beside the target (narrow screens / very wide targets): sit Havi
+      // and the note in the clear bottom band of the viewport, near the target's
+      // horizontal centre. The target was just scrolled to centre, so the bottom
+      // band never covers what Havi is pointing at.
+      const cx = Math.min(vw - 12, Math.max(12, r.left + r.width / 2));
+      hy = vh - HAVI - 24;
+      hx = Math.max(12, Math.min(vw - HAVI - 12, cx - HAVI / 2));
+      ny = hy - NOTE_H - 8;
+      nx = Math.max(12, Math.min(vw - CW - 12, cx - CW / 2));
+    }
+
     setHavi({ x: hx, y: hy, pose, visible: true });
-    setCallout({ text, title, x: Math.max(12, Math.min(vw - CW - 12, cx - CW / 2)), y: ny });
+    setCallout({ text, title, x: Math.max(12, Math.min(vw - CW - 12, nx)), y: ny });
   }, []);
 
   const locate = useCallback((name: string, scope: "page" | "modal"): HTMLElement | null => {
-    if (scope === "modal") {
-      const els = document.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`);
-      return els.length ? els[els.length - 1] : null;
-    }
-    return scrollRef.current?.querySelector<HTMLElement>(`[data-tour="${name}"]`) ?? null;
+    // Only ever return a VISIBLE match — pages render responsive duplicates
+    // (e.g. the planner toolbar has a mobile + a desktop copy, one display:none),
+    // and a hidden element has a zero rect that would send Havi to the corner.
+    const visible = (el: HTMLElement) => el.offsetParent !== null || el.getClientRects().length > 0;
+    const root: ParentNode = scope === "modal" ? document : (scrollRef.current ?? document);
+    const els = Array.from(root.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)).filter(visible);
+    if (!els.length) return null;
+    // modal anchors live at the end of the DOM (portaled last); page anchors take
+    // the first visible hit.
+    return scope === "modal" ? els[els.length - 1] : els[0];
   }, []);
 
   const waitFor = useCallback((name: string, scope: "page" | "modal", timeout = 2500): Promise<HTMLElement | null> => {
@@ -201,7 +283,7 @@ export function Onboarding() {
     });
   }, [locate]);
 
-  const typeInto = useCallback(async (host: HTMLElement, value: string, alive: () => boolean) => {
+  const typeInto = useCallback(async (host: HTMLElement, value: string, enter: boolean, alive: () => boolean) => {
     const input = (host.matches?.("input,textarea,select") ? host : host.querySelector<HTMLElement>("input,textarea,select")) as HTMLInputElement | HTMLSelectElement | null;
     if (!input) return;
     input.focus();
@@ -212,6 +294,13 @@ export function Onboarding() {
       return;
     }
     const inp = input as HTMLInputElement;
+    // A native time input takes the whole value at once (no per-char typing).
+    if (inp.type === "time") {
+      setNativeValue(inp, value);
+      inp.dispatchEvent(new Event("change", { bubbles: true }));
+      inp.blur();
+      return;
+    }
     for (let i = 1; i <= value.length; i++) {
       if (!alive()) return;
       setNativeValue(inp, value.slice(0, i));
@@ -219,8 +308,19 @@ export function Onboarding() {
     }
     // Commit patterns for controlled + custom (BoundedNumberInput) fields.
     inp.dispatchEvent(new Event("change", { bubbles: true }));
+    if (enter) inp.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     inp.dispatchEvent(new Event("focusout", { bubbles: true }));
     inp.blur();
+  }, []);
+
+  const selectFirst = useCallback((host: HTMLElement) => {
+    const sel = (host.matches?.("select") ? host : host.querySelector<HTMLSelectElement>("select")) as HTMLSelectElement | null;
+    if (!sel) return;
+    const opt = Array.from(sel.options).find((o) => o.value !== "");
+    if (!opt) return;
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+    setter?.set?.call(sel, opt.value);
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
   }, []);
 
   // The scripted run.
@@ -239,23 +339,26 @@ export function Onboarding() {
         const pageChanged = beat.page !== currentPage.current;
         currentPage.current = beat.page;
         setPage(beat.page);
-        await sleep(pageChanged ? 700 : 280);
+        // Reset the scroll to the top when the page changes so the first beat on
+        // a page starts from a known position, then scrollIntoView takes over.
+        if (pageChanged && scrollRef.current) scrollRef.current.scrollTop = 0;
+        await sleep(pageChanged ? 750 : 300);
         if (!alive()) return;
 
         const scope = beat.scope ?? "page";
         const el = beat.target ? await waitFor(beat.target, scope) : null;
         if (beat.target && !el) { setCallout(null); setHavi((c) => ({ ...c, visible: false })); continue; }
-        if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); await sleep(260); }
+        if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); await sleep(320); }
         if (!alive()) return;
 
         const pose: "books" | "write" = beat.action ? "write" : "books";
         aimAt(el, beat.callout ? t(beat.callout) : beat.line ? t(beat.line) : "", beat.title ? t(beat.title) : undefined, pose);
-        await sleep(el ? 900 : 550);
+        await sleep(el ? 950 : 550);
 
         if (beat.action && el) {
           if (!alive()) return;
           if (beat.action.kind === "click") {
-            (el as HTMLElement).click();
+            el.click();
             if (beat.closeIfStuck) {
               await sleep(500);
               // If the modal didn't close (e.g. a field didn't validate), close
@@ -264,10 +367,12 @@ export function Onboarding() {
                 locate("item-cancel", "modal")?.click();
               }
             }
+          } else if (beat.action.kind === "selectFirst") {
+            selectFirst(el);
           } else {
-            await typeInto(el, lang === "ar" ? beat.action.ar : beat.action.en, alive);
+            await typeInto(el, lang === "ar" ? beat.action.ar : beat.action.en, !!beat.action.enter, alive);
           }
-          await sleep(450);
+          await sleep(500);
         }
 
         let waited = 0;
@@ -368,10 +473,10 @@ export function Onboarding() {
                   className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
                   <RotateCcw size={16} />
                 </button>
-                <div className="flex-1 flex items-center justify-center gap-1.5 flex-wrap">
+                <div className="flex-1 flex items-center justify-center gap-1 flex-wrap">
                   {BEATS.map((_, i) => (
-                    <span key={i} className="h-2 rounded-full transition-all"
-                      style={{ width: i === idx ? 18 : 6, background: i === idx ? "var(--color-primary)" : "var(--color-border)" }} />
+                    <span key={i} className="h-1.5 rounded-full transition-all"
+                      style={{ width: i === idx ? 16 : 5, background: i === idx ? "var(--color-primary)" : "var(--color-border)" }} />
                   ))}
                 </div>
                 <button onClick={finish} className="haven-btn shrink-0 rounded-xl px-4 py-2 text-sm font-semibold">
@@ -396,7 +501,7 @@ export function Onboarding() {
             <TourHavi pose={havi.pose} size={HAVI} reduced={reduced} />
           </div>
           {callout && (
-            <div className="max-w-[252px] rounded-2xl px-4 py-3"
+            <div className="max-w-[250px] rounded-2xl px-4 py-3"
               style={{
                 position: "fixed", left: callout.x, top: callout.y,
                 background: "var(--color-ink)", color: "#fff",

@@ -37,6 +37,7 @@ export default function SchedulePage() {
         {tabs.map((tb) => (
           <button
             key={tb.key}
+            data-tour={tb.key === "timetable" ? "sched-tab-timetable" : "sched-tab-planner"}
             onClick={() => setTab(tb.key)}
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             style={

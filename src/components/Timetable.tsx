@@ -128,7 +128,7 @@ export function Timetable() {
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 flex-1 min-w-[160px]">
             <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttSelectSession")}</span>
-            <select className={fieldCls} style={border} value={selKey} onChange={(e) => onPick(e.target.value)}>
+            <select data-tour="tt-select" className={fieldCls} style={border} value={selKey} onChange={(e) => onPick(e.target.value)}>
               <option value="">— {t("ttSelectSession")} —</option>
               {allSessions.map((x) => (
                 <option key={x.key} value={x.key}>
@@ -139,11 +139,11 @@ export function Timetable() {
           </label>
           <label className="flex flex-col gap-1 w-[105px]">
             <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttFrom")}</span>
-            <input type="time" className={fieldCls} style={border} value={time} onChange={(e) => setTime(e.target.value)} disabled={!selKey} />
+            <input data-tour="tt-from" type="time" className={fieldCls} style={border} value={time} onChange={(e) => setTime(e.target.value)} disabled={!selKey} />
           </label>
           <label className="flex flex-col gap-1 w-[105px]">
             <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttTo")}</span>
-            <input type="time" className={fieldCls} style={border} value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!selKey} />
+            <input data-tour="tt-to" type="time" className={fieldCls} style={border} value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!selKey} />
           </label>
           <label className="flex flex-col gap-1 w-[130px]">
             <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttBuilding")}</span>
@@ -155,6 +155,7 @@ export function Timetable() {
           </label>
           <button
             type="button"
+            data-tour="tt-apply"
             onClick={applyDetails}
             disabled={!selKey}
             className="haven-btn px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"

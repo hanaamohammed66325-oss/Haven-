@@ -91,15 +91,19 @@ function PlannerToolbar({
   targetLabel,
   activeWeek,
   onAddTag,
+  anchor = false,
 }: {
   vertical: boolean;
   targetLabel: string;
   activeWeek: number;
   onAddTag: (tag: { key: TranslationKey; color: string }) => void;
+  /** emit the guided-tour data-tour anchors (only on the one visible instance) */
+  anchor?: boolean;
 }) {
   const { t } = useT();
   return (
     <div
+      {...(anchor ? { "data-tour": "planner-toolbar" } : {})}
       className={`surface-card rounded-2xl flex gap-1.5 ${
         vertical ? "flex-col items-stretch p-2.5" : "flex-wrap items-center p-3"
       }`}
@@ -110,9 +114,10 @@ function PlannerToolbar({
       >
         {t("plannerActiveTarget", { n: activeWeek + 1, target: targetLabel })}
       </span>
-      {TAGS.map((tg) => (
+      {TAGS.map((tg, i) => (
         <button
           key={tg.key}
+          {...(anchor && i === 0 ? { "data-tour": "planner-tag" } : {})}
           onClick={() => onAddTag(tg)}
           className={`inline-flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
             vertical ? "w-full justify-start px-2 py-1.5" : "px-2.5 py-1.5"
@@ -341,7 +346,7 @@ export function Planner() {
             stays visible while scrolling; hidden at lg+ where the sidebar
             variant (below) takes over. */}
         <div className="lg:hidden sticky top-[calc(56px+env(safe-area-inset-top,0px))] z-20 mb-8">
-          <PlannerToolbar vertical={false} targetLabel={targetLabel} activeWeek={activeWeek} onAddTag={addTag} />
+          <PlannerToolbar vertical={false} anchor targetLabel={targetLabel} activeWeek={activeWeek} onAddTag={addTag} />
         </div>
 
         {/* Week grid. 3 columns waits until 2xl (not xl) — at lg/xl the sticky
@@ -381,7 +386,7 @@ export function Planner() {
 
       {/* Desktop/tablet sidebar toolbar — sticky, opposite the main nav */}
       <aside className="hidden lg:block lg:sticky lg:top-6">
-        <PlannerToolbar vertical targetLabel={targetLabel} activeWeek={activeWeek} onAddTag={addTag} />
+        <PlannerToolbar vertical anchor targetLabel={targetLabel} activeWeek={activeWeek} onAddTag={addTag} />
       </aside>
     </div>
   );

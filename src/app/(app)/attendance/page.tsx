@@ -78,7 +78,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
   for (const m of course.missedSessions) m.excused ? excusedCount++ : unexcusedCount++;
 
   return (
-    <Card>
+    <Card data-tour="att-card">
       <div className="px-5 sm:px-6 py-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
@@ -156,6 +156,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
 
         {/* Expand/collapse absences */}
         <button
+          data-tour="att-expand"
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-1.5 text-[12px] font-medium transition-colors hover:opacity-80 mt-1"
           style={{ color: "var(--color-primary)" }}
@@ -297,6 +298,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
             {/* Log new absence */}
             {!addingAbsence ? (
               <button
+                data-tour="att-log"
                 onClick={() => { setAddingAbsence(true); setAddSession(course.sessions[0]?.id ?? ""); }}
                 className="mt-3 text-[12px] font-medium px-3 py-1.5 rounded-lg border border-dashed transition-colors hover:opacity-80"
                 style={{ borderColor: "var(--color-border)", color: "var(--color-primary)" }}
@@ -355,6 +357,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                   />
                 )}
                 <button
+                  data-tour="att-save"
                   onClick={async () => {
                     if (!addSession) return;
                     const tardiness = addType === "late" ? Number(addMinutesLate) || undefined : undefined;

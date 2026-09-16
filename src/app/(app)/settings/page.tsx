@@ -106,9 +106,9 @@ function ClampedNumberField({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, anchor }: { title: string; children: React.ReactNode; anchor?: string }) {
   return (
-    <section className="mb-12">
+    <section className="mb-12" {...(anchor ? { "data-tour": anchor } : {})}>
       <h2 className="haven-label mb-4">{title}</h2>
       <Card padding="p-5 sm:p-8">{children}</Card>
     </section>
@@ -187,6 +187,7 @@ export default function SettingsPage() {
         </p>
         <button
           type="button"
+          data-tour="set-guide"
           onClick={() => window.dispatchEvent(new Event("haven:onboarding"))}
           className="haven-btn rounded-xl px-5 py-2.5 text-sm font-semibold"
         >
@@ -217,6 +218,7 @@ export default function SettingsPage() {
           </Row>
           <Row label={t("haviNameLabel")}>
             <input
+              data-tour="set-haviname"
               className={fieldClass}
               style={divider}
               value={haviName}
@@ -233,7 +235,7 @@ export default function SettingsPage() {
         <p className="text-[13px] mb-5 -mt-1" style={{ color: "var(--color-muted)" }}>
           {t("themeSectionDesc")}
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div data-tour="set-theme" className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {THEMES.map((tm) => (
             <ThemeCard key={tm.id} theme={tm} active={theme === tm.id} locked={!canUseTheme(profile, sub, tm.id)} onSelect={() => pickTheme(tm)} />
           ))}
@@ -241,7 +243,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Semester */}
-      <Section title={t("sectionSemester")}>
+      <Section title={t("sectionSemester")} anchor="set-dates">
         <div className="divide-y" style={divider}>
           <Row label={t("semesterName")}>
             <input
@@ -312,7 +314,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Attendance */}
-      <Section title={t("sectionAttendance")}>
+      <Section title={t("sectionAttendance")} anchor="set-attendance">
         <div className="divide-y" style={divider}>
           <Row label={t("withdrawalLimitLabel")}>
             <ClampedNumberField
@@ -371,7 +373,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Reminders — customizable notification preferences (notifPrefs) */}
-      <Section title={t("sectionReminders")}>
+      <Section title={t("sectionReminders")} anchor="set-reminders">
         <RemindersSettings />
       </Section>
 
@@ -381,7 +383,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Data */}
-      <Section title={t("sectionData")}>
+      <Section title={t("sectionData")} anchor="set-data">
         <div className="divide-y" style={divider}>
           <div className="flex items-center justify-between gap-4 py-3 first:pt-0">
             <div>

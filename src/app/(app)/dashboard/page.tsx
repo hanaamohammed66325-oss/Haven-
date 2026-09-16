@@ -185,7 +185,7 @@ export default function DashboardPage() {
           const checkedIn = gamification.checkedInToday === toISODate(new Date());
           const streak = gamification.streak.current;
           return (
-            <Card padding="p-5" className="flex items-center gap-4">
+            <Card padding="p-5" className="flex items-center gap-4" data-tour="dash-checkin">
               <div className="relative shrink-0">
                 <button
                   onClick={handleCheckIn}
@@ -328,6 +328,7 @@ export default function DashboardPage() {
             style={{ animationDelay: "0.08s" }}
             data-havi-role="generic"
             data-havi-card
+            data-tour="dash-overview"
           >
             <div
               className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x"
@@ -373,7 +374,7 @@ export default function DashboardPage() {
                 </button>
 
                 {/* Live mode toggle: Semester (out of 5) vs Cumulative (from current) */}
-                <div className="inline-flex rounded-lg p-0.5" style={{ background: "var(--color-primary-soft)" }}>
+                <div data-tour="dash-gpa" className="inline-flex rounded-lg p-0.5" style={{ background: "var(--color-primary-soft)" }}>
                   {(["semester", "cumulative"] as const).map((m) => (
                     <button
                       key={m}
@@ -534,7 +535,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Smart suggestions */}
-          <div className="haven-fade-up mb-8" style={{ animationDelay: "0.11s" }}>
+          <div data-tour="dash-smart" className="haven-fade-up mb-8" style={{ animationDelay: "0.11s" }}>
             <SmartSuggestions />
           </div>
 
@@ -568,7 +569,7 @@ export default function DashboardPage() {
 
           {/* What-if simulator */}
           {courses.length > 0 && (
-            <div className="haven-fade-up mt-12" style={{ animationDelay: "0.2s" }}>
+            <div data-tour="dash-whatif" className="haven-fade-up mt-12" style={{ animationDelay: "0.2s" }}>
               <WhatIfCard />
             </div>
           )}
@@ -583,6 +584,7 @@ export default function DashboardPage() {
           <Card
             data-havi-role="upcoming"
             data-havi-near-due={hasNearDue ? "true" : "false"}
+            data-tour="dash-upcoming"
           >
             <h2 className="font-display text-lg mb-6" style={{ color: "var(--color-ink)" }}>
               {t("upcoming")}

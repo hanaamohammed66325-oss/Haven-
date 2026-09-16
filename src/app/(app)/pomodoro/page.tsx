@@ -296,6 +296,7 @@ export default function PomodoroPage() {
           witherSignal={witherSignal}
         />
         <button
+          data-tour="pom-grove"
           onClick={() => setGroveOpen(true)}
           className="haven-fade-up absolute bottom-3 end-3 z-10 flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium shadow-sm transition-colors"
           style={{
@@ -363,6 +364,7 @@ export default function PomodoroPage() {
           </label>
           <select
             id="focus-course"
+            data-tour="pom-focus-course"
             value={focusCourseId ?? ""}
             onChange={(e) => setFocusCourseId(e.target.value || null)}
             disabled={running}
@@ -378,7 +380,7 @@ export default function PomodoroPage() {
           </select>
         </div>
 
-        <div className="haven-fade-up mb-6">
+        <div data-tour="pom-timer" className="haven-fade-up mb-6">
           <TimerControls
             phase={timer.phase}
             clock={formatClock(timer.secondsRemaining)}

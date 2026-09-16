@@ -47,6 +47,7 @@ const BODY = [
 ];
 
 const GRID_W = 28;
+const GRID_H = BODY.length; // 24 — render the whole grid so legs never clip/stretch
 
 type Pose = "books" | "write" | "idle";
 
@@ -65,29 +66,27 @@ function paintBody(ctx: CanvasRenderingContext2D, s: number) {
   }
 }
 
-function drawFrame(canvas: HTMLCanvasElement, pose: Pose, t: number) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const s = canvas.width / GRID_W;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function drawFrame(ctx: CanvasRenderingContext2D, w: number, h: number, s: number, pose: Pose) {
+  ctx.clearRect(0, 0, w, h);
   ctx.imageSmoothingEnabled = false;
   paintBody(ctx, s);
 
   if (pose === "books") {
+    // Reading pose — eyes on the page, three stacked books held steady. (The
+    // books stay put now: the old per-frame 1px hop read as a jitter.)
     px(ctx, s, 8, 9, 2, 3, COL.k);
     px(ctx, s, 18, 9, 2, 3, COL.k);
     px(ctx, s, 13, 13, 2, 1, COL.k);
-    const bob = Math.abs(Math.sin(t / 5)) > 0.5 ? 1 : 0;
-    px(ctx, s, 6, 17 - bob, 16, 2, "#c0563f"); // red book
-    px(ctx, s, 7, 19 - bob, 14, 2, COL.b); // blue book
-    px(ctx, s, 6, 21 - bob, 16, 2, "#6a9c5a"); // green book
-    px(ctx, s, 6, 18 - bob, 1, 1, COL.paper);
-    px(ctx, s, 7, 20 - bob, 1, 1, COL.paper);
-    px(ctx, s, 6, 22 - bob, 1, 1, COL.paper);
-    px(ctx, s, 4, 17 - bob, 2, 3, COL.G); // arms
-    px(ctx, s, 22, 17 - bob, 2, 3, COL.G);
+    px(ctx, s, 6, 17, 16, 2, "#c0563f"); // red book
+    px(ctx, s, 7, 19, 14, 2, COL.b);     // blue book
+    px(ctx, s, 6, 21, 16, 2, "#6a9c5a"); // green book
+    px(ctx, s, 6, 18, 1, 1, COL.paper);
+    px(ctx, s, 7, 20, 1, 1, COL.paper);
+    px(ctx, s, 6, 22, 1, 1, COL.paper);
+    px(ctx, s, 4, 17, 2, 3, COL.G);      // arms
+    px(ctx, s, 22, 17, 2, 3, COL.G);
   } else if (pose === "write") {
-    const cyc = t % 30;
+    const cyc = Math.floor(Date.now() / 90) % 30;
     const writing = cyc < 18;
     px(ctx, s, 7, 19, 9, 3, COL.paper);
     if (writing) {
@@ -112,52 +111,61 @@ function drawFrame(canvas: HTMLCanvasElement, pose: Pose, t: number) {
   }
 }
 
-function bobFor(pose: Pose, t: number): number {
-  if (pose === "write") return Math.abs(Math.sin(t / 6)) * -2;
-  if (pose === "books") return Math.abs(Math.sin(t / 5)) * -1.5;
-  return Math.abs(Math.sin(t / 6)) * -2;
+// Gentle vertical bob — small amplitude, slow period, so Havi breathes rather
+// than vibrates. (Was ±2px at 12fps, which looked like a shiver.)
+function bobFor(pose: Pose, ms: number): number {
+  const amp = pose === "write" ? 1 : 0.8;
+  const period = pose === "write" ? 900 : 1400;
+  return -Math.abs(Math.sin((ms / period) * Math.PI)) * amp;
 }
 
-export function TourHavi({ pose, size = 64, reduced = false }: { pose: Pose; size?: number; reduced?: boolean }) {
+export function TourHavi({ pose, size = 72, reduced = false }: { pose: Pose; size?: number; reduced?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const poseRef = useRef<Pose>(pose);
   poseRef.current = pose;
 
+  // Integer pixel scale → render 1:1 with the display size (no fractional
+  // down-scale). The old canvas rendered at 84×69 then squashed to 66×54 with
+  // nearest-neighbour, which dropped/doubled rows and stretched the legs.
+  const unit = Math.max(2, Math.round(size / GRID_W));
+  const w = GRID_W * unit;
+  const h = GRID_H * unit;
+
   useEffect(() => {
     const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
     if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    if (reduced) {
+      drawFrame(ctx, w, h, unit, poseRef.current);
+      if (wrap) wrap.style.transform = "translateY(0)";
+      return;
+    }
+
     let raf = 0;
-    let t = 0;
-    const draw = () => {
-      t += 1;
-      drawFrame(canvas, poseRef.current, t);
-      canvas.style.transform = `translateY(${reduced ? 0 : bobFor(poseRef.current, t)}px)`;
-      raf = requestAnimationFrame(draw);
-    };
-    // ~12fps is plenty for pixel art and keeps it cheap.
     let last = 0;
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
-      if (now - last < 80) return;
+      if (now - last < 90) return; // ~11fps is plenty for pixel art
       last = now;
-      draw();
+      drawFrame(ctx, w, h, unit, poseRef.current);
+      if (wrap) wrap.style.transform = `translateY(${bobFor(poseRef.current, now)}px)`;
     };
-    if (reduced) {
-      drawFrame(canvas, poseRef.current, 0);
-    } else {
-      raf = requestAnimationFrame(loop);
-    }
+    raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [reduced]);
+  }, [reduced, w, h, unit]);
 
-  const h = Math.round((size / GRID_W) * 23);
   return (
-    <canvas
-      ref={canvasRef}
-      width={GRID_W * 3}
-      height={23 * 3}
-      style={{ width: size, height: h, imageRendering: "pixelated", filter: "drop-shadow(0 3px 6px rgba(0,0,0,.28))" }}
-      aria-hidden
-    />
+    <div ref={wrapRef} style={{ width: w, height: h, willChange: "transform" }} aria-hidden>
+      <canvas
+        ref={canvasRef}
+        width={w}
+        height={h}
+        style={{ width: w, height: h, imageRendering: "pixelated", filter: "drop-shadow(0 3px 6px rgba(0,0,0,.28))" }}
+      />
+    </div>
   );
 }
