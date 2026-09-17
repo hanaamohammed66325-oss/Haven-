@@ -455,6 +455,7 @@ export const ar: Record<TranslationKey, string> = {
   tour_pause: "إيقاف",
   tour_replay: "إعادة",
   tour_sample: "بيانات تجريبية — ما نلمس حسابك",
+  tour_goToStep: "اذهب للخطوة {n}",
   tour_addCourseBtn: "اضغط هنا لإضافة مادة",
   tour_courseName: "اكتب اسم المادة",
   tour_courseCredits: "حدّد عدد ساعات المادة",

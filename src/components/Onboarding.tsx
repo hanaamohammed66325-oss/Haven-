@@ -618,10 +618,25 @@ export function Onboarding() {
                 <span className="hidden lg:inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>
                   <Sparkles size={12} style={{ color: "var(--color-brass)" }} />{t("tour_sample")}
                 </span>
-                <div className="flex-1 flex items-center justify-center gap-1 flex-wrap">
+                <div className="flex-1 flex items-center justify-center gap-0.5 flex-wrap">
                   {BEATS.map((_, i) => (
-                    <span key={i} className="h-1.5 rounded-full transition-all"
-                      style={{ width: i === idx ? 16 : 5, background: i === idx ? "var(--color-primary)" : "var(--color-border)" }} />
+                    <button
+                      key={i}
+                      onClick={() => runFromRef.current(i)}
+                      aria-label={t("tour_goToStep", { n: i + 1 })}
+                      aria-current={i === idx}
+                      title={t("tour_goToStep", { n: i + 1 })}
+                      className="group/dot inline-flex h-4 items-center px-0.5 cursor-pointer"
+                    >
+                      <span
+                        className="h-1.5 rounded-full transition-all group-hover/dot:opacity-100"
+                        style={{
+                          width: i === idx ? 16 : 5,
+                          background: i === idx ? "var(--color-primary)" : "var(--color-border)",
+                          opacity: i === idx ? 1 : 0.85,
+                        }}
+                      />
+                    </button>
                   ))}
                 </div>
                 <button onClick={finish} className="haven-btn shrink-0 rounded-xl px-4 py-2 text-sm font-semibold">

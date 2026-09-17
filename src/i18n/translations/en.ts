@@ -454,6 +454,7 @@ export const en = {
   tour_pause: "Pause",
   tour_replay: "Replay",
   tour_sample: "Sample data — your account isn't touched",
+  tour_goToStep: "Go to step {n}",
   tour_addCourseBtn: "Tap here to add a course",
   tour_courseName: "Type the course name",
   tour_courseCredits: "Set the course's credit hours",

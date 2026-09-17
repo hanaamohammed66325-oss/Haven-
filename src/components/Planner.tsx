@@ -667,9 +667,9 @@ function WeekCard({
     return (
       <span
         key={a.id}
-        className="group/auto inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs"
+        className="group/auto inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs max-w-full min-w-0"
         style={{ background: `${color}14`, border: `1px dashed ${color}66` }}
-        title={a.course}
+        title={`${a.name} · ${a.course}`}
       >
         <button
           type="button"
@@ -682,18 +682,18 @@ function WeekCard({
           {autoDone && <Check size={9} color="#fff" strokeWidth={3} />}
         </button>
         {EXAM_TYPES.includes(a.type) ? (
-          <GraduationCap size={11} style={{ color }} />
+          <GraduationCap size={11} className="shrink-0" style={{ color }} />
         ) : (
-          <ClipboardList size={11} style={{ color }} />
+          <ClipboardList size={11} className="shrink-0" style={{ color }} />
         )}
         <span
           onClick={(e) => { e.stopPropagation(); setEditAutoId(a.id); }}
-          className="cursor-pointer"
+          className="cursor-pointer truncate min-w-0"
           style={{ color: "var(--color-ink)", textDecoration: autoDone ? "line-through" : "none", opacity: autoDone ? 0.5 : 1 }}
         >
           {a.name}
         </span>
-        <span className="text-[10px]" style={{ color: "var(--color-muted)", opacity: autoDone ? 0.5 : 1 }}>· {a.course}</span>
+        <span className="text-[10px] shrink-0" style={{ color: "var(--color-muted)", opacity: autoDone ? 0.5 : 1 }}>· {a.course}</span>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onHideAuto(a.id); }}
