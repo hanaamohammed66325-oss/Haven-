@@ -199,8 +199,8 @@ function buildInitialData(): AppData {
   // A pond that already looks lived-in: several lily pads, each coloured by the
   // subject it was earned on (so the tour's lake is full and colourful, not bare).
   const pads = courses
-    .flatMap((c) => [c.id, c.id]) // ~2 sessions per subject
-    .slice(0, 9)
+    .flatMap((c) => [c.id, c.id, c.id]) // ~3 sessions per subject → a fuller lake
+    .slice(0, 14)
     .map((courseId, i) => ({ date: dayOffset(-i), courseId, minutes: 25 }));
   return {
     profileName: "Sara",

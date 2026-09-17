@@ -201,6 +201,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
           <canvas
             ref={canvasRef}
             aria-hidden
+            data-tour="pom-lake"
             className="block w-full rounded-xl"
             style={{ height: "min(58dvh, 440px)", background: "transparent", cursor: "pointer", touchAction: "manipulation" }}
           />

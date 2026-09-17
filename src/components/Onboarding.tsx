@@ -110,7 +110,12 @@ const BEATS: Beat[] = [
   // ── Schedule: planner (add a tag live) then timetable (set a time live) ─
   { page: "schedule", title: "ob_sched_t", line: "ob_sched_p1", hold: 2600 },
   { page: "schedule", target: "planner-toolbar", callout: "tour_plannerToolbar", hold: 3000 },
-  { page: "schedule", target: "planner-tag", callout: "tour_plannerAddTag", action: { kind: "click" }, hold: 1600 },
+  { page: "schedule", target: "planner-tag", callout: "tour_plannerAddTag", action: { kind: "click" }, hold: 1400 },
+  // Open an existing dated deadline to show recolouring + a due time + reminders.
+  { page: "schedule", target: "planner-note", callout: "tour_plannerOpenNote", action: { kind: "click" }, hold: 1200 },
+  { page: "schedule", target: "planner-color", callout: "tour_plannerColor", action: { kind: "type", ar: "#8a6fb0", en: "#8a6fb0" }, hold: 2400 },
+  { page: "schedule", target: "planner-time", callout: "tour_plannerTime", hold: 3200 },
+  { page: "schedule", target: "planner-save", callout: "tour_plannerSave", action: { kind: "click" }, hold: 900 },
   { page: "schedule", title: "ob_sched_t", line: "tour_plannerAdded", hold: 2400 },
   { page: "schedule", target: "sched-tab-timetable", callout: "tour_timetableTab", action: { kind: "click" }, hold: 900 },
   { page: "schedule", target: "tt-select", callout: "tour_ttSelect", action: { kind: "selectFirst" }, hold: 900 },
@@ -133,7 +138,8 @@ const BEATS: Beat[] = [
   { page: "pomodoro", target: "pom-pond", callout: "tour_pomPond", hold: 3000 },
   { page: "pomodoro", target: "pom-focus-course", callout: "tour_pomFocus", action: { kind: "selectFirst" }, hold: 1600 },
   { page: "pomodoro", target: "pom-start", callout: "tour_pomStart", hold: 3000 },
-  { page: "pomodoro", target: "pom-grove", callout: "tour_pomGrove", hold: 2600 },
+  { page: "pomodoro", target: "pom-grove", callout: "tour_pomGrove", action: { kind: "click" }, hold: 1000 },
+  { page: "pomodoro", target: "pom-lake", scope: "modal", callout: "tour_pomLake", hold: 3600 },
 
   // ── Settings: explain every section, end on notifications ────────────
   { page: "settings", title: "ob_settings_intro_t", line: "ob_settings_intro_p", hold: 2600 },
@@ -209,6 +215,10 @@ export function Onboarding() {
   // whenever the view scrolls or resizes and never drift off his target.
   const anchorRef = useRef<{ el: HTMLElement | null; text: string; title?: string; pose: "books" | "write" } | null>(null);
   const rafRepos = useRef(0);
+  // While the tour is programmatically scrolling, Havi glides to the target's
+  // PREDICTED landing spot in parallel — so live scroll events must not re-anchor
+  // him to the element's mid-scroll position (that fight is what caused the lag).
+  const suppressReanchor = useRef(false);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
@@ -241,7 +251,7 @@ export function Onboarding() {
   // when there's room, otherwise just below (or above) it — never dropped to the
   // screen corner. Because the page is scrolled so the target sits high, the unit
   // below it stays on-screen and never covers what Havi points at.
-  const aimAt = useCallback((el: HTMLElement | null, text: string, title: string | undefined, pose: "books" | "write") => {
+  const aimAt = useCallback((el: HTMLElement | null, text: string, title: string | undefined, pose: "books" | "write", rect?: DOMRect) => {
     const vw = window.innerWidth, vh = window.innerHeight;
 
     if (!el) {
@@ -256,7 +266,7 @@ export function Onboarding() {
       return;
     }
 
-    const r = el.getBoundingClientRect();
+    const r = rect ?? el.getBoundingClientRect();
     const cy = r.top + r.height / 2, ecx = r.left + r.width / 2;
     const need = HAVI_W + GAP + NOTE_W + GAP;
 
@@ -271,6 +281,7 @@ export function Onboarding() {
       // No side room → below the element (or above if it's near the bottom).
       const belowY = r.bottom + GAP;
       y = belowY + UNIT_H <= vh - 12 ? belowY : Math.max(12, r.top - GAP - UNIT_H);
+      y = clamp(y, 12, vh - UNIT_H - 12);
       x = clamp(ecx - UNIT_W / 2, 12, vw - UNIT_W - 12); noteFirst = false;
     }
 
@@ -291,7 +302,7 @@ export function Onboarding() {
   // Re-place Havi + note (+ arrow) against the live element rect — called on any
   // scroll/resize so the guide stays glued to whatever it's explaining.
   const reanchor = useCallback(() => {
-    if (rafRepos.current) return;
+    if (rafRepos.current || suppressReanchor.current) return;
     rafRepos.current = requestAnimationFrame(() => {
       rafRepos.current = 0;
       const a = anchorRef.current;
@@ -321,18 +332,38 @@ export function Onboarding() {
     });
   }, [locate]);
 
-  // Smoothly scroll a page-scoped target into the UPPER area of the demo panel,
-  // so Havi glides down to it and the note below never covers it. The TOUR does
-  // the scrolling — the user never has to.
-  const scrollToEl = useCallback(async (el: HTMLElement) => {
+  // The demo panel scrollTop that lifts a target into the UPPER area (so the note
+  // below never covers it). The TOUR does the scrolling — the user never has to.
+  const scrollTargetFor = useCallback((el: HTMLElement): number | null => {
     const c = scrollRef.current;
-    if (!c) return;
+    if (!c) return null;
     const cr = c.getBoundingClientRect();
     const er = el.getBoundingClientRect();
-    const target = c.scrollTop + (er.top - cr.top) - Math.min(120, cr.height * 0.2);
-    c.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-    await sleep(650);
+    return Math.max(0, c.scrollTop + (er.top - cr.top) - Math.min(120, cr.height * 0.2));
   }, []);
+
+  // Eased scroll to an absolute scrollTop with a duration CAPPED regardless of
+  // distance — so a long top→bottom jump no longer crawls. Reanchor is suppressed
+  // meanwhile: Havi is already gliding to the target's predicted landing spot, so
+  // the page and Havi animate in parallel and arrive together (no trailing lag).
+  const scrollToTop = useCallback((to: number) => new Promise<void>((resolve) => {
+    const c = scrollRef.current;
+    if (!c) return resolve();
+    const from = c.scrollTop;
+    const dist = to - from;
+    if (Math.abs(dist) < 4) return resolve();
+    const dur = clamp(Math.abs(dist) * 0.5, 240, 440);
+    const t0 = performance.now();
+    const ease = (p: number) => 1 - Math.pow(1 - p, 3); // easeOutCubic
+    suppressReanchor.current = true;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / dur);
+      c.scrollTop = from + dist * ease(p);
+      if (p < 1) requestAnimationFrame(step);
+      else { suppressReanchor.current = false; resolve(); }
+    };
+    requestAnimationFrame(step);
+  }), []);
 
   const typeInto = useCallback(async (host: HTMLElement, value: string, enter: boolean, alive: () => boolean) => {
     const input = (host.matches?.("input,textarea,select") ? host : host.querySelector<HTMLElement>("input,textarea,select")) as HTMLInputElement | HTMLSelectElement | null;
@@ -345,7 +376,7 @@ export function Onboarding() {
       return;
     }
     const inp = input as HTMLInputElement;
-    if (inp.type === "time") {
+    if (inp.type === "time" || inp.type === "color") {
       setNativeValue(inp, value);
       inp.dispatchEvent(new Event("change", { bubbles: true }));
       inp.blur();
@@ -400,12 +431,25 @@ export function Onboarding() {
         const pose: "books" | "write" = beat.action ? "write" : "books";
         const text = beat.callout ? t(beat.callout) : beat.line ? t(beat.line) : "";
         const title = beat.title ? t(beat.title) : undefined;
-        // Anchor + place FIRST, then scroll — so Havi tracks the target as it
-        // glides into view instead of hanging up top and snapping down.
         anchorRef.current = { el, text, title, pose };
+        if (el && scope !== "modal") {
+          // Glide Havi to where the target WILL land, then scroll the page there
+          // in parallel — both eased over a similar, capped time, so they move
+          // together with no trailing lag on big top→bottom jumps.
+          const to = scrollTargetFor(el);
+          if (to != null) {
+            const er = el.getBoundingClientRect();
+            const shift = to - scrollRef.current!.scrollTop;
+            const predicted = new DOMRect(er.left, er.top - shift, er.width, er.height);
+            aimAt(el, text, title, pose, predicted);
+            await scrollToTop(to);
+          } else {
+            aimAt(el, text, title, pose);
+          }
+        }
+        // Settle onto the live rect (corrects any prediction error) once put.
         aimAt(el, text, title, pose);
-        if (el && scope !== "modal") await scrollToEl(el);
-        await sleep(el ? 520 : 560);
+        await sleep(el ? 460 : 560);
 
         if (beat.action && el) {
           if (!alive()) return;
@@ -432,7 +476,7 @@ export function Onboarding() {
       }
       if (alive()) finish();
     })();
-  }, [aimAt, finish, lang, locate, scrollToEl, selectFirst, t, typeInto, waitFor]);
+  }, [aimAt, finish, lang, locate, scrollTargetFor, scrollToTop, selectFirst, t, typeInto, waitFor]);
 
   const runFromRef = useRef(runFrom);
   runFromRef.current = runFrom;
@@ -612,7 +656,7 @@ export function Onboarding() {
           <div style={{
             position: "fixed", left: 0, top: 0,
             transform: `translate(${guide.x}px, ${guide.y}px)`,
-            transition: "transform 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease",
+            transition: "transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease",
             opacity: guide.visible ? 1 : 0,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: GAP }} role="note">

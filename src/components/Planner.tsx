@@ -114,10 +114,10 @@ function PlannerToolbar({
       >
         {t("plannerActiveTarget", { n: activeWeek + 1, target: targetLabel })}
       </span>
-      {TAGS.map((tg, i) => (
+      {TAGS.map((tg) => (
         <button
           key={tg.key}
-          {...(anchor && i === 0 ? { "data-tour": "planner-tag" } : {})}
+          {...(anchor && tg.key === "tagDeadline" ? { "data-tour": "planner-tag" } : {})}
           onClick={() => onAddTag(tg)}
           className={`inline-flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
             vertical ? "w-full justify-start px-2 py-1.5" : "px-2.5 py-1.5"
@@ -450,7 +450,7 @@ function TagEditor({
         <div className="text-xs font-medium truncate" style={{ color: "var(--color-ink)" }}>{text}</div>
       )}
       {showTime && (
-        <div className="flex flex-col gap-1.5">
+        <div data-tour="planner-time" className="flex flex-col gap-1.5">
           <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>{t("plannerTimeLabel")}</span>
           <TimeField value={time ?? null} onChange={(v) => onTime?.(v)} />
         </div>
@@ -479,6 +479,7 @@ function TagEditor({
           >
             <input
               type="color"
+              data-tour="planner-color"
               defaultValue={color ?? DEFAULT_NOTE_COLOR}
               onChange={(e) => onColor?.(e.target.value)}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
@@ -490,7 +491,7 @@ function TagEditor({
         <button type="button" onClick={onDelete} className="text-[11px] font-medium" style={{ color: "var(--color-danger)" }}>
           {t("delete")}
         </button>
-        <button type="button" onClick={onDone} className="text-[11px] font-medium" style={{ color: "var(--color-primary)" }}>
+        <button type="button" data-tour="planner-save" onClick={onDone} className="text-[11px] font-medium" style={{ color: "var(--color-primary)" }}>
           {t("save")}
         </button>
       </div>
@@ -615,6 +616,7 @@ function WeekCard({
           {done && <Check size={9} color="#fff" strokeWidth={3} />}
         </button>
         <span
+          {...(n.tag === "tagDeadline" && n.dueTime ? { "data-tour": "planner-note" } : {})}
           onClick={(e) => { e.stopPropagation(); setEditNoteId(n.id); }}
           className="cursor-text truncate"
           style={{ color: "var(--color-ink)", textDecoration: done ? "line-through" : "none", opacity: done ? 0.5 : 1 }}
