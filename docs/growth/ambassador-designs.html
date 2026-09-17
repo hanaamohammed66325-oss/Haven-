@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تصاميم السفير</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Rubik:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f5f2ea; --surface:#ffffff; --surface-2:#fbf9f4;
+    --ink:#20302f; --muted:#6d7b78; --border:#e7e1d5;
+    --primary:#477680; --primary-soft:#e3eef0; --brass:#b8975a;
+    --shadow:0 14px 36px rgba(20,30,36,.10);
+    --radius:20px;
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10171a; --surface:#16242b; --surface-2:#132025;
+      --ink:#e7eff0; --muted:#93a4a2; --border:#26383f;
+      --primary:#5fa9b8; --primary-soft:#183038; --brass:#cbaa6e;
+      --shadow:0 14px 36px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10171a; --surface:#16242b; --surface-2:#132025;
+    --ink:#e7eff0; --muted:#93a4a2; --border:#26383f;
+    --primary:#5fa9b8; --primary-soft:#183038; --brass:#cbaa6e;
+    --shadow:0 14px 36px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Tajawal",system-ui,sans-serif; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:40px 16px 72px}
+  header.top{text-align:center; margin-bottom:14px}
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:7px; font-family:"Rubik",sans-serif;
+    font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--brass); background:var(--surface); border:1px solid var(--border);
+    padding:6px 14px; border-radius:999px; margin-bottom:18px;
+  }
+  h1{font-size:clamp(28px,5vw,42px); font-weight:800; margin:.1em 0 .2em; text-wrap:balance}
+  .sub{color:var(--muted); font-size:16px; max-width:56ch; margin:0 auto}
+  section{margin-top:56px}
+  .sec-head{display:flex; align-items:baseline; gap:12px; margin-bottom:6px}
+  .sec-num{font-family:"Rubik",sans-serif; font-weight:700; color:var(--brass); font-size:15px}
+  h2{font-size:clamp(21px,3.4vw,27px); font-weight:800; margin:0}
+  .sec-desc{color:var(--muted); margin:0 0 24px; font-size:15px}
+  .grid{display:grid; gap:18px}
+  .g-themes{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .g-cos{grid-template-columns:repeat(auto-fill,minmax(158px,1fr))}
+  .card{
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;
+  }
+  /* theme swatch */
+  .swatch{height:150px; display:flex; direction:ltr}
+  .sw-side{width:34%; padding:12px 10px; display:flex; flex-direction:column; gap:7px}
+  .sw-logo{width:22px;height:22px;border-radius:6px}
+  .sw-nav{height:8px;border-radius:4px;opacity:.55}
+  .sw-nav.on{opacity:1;height:10px}
+  .sw-main{flex:1; padding:14px 13px; display:flex; flex-direction:column; gap:9px}
+  .sw-line{height:9px;border-radius:5px}
+  .sw-btn{margin-top:auto; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; font:600 11px "Rubik",sans-serif; color:#fff}
+  .sw-ring{width:34px;height:34px;border-radius:50%;border:3px solid; align-self:flex-end}
+  .card-body{padding:14px 16px 16px}
+  .card-title{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .card-title h3{margin:0; font-size:17px; font-weight:700}
+  .en{color:var(--muted); font-size:12.5px; font-family:"Rubik",sans-serif; font-weight:500}
+  .tier{
+    display:inline-block; font-family:"Rubik",sans-serif; font-weight:700; font-size:11px;
+    padding:3px 9px; border-radius:999px; white-space:nowrap;
+    background:var(--primary-soft); color:var(--primary);
+  }
+  .tier.legend{background:linear-gradient(90deg,#e3c063,#b8934a); color:#22190a}
+  .pal{display:flex; gap:6px; margin-top:10px}
+  .pal i{width:20px;height:20px;border-radius:6px;border:1px solid rgba(0,0,0,.08)}
+  /* cosmetic card */
+  .cos{padding:12px; text-align:center}
+  .cos canvas{width:120px;height:auto;image-rendering:pixelated; display:block; margin:0 auto 8px}
+  .cos.wide{grid-column:1 / -1}
+  .cos.wide canvas{width:100%; max-width:440px}
+  .cos-stage{background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:8px 0 2px; margin-bottom:10px}
+  .cos h4{margin:0; font-size:15px; font-weight:700}
+  .cos .en{display:block; margin-bottom:8px}
+  .kind{font-size:11px; color:var(--muted); margin-bottom:8px; font-family:"Rubik",sans-serif; letter-spacing:.04em; text-transform:uppercase}
+  /* badges */
+  .g-badges{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .badge-card{padding:18px 12px 14px; text-align:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+  .badge-card .medal{width:78px;height:78px;display:block;margin:0 auto 12px; filter:drop-shadow(0 4px 8px rgba(0,0,0,.18))}
+  .badge-card h4{margin:0;font-size:15.5px;font-weight:700}
+  .badge-card .en{display:block;margin-bottom:9px}
+  /* ladder */
+  .ladder{display:flex; flex-direction:column; gap:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+  .rung{display:flex; align-items:center; gap:16px; padding:16px 20px; border-bottom:1px solid var(--border)}
+  .rung:last-child{border-bottom:none}
+  .rung.legend{background:linear-gradient(90deg,rgba(227,192,99,.16),transparent)}
+  .num{flex:none; width:46px;height:46px;border-radius:50%; display:flex;align-items:center;justify-content:center;
+    font:800 19px "Rubik",sans-serif; color:#fff; background:var(--primary); box-shadow:0 4px 12px rgba(71,118,128,.35)}
+  .rung.legend .num{background:linear-gradient(135deg,#e3c063,#b8934a); color:#22190a}
+  .rung-body{flex:1}
+  .rung-body b{font-size:16px}
+  .rung-body div{color:var(--muted); font-size:14px}
+  .two-sided{margin-top:14px; background:var(--primary-soft); border:1px dashed var(--primary); color:var(--ink); border-radius:14px; padding:14px 18px; font-size:14.5px}
+  .two-sided b{color:var(--primary)}
+  .note{margin-top:26px; color:var(--muted); font-size:13.5px; text-align:center}
+  footer{margin-top:48px; text-align:center; color:var(--muted); font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">Haven · Ambassador</span>
+    <h1>مكافآت السفير — تصاميم مقترحة</h1>
+    <p class="sub">جوائز حصرية ما تنفتح إلا للي يشاركون Haven ويجيبون ناس عن طريق كودهم. شوفي التصاميم وقوليلي وش يعجبك ووش نعدّل.</p>
+  </header>
+
+  <!-- THEMES -->
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>ثيمات حصرية</h2></div>
+    <p class="sec-desc">ثيمات ما تنفتح بالبريميوم ولا بأي طريقة ثانية — بس بالإحالات. نفس بنية ألوان Haven (شريط جانبي · خلفية · لون رئيسي · نحاسي).</p>
+    <div class="grid g-themes" id="themes"></div>
+  </section>
+
+  <!-- HAVI COSMETICS -->
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>ملابس واكسسوارات Havi</h2></div>
+    <p class="sec-desc">مرسومة بنفس ستايل البكسل الحقيقي حق Havi. كل قطعة يلبسها Havi عندك وتصير جزء من شخصيته.</p>
+    <div class="grid g-cos" id="cosmetics"></div>
+  </section>
+
+  <!-- BADGES -->
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>الشارات</h2></div>
+    <p class="sec-desc">كل مستوى سفير له شارة بشكل مختلف تماماً — مو بس لون، الشكل نفسه يتغيّر (ظرف · درع · نجمة · تاج · ألماسة).</p>
+    <div class="grid g-badges" id="badges"></div>
+  </section>
+
+  <!-- LADDER -->
+  <section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>سلّم الجوائز</h2></div>
+    <p class="sec-desc">كل عدد من الأشخاص اللي يجون عن طريق كودك يفتح جائزة أكبر. (اقتراح مبدئي — نعدّله سوا.)</p>
+    <div class="ladder" id="ladder"></div>
+    <div class="two-sided">🎁 <b>مكافأة الطرفين:</b> الشخص الجديد اللي يدخل كودك ياخذ هو بعد بونص ترحيب (XP + شارة صغيرة)، مو بس أنت — عشان الدعوة تكون مغرية للطرفين.</div>
+    <p class="note">الإحالة تُحتسب بعد ما الشخص الجديد يفعّل حسابه فعلاً (يوثّق إيميله + يضيف مادة) — حماية من الحسابات الوهمية.</p>
+  </section>
+
+  <footer>تصاميم مبدئية للمراجعة · Haven</footer>
+</div>
+
+<script>
+/* ---------- Havi pixel engine (faithful to the in-app sprite) ---------- */
+const COL={k:"#111111",G:"#a8d98a",d:"#93c974",f:"#e88bb5",y:"#f2d94e",b:"#3b6ea5",
+L:"#85b7eb",N:"#2b3245",paper:"#f7f5ee",ink:"#8a8780",cheek:"#f0a0a8",red:"#c0563f",
+gold:"#d9a441",goldHi:"#f2d94e",white:"#f7f5ee",purple:"#5a3f86",purpleHi:"#7d5cb0",
+navy:"#2b3245",steel:"#3b4a63",pink:"#e88bb5",leaf:"#6a9c5a"};
+const BODY=[
+"............................",
+".............kk.............",
+"............kffk............",
+"..........kkfyyfkk..........",
+".......kkkkfffffkkkk........",
+"......kGGGGGkkGGGGGGk.......",
+".....kGGGGGGGGGGGGGGGk......",
+"....kGGGGGGGGGGGGGGGGGk.....",
+"...kGGGGGGGGGGGGGGGGGGGk....",
+"...kGGGGGGGGGGGGGGGGGGGk....",
+"..kGGGGGGGGGGGGGGGGGGGGGk...",
+"..kGGGGGGGGGGGGGGGGGGGGGk...",
+"..kGGGGGGGGGGGGGGGGGGGGGk...",
+"..kGGGGGGGGGGGGGGGGGGGGGk...",
+".kGGGGGGGGGGGGGGGGGGGGGGGk..",
+".kGGGGGGGGGGGGGGGGGGGGGGGk..",
+".kGGGGGGGGGGGGGGGGGGGGGGGk..",
+".kGGGGGGGGGGGGGGGGGGGGGGGk..",
+".kkGGGGkkGGGGGGkkGGGGkkGGk..",
+"..kkkkk..kkkkkk..kkkkkkk....",
+"............................"];
+const GW=28, GH=21, S=4; // 4px per cell
+function P(ctx,x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x*S,y*S,w*S,h*S);}
+function body(ctx){for(let y=0;y<BODY.length;y++)for(let x=0;x<BODY[y].length;x++){const c=BODY[y][x];if(c==="."||c===" ")continue;P(ctx,x,y,1,1,COL[c]||"#000");}}
+function face(ctx){P(ctx,8,9,2,3,COL.k);P(ctx,18,9,2,3,COL.k);P(ctx,12,13,4,1,COL.k);P(ctx,6,12,1,1,COL.cheek);P(ctx,21,12,1,1,COL.cheek);}
+
+/* ---- cosmetics: each draws grid pixels over the body ---- */
+const COS={
+ gradcap:{ar:"طاقية التخرّج",en:"Graduation cap",kind:"إكسسوار",draw(c){
+   P(c,5,3,18,1,COL.navy);P(c,7,4,14,1,"#1b2130");P(c,13,2,2,1,COL.gold);
+   P(c,20,4,1,3,COL.goldHi);P(c,20,7,1,1,COL.gold);}},
+ glasses:{ar:"نظارة",en:"Glasses",kind:"إكسسوار",draw(c){
+   // frames
+   P(c,7,9,4,1,COL.k);P(c,7,11,4,1,COL.k);P(c,7,9,1,3,COL.k);P(c,10,9,1,3,COL.k);
+   P(c,17,9,4,1,COL.k);P(c,17,11,4,1,COL.k);P(c,17,9,1,3,COL.k);P(c,20,9,1,3,COL.k);
+   P(c,8,10,2,1,COL.L);P(c,18,10,2,1,COL.L);P(c,11,10,6,1,COL.k);}},
+ beanie:{ar:"طاقية",en:"Beanie",kind:"ملبس رأس",draw(c){
+   P(c,6,5,16,2,COL.red);P(c,6,4,16,1,"#a8472f");P(c,6,7,16,1,"#d98a76");
+   P(c,13,2,2,2,COL.white);}},
+ crown:{ar:"تاج",en:"Crown",kind:"إكسسوار",draw(c){
+   P(c,7,5,14,1,COL.gold);
+   [8,11,14,17,20].forEach(x=>{P(c,x,3,1,2,COL.goldHi);});
+   P(c,7,4,14,1,COL.gold);P(c,11,4,1,1,COL.pink);P(c,17,4,1,1,COL.b);}},
+ flower:{ar:"إكليل ورد",en:"Flower crown",kind:"إكسسوار",draw(c){
+   for(let x=6;x<=20;x+=3){P(c,x,4,1,1,COL.pink);P(c,x+1,4,1,1,COL.y);P(c,x-1,5,1,1,COL.leaf);P(c,x+1,5,1,1,COL.leaf);}
+   P(c,6,5,16,1,COL.leaf);}},
+ headphones:{ar:"سماعات",en:"Headphones",kind:"إكسسوار",draw(c){
+   P(c,6,4,16,1,COL.navy);P(c,5,4,1,2,COL.navy);P(c,22,4,1,2,COL.navy);
+   P(c,3,8,3,4,COL.navy);P(c,22,8,3,4,COL.navy);P(c,4,9,1,2,COL.b);P(c,23,9,1,2,COL.b);}},
+ scarf:{ar:"وشاح",en:"Scarf",kind:"ملبس",draw(c){
+   // wraps the FULL width of the neck (both sides), knot + two front tails
+   P(c,2,14,22,2,COL.b); P(c,2,14,22,1,COL.L);
+   P(c,2,14,2,2,"#2f588a"); P(c,22,14,2,2,"#2f588a");       // side wrap shade
+   P(c,12,15,4,2,"#2f588a"); P(c,13,15,2,1,COL.b);          // knot
+   P(c,11,16,2,3,COL.b); P(c,11,18,2,1,COL.L);              // left tail
+   P(c,15,16,2,3,COL.b); P(c,15,18,2,1,COL.L);}},           // right tail
+ pet:{ar:"حيوان أليف",en:"Pet",kind:"رفيق",
+   draw(c){
+     // a little fox-pup companion sitting beside him
+     const x=21,y=16;
+     P(c,x+1,y,1,1,"#eaa04a"); P(c,x+4,y,1,1,"#eaa04a");    // ears
+     P(c,x,y+1,6,4,"#eaa04a"); P(c,x,y+1,6,1,"#f2b46a");    // body + highlight
+     P(c,x+1,y+2,1,1,COL.k); P(c,x+4,y+2,1,1,COL.k);        // eyes
+     P(c,x+2,y+3,2,1,"#f7d7a8"); P(c,x+2,y+3,1,1,"#8f3a2c");// muzzle + nose
+     P(c,x+5,y+1,2,1,"#eaa04a"); P(c,x+6,y+2,1,2,"#eaa04a");// curled tail
+     P(c,x+1,y+5,1,1,"#c77a2e"); P(c,x+4,y+5,1,1,"#c77a2e");}}, // paws
+ bowtie:{ar:"بابيون",en:"Bow tie",kind:"ملبس",draw(c){
+   P(c,10,15,3,3,COL.red); P(c,15,15,3,3,COL.red);
+   P(c,10,15,3,1,"#d97a68"); P(c,15,15,3,1,"#d97a68");
+   P(c,13,16,2,2,"#8f3a2c");}},
+ throne:{ar:"العرش",en:"Throne",kind:"أسطوري",
+   back(c){
+     // tall red-velvet backrest + gold side posts rising behind him
+     P(c,2,0,24,5,"#7a2233"); P(c,2,0,24,1,COL.gold);       // velvet back + gold rail (above head)
+     P(c,12,0,4,1,COL.goldHi);                              // centre ornament
+     P(c,0,1,2,21,"#a06a1f"); P(c,26,1,2,21,"#a06a1f");     // gold posts down both sides
+     P(c,0,1,2,1,COL.goldHi); P(c,26,1,2,1,COL.goldHi);},   // post finials
+   draw(c){
+     // armrests at his sides + the seat cushion under him (in front)
+     P(c,0,13,4,2,COL.gold); P(c,24,13,4,2,COL.gold);       // armrests
+     P(c,1,20,26,2,"#7a2233"); P(c,1,20,26,1,COL.gold);     // seat cushion + gold trim
+     P(c,1,21,26,1,"#a06a1f");                              // seat front edge
+     P(c,3,22,2,1,"#a06a1f"); P(c,23,22,2,1,"#a06a1f");     // front legs
+     // crown — the king on his throne
+     P(c,7,4,14,1,COL.gold); [8,11,14,17,20].forEach(x=>P(c,x,2,1,2,COL.goldHi)); P(c,7,3,14,1,COL.gold);}}
+};
+
+function renderHavi(canvas,cosKey){
+  canvas.width=GW*S; canvas.height=GH*S+8;
+  const ctx=canvas.getContext("2d"); ctx.imageSmoothingEnabled=false;
+  const cos=cosKey&&COS[cosKey];
+  if(cos&&cos.back) cos.back(ctx);   // e.g. a cape drapes BEHIND him
+  body(ctx); face(ctx);
+  if(cos&&cos.draw) cos.draw(ctx);   // worn-on-top layer
+}
+
+/* ---------- THRONE (a big, ornate seat — bigger than Havi, modelled on the reference) ---------- */
+function renderThrone(canvas){
+  const W=34, H=47;
+  canvas.width=W*S; canvas.height=H*S;
+  const ctx=canvas.getContext("2d"); ctx.imageSmoothingEnabled=false;
+  const GOLD="#d9a441",GHI="#f5df7a",GSH="#a06a1f",
+        VEL="#b32a41",VHI="#d6566c",VDK="#7c1c2f",VMID="#c6455c",
+        GEM="#4fb75f",GEMHI="#8fe39a";
+  const R=(x,y,w,h,c)=>P(ctx,x,y,w,h,c);
+
+  // ---- crown on top ----
+  R(15,0,4,1,GOLD);                                   // centre spire
+  R(14,1,6,1,GOLD); R(13,1,1,1,GOLD); R(20,1,1,1,GOLD);
+  R(13,2,8,2,GOLD); R(13,2,8,1,GHI); R(13,4,8,1,GSH);
+  R(16,2,2,1,GEM); R(16,2,1,1,GEMHI);                 // green gem
+
+  // ---- gold backrest frame (rounded top) ----
+  R(6,6,22,25,GOLD);
+  R(6,6,22,1,GHI); R(6,6,1,25,GHI);
+  R(27,6,1,25,GSH); R(6,30,22,1,GSH);
+  ctx.clearRect(6*S,6*S,S,S); ctx.clearRect(27*S,6*S,S,S);   // notch corners → rounded
+
+  // ---- red velvet cushion inside ----
+  R(8,8,18,21,VEL);
+  R(8,8,18,1,VHI); R(8,8,1,21,VHI); R(25,8,1,21,VDK); R(8,28,18,1,VDK);
+  R(11,11,12,10,VMID); R(12,10,10,1,VMID);            // bulge
+  R(13,12,8,7,VHI); R(14,11,6,1,VHI);                 // bright glow
+  R(11,26,12,3,VDK);                                  // shadow pooling low
+
+  // ---- armrests ----
+  R(4,22,4,2,GOLD); R(26,22,4,2,GOLD); R(4,22,4,1,GHI); R(26,22,4,1,GHI);
+  R(3,21,2,2,GOLD); R(29,21,2,2,GOLD);                // scroll ends
+  R(4,24,2,6,GSH); R(28,24,2,6,GSH);                  // arm posts
+
+  // ---- seat cushion ----
+  R(5,32,24,3,VEL); R(5,32,24,1,VHI);
+  [9,14,19,24].forEach(x=>R(x,33,1,1,VDK));           // tufts
+  R(4,35,26,1,GOLD); R(4,36,26,1,GSH);                // gold front rail
+
+  // ---- legs ----
+  R(7,36,4,4,GOLD); R(7,36,4,1,GHI); R(7,39,4,1,GSH);
+  R(23,36,4,4,GOLD); R(23,36,4,1,GHI); R(23,39,4,1,GSH);
+
+  // ---- red carpet steps ----
+  R(6,40,22,2,VEL); R(6,41,22,1,GOLD);
+  R(3,42,28,2,VEL); R(3,43,28,1,GOLD);
+  R(0,44,34,3,VEL); R(0,44,34,1,VHI); R(0,46,34,1,GOLD);
+
+  // ---- Havi, seated as king with the crown on HIS head ----
+  ctx.save(); ctx.translate(2*S,12*S); body(ctx); face(ctx); COS.crown.draw(ctx); ctx.restore();
+}
+
+/* ---------- PET: a loyal little friend that keeps Havi company ----------
+   Not a 100% copy of Havi — a companion. It has its OWN version of whatever
+   mood Havi is in: it fetches/plays while he's up, curls up asleep beside him
+   when he naps, and gets excited and bounces when he celebrates. */
+const FOX={O:"#eaa04a",H:"#f2b46a",M:"#f7d7a8",N:"#8f3a2c",PW:"#c77a2e"};
+// standing / running fox (facing right by default; mirror with faceLeft)
+function drawFox(ctx,px,py,legPhase,faceLeft,blink){
+  const {O,H,M,N,PW}=FOX, K=COL.k, FW=9;
+  const R=(x,y,w,h,c)=>{ const xx=faceLeft?(FW-x-w):x; ctx.fillStyle=c; ctx.fillRect(px+xx*S,py+y*S,w*S,h*S); };
+  R(0,1,1,1,H); R(0,2,2,2,O); R(1,1,1,1,O);              // tail
+  R(1,2,5,3,O); R(1,2,5,1,H);                             // body
+  R(5,1,3,3,O); R(5,1,3,1,H); R(5,0,1,1,O); R(7,0,1,1,O); // head + ears
+  if(blink) R(6,2,1,1,O); else R(6,2,1,1,K);              // eye (blinks with Havi)
+  R(8,3,1,1,M); R(8,2,1,1,N);                             // snout + nose
+  if(legPhase===0){ R(1,5,1,1,PW); R(6,5,1,1,PW); }       // gait
+  else{ R(2,5,1,1,PW); R(5,5,1,1,PW); }
+}
+// curled-up sleeping fox, with its own little "z"
+function drawFoxCurl(ctx,px,py,t){
+  const {O,H,N,PW}=FOX;
+  const R=(x,y,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(px+x*S,py+y*S,w*S,h*S); };
+  R(1,3,7,3,O); R(1,3,7,1,H);        // curled body
+  R(0,3,2,1,H); R(0,2,2,1,O);        // tail draped over
+  R(6,2,2,3,O); R(6,2,2,1,H);        // head tucked down
+  R(6,4,1,1,COL.k);                  // closed eye (a line)
+  R(7,4,1,1,N);                      // nose
+  // sleepy z drifting up
+  ctx.fillStyle="#7f77dd";
+  ctx.font=`${Math.round(S*2)}px sans-serif`;
+  ctx.fillText("z",(px)+8*S,(py)+ (2 - (t%6)*0.3)*S);
+}
+function animatePet(canvas){
+  const W=60,H=22;
+  canvas.width=W*S; canvas.height=H*S;
+  const ctx=canvas.getContext("2d"); ctx.imageSmoothingEnabled=false;
+  const groundY=15, minX=(1+27)*S+4, maxX=(W-9-1)*S;
+  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+  // mood engine: play -> sleep -> cheer -> play …
+  const MOODS=[["play",6200],["sleep",5200],["cheer",3600]];
+  let mi=0, moodEnd=performance.now()+MOODS[0][1];
+  let x=minX, sub="sitHavi", subEnd=performance.now()+900, last=performance.now();
+  const SPEED=78;
+  function drawHavi(mood,now,bob){
+    ctx.save(); ctx.translate(1*S,1*S+bob); body(ctx);
+    if(mood==="sleep"){
+      P(ctx,8,10,2,1,COL.k); P(ctx,18,10,2,1,COL.k); P(ctx,12,13,4,1,COL.k); // closed eyes + mouth
+      ctx.fillStyle="#7f77dd"; ctx.font=`${Math.round(S*2.4)}px sans-serif`;
+      ctx.fillText("z",21*S,(6-(now/220%6)*0.35)*S);
+    } else if(mood==="cheer"){
+      P(ctx,8,11,1,1,COL.k);P(ctx,9,10,1,1,COL.k);P(ctx,10,11,1,1,COL.k);   // happy triangle eyes
+      P(ctx,17,11,1,1,COL.k);P(ctx,18,10,1,1,COL.k);P(ctx,19,11,1,1,COL.k);
+      P(ctx,11,13,6,1,COL.k);P(ctx,12,14,4,1,COL.red);P(ctx,13,15,2,1,COL.pink); // open smile
+      P(ctx,6,12,1,1,COL.cheek);P(ctx,21,12,1,1,COL.cheek);
+    } else {
+      const blink=!reduce&&(now%3400)<130;
+      face(ctx);
+      if(blink){ P(ctx,8,9,2,3,COL.G); P(ctx,18,9,2,3,COL.G); P(ctx,8,10,2,1,COL.k); P(ctx,18,10,2,1,COL.k); }
+    }
+    ctx.restore();
+  }
+  function confetti(now){
+    const cols=[COL.pink,COL.y,"#8bc34a","#7f77dd"];
+    for(let i=0;i<5;i++){ const cx=6+i*11, cy=(now*0.03+i*7)%(H*S);
+      ctx.fillStyle=cols[i%4]; ctx.fillRect(cx, cy, S, S); }
+  }
+  function frame(now){
+    const dt=Math.min(0.05,(now-last)/1000); last=now;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let mood=MOODS[mi][0];
+    if(now>moodEnd){ mi=(mi+1)%MOODS.length; moodEnd=now+MOODS[mi][1]; mood=MOODS[mi][0];
+      if(mood==="play"){ x=minX; sub="sitHavi"; subEnd=now+700; } }
+
+    // bob per mood — sleep breathes slowly, cheer bounces high, play/idle gentle
+    const bob=reduce?0
+      : mood==="sleep" ? Math.round(Math.sin(now/500)*2)
+      : mood==="cheer" ? Math.round(Math.abs(Math.sin(now/150))*-7)
+      : Math.round(Math.abs(Math.sin(now/360))*-4);
+
+    if(mood==="cheer") confetti(now);
+    drawHavi(mood,now,bob);
+
+    // ---- the fox's own companion behaviour for this mood ----
+    if(mood==="sleep"){
+      drawFoxCurl(ctx, minX, groundY*S-1, Math.floor(now/300));
+    } else if(mood==="cheer"){
+      const jump=reduce?0:Math.round(Math.abs(Math.sin(now/150))*-7); // bounces with him
+      const legPhase=Math.floor(now/120)%2;
+      drawFox(ctx, minX, groundY*S+jump, legPhase, true, false);
+      if(!reduce){ ctx.fillStyle=COL.y; ctx.fillRect(minX+9*S,(groundY-2)*S+jump,S,S); } // happy spark
+    } else {
+      // play: fetch — run out and trot back to Havi, hopping like his walk
+      let faceLeft=true, running=false;
+      if(reduce){ x=minX; }
+      else if(sub==="sitHavi"){ x=minX; faceLeft=true; if(now>subEnd) sub="runR"; }
+      else if(sub==="runR"){ x+=SPEED*dt; faceLeft=false; running=true; if(x>=maxX){x=maxX; sub="pauseR"; subEnd=now+400;} }
+      else if(sub==="pauseR"){ x=maxX; faceLeft=false; if(now>subEnd) sub="runL"; }
+      else if(sub==="runL"){ x-=SPEED*dt; faceLeft=true; running=true; if(x<=minX){x=minX; sub="sitHavi"; subEnd=now+900;} }
+      const legPhase=running?(Math.floor(now/100)%2):0;
+      const hop=running?((Math.floor(now/100)%2)?-3:0):bob; // hops running, bobs with Havi at rest
+      const blink=!reduce&&!running&&(now%3400)<130;
+      drawFox(ctx, x, groundY*S+hop, legPhase, faceLeft, blink);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- THEMES ---------- */
+const THEMES=[
+ {ar:"شفق",en:"Aurora",tier:"يفتح عند ٥",surface:"#f7f5ff",ink:"#241b33",side:"#241b3a",primary:"#7b5cc4",brass:"#c9a24a",soft:"#ece5fb",legend:false},
+ {ar:"مرجان",en:"Coral",tier:"يفتح عند ١٠",surface:"#fff9f5",ink:"#3a2320",side:"#3a2320",primary:"#d9694f",brass:"#d9a441",soft:"#fde7de",legend:false},
+ {ar:"تاج السفير",en:"Ambassador Gold",tier:"أسطوري · ١٥",surface:"#fbf9f4",ink:"#14110c",side:"#14110c",primary:"#b8934a",brass:"#e3c063",soft:"#f3ead2",legend:true},
+];
+const themesEl=document.getElementById("themes");
+THEMES.forEach(t=>{
+  const card=document.createElement("div"); card.className="card";
+  card.innerHTML=`
+   <div class="swatch" style="background:${t.surface}">
+     <div class="sw-side" style="background:${t.side}">
+       <div class="sw-logo" style="background:${t.brass}"></div>
+       <div class="sw-nav on" style="background:${t.primary}"></div>
+       <div class="sw-nav" style="background:#fff"></div>
+       <div class="sw-nav" style="background:#fff"></div>
+       <div class="sw-nav" style="background:#fff"></div>
+     </div>
+     <div class="sw-main">
+       <div class="sw-ring" style="border-color:${t.primary}"></div>
+       <div class="sw-line" style="background:${t.ink};opacity:.85;width:70%"></div>
+       <div class="sw-line" style="background:${t.brass};width:45%"></div>
+       <div class="sw-line" style="background:${t.ink};opacity:.35;width:85%"></div>
+       <div class="sw-btn" style="background:${t.primary}">زر</div>
+     </div>
+   </div>
+   <div class="card-body">
+     <div class="card-title"><h3>${t.ar}</h3><span class="tier ${t.legend?'legend':''}">${t.tier}</span></div>
+     <span class="en">${t.en} theme</span>
+     <div class="pal">
+       <i style="background:${t.side}"></i><i style="background:${t.primary}"></i>
+       <i style="background:${t.brass}"></i><i style="background:${t.soft}"></i><i style="background:${t.surface}"></i>
+     </div>
+   </div>`;
+  themesEl.appendChild(card);
+});
+
+/* ---------- COSMETICS ---------- */
+const ORDER=["gradcap","glasses","beanie","crown","flower","headphones","scarf","pet","bowtie","throne"];
+const TIER={gradcap:"٣",glasses:"٣",beanie:"٧",crown:"١٠",flower:"٥",headphones:"٧",scarf:"٧",pet:"٧",bowtie:"٣",throne:"١٥"};
+const cosEl=document.getElementById("cosmetics");
+ORDER.forEach(key=>{
+  const it=COS[key];
+  const card=document.createElement("div"); card.className="card cos"+(key==="pet"?" wide":"");
+  const legend=key==="throne";
+  card.innerHTML=`
+    <div class="cos-stage"><canvas data-cos="${key}"></canvas></div>
+    <div class="kind">${it.kind}</div>
+    <h4>${it.ar}</h4><span class="en">${it.en}</span>
+    <span class="tier ${legend?'legend':''}">يفتح عند ${TIER[key]}</span>`;
+  cosEl.appendChild(card);
+});
+document.querySelectorAll("canvas[data-cos]").forEach(c=>{
+  const k=c.dataset.cos;
+  if(k==="throne") renderThrone(c);
+  else if(k==="pet") animatePet(c);
+  else renderHavi(c,k);
+});
+
+/* ---------- BADGES (each a distinct silhouette, not just a colour) ---------- */
+function grad(id,a,b){return `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;}
+const BADGES=[
+ {ar:"أول دعوة",en:"First invite",tier:"١ دعوة",svg:`<svg class="medal" viewBox="0 0 64 64"><defs>${grad('b1','#6fc3d4','#2f7d8c')}</defs>
+   <rect x="9" y="19" width="46" height="30" rx="5" fill="url(#b1)" stroke="#1f5a66" stroke-width="1.6"/>
+   <path d="M11 22 L32 37 L53 22" fill="none" stroke="#eaf7fa" stroke-width="2.6" stroke-linejoin="round"/>
+   <path d="M50 9 l1.7 4.6 4.6 1.7 -4.6 1.7 -1.7 4.6 -1.7 -4.6 -4.6 -1.7 4.6 -1.7 z" fill="#ffe08a"/></svg>`},
+ {ar:"سفير برونزي",en:"Bronze ambassador",tier:"٣",svg:`<svg class="medal" viewBox="0 0 64 64"><defs>${grad('b2','#e6a86e','#8a4f22')}</defs>
+   <path d="M32 6 L54 14 V32 C54 45 44 54 32 58 C20 54 10 45 10 32 V14 Z" fill="url(#b2)" stroke="#6e3d18" stroke-width="2"/>
+   <text x="32" y="41" text-anchor="middle" font-family="Rubik,sans-serif" font-weight="700" font-size="26" fill="#fff3e6">3</text></svg>`},
+ {ar:"سفير فضّي",en:"Silver ambassador",tier:"٧",svg:`<svg class="medal" viewBox="0 0 64 64"><defs>${grad('b3','#f4f7fa','#94a2ae')}</defs>
+   <polygon points="32,10 37.3,24.7 52.9,25.2 40.6,34.8 44.9,49.8 32,41 19.1,49.8 23.4,34.8 11.1,25.2 26.7,24.7" fill="url(#b3)" stroke="#7c8894" stroke-width="1.8" stroke-linejoin="round"/>
+   <polygon points="32,20 34.5,29 43,29 36,34.5 38.5,43 32,37.5 25.5,43 28,34.5 21,29 29.5,29" fill="#fff" opacity=".55"/></svg>`},
+ {ar:"سفير ذهبي",en:"Gold ambassador",tier:"١٠",svg:`<svg class="medal" viewBox="0 0 64 64"><defs>${grad('b4','#f7d873','#b8871f')}</defs>
+   <path d="M10 46 L15 22 L24 35 L32 16 L40 35 L49 22 L54 46 Z" fill="url(#b4)" stroke="#8a641a" stroke-width="1.8" stroke-linejoin="round"/>
+   <rect x="11" y="46" width="42" height="8" rx="2.5" fill="#c79226" stroke="#8a641a" stroke-width="1.4"/>
+   <circle cx="32" cy="20" r="2.6" fill="#fff2c2"/><circle cx="15.5" cy="24" r="2.2" fill="#fff2c2"/><circle cx="48.5" cy="24" r="2.2" fill="#fff2c2"/>
+   <circle cx="21" cy="50" r="2" fill="#8a641a"/><circle cx="32" cy="50" r="2" fill="#8a641a"/><circle cx="43" cy="50" r="2" fill="#8a641a"/></svg>`},
+ {ar:"سفير Haven ألماسي",en:"Diamond ambassador",tier:"١٥",legend:true,svg:`<svg class="medal" viewBox="0 0 64 64"><defs>${grad('b5','#d3f4fb','#4bb4d6')}</defs>
+   <polygon points="16,26 32,11 48,26 32,55" fill="url(#b5)" stroke="#2f8fb0" stroke-width="1.8" stroke-linejoin="round"/>
+   <path d="M16 26 H48 M24 18 L32 55 M40 18 L32 55 M24 18 L32 26 L40 18" fill="none" stroke="#ffffff" stroke-width="1.4" opacity=".7"/>
+   <path d="M52 12 l1.4 3.8 3.8 1.4 -3.8 1.4 -1.4 3.8 -1.4 -3.8 -3.8 -1.4 3.8 -1.4 z" fill="#eafaff"/>
+   <path d="M11 15 l1 2.7 2.7 1 -2.7 1 -1 2.7 -1 -2.7 -2.7 -1 2.7 -1 z" fill="#eafaff"/></svg>`},
+];
+const badgesEl=document.getElementById("badges");
+BADGES.forEach(b=>{
+  const card=document.createElement("div"); card.className="badge-card";
+  card.innerHTML=`${b.svg}<h4>${b.ar}</h4><span class="en">${b.en}</span><span class="tier ${b.legend?'legend':''}">يفتح عند ${b.tier}</span>`;
+  badgesEl.appendChild(card);
+});
+
+/* ---------- LADDER ---------- */
+const RUNGS=[
+ {n:"١",t:"شارة «أول دعوة» + ٥٠ XP",d:"خُطّاف فوري يحمّس المستخدم أول ما يجيب أول شخص"},
+ {n:"٣",t:"شارة سفير برونزي + ١٠٠ XP + نظارة Havi",d:"أول قطعة يلبسها Havi"},
+ {n:"٥",t:"ثيم «شفق» الحصري + ١٥٠ XP",d:"أول ثيم ما ينفتح بأي طريقة ثانية"},
+ {n:"٧",t:"وشاح Havi + حيوان أليف + شارة فضّية",d:"رفيق صغير يقعد جنب Havi"},
+ {n:"١٠",t:"ثيم «مرجان» + تاج صغير + ٣٠٠ XP + شارة ذهبية",d:"مستوى سفير متقدّم"},
+ {n:"١٥",t:"عرش السفير + تاج ذهبي + ثيم «تاج السفير» + وسام بروفايل",d:"أعلى مستوى — نادر وحصري تماماً",legend:true},
+];
+const ladderEl=document.getElementById("ladder");
+RUNGS.forEach(r=>{
+  const row=document.createElement("div"); row.className="rung"+(r.legend?" legend":"");
+  row.innerHTML=`<div class="num">${r.n}</div><div class="rung-body"><b>${r.t}</b><div>${r.d}</div></div>`;
+  ladderEl.appendChild(row);
+});
+</script>
+</body>
+</html>
