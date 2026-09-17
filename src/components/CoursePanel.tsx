@@ -31,12 +31,13 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
   const left = Math.max(0, 100 - used);
   const advice = finalAdvice(course);
 
-  // Share of the course weight that is actually graded — drives the
-  // "provisional" note so a single graded item doesn't read as a final grade.
-  const gradedWeight = course.components
+  // Share of the FULL course (out of 100) that is actually graded — drives the
+  // "provisional" note. Measured against 100, not just the weight defined so
+  // far, so a lone graded quiz reads as provisional even before the rest of the
+  // syllabus is entered (the grade itself is the best-case ceiling).
+  const gradedPct = course.components
     .filter((c) => c.score != null && c.total > 0)
     .reduce((s, c) => s + (Number(c.weight) || 0), 0);
-  const gradedPct = used > 0 ? (gradedWeight / used) * 100 : 0;
 
   const border = { borderColor: "var(--color-border)" };
 

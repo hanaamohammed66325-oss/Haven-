@@ -14,7 +14,6 @@ import type { GamificationState } from "./gamification";
 import type { TranslationKey } from "@/i18n/translations/en";
 import {
   courseCurrentPct,
-  pctToGrade,
   attendanceInfo,
   semesterProgress,
   semesterGPA,
@@ -25,7 +24,6 @@ import { toISODate } from "./dates";
 export type SuggestionKind =
   | "att-danger"
   | "att-warn"
-  | "grade-low"
   | "exam"
   | "task"
   | "ungraded"
@@ -87,20 +85,9 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
     }
   }
 
-  // 2. Low grade warning
-  for (const c of courses) {
-    const pct = courseCurrentPct(c);
-    if (pct != null && pctToGrade(pct).points <= 3.0) {
-      items.push({
-        id: `grade-low-${c.id}`,
-        kind: "grade-low",
-        text: t("smart_lowGrade", { course: c.name, letter: pctToGrade(pct).letter }),
-        href: `/courses#${c.id}`,
-        color: "var(--color-danger)",
-        priority: 3,
-      });
-    }
-  }
+  // (A per-course "low grade" warning used to live here. Removed: mid-semester
+  //  it fired off a single partial task and read as misleading — the course
+  //  grade is a best-case ceiling out of 100, not a verdict on one quiz.)
 
   // 3. Upcoming exams/quizzes — individual (7-day window). A "tomorrow" exam
   // gets a warm, conversational nudge ("got an exam tomorrow — review a bit?")
