@@ -35,25 +35,68 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-// Gender-neutral Arabic + English push copy, by (lang, variant).
-function pushContent(lang: string, variant: 'setup' | 'back'): { title: string; body: string; url: string } {
+type Variant = 'setup' | 'grades' | 'back';
+
+// A tiny deterministic hash so a given user gets a DIFFERENT friendly line each
+// nudge window (seeded by the day) instead of always the same sentence.
+function hash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+function pick<T>(arr: T[], seed: number): T {
+  return arr[seed % arr.length];
+}
+
+// Gender-neutral, casual Arabic + English push copy — several warm variants per
+// case, rotated by (uid + day) so repeat nudges never read the same.
+function pushContent(lang: string, variant: Variant, seed: number): { title: string; body: string; url: string } {
   const ar = lang !== 'en';
   if (variant === 'setup') {
-    return {
-      title: ar ? 'نكمّل حسابك؟' : 'Finish setting up?',
-      body: ar
-        ? 'ناقص موادك — إضافتها تاخذ دقيقة ونبدأ نحسب لك المعدل'
-        : "Add your courses — it takes a minute and we'll start tracking your GPA",
-      url: '/courses?reengage=1',
-    };
+    const bodies = ar
+      ? [
+          'ناقص موادك — إضافتها تاخذ دقيقة ونبدأ نحسب لك المعدل',
+          'حسابك جاهز! ضيف موادك ونبدأ نتابع معدلك وحضورك',
+          'خطوة وحدة باقية: ضيف موادك ونبدأ نشتغل معك',
+        ]
+      : [
+          "Add your courses — it takes a minute and we'll start tracking your GPA",
+          'Your account is ready — add your courses and we\'ll track your GPA and attendance',
+          "One step left: add your courses and we're good to go",
+        ];
+    return { title: ar ? 'نكمّل حسابك؟' : 'Finish setting up?', body: pick(bodies, seed), url: '/courses?reengage=1' };
   }
-  return {
-    title: ar ? 'Haven بانتظارك' : 'Haven misses you',
-    body: ar
-      ? 'مرّت فترة — تحديث سريع لدرجاتك يبيّن لك وين وصلت'
-      : "It's been a while — a quick grade update shows where you stand",
-    url: '/dashboard?reengage=1',
-  };
+  if (variant === 'grades') {
+    const bodies = ar
+      ? [
+          'موادك جاهزة — ضيف درجاتك ونحسب لك معدلك',
+          'خطوة وحدة باقية: درجاتك عشان نبيّن لك وين وصل معدلك',
+          'ضيف درجاتك وشوف معدلك يتحدّث لحظة بلحظة',
+        ]
+      : [
+          'Your courses are set — add your grades and we\'ll calculate your GPA',
+          'One step left: add your grades to see where your GPA stands',
+          'Add your grades and watch your GPA update live',
+        ];
+    return { title: ar ? 'نحسب معدلك؟' : 'Calculate your GPA?', body: pick(bodies, seed), url: '/courses?reengage=1' };
+  }
+  const titles = ar
+    ? ['طمنّا عنك 👋', 'Haven بانتظارك', 'اشتقنا لك']
+    : ['Checking in 👋', 'Haven misses you', 'We miss you'];
+  const bodies = ar
+    ? [
+        'صار لك فترة ما دخلت — متأكد وضعك تمام؟ تحديث سريع يطمنك',
+        'مرّت فترة — دقيقة وحدة تحدّث درجاتك وتعرف وين أنت',
+        'اشتقنا لك! تعال شوف وين وصل معدلك',
+        'تذكيراتك ومعدلك بانتظارك — لا يفوتك اختبار ولا محاضرة',
+      ]
+    : [
+        "It's been a while — all good? A quick update keeps you on track",
+        'A minute to update your grades shows exactly where you stand',
+        'We miss you! Come see where your GPA landed',
+        "Your reminders and GPA are waiting — don't miss an exam or a lecture",
+      ];
+  return { title: pick(titles, seed), body: pick(bodies, seed), url: '/dashboard?reengage=1' };
 }
 
 serve(async (req) => {
@@ -113,10 +156,12 @@ serve(async (req) => {
     userIds = userIds.filter((id) => !skip.has(id)).slice(0, LIMIT);
     if (!userIds.length) return json({ ok: true, targeted: 0, msg: 'all within cooldown' });
 
-    // 3) Channels + variant inputs: push subscriptions and course counts.
-    const [subRes, courseRes] = await Promise.all([
+    // 3) Channels + variant inputs: push subscriptions, course counts, and
+    //    whether any grade has been entered (score set) — drives setup/grades/back.
+    const [subRes, courseRes, gradeRes] = await Promise.all([
       admin.from('push_subscriptions').select('user_id, id, endpoint, p256dh, auth').in('user_id', userIds),
       admin.from('courses').select('user_id').in('user_id', userIds),
+      admin.from('grade_components').select('user_id').not('score', 'is', null).in('user_id', userIds),
     ]);
     const subsOf = new Map<string, any[]>();
     for (const s of subRes.data ?? []) {
@@ -125,6 +170,10 @@ serve(async (req) => {
     }
     const courseCount = new Map<string, number>();
     for (const c of courseRes.data ?? []) courseCount.set(c.user_id, (courseCount.get(c.user_id) ?? 0) + 1);
+    const hasGrades = new Set<string>();
+    for (const g of gradeRes.data ?? []) hasGrades.add(g.user_id);
+
+    const dayNum = Math.floor(now / DAY); // seed component: rotates copy over time
 
     const vapidPublic = Deno.env.get('VAPID_PUBLIC_KEY');
     const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY');
@@ -140,16 +189,21 @@ serve(async (req) => {
     for (const uid of userIds) {
       const prof: any = profOf.get(uid);
       const lang = prof?.preferences?.language === 'en' ? 'en' : 'ar';
-      const variant: 'setup' | 'back' = (courseCount.get(uid) ?? 0) > 0 ? 'back' : 'setup';
+      const nCourses = courseCount.get(uid) ?? 0;
+      const variant: Variant = nCourses === 0 ? 'setup' : !hasGrades.has(uid) ? 'grades' : 'back';
+      const seed = hash(uid) + dayNum;
       const subs = subsOf.get(uid);
       const channel = subs?.length ? 'push' : prof?.email ? 'email' : 'none';
 
       if (channel === 'none') { skipped++; continue; }
-      if (dryRun) { plan.push({ uid, channel, variant, lang }); continue; }
+      // Opted-OUT users (no push) get the notification-enable nudge unless they
+      // still need to add courses first, in which case the setup ask comes first.
+      const emailVariant = nCourses === 0 ? 'setup' : 'notif';
+      if (dryRun) { plan.push({ uid, channel, variant: channel === 'email' ? emailVariant : variant, lang }); continue; }
 
       let delivered = false;
       if (channel === 'push') {
-        const { title, body, url: link } = pushContent(lang, variant);
+        const { title, body, url: link } = pushContent(lang, variant, seed);
         const payload = JSON.stringify({ title, body, url: link, id: `reengage-${todayStr}` });
         for (const sub of subs!) {
           try {
@@ -176,7 +230,7 @@ serve(async (req) => {
             body: JSON.stringify({
               to: prof.email,
               template: 'reengage',
-              data: { variant },
+              data: { variant: emailVariant },
               dedup_key: `reengage-${todayStr}`,
               user_id: uid,
             }),

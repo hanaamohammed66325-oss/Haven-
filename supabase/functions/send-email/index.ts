@@ -95,23 +95,45 @@ function renderTemplate(template: string, d: TemplateData): { subject: string; h
   if (template === 'reengage') {
     // Win-back / onboarding nudge. Gender-neutral Arabic. CTA lands on the app
     // with ?reengage=1 so the in-app nudge modal greets the returning user.
-    const variant = d.variant === 'setup' ? 'setup' : d.variant === 'grades' ? 'grades' : 'back';
+    //   setup  → hasn't added courses yet
+    //   grades → has courses but no grades entered
+    //   notif  → opted OUT of notifications: warm miss-you + enable-notifications
+    //   back   → generic "it's been a while"
+    const variant =
+      d.variant === 'setup' ? 'setup' :
+      d.variant === 'grades' ? 'grades' :
+      d.variant === 'notif' ? 'notif' : 'back';
     const backUrl = 'https://havenstudent.com/dashboard?reengage=1';
     const setupUrl = 'https://havenstudent.com/courses?reengage=1';
-    const url = variant === 'setup' ? setupUrl : backUrl;
-    const t = h(BRAND, 'معدلك بانتظارك في Haven', 'Your GPA is waiting in Haven');
+    const notifUrl = 'https://havenstudent.com/settings?reengage=1';
+    const url = variant === 'setup' ? setupUrl : variant === 'notif' ? notifUrl : backUrl;
+
+    const heading =
+      variant === 'notif' ? h(BRAND, 'اشتقنا لك في Haven', 'We miss you at Haven') :
+      h(BRAND, 'معدلك بانتظارك في Haven', 'Your GPA is waiting in Haven');
+
     const arBody = variant === 'setup'
       ? '<p>حسابك جاهز، وباقي تضيف موادك عشان نبدأ نحسب لك المعدل ونذكّرك بمحاضراتك واختباراتك. الإضافة تاخذ دقيقة.</p>'
       : variant === 'grades'
       ? '<p>موادك جاهزة في Haven — باقي درجاتك عشان نحسب معدلك ونتابع تقدّمك.</p>'
+      : variant === 'notif'
+      ? '<p>صار لك فترة ما مرّيت علينا واشتقنا لك 👋 فعّل الإشعارات وخلّنا نذكّرك بمحاضراتك واختباراتك وغيابك قبل لا يفوتك شي — تفعيلها ياخذ ثواني، وبتفرق معك واجد.</p>'
       : '<p>مرّت فترة من آخر زيارة لـ Haven. تحديث سريع لدرجاتك يبيّن لك وين وصلت، وتذكيراتك جاهزة عشان ما يفوتك اختبار ولا محاضرة.</p>';
     const enBody = variant === 'setup'
       ? '<p>Your account is ready — add your courses so we can start tracking your GPA and remind you about lectures and exams. It takes a minute.</p>'
       : variant === 'grades'
       ? '<p>Your courses are set up in Haven — add your grades so we can calculate your GPA and follow your progress.</p>'
+      : variant === 'notif'
+      ? "<p>It's been a while and we miss you. Turn on notifications and we'll remind you about your lectures, exams, and absences before anything slips — it takes seconds and makes a real difference.</p>"
       : "<p>It's been a while since your last visit to Haven. A quick grade update shows where you stand, and your reminders are ready so you don't miss an exam or a lecture.</p>";
-    return { subject: 'معدلك بانتظارك في Haven · Your GPA is waiting in Haven',
-      html: shell(`${t.ar}${arBody}`, `${t.en}${enBody}${btnPair(url, 'افتح Haven', 'Open Haven')}`) };
+
+    const subject = variant === 'notif'
+      ? 'اشتقنا لك — فعّل تنبيهات Haven · We miss you — turn on Haven notifications'
+      : 'معدلك بانتظارك في Haven · Your GPA is waiting in Haven';
+    const cta = variant === 'notif'
+      ? btnPair(url, 'فعّل الإشعارات', 'Turn on notifications')
+      : btnPair(url, 'افتح Haven', 'Open Haven');
+    return { subject, html: shell(`${heading.ar}${arBody}`, `${heading.en}${enBody}${cta}`) };
   }
   return { subject: 'Haven', html: shell(`<p>${template}</p>`, `<p>${template}</p>`) };
 }
