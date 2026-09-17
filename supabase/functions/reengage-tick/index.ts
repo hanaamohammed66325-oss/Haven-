@@ -112,16 +112,26 @@ serve(async (req) => {
     const url = new URL(req.url);
     const dryRun = url.searchParams.get('dryRun') === '1';
     const onlyUser = url.searchParams.get('onlyUser');
-    const enabled = Deno.env.get('REENGAGE_ENABLED') === 'true';
-
-    // Master switch. A self-test (onlyUser) or a dry run may proceed while off.
-    if (!enabled && !onlyUser && !dryRun) {
-      return json({ ok: true, disabled: true, msg: 'REENGAGE_ENABLED is not "true" — no-op' });
-    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // Master switch. Two ways to flip go-live, either one enables sending:
+    //   • the REENGAGE_ENABLED secret === "true" (owner sets it in the dashboard)
+    //   • the app_config row key='reengage_enabled' value='true' (toggled by SQL)
+    // The DB flag exists so go-live can be flipped without a secret redeploy.
+    let enabled = Deno.env.get('REENGAGE_ENABLED') === 'true';
+    if (!enabled) {
+      const { data: cfg } = await admin
+        .from('app_config').select('value').eq('key', 'reengage_enabled').maybeSingle();
+      enabled = cfg?.value === 'true';
+    }
+
+    // A self-test (onlyUser) or a dry run may proceed while off.
+    if (!enabled && !onlyUser && !dryRun) {
+      return json({ ok: true, disabled: true, msg: 'reengage is disabled — no-op' });
+    }
 
     const now = Date.now();
     const todayStr = new Date(now).toISOString().slice(0, 10);
