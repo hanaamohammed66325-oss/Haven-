@@ -34,17 +34,34 @@ export const SCALE = [
 
 export const pctToGrade = (p: number) => SCALE.find((s) => p >= s.min)!;
 
-// Course current % — graded components only (unit-agnostic)
+/**
+ * Course grade as it currently stands, out of the FULL 100 — descending from
+ * A+ downward.
+ *
+ * A course is graded out of 100, not out of a single task. So you START at 100
+ * (A+) and only lose the marks you actually missed on graded work; anything not
+ * graded yet is still fully achievable and never drags you down:
+ *
+ *     pct = 100 − Σ_graded (1 − score/total) × weight
+ *
+ * Example: one 5/7 quiz worth 10% → 100 − (2/7 × 10) = 97 → A+ (not C).
+ *
+ * This descends only as real losses accumulate, and once the whole 100% of the
+ * weight is graded it EQUALS the true final % — so the semester/cumulative GPA
+ * lands exactly right at the end and is never wrongly dragged down mid-term by
+ * one small task. Returns null only when nothing is graded yet.
+ *
+ * (The "if you got 0 on everything remaining" floor is computed where it's
+ * actually needed — see `finalAdvice`'s secured letter.)
+ */
 export function courseCurrentPct(course: Course): number | null {
   const g = course.components.filter((c) => c.score != null && c.total > 0);
   if (!g.length) return null;
-  let w = 0,
-    s = 0;
+  let lost = 0;
   g.forEach((c) => {
-    w += (c.score! / c.total) * c.weight;
-    s += c.weight;
+    lost += (1 - c.score! / c.total) * c.weight;
   });
-  return s ? (w / s) * 100 : null;
+  return Math.max(0, 100 - lost);
 }
 
 // Semester GPA broken into its parts, so callers can reuse the graded credit

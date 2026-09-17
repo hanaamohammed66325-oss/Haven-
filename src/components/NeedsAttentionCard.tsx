@@ -5,7 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
-import { courseCurrentPct, pctToGrade, attendanceInfo } from "@/lib/grades";
+import { attendanceInfo } from "@/lib/grades";
 
 export function NeedsAttentionCard() {
   const { t } = useT();
@@ -20,10 +20,8 @@ export function NeedsAttentionCard() {
       } else if (att?.status === "warn") {
         reasons.push(t("attnApproaching", { n: att.absence.toFixed(0) }));
       }
-      const pct = courseCurrentPct(c);
-      if (pct != null && pctToGrade(pct).points <= 3.0) {
-        reasons.push(t("attnLowGrade", { letter: pctToGrade(pct).letter }));
-      }
+      // (No "current grade C" reason: the grade is a best-case ceiling out of
+      //  100, so a single graded task must not raise a low-grade alarm.)
       return { course: c, reasons };
     })
     .filter((x) => x.reasons.length > 0);

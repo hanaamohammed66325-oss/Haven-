@@ -19,7 +19,6 @@ import { buildSmartSuggestions, type SuggestionKind } from "@/lib/smartSuggestio
 const ICON: Record<SuggestionKind, React.ReactNode> = {
   "att-danger": <AlertTriangle size={14} />,
   "att-warn": <AlertTriangle size={14} />,
-  "grade-low": <TrendingUp size={14} />,
   exam: <GraduationCap size={14} />,
   task: <ClipboardList size={14} />,
   ungraded: <Sparkles size={14} />,
