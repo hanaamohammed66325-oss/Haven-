@@ -1003,3 +1003,73 @@ export async function deletePlannerItem(id: string): Promise<void> {
   const { error } = await supabase.from("planner_items").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
+
+// ---------------------------------------------------------------------------
+// Referral / "Ambassador" system (nucleus)
+// All writes go through SECURITY DEFINER RPCs (see
+// supabase/sql/20260917_referral_nucleus.sql) — the client can never forge a
+// status or a count; it only calls these entry points.
+// ---------------------------------------------------------------------------
+
+export type AcquisitionSource =
+  | "code" | "x" | "instagram" | "tiktok" | "snapchat" | "friend" | "other";
+
+/** The signed-in user's share code, minted on first request. Returns null when
+ *  signed out or on failure (never throws — a missing code must not break UI). */
+export async function getMyReferralCode(): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc("get_my_referral_code");
+    if (error) return null;
+    return (data as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Record "how did you hear about us?" for the current (new) user and, when a
+ *  valid foreign code is entered, open a pending referral. One-time server-side
+ *  (a repeat call is a no-op). Best-effort; never throws. */
+export async function claimReferral(
+  source: AcquisitionSource,
+  code?: string | null
+): Promise<void> {
+  try {
+    await supabase.rpc("claim_referral", { p_source: source, p_code: code ?? null });
+  } catch {
+    // best-effort — the survey/referral is not worth breaking onboarding over
+  }
+}
+
+/** Try to activate the caller's pending referral (needs verified email + ≥1
+ *  course). Returns true only when a pending referral was just activated, so
+ *  the caller can fire a one-time "referral confirmed" reward later. Safe to
+ *  call on every relevant step; no-ops once activated. */
+export async function activateMyReferral(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc("activate_my_referral");
+    if (error) return false;
+    return data === true;
+  } catch {
+    return false;
+  }
+}
+
+export interface ReferralStats {
+  activated: number;
+  pending: number;
+}
+
+/** The caller's own referral tallies (activated = the ones that count). */
+export async function getMyReferralStats(): Promise<ReferralStats> {
+  try {
+    const { data, error } = await supabase.rpc("my_referral_stats");
+    if (error || !data) return { activated: 0, pending: 0 };
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      activated: Number(row?.activated) || 0,
+      pending: Number(row?.pending) || 0,
+    };
+  } catch {
+    return { activated: 0, pending: 0 };
+  }
+}
