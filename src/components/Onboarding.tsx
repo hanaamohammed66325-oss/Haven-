@@ -165,14 +165,29 @@ const QUICK: { label: TranslationKey; anchor: string }[] = [
   { label: "tour_jump_semester", anchor: "set-dates" },
 ];
 
-// Havi sprite geometry (size 72 → integer scale 3 → 84×69 px on screen).
+// Havi sprite geometry (desktop default; tourDims() derives the per-screen
+// sizes). Size 72 → integer scale 3 → 84×69 px on screen.
 const HAVI_SIZE = 72;
-const HAVI_W = 84;
-const HAVI_H = 69;
 const NOTE_W = 236;
 const GAP = 14;
-const UNIT_W = HAVI_W + GAP + NOTE_W; // Havi + gap + note
-const UNIT_H = 140; // generous estimate for vertical clamping
+const UNIT_H = 140; // generous estimate for vertical clamping (desktop)
+
+// The guide unit (Havi + note) must fit — and never overlap content — on every
+// screen, from a 320px phone to an iPad to desktop. On narrow viewports Havi
+// shrinks and the note narrows to whatever space is left, so the whole unit
+// always fits inside the window with margins. Recomputed on each placement.
+function tourDims() {
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
+  const compact = vw < 640;
+  const haviSize = compact ? 52 : HAVI_SIZE; // 52 → scale 2 (56×46), 72 → scale 3 (84×69)
+  const scale = Math.max(2, Math.round(haviSize / 28));
+  const hw = 28 * scale;
+  const hh = 23 * scale; // DRAW_H rows
+  const noteW = compact
+    ? Math.max(150, Math.min(NOTE_W, vw - hw - GAP - 28))
+    : NOTE_W;
+  return { hw, hh, noteW, haviSize, unitW: hw + GAP + noteW, unitH: compact ? 124 : UNIT_H };
+}
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -191,6 +206,8 @@ interface Guide {
   text: string; title?: string;
   visible: boolean;
   arrow?: Arrow | null; // subtle pointer from Havi to the element he's explaining
+  noteW: number;   // responsive note width for this placement
+  haviSize: number; // responsive Havi sprite size for this placement
 }
 
 export function Onboarding() {
@@ -202,7 +219,7 @@ export function Onboarding() {
   const [page, setPage] = useState<PageKey>("dashboard");
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [guide, setGuide] = useState<Guide>({ x: 0, y: 0, noteFirst: false, pose: "books", text: "", visible: false });
+  const [guide, setGuide] = useState<Guide>({ x: 0, y: 0, noteFirst: false, pose: "books", text: "", visible: false, noteW: NOTE_W, haviSize: HAVI_SIZE });
   const [reduced, setReduced] = useState(false);
 
   const boxRef = useRef<HTMLDivElement>(null);
@@ -223,6 +240,12 @@ export function Onboarding() {
   useEffect(() => setMounted(true), []);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
   useEffect(() => { openRef.current = open; }, [open]);
+  // Tell the autonomous app mascot to stand down while the tour runs, so it
+  // doesn't roam the real page behind the overlay and leak stray Havis into it.
+  useEffect(() => {
+    if (!mounted) return;
+    window.dispatchEvent(new Event(open ? "haven:tour-open" : "haven:tour-close"));
+  }, [open, mounted]);
   useEffect(() => {
     const m = window.matchMedia("(prefers-reduced-motion: reduce)");
     const u = () => setReduced(m.matches);
@@ -253,6 +276,9 @@ export function Onboarding() {
   // below it stays on-screen and never covers what Havi points at.
   const aimAt = useCallback((el: HTMLElement | null, text: string, title: string | undefined, pose: "books" | "write", rect?: DOMRect) => {
     const vw = window.innerWidth, vh = window.innerHeight;
+    // Responsive geometry for THIS placement (Havi shrinks + note narrows on
+    // small screens so the unit always fits without overlapping content).
+    const { hw: HW, hh: HH, noteW: NW, haviSize, unitW: UW, unitH: UH } = tourDims();
 
     if (!el) {
       // Page-intro (welcome / finish / section headers): sit at the TOP of the
@@ -260,43 +286,43 @@ export function Onboarding() {
       const box = boxRef.current?.getBoundingClientRect();
       const cx = box ? box.left + box.width / 2 : vw / 2;
       const top = box ? box.top : 0;
-      const y = clamp(top + 76, 12, vh - UNIT_H - 12);
-      const x = clamp(cx - UNIT_W / 2, 12, vw - UNIT_W - 12);
-      setGuide({ x, y, noteFirst: false, pose, text, title, visible: true, arrow: null });
+      const y = clamp(top + 76, 12, vh - UH - 12);
+      const x = clamp(cx - UW / 2, 12, vw - UW - 12);
+      setGuide({ x, y, noteFirst: false, pose, text, title, visible: true, arrow: null, noteW: NW, haviSize });
       return;
     }
 
     const r = rect ?? el.getBoundingClientRect();
     const cy = r.top + r.height / 2, ecx = r.left + r.width / 2;
-    const need = HAVI_W + GAP + NOTE_W + GAP;
+    const need = HW + GAP + NW + GAP;
 
     let x: number, y: number, noteFirst: boolean;
     if (vw - r.right >= need) {
       // Right of the element: [element] Havi note
-      x = r.right + GAP; y = clamp(cy - HAVI_H / 2, 12, vh - UNIT_H - 12); noteFirst = false;
+      x = r.right + GAP; y = clamp(cy - HH / 2, 12, vh - UH - 12); noteFirst = false;
     } else if (r.left >= need) {
       // Left of the element: note Havi [element]
-      x = r.left - GAP - (NOTE_W + GAP + HAVI_W); y = clamp(cy - HAVI_H / 2, 12, vh - UNIT_H - 12); noteFirst = true;
+      x = r.left - GAP - (NW + GAP + HW); y = clamp(cy - HH / 2, 12, vh - UH - 12); noteFirst = true;
     } else {
       // No side room → below the element (or above if it's near the bottom).
       const belowY = r.bottom + GAP;
-      y = belowY + UNIT_H <= vh - 12 ? belowY : Math.max(12, r.top - GAP - UNIT_H);
-      y = clamp(y, 12, vh - UNIT_H - 12);
-      x = clamp(ecx - UNIT_W / 2, 12, vw - UNIT_W - 12); noteFirst = false;
+      y = belowY + UH <= vh - 12 ? belowY : Math.max(12, r.top - GAP - UH);
+      y = clamp(y, 12, vh - UH - 12);
+      x = clamp(ecx - UW / 2, 12, vw - UW - 12); noteFirst = false;
     }
 
     // Arrow: from Havi's edge to the nearest point on the element's border.
-    const hleft = noteFirst ? x + NOTE_W + GAP : x;
-    const hcx = hleft + HAVI_W / 2, hcy = y + HAVI_H / 2;
+    const hleft = noteFirst ? x + NW + GAP : x;
+    const hcx = hleft + HW / 2, hcy = y + HH / 2;
     const ex = clamp(hcx, r.left, r.right), ey = clamp(hcy, r.top, r.bottom);
     const dx = ex - hcx, dy = ey - hcy;
     const len = Math.hypot(dx, dy) || 1;
     const ux = dx / len, uy = dy / len;
     const arrow: Arrow = {
-      x1: hcx + ux * (HAVI_W / 2 - 2), y1: hcy + uy * (HAVI_H / 2 - 2),
+      x1: hcx + ux * (HW / 2 - 2), y1: hcy + uy * (HH / 2 - 2),
       x2: ex - ux * 4, y2: ey - uy * 4,
     };
-    setGuide({ x, y, noteFirst, pose, text, title, visible: true, arrow });
+    setGuide({ x, y, noteFirst, pose, text, title, visible: true, arrow, noteW: NW, haviSize });
   }, []);
 
   // Re-place Havi + note (+ arrow) against the live element rect — called on any
@@ -532,12 +558,12 @@ export function Onboarding() {
   const Current = PAGES[page].Comp;
 
   const Note = guide.text ? (
-    <div className="rounded-2xl px-4 py-3" style={{ width: NOTE_W, background: "var(--color-surface)", color: "var(--color-ink)", border: "1px solid var(--color-border)", boxShadow: "0 14px 36px rgba(20,30,36,0.18)" }}>
+    <div className="rounded-2xl px-4 py-3" style={{ width: guide.noteW, background: "var(--color-surface)", color: "var(--color-ink)", border: "1px solid var(--color-border)", boxShadow: "0 14px 36px rgba(20,30,36,0.18)" }}>
       {guide.title && <div className="font-display text-[15px] mb-1" style={{ color: "var(--color-brass)" }}>{guide.title}</div>}
       <div className="text-[13px] leading-relaxed" style={{ color: "var(--color-ink)" }}>{guide.text}</div>
     </div>
   ) : null;
-  const Havi = <TourHavi pose={guide.pose} size={HAVI_SIZE} reduced={reduced} />;
+  const Havi = <TourHavi pose={guide.pose} size={guide.haviSize} reduced={reduced} />;
 
   return (
     <>

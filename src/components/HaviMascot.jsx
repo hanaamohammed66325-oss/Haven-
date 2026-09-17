@@ -359,6 +359,10 @@ export default function HaviMascot({
   const [pos, setPos] = useState({ top: -9999, left: -9999 });
   const [visible, setVisible] = useState(false);
   const [reduced, setReduced] = useState(false);
+  // The guided onboarding tour has its OWN controlled Havi. While it's open the
+  // autonomous app mascot must stand down, otherwise it keeps roaming the real
+  // page behind the tour and shows up as stray Havis scattered over the window.
+  const [tourActive, setTourActive] = useState(false);
   const [showName, setShowName] = useState(false);
   const nameTimerRef = useRef(null);
 
@@ -432,6 +436,31 @@ export default function HaviMascot({
     mq.addEventListener?.("change", fn);
     return () => mq.removeEventListener?.("change", fn);
   }, []);
+
+  /* ---------------- stand down during the guided tour ---------------- */
+  useEffect(() => {
+    if (demoMode) return; // the demo instance is never shown alongside the tour
+    const on = () => {
+      setTourActive(true);
+      setVisible(false);
+      queueRef.current = [];
+      emergeRef.current = null;
+      walkRef.current = null;
+      squishRef.current = null;
+      busyRef.current = false;
+    };
+    const off = () => {
+      setTourActive(false);
+      // re-enter naturally once the tour closes
+      setTimeout(() => enterRef2.current?.(), 350);
+    };
+    window.addEventListener("haven:tour-open", on);
+    window.addEventListener("haven:tour-close", off);
+    return () => {
+      window.removeEventListener("haven:tour-open", on);
+      window.removeEventListener("haven:tour-close", off);
+    };
+  }, [demoMode]);
 
   /* ---------------- finding cards ---------------- */
   /**
@@ -1347,6 +1376,7 @@ export default function HaviMascot({
   if (!demoMode) {
     if (subLoading) return null;
     if (!canUseHavi(profile, sub)) return null;
+    if (tourActive) return null; // the tour owns Havi while it's open
   }
   if (!visible) return null;
 
