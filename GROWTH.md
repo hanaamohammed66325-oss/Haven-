@@ -1,7 +1,12 @@
 # Haven — Organic Growth Work (Retention + Referral) · WIP LOG
 
-Status snapshot. Everything below is **committed locally only on branch
-`feat/re-engagement` and has NOT been pushed or deployed.** Resume from here.
+Status snapshot, UPDATED. Retention (win-back) has moved past this file —
+**it now lives on `main`, code is done, and Hanaa has approved sending.**
+Go-live is actively in progress; for that, read repo `WINBACK_DEPLOY.md` on
+`main` instead (it has the current blocker + exact next steps). This file
+(`GROWTH.md`) itself lives only on branch `feat/referral` (pushed to origin)
+and now mainly documents the **referral/ambassador** half, which is still
+nucleus-only, not wired into any UI.
 
 Companion acquisition funnel (SEO / tools / university pages) is tracked
 separately — see the `haven-seo-growth` memory. This file covers the two
@@ -11,12 +16,17 @@ growth-loop halves: **retention (win-back)** and **referral (ambassador)**.
 
 ## 0. Hard constraints (do not violate on resume)
 
-- **Nothing gets pushed or deployed without Hanaa's explicit go-ahead**
-  ("قبل ماتنشر اسالني"). This includes `git push`, Supabase edge-function
-  deploys, and flipping any secret.
-- **Hanaa herself** deploys the edge functions and flips `REENGAGE_ENABLED`
-  when she's ready. Claude must not.
-- Agreed build order: **retention FIRST (done, gated off) → referral.**
+- **Nothing gets pushed or deployed without Hanaa's explicit go-ahead.** She
+  HAS given that go-ahead for win-back sending (after reviewing a full
+  preview of every message variant) — see `WINBACK_DEPLOY.md` on `main` for
+  where that stands. This constraint still applies to anything NOT yet shown
+  to and approved by her (e.g. the referral system below).
+- Edge-function deploys: Claude Code's own safety gate hard-blocks the
+  Supabase MCP's `deploy_edge_function` tool in this environment — confirmed,
+  not a permissions issue. Hanaa deploys edge functions herself via the
+  Supabase dashboard; Claude does everything else (SQL, scheduling, testing)
+  via the Supabase MCP's `execute_sql`, which works fine.
+- Agreed build order: **retention FIRST (done, go-live in progress) → referral.**
 - Referral is built **nucleus first** (codes + survey + activation-gated
   counter + owner stats), rewards **after**.
 - Stack rules: plain React + localStorage/Supabase + CSS, no heavy libs;
@@ -25,27 +35,17 @@ growth-loop halves: **retention (win-back)** and **referral (ambassador)**.
 
 ---
 
-## 1. Retention — win-back engine  (CODE DONE, gated OFF, NOT deployed)
+## 1. Retention — win-back engine — MOVED, see `WINBACK_DEPLOY.md` on `main`
 
-Branch `feat/re-engagement`, top commit `7371992`.
-
-- `supabase/functions/reengage-tick/index.ts` — targets lapsed users
-  (quiet 7–120d, 14d cooldown, cap 200/run). Channel per user:
-  push if they have a subscription, else email. Master switch:
-  secret `REENGAGE_ENABLED` must equal `"true"` or every tick is a no-op.
-  Test hooks: `?dryRun=1`, `?onlyUser=<uuid>`.
-  - Variants (push): `setup` (no courses) / `grades` (courses but no scored
-    `grade_components`) / `back` (generic). Several rotating friendly,
-    gender-neutral AR/EN lines per variant, seeded by (userId + dayNumber)
-    so repeat nudges never read the same.
-  - Email variant for opted-out users: `setup` if no courses, else `notif`
-    (warm "we miss you" + enable-notifications, CTA to Settings).
-- `supabase/functions/send-email/index.ts` — added the `notif` reengage
-  email template (subject "اشتقنا لك — فعّل تنبيهات Haven").
-
-**To go live (Hanaa does this):** deploy `reengage-tick` + `send-email`,
-ensure the cron caller hits `reengage-tick`, then set `REENGAGE_ENABLED=true`.
-Verify first with `?dryRun=1` and `?onlyUser=<her uuid>`.
+This is now out of date here on purpose — the retention code has been merged
+to `main` (commits `7371992`, `83ff5cd`) and Hanaa has approved sending after
+reviewing a full preview of every message. Go-live is actively in progress and
+tracked in **repo `WINBACK_DEPLOY.md` on `main`**, which has the current
+blocker (edge-function deploy is hard-blocked for Claude in this environment —
+Hanaa deploys via the Supabase dashboard) and the exact remaining SQL steps
+(dry-run check → flip the `app_config.reengage_enabled` flag → real run →
+daily `pg_cron` schedule). Do not duplicate that tracking here — go read that
+file for retention status.
 
 ---
 
@@ -123,18 +123,29 @@ flag. Havi sprite engine (28×21 BODY grid + COL palette) lives in
 
 ---
 
-## 3. Also done earlier this stretch (onboarding tour polish, local commits)
+## 3. Also done earlier this stretch (onboarding tour polish + grade fix)
 `d703be2`, `a6d6186`, `6dc5c12` — scroll-lag fix, lotus rename, planner deadline
 demo (color+time+notification), colorful Pomodoro lake, wording tweaks, planner
-chip-overflow fix, clickable tour progress dots. Also local-only, unpushed.
+chip-overflow fix, clickable tour progress dots. Plus two more fixes that have
+since landed and pushed to `main`: `c4c0c16` (grade-out-of-100 ceiling fix,
+descending from A+) and `8dd141a` (onboarding tour mobile/stray-Havi fix). All
+of §3 is now on `main` — only §1 (retention, tracked in `WINBACK_DEPLOY.md`)
+and §2 (referral, this file) are still mid-flight.
 
 ---
 
 ## Resume checklist
-- [ ] (Hanaa) deploy retention edge fns + flip `REENGAGE_ENABLED` when ready.
-- [ ] Build referral **nucleus** (tables → survey modal → activation-gated
-      counter → owner stats).
+- [ ] Retention go-live — see `WINBACK_DEPLOY.md` on `main` (in progress:
+      waiting on Hanaa to deploy 2 edge functions via the Supabase dashboard).
+- [x] Build referral **nucleus** — done on `feat/referral` (`1f0411a`, pushed
+      to origin, not merged to `main`, not applied to the database yet).
+- [ ] Wire the nucleus into UI: "how did you hear about us?" survey modal on
+      signup + call `activateMyReferral()` at the real activation step
+      (adding a course) + an ambassador panel ("لوحة السفير": code + share +
+      counter + next reward + ladder).
+- [ ] Apply `supabase/sql/20260917_referral_nucleus.sql` to the live database
+      (via Supabase MCP `execute_sql` — that tool works, unlike edge deploys).
 - [ ] Build referral **rewards** (badges/XP → exclusive themes → Havi cosmetics
-      system from the approved designs).
-- [ ] Ambassador panel ("لوحة السفير").
-- [ ] Nothing pushed/deployed until Hanaa says so.
+      system from the approved designs in §2b).
+- [ ] Nothing pushed/deployed/sent-to-users without Hanaa's explicit go-ahead
+      for that specific thing.
