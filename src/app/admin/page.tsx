@@ -7,14 +7,18 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, callAdmin, AdminThemeProvider, useC, useS } from "./_lib";
-import { AdminSidebar, AdminTopBar, AdminMobileDrawer, type AdminSection } from "./_sidebar";
+import { AdminSidebar, AdminTopBar, AdminMobileDrawer, BILLING_SECTIONS, type AdminSection } from "./_sidebar";
 import { DashboardSection } from "./dashboard";
 import { UsersSection } from "./users";
 import { UserDetailSection } from "./user-detail";
+import { InsightsSection } from "./insights";
+import { NotificationsSection } from "./notifications";
 import { SubscriptionsSection } from "./subscriptions";
 import { PaymentsSection } from "./payments";
 import { SupportSection } from "./support";
 import { CouponsSection } from "./coupons";
+
+const BILLING_PREF_KEY = "haven_admin_show_billing";
 
 export default function AdminPageWrapper() {
   return (
@@ -42,6 +46,24 @@ function AdminPage() {
   const [section, setSection] = useState<AdminSection>("dashboard");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [openUserId, setOpenUserId] = useState<string | null>(null);
+
+  // Paid-subscription sections are hidden by default (pre-launch); toggle persists
+  // per-device. Kept out of the DB so it's an instant, admin-only preference.
+  const [showBilling, setShowBilling] = useState(false);
+  useEffect(() => {
+    try { if (localStorage.getItem(BILLING_PREF_KEY) === "1") setShowBilling(true); } catch { /* ignore */ }
+  }, []);
+  const toggleBilling = useCallback(() => {
+    setShowBilling((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(BILLING_PREF_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  // If billing gets hidden while viewing a billing section, fall back to dashboard.
+  useEffect(() => {
+    if (!showBilling && BILLING_SECTIONS.has(section)) setSection("dashboard");
+  }, [showBilling, section]);
 
   // Sidebar badges (open tickets, failed payments)
   const [badges, setBadges] = useState<Partial<Record<AdminSection, number>>>({});
@@ -141,8 +163,8 @@ function AdminPage() {
   return (
     <div dir="ltr" className="min-h-dvh flex" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', 'Tajawal', sans-serif", "--admin-hover": C.mode === "light" ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)" } as React.CSSProperties}>
       <style>{`.admin-hover-row:hover{background:var(--admin-hover)!important}`}</style>
-      <AdminSidebar current={section} onChange={goSection} session={session} onSignOut={handleSignOut} badges={badges} />
-      <AdminMobileDrawer open={drawerOpen} current={section} onChange={goSection} onClose={() => setDrawerOpen(false)} session={session} onSignOut={handleSignOut} />
+      <AdminSidebar current={section} onChange={goSection} session={session} onSignOut={handleSignOut} badges={badges} showBilling={showBilling} onToggleBilling={toggleBilling} />
+      <AdminMobileDrawer open={drawerOpen} current={section} onChange={goSection} onClose={() => setDrawerOpen(false)} session={session} onSignOut={handleSignOut} badges={badges} showBilling={showBilling} onToggleBilling={toggleBilling} />
 
       <div className="flex-1 min-w-0 flex flex-col">
         <AdminTopBar current={section} onOpenMenu={() => setDrawerOpen(true)} session={session} />
@@ -150,9 +172,13 @@ function AdminPage() {
           {openUserId ? (
             <UserDetailSection session={session} userId={openUserId} onBack={closeUser} />
           ) : section === "dashboard" ? (
-            <DashboardSection session={session} />
+            <DashboardSection session={session} showBilling={showBilling} />
           ) : section === "users" ? (
             <UsersSection session={session} onOpenUser={openUser} />
+          ) : section === "insights" ? (
+            <InsightsSection />
+          ) : section === "notifications" ? (
+            <NotificationsSection />
           ) : section === "subscriptions" ? (
             <SubscriptionsSection session={session} onOpenUser={openUser} />
           ) : section === "payments" ? (

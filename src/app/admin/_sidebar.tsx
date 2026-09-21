@@ -4,30 +4,39 @@ import { useC, useTheme } from "./_lib";
 import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
-  | "dashboard" | "users" | "subscriptions" | "payments"
-  | "support" | "coupons";
+  | "dashboard" | "users" | "insights" | "notifications"
+  | "subscriptions" | "payments" | "support" | "coupons";
+
+/** Sections that are only relevant once paid subscriptions are live. Hidden by
+ *  default behind the billing toggle so the dashboard stays focused on usage. */
+export const BILLING_SECTIONS = new Set<AdminSection>(["subscriptions", "payments"]);
 
 interface NavItem { id: AdminSection; label: string; icon: string; badge?: number | string; }
 
 export function AdminSidebar({
-  current, onChange, session, onSignOut, badges,
+  current, onChange, session, onSignOut, badges, showBilling, onToggleBilling,
 }: {
   current: AdminSection;
   onChange: (s: AdminSection) => void;
   session: Session;
   onSignOut: () => void;
   badges?: Partial<Record<AdminSection, number>>;
+  showBilling: boolean;
+  onToggleBilling: () => void;
 }) {
   const C = useC();
   const { mode, setMode } = useTheme();
-  const items: NavItem[] = [
+  const allItems: NavItem[] = [
     { id: "dashboard",     label: "Dashboard",     icon: "🏠" },
     { id: "users",         label: "Users",         icon: "👥" },
+    { id: "insights",      label: "Insights",      icon: "📊" },
+    { id: "notifications", label: "Notifications", icon: "🔔" },
     { id: "subscriptions", label: "Subscriptions", icon: "💳" },
     { id: "payments",      label: "Payments",      icon: "💰", badge: badges?.payments },
     { id: "support",       label: "Support",       icon: "🎫", badge: badges?.support },
     { id: "coupons",       label: "Coupons",       icon: "🏷️" },
   ];
+  const items = allItems.filter((it) => showBilling || !BILLING_SECTIONS.has(it.id));
 
   return (
     <aside
@@ -67,6 +76,17 @@ export function AdminSidebar({
           );
         })}
       </nav>
+
+      {/* Billing visibility toggle — paid-subscription sections are hidden until launch */}
+      <div className="px-3 pb-2">
+        <button
+          onClick={onToggleBilling}
+          className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-[11px] font-medium transition-colors"
+          style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
+        >
+          {showBilling ? "🙈 Hide billing sections" : "💳 Show billing sections"}
+        </button>
+      </div>
 
       {/* Theme toggle */}
       <div className="px-3 pb-2">
@@ -138,7 +158,7 @@ export function AdminTopBar({
 }
 
 export function AdminMobileDrawer({
-  open, current, onChange, onClose, session, onSignOut,
+  open, current, onChange, onClose, session, onSignOut, badges, showBilling, onToggleBilling,
 }: {
   open: boolean;
   current: AdminSection;
@@ -146,6 +166,9 @@ export function AdminMobileDrawer({
   onClose: () => void;
   session: Session;
   onSignOut: () => void;
+  badges?: Partial<Record<AdminSection, number>>;
+  showBilling: boolean;
+  onToggleBilling: () => void;
 }) {
   if (!open) return null;
   return (
@@ -160,6 +183,9 @@ export function AdminMobileDrawer({
           onChange={(s) => { onChange(s); onClose(); }}
           session={session}
           onSignOut={onSignOut}
+          badges={badges}
+          showBilling={showBilling}
+          onToggleBilling={onToggleBilling}
         />
       </div>
     </div>

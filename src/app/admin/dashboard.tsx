@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { callAdmin, useC, fmtDateTime, fmtSar, StatCard, SectionHeader, Loading, timeAgo, ErrorBanner } from "./_lib";
+import { supabase, callAdmin, useC, fmtDateTime, fmtSar, StatCard, SectionHeader, Loading, timeAgo, ErrorBanner } from "./_lib";
 
 interface Metrics {
   total_users: number;
@@ -34,30 +34,66 @@ interface Event {
 
 interface DayPoint { day: string; revenue_sar?: number; new_users?: number; cumulative_users?: number; tx_count?: number; }
 
-export function DashboardSection({ session }: { session: Session }) {
+interface Live {
+  online_now: number; online_15m: number;
+  in_app_now: number; in_browser_now: number;
+  range_days: number; new_users: number; active_users: number;
+}
+
+/** Range presets (days). Months are expressed as 30-day multiples. */
+const RANGE_PRESETS: { label: string; days: number }[] = [
+  { label: "7 days",   days: 7 },
+  { label: "30 days",  days: 30 },
+  { label: "90 days",  days: 90 },
+  { label: "6 months", days: 180 },
+  { label: "12 months", days: 365 },
+];
+
+/** Human label for an arbitrary day count (months when it divides evenly). */
+function rangeLabel(days: number): string {
+  const preset = RANGE_PRESETS.find((r) => r.days === days);
+  if (preset) return `last ${preset.label}`;
+  if (days % 30 === 0) return `last ${days / 30} months`;
+  return `last ${days} days`;
+}
+
+export function DashboardSection({ session, showBilling }: { session: Session; showBilling: boolean }) {
   const C = useC();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [revenue, setRevenue] = useState<DayPoint[]>([]);
   const [growth, setGrowth] = useState<DayPoint[]>([]);
+  const [live, setLive] = useState<Live | null>(null);
+  const [rangeDays, setRangeDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
-    const [m, r, c] = await Promise.all([
+    const [m, r, c, l] = await Promise.all([
       callAdmin(session, "dashboard_metrics"),
       callAdmin(session, "dashboard_recent", { limit: 15 }),
-      callAdmin(session, "dashboard_charts", { days: 30 }),
+      callAdmin(session, "dashboard_charts", { days: rangeDays }),
+      supabase.rpc("admin_dashboard_live", { range_days: rangeDays }),
     ]);
     if (m?.ok) setMetrics(m.metrics);
     else setError(m?.error ?? "Failed to load dashboard");
     if (r?.ok) setEvents(r.events ?? []);
     if (c?.ok) { setRevenue(c.revenue ?? []); setGrowth(c.user_growth ?? []); }
+    if (!l.error) setLive(l.data as Live);
     setLoading(false);
-  }, [session]);
+  }, [session, rangeDays]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Keep the live presence numbers fresh without a full reload.
+  useEffect(() => {
+    const id = setInterval(async () => {
+      const { data, error } = await supabase.rpc("admin_dashboard_live", { range_days: rangeDays });
+      if (!error && data) setLive(data as Live);
+    }, 30000);
+    return () => clearInterval(id);
+  }, [rangeDays]);
 
   if (loading && !metrics) return <Loading text="Loading dashboard…" />;
 
@@ -76,34 +112,47 @@ export function DashboardSection({ session }: { session: Session }) {
 
       {metrics && (
         <div className="flex flex-col gap-4">
-          {/* Row 1 — Users */}
+          {/* Live presence — who is in the app vs the browser right now */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <LiveCard label="In app now" value={live?.in_app_now ?? 0} hint="installed app · last 5 min" accent={C.success} live />
+            <LiveCard label="In browser now" value={live?.in_browser_now ?? 0} hint="website · last 5 min" accent={C.primary} live />
+            <StatCard label="Online (total)" value={live?.online_now ?? 0} sub="active in last 5 min" />
+            <StatCard label="Last 15 min" value={live?.online_15m ?? 0} />
+          </div>
+
+          {/* Range selector — pick days or months */}
+          <RangeSelector days={rangeDays} onChange={setRangeDays} />
+
+          {/* Row 1 — Users (Active / New follow the selected range) */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard label="Total users" value={metrics.total_users} />
-            <StatCard label="Active (30d)" value={metrics.active_users_30d} accent={C.primary} sub={`${metrics.active_users_7d} active this week`} />
-            <StatCard label="New (30d)" value={metrics.new_users_30d} sub={`${metrics.new_users_7d} this week`} />
+            <StatCard label={`Active (${rangeLabel(rangeDays).replace("last ", "")})`} value={live?.active_users ?? metrics.active_users_30d} accent={C.primary} sub={`updates with range`} />
+            <StatCard label={`New (${rangeLabel(rangeDays).replace("last ", "")})`} value={live?.new_users ?? metrics.new_users_30d} sub={`${metrics.new_users_7d} in last 7 days`} />
             <StatCard label="Push devices" value={metrics.push_devices} />
           </div>
 
-          {/* Row 2 — Subscriptions */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Active subs" value={metrics.active_subs} accent={C.success} />
-            <StatCard label="Trial" value={metrics.trial_subs} />
-            <StatCard label="Expired" value={metrics.expired_subs} />
-            <StatCard label="Cancelled" value={metrics.cancelled_subs} />
-          </div>
+          {/* Row 2 — Subscriptions (billing, hidden until launch) */}
+          {showBilling && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard label="Active subs" value={metrics.active_subs} accent={C.success} />
+              <StatCard label="Trial" value={metrics.trial_subs} />
+              <StatCard label="Expired" value={metrics.expired_subs} />
+              <StatCard label="Cancelled" value={metrics.cancelled_subs} />
+            </div>
+          )}
 
-          {/* Row 3 — Revenue + Alerts */}
+          {/* Row 3 — Revenue (billing) + Alerts. Open tickets always shown. */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="MRR" value={fmtSar(metrics.mrr_sar)} accent={C.warning} />
-            <StatCard label="Revenue (30d)" value={fmtSar(metrics.revenue_30d_sar)} />
-            <StatCard label="Failed payments" value={metrics.failed_payments} accent={metrics.failed_payments > 0 ? C.danger : undefined} />
+            {showBilling && <StatCard label="MRR" value={fmtSar(metrics.mrr_sar)} accent={C.warning} />}
+            {showBilling && <StatCard label="Revenue (30d)" value={fmtSar(metrics.revenue_30d_sar)} />}
+            {showBilling && <StatCard label="Failed payments" value={metrics.failed_payments} accent={metrics.failed_payments > 0 ? C.danger : undefined} />}
             <StatCard label="Open tickets" value={metrics.open_tickets} accent={metrics.urgent_tickets > 0 ? C.danger : undefined} sub={metrics.urgent_tickets > 0 ? `${metrics.urgent_tickets} urgent` : undefined} />
           </div>
 
-          {/* Charts */}
+          {/* Charts — revenue chart is billing-only */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
-            <ChartCard title="Revenue — last 30 days" points={revenue.map(p => ({ x: p.day, y: Number(p.revenue_sar || 0) }))} color={C.warning} suffix=" SAR" />
-            <ChartCard title="New users — last 30 days" points={growth.map(p => ({ x: p.day, y: Number(p.new_users || 0) }))} color={C.primary} />
+            {showBilling && <ChartCard title={`Revenue — ${rangeLabel(rangeDays)}`} points={revenue.map(p => ({ x: p.day, y: Number(p.revenue_sar || 0) }))} color={C.warning} suffix=" SAR" />}
+            <ChartCard title={`New users — ${rangeLabel(rangeDays)}`} points={growth.map(p => ({ x: p.day, y: Number(p.new_users || 0) }))} color={C.primary} />
           </div>
 
           {/* Recent activity */}
@@ -134,6 +183,80 @@ export function DashboardSection({ session }: { session: Session }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------- Live presence card (with pulsing dot) ----------
+function LiveCard({
+  label, value, hint, accent, live,
+}: { label: string; value: number; hint: string; accent: string; live?: boolean }) {
+  const C = useC();
+  return (
+    <div className="rounded-xl border p-5" style={{ borderColor: C.tint(accent, "55"), background: C.tint(accent, "11") }}>
+      <div className="flex items-center gap-2 mb-3">
+        {live && <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: accent, boxShadow: `0 0 0 3px ${C.tint(accent, "33")}` }} />}
+        <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.textDim }}>{label}</div>
+      </div>
+      <div className="text-[28px] font-bold leading-none tabular-nums" style={{ color: accent }}>{value.toLocaleString("en")}</div>
+      <div className="text-[12px] mt-2" style={{ color: C.textDim }}>{hint}</div>
+    </div>
+  );
+}
+
+// ---------- Range selector — presets + custom days/months ----------
+function RangeSelector({ days, onChange }: { days: number; onChange: (d: number) => void }) {
+  const C = useC();
+  const [customVal, setCustomVal] = useState("");
+  const [unit, setUnit] = useState<"days" | "months">("days");
+  const isPreset = RANGE_PRESETS.some((r) => r.days === days);
+  const fieldStyle: React.CSSProperties = {
+    borderColor: C.border2, background: C.mode === "light" ? C.panel2 : C.border, color: C.text,
+  };
+  const applyCustom = () => {
+    const n = Math.max(1, Math.min(3650, Math.round(Number(customVal) || 0)));
+    if (!n) return;
+    onChange(unit === "months" ? n * 30 : n);
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border p-3" style={{ borderColor: C.border, background: C.panel }}>
+      <span className="text-[11px] font-semibold uppercase tracking-wide me-1" style={{ color: C.textDim }}>Range</span>
+      {RANGE_PRESETS.map((r) => {
+        const active = days === r.days;
+        return (
+          <button
+            key={r.days}
+            onClick={() => onChange(r.days)}
+            className="rounded-full px-3 py-1 text-[12px] font-medium"
+            style={{ background: active ? C.primary : C.border, color: active ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}
+          >
+            {r.label}
+          </button>
+        );
+      })}
+      <span className="mx-1 text-[11px]" style={{ color: C.textFaint }}>or</span>
+      <input
+        type="number" min={1} value={customVal}
+        onChange={(e) => setCustomVal(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") applyCustom(); }}
+        placeholder="#"
+        className="w-16 rounded-lg border px-2 py-1 text-[13px] outline-none" style={fieldStyle}
+      />
+      <select
+        value={unit} onChange={(e) => setUnit(e.target.value as "days" | "months")}
+        className="rounded-lg border px-2 py-1 text-[13px] outline-none" style={fieldStyle}
+      >
+        <option value="days">days</option>
+        <option value="months">months</option>
+      </select>
+      <button
+        onClick={applyCustom}
+        className="rounded-lg px-3 py-1 text-[12px] font-medium"
+        style={{ background: C.border, color: C.text, border: "none", cursor: "pointer" }}
+      >
+        Apply
+      </button>
+      {!isPreset && <span className="text-[11px]" style={{ color: C.textFaint }}>· {rangeLabel(days)}</span>}
     </div>
   );
 }
