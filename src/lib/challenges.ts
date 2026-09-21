@@ -1,5 +1,6 @@
-import type { Course, PlannerData, PomodoroStats, Semester } from "@/types";
+import type { Course, PlannerData, PlannerNote, PomodoroStats, Semester } from "@/types";
 import { POMODORO_ENABLED } from "@/lib/featureFlags";
+import { noteBucket } from "./plannerKind";
 import type { GamificationState, ChallengeItem, ChallengeState, WeeklySnapshot } from "./gamification";
 import { defaultChallenges } from "./gamification";
 
@@ -59,7 +60,12 @@ interface ChallengeDef {
   isComplete: (ctx: ChallengeContext, params: Record<string, string>) => boolean;
 }
 
-const EXAM_TAGS = new Set(["tagExam", "tagQuiz"]);
+/** True only when a planner note really reads as an exam (text-first, tag-fallback
+ *  via the shared classifier) — so a submission deadline is never mistaken for an
+ *  exam just because of its chip colour. */
+function noteIsExam(n: PlannerNote): boolean {
+  return noteBucket(n.text, n.tag) === "exam";
+}
 
 const DAILY_POOL: ChallengeDef[] = [
   {
@@ -93,9 +99,12 @@ const DAILY_POOL: ChallengeDef[] = [
     type: "exam-prep",
     xp: 20,
     canGenerate: (ctx) => {
+      // Completion now requires a real focus session, so only offer this when
+      // the Pomodoro timer is actually available to the student.
+      if (!POMODORO_ENABLED) return false;
       const tmrw = tomorrow(ctx.today);
       if (ctx.planner.notes.some(
-        (n) => EXAM_TAGS.has(n.tag ?? "") && n.day != null &&
+        (n) => noteIsExam(n) && n.day != null &&
           noteDate(ctx.semester.startDate, n.week, n.day) === tmrw
       )) return true;
       return ctx.courses.some((c) =>
@@ -106,20 +115,29 @@ const DAILY_POOL: ChallengeDef[] = [
     },
     generate: (ctx) => {
       const tmrw = tomorrow(ctx.today);
+      // Snapshot the focus sessions already done today, so the challenge is
+      // satisfied by a NEW session the student sits down for after it appears —
+      // not one they happened to finish earlier in the day.
+      const baseSessions = String(pomodoroToday(ctx));
       const fromPlanner = ctx.planner.notes.find(
-        (n) => EXAM_TAGS.has(n.tag ?? "") && n.day != null &&
+        (n) => noteIsExam(n) && n.day != null &&
           noteDate(ctx.semester.startDate, n.week, n.day) === tmrw
       );
-      if (fromPlanner) return { examName: fromPlanner.text };
+      if (fromPlanner) return { examName: fromPlanner.text, baseSessions };
       for (const c of ctx.courses) {
         for (const comp of c.components) {
           if (comp.date === tmrw && (comp.type === "midterm" || comp.type === "final" || comp.type === "quiz"))
-            return { examName: `${comp.name} — ${c.name}` };
+            return { examName: `${comp.name} — ${c.name}`, baseSessions };
         }
       }
-      return { examName: "" };
+      return { examName: "", baseSessions };
     },
-    isComplete: (ctx) => ctx.gamification.checkedInToday === ctx.today,
+    // Struck ONLY after the student completes a full focus session today. The old
+    // rule marked it done on the daily check-in alone, so it crossed itself off
+    // with no real study; now real proof of preparing (one finished Pomodoro
+    // session) is required.
+    isComplete: (ctx, p) =>
+      pomodoroToday(ctx) - parseInt(p.baseSessions || "0", 10) >= 1,
   },
   {
     type: "add-task",
@@ -373,7 +391,9 @@ export function refreshChallenges(
 
   // Drop challenges for locked features that may already sit in the active set.
   if (!POMODORO_ENABLED) {
-    const disabled = new Set(["pomodoro-focus", "pomodoro-streak"]);
+    // exam-prep now needs a focus session too, so a locked Pomodoro would leave
+    // it uncompletable — drop it alongside the dedicated Pomodoro challenges.
+    const disabled = new Set(["pomodoro-focus", "pomodoro-streak", "exam-prep"]);
     const dFiltered = daily.items.filter((it) => !disabled.has(it.type));
     if (dFiltered.length !== daily.items.length) {
       daily = { ...daily, items: dFiltered };

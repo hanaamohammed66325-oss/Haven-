@@ -379,7 +379,7 @@ export const ar: Record<TranslationKey, string> = {
   smart_gpaGoal: "معدلك {current} — شوي وتوصل {goal}",
   smart_allGood: "كل شيء تمام!",
   smart_studyNudge: "قربت وقت المذاكرة؟ افتح Haven وخلّص مهمة 📚",
-  smart_examTomorrow: "عندك اختبار {exam} بكرة — نبدأ نراجع له شوي؟",
+  smart_examTomorrow: "عندك {exam} بكرة — نبدأ جلسة تركيز نستعد له؟",
   smart_taskTomorrowSoon: "عندك {task} بكرة — نخلّصه الحين قبل ما ننساه؟",
   smart_manyTasksTomorrow: "عندك {n} مهام بكرة — نبدأ ننجزها من الحين؟",
 
@@ -387,8 +387,8 @@ export const ar: Record<TranslationKey, string> = {
   // masdar buttons + no verbs directed at the reader, so it reads the same
   // for everyone.
   nudge_titleNotif: "لا يفوتك شي",
-  nudge_bodyNotif: "التذكيرات تساعدك ما يفوتك اختبار ولا محاضرة.",
-  nudge_ctaNotif: "تفعيل التذكيرات",
+  nudge_bodyNotif: "الإشعارات تساعدك ما يفوتك اختبار ولا محاضرة.",
+  nudge_ctaNotif: "تفعيل الإشعارات",
   nudge_titleCourses: "نكمّل حسابك؟",
   nudge_bodyCourses: "ناقص موادك — إضافتها تاخذ دقيقة ونبدأ نحسب لك المعدل.",
   nudge_ctaCourses: "إضافة المواد",
@@ -461,7 +461,7 @@ export const ar: Record<TranslationKey, string> = {
   tour_courseCredits: "حدّد عدد ساعات المادة",
   tour_courseSave: "احفظ — وتنضاف مادتك",
   tour_courseAdded: "تمام! انضافت مادتك. نفس الطريقة لباقي موادك.",
-  tour_notifWhere: "من «الإعدادات ← الإشعارات» فعّل التذكيرات عشان ما يفوتك اختبار ولا محاضرة.",
+  tour_notifWhere: "من «الإعدادات ← الإشعارات» فعّل الإشعارات عشان ما يفوتك اختبار ولا محاضرة.",
   tour_addComponent: "من «إضافة عنصر» تضيف اختبارات ودرجات المادة.",
   tour_itemName: "اسم العنصر — مثلاً: كويز ١.",
   tour_itemType: "نوعه: كويز، ميدترم، واجب، مشروع، أو فاينل.",
@@ -470,7 +470,7 @@ export const ar: Record<TranslationKey, string> = {
   tour_itemScore: "درجتك اللي حصّلتها — والمعدل يتحدّث تلقائياً.",
   tour_itemSave: "احفظ، وينضاف العنصر ويتحسب في معدلك.",
   tour_itemAdded: "تمام! عنصر الدرجة انضاف والمعدل تحدّث.",
-  tour_notifHere: "من هنا تفعّل التذكيرات — محاضراتك واختباراتك توصلك قبلها بوقت. لا تنساها!",
+  tour_notifHere: "من هنا تفعّل الإشعارات — محاضراتك واختباراتك ومهامك توصلك قبلها بوقت عشان ما يفوتك شي. مهم: لازم تثبّت التطبيق على الشاشة الرئيسية أولاً، وإلا ما توصلك الإشعارات.",
   tour_haviIntro: "أنا Havi، بوريك كل شي في Haven خطوة خطوة.",
 
   // Deep guided tour — full walkthrough callouts (every page, element-level).
@@ -522,7 +522,7 @@ export const ar: Record<TranslationKey, string> = {
   tour_addSession: "اضغط «إضافة محاضرة» — نجرّب نضيف وحدة.",
   tour_sessionSet: "لكل محاضرة حدّد اليوم ومدتها، ووقتها بالساعة تضبطه من «الجدول الأسبوعي».",
   tour_jumpTo: "اذهب إلى:",
-  tour_jump_notif: "التذكيرات",
+  tour_jump_notif: "الإشعارات",
   tour_jump_course: "إضافة مادة",
   tour_jump_item: "إضافة عنصر",
   tour_jump_lecture: "إضافة محاضرة",
@@ -717,6 +717,8 @@ export const ar: Record<TranslationKey, string> = {
   addInstructor: "اضف اسم المحاضر",
   resetColor: "إعادة للافتراضي",
   courseDeleted: "تم حذف \"{name}\"",
+  itemDeleted: "تم حذف \"{name}\"",
+  sessionDeleted: "تم حذف الجلسة",
   undo: "تراجع",
   haviNameLabel: "سمّ رفيقك",
   haviNamePlaceholder: "هافي",
@@ -811,6 +813,33 @@ export const ar: Record<TranslationKey, string> = {
   notifSending: "جارٍ الإرسال…",
   notifSentToast: "تم الإرسال إلى {n} جهاز. تحقّق من إشعاراتك.",
   notifCleanedSuffix: " (تم تنظيف {n} اشتراك قديم)",
+
+  // Dashboard notifications nudge — the bell button next to "Add course",
+  // shown only to users who haven't turned notifications on.
+  notifNudge_button: "فعّل الإشعارات",
+  notifNudge_installTitle: "ثبّت التطبيق أولاً",
+  notifNudge_installBody:
+    "عشان توصلك إشعارات محاضراتك واختباراتك ومهامك، لازم تثبّت Haven على الشاشة الرئيسية أولاً. بعد التثبيت، افتحه من أيقونته على شاشتك وحاول مرة ثانية.",
+  notifNudge_installCta: "طريقة التثبيت",
+  notifNudge_enableTitle: "فعّل الإشعارات",
+  notifNudge_enableBody:
+    "فعّل الإشعارات عشان توصلك محاضراتك واختباراتك ومهامك قبلها بوقت وما يفوتك شي.",
+  notifNudge_enableCta: "تفعيل الإشعارات",
+  notifNudge_later: "لاحقًا",
+
+  // "What's new" — a one-time popup shown only inside the installed app.
+  whatsnew_title: "وش الجديد في Haven",
+  whatsnew_subtitle: "تحديث صغير يخلّي استخدامك أسهل:",
+  whatsnew_undo_title: "زر التراجع",
+  whatsnew_undo_body:
+    "حذفت مقرر أو درجة أو حضور أو مهمة بالغلط؟ الحين يطلع لك زر «تراجع» تقدر ترجّعها فيه قبل ما تنحذف نهائيًا.",
+  whatsnew_notif_title: "زر تفعيل الإشعارات",
+  whatsnew_notif_body:
+    "زر جديد في الرئيسية يذكّرك تفعّل الإشعارات — عشان توصلك محاضراتك واختباراتك ومهامك قبلها بوقت وما يفوتك شي. يظهر فقط إذا كانت إشعاراتك غير مفعّلة، ويختفي أول ما تفعّلها.",
+  whatsnew_fixes_title: "إصلاحات وتحسينات",
+  whatsnew_fixes_body:
+    "صلّحنا كم مشكلة في التذكيرات وتصنيف المهام، عشان توصلك بوقتها الصحيح وكل شي يظهر في مكانه.",
+  whatsnew_cta: "تمام، فهمت",
 
   sectionData: "البيانات",
 
@@ -1036,7 +1065,7 @@ export const ar: Record<TranslationKey, string> = {
   gam_challengesDone: "أنجزت الكل!",
   gam_challengeProgress: "{done}/{total}",
   gam_ch_dueToday: "أنجز \"{task}\" — موعدها اليوم!",
-  gam_ch_examPrep: "استعد لـ{exam} — بكرا!",
+  gam_ch_examPrep: "عندك {exam} بكرة — كمّل جلسة تركيز واحدة عشان تستعد له",
   gam_ch_checkin: "سجّل حضورك اليوم",
   gam_ch_addTask: "أضف مهمة جديدة للمخطط",
   gam_ch_completeTask: "أنجز مهمة من مخططك",

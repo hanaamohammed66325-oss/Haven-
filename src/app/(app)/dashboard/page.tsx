@@ -22,6 +22,7 @@ import { buildUpcoming } from "@/lib/upcoming";
 import { GpaGoalCard } from "@/components/GpaGoalCard";
 import { WhatIfCard } from "@/components/WhatIfCard";
 import { SmartSuggestions } from "@/components/SmartSuggestions";
+import { NotifNudge } from "@/components/NotifNudge";
 import { CumulativeGpaModal } from "@/components/CumulativeGpaModal";
 import {
   semesterGPA,
@@ -166,13 +167,16 @@ export default function DashboardPage() {
             {semester.name}
           </p>
         </div>
-        <Link
-          href="/courses"
-          className="haven-btn shrink-0 inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-medium"
-        >
-          <Plus size={17} />
-          {t("addCourse")}
-        </Link>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <NotifNudge />
+          <Link
+            href="/courses"
+            className="haven-btn inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-medium"
+          >
+            <Plus size={17} />
+            {t("addCourse")}
+          </Link>
+        </div>
       </header>
 
       {/* ── Gamification strip ─────────────────────────────────── */}

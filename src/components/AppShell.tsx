@@ -13,6 +13,7 @@ import { WeeklyReportModal } from "./WeeklyReportModal";
 import { NotifScheduler } from "./NotifScheduler";
 import { ReturnNudge } from "./ReturnNudge";
 import { Onboarding } from "./Onboarding";
+import { WhatsNewModal } from "./WhatsNewModal";
 import { TrialBanner } from "./TrialBanner";
 import { EarlyAccessBanner } from "./EarlyAccessBanner";
 import { Footer } from "./Footer";
@@ -52,8 +53,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Per-user activity tracking (fire-and-forget; no-ops when signed out).
+  // `standalone` marks opens from an installed PWA (Home Screen) so the admin
+  // dashboard can count real installs going forward.
   useEffect(() => {
-    void logEvent("app_open");
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    void logEvent("app_open", { standalone });
   }, []);
   useEffect(() => {
     if (pathname) void logEvent("page_view", { path: pathname });
@@ -196,6 +202,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <WeeklyReportModal />
       <NotifScheduler />
       <Onboarding />
+      <WhatsNewModal />
       <ReturnNudge />
     </div>
   );

@@ -20,6 +20,7 @@ import {
 } from "./grades";
 import { buildUpcoming } from "./upcoming";
 import { toISODate } from "./dates";
+import { POMODORO_ENABLED } from "./featureFlags";
 
 export type SuggestionKind =
   | "att-danger"
@@ -104,7 +105,9 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
       id: `exam-${exam.date}-${exam.name}`,
       kind: "exam",
       text,
-      href: exam.href,
+      // An imminent exam (today/tomorrow) sends the student straight to the focus
+      // timer to actually prepare; a further-out one still opens the exam itself.
+      href: exam.diffDays <= 1 && POMODORO_ENABLED ? "/pomodoro" : exam.href,
       color: "#C77E2E",
       priority: exam.diffDays <= 1 ? 2 : 4,
     });

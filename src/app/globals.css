@@ -310,6 +310,17 @@ html[dir="rtl"] .haven-nav-active {
   animation: haven-fade-up 0.45s ease-out both;
 }
 
+/* Undo toast: depleting countdown bar (duration set inline to match UNDO_MS) */
+@keyframes haven-undo-bar {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+.haven-undo-btn {
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.haven-undo-btn:hover { filter: brightness(1.08); }
+.haven-undo-btn:active { transform: scale(0.95); }
+
 /* Staggered entrance: direct children fade up ~70ms apart */
 .haven-stagger > * {
   animation: haven-fade-up 0.45s ease-out both;
@@ -386,6 +397,23 @@ html[dir="rtl"] .haven-nav-active {
 }
 .haven-overlay { animation: haven-overlay-in 0.2s ease both; }
 .haven-modal { animation: haven-modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ---- Install-guide first-visit popup ---- */
+@keyframes havenGuideFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes havenGuideUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Always a centered dialog, on every screen size. */
+.haven-install-backdrop {
+  align-items: center;
+  padding: 16px;
+  animation: havenGuideFade 0.25s ease;
+}
+.haven-install-card {
+  border-radius: 20px;
+  animation: havenGuideUp 0.32s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
 
 /* ---- GPA reveal (blur → clear) ---- */
 .haven-blur {

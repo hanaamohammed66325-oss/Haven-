@@ -6,6 +6,7 @@ import { useT } from "@/i18n";
 import { scheduleAll, cancelAll, type SmartAlert } from "@/lib/notifScheduler";
 import { buildSmartSuggestions } from "@/lib/smartSuggestions";
 import { enqueueScheduledPush } from "@/lib/db";
+import { plannerItemDate } from "@/lib/reminders";
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -50,6 +51,43 @@ export function NotifScheduler() {
         title: smartAlert.title,
         body: smartAlert.body,
       });
+    }
+
+    // Outbox: also queue each HOUR-BASED task reminder (planner items that carry
+    // a specific due time) at its OWN send time, so a task set for 8:00 PM pushes
+    // at (8 PM − N hours) even when the app is CLOSED — independent of the daily
+    // reminder hour. Without this the per-task time only fired via the in-tab
+    // timer (open tab only); the sole server push was the daily smart reminder,
+    // so on a phone every notification collapsed onto dailyReminderHour. Mirrors
+    // scheduleTasks() in notifScheduler.ts (same id/body) so an open tab and a
+    // push coalesce on the same notification tag instead of double-firing.
+    if (notifPrefs.tasks.enabled) {
+      const now = Date.now();
+      for (const note of planner.notes) {
+        if (!note.dueTime || note.day == null) continue;
+        const d = plannerItemDate(semester, note.week, note.day);
+        if (!d) continue;
+        const m = /^(\d{1,2}):(\d{2})$/.exec(note.dueTime);
+        if (!m) continue;
+        const due = new Date(d);
+        due.setHours(Number(m[1]), Number(m[2]), 0, 0);
+        const dueMs = due.getTime();
+
+        for (const hoursAhead of notifPrefs.tasks.hours) {
+          const fireAt = dueMs - hoursAhead * 3600_000;
+          if (fireAt <= now) continue; // lead time already passed → nothing to queue
+          const body =
+            lang === "ar"
+              ? `موعد التسليم خلال ${hoursAhead} ساعة`
+              : `Due in ${hoursAhead}h`;
+          void enqueueScheduledPush({
+            dedupKey: `task-${note.id}-${hoursAhead}h`,
+            sendAt: new Date(fireAt).toISOString(),
+            title: `Haven — ${note.text}`,
+            body,
+          });
+        }
+      }
     }
 
     return cancelAll;

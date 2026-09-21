@@ -4,12 +4,14 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { X, Check, GraduationCap, ClipboardList } from "lucide-react";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
+import { useUndo } from "./UndoManager";
 import { Card } from "./Card";
 import { TimeField } from "./TimeField";
 import { addDays, formatShortDate, formatTime, hijriParts, toISODate } from "@/lib/dates";
 import { weeksFromDates } from "@/lib/grades";
 import { resolveHolidaysForSemester, holidayDates } from "@/lib/holidays";
 import { REMINDER_TAGS } from "@/lib/reminders";
+import { detectPlannerKind, kindToTag } from "@/lib/plannerKind";
 import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -142,8 +144,11 @@ export function Planner() {
     addPlannerNote,
     updatePlannerNote,
     deletePlannerNote,
+    softDeletePlannerNote,
+    restorePlannerNote,
     setPlannerAutoEdit,
   } = useStore();
+  const { undoableDelete } = useUndo();
 
   const [activeWeek, setActiveWeek] = useState(0);
   const [activeDay, setActiveDay] = useState<number | null>(null); // null = whole week
@@ -279,12 +284,34 @@ export function Planner() {
   const addNote = (week: number, day: number | undefined, text: string, color: string, tag?: string) => {
     const txt = text.trim();
     if (!txt) return Promise.resolve({ ok: true as const });
+    // Free-typed notes (no chip tapped): read the words and, when they clearly
+    // name a kind ("تسليم مشروع", "اختبار الفيزياء"), auto-apply the matching tag
+    // + colour so the note is understood and reminded correctly. An explicitly
+    // tapped chip already carries its tag and is left untouched.
+    let finalTag = tag;
+    let finalColor = color;
+    if (!finalTag) {
+      const kind = detectPlannerKind(txt);
+      if (kind) {
+        finalTag = kindToTag(kind);
+        finalColor = tagColorOf(finalTag) ?? color;
+      }
+    }
     // Return the store result so the inline input can restore the typed text if
     // the cloud save fails, instead of clearing it and silently losing the note.
-    return addPlannerNote({ week, day, text: txt, color, tag, done: false });
+    return addPlannerNote({ week, day, text: txt, color: finalColor, tag: finalTag, done: false });
   };
   const updateNote = (id: string, patch: Partial<PlannerNote>) => updatePlannerNote(id, patch);
-  const deleteNote = (id: string) => deletePlannerNote(id);
+  const deleteNote = (id: string) => {
+    const removed = softDeletePlannerNote(id);
+    if (!removed) return;
+    const name = removed.text.length > 30 ? `${removed.text.slice(0, 30)}…` : removed.text;
+    undoableDelete({
+      message: t("itemDeleted", { name }),
+      onUndo: () => restorePlannerNote(removed),
+      onCommit: () => deletePlannerNote(id),
+    });
+  };
   const toggleNoteDone = (id: string) => {
     const n = planner.notes.find((x) => x.id === id);
     updatePlannerNote(id, { done: !n?.done });

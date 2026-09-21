@@ -246,6 +246,10 @@ export interface StoreValue extends AppData {
   addPlannerNote: (note: Omit<PlannerNote, "id">) => Promise<MutationResult>;
   updatePlannerNote: (id: string, patch: Partial<PlannerNote>) => void;
   deletePlannerNote: (id: string) => void;
+  /** Remove a planner note from local state only, returning it for undo. */
+  softDeletePlannerNote: (id: string) => PlannerNote | undefined;
+  /** Re-add a previously soft-deleted planner note to local state. */
+  restorePlannerNote: (note: PlannerNote) => void;
   setPlannerAutoEdit: (id: string, patch: PlannerData["autoEdits"][string]) => void;
   setLanguage: (lang: "en" | "ar") => void;
   setTheme: (theme: ThemeId) => void;
@@ -289,6 +293,10 @@ export interface StoreValue extends AppData {
     data: Partial<Omit<GradeComponent, "id">>
   ) => void;
   deleteComponent: (courseId: string, componentId: string) => void;
+  /** Remove a grade component from local state only, returning it for undo. */
+  softDeleteComponent: (courseId: string, componentId: string) => GradeComponent | undefined;
+  /** Re-add a previously soft-deleted grade component to local state. */
+  restoreComponent: (courseId: string, component: GradeComponent) => void;
   addSession: (courseId: string, session: Omit<CourseSession, "id">) => Promise<MutationResult>;
   updateSession: (
     courseId: string,
@@ -296,6 +304,10 @@ export interface StoreValue extends AppData {
     data: Partial<Omit<CourseSession, "id">>
   ) => void;
   deleteSession: (courseId: string, sessionId: string) => void;
+  /** Remove a class session from local state only, returning it for undo. */
+  softDeleteSession: (courseId: string, sessionId: string) => CourseSession | undefined;
+  /** Re-add a previously soft-deleted class session to local state. */
+  restoreSession: (courseId: string, session: CourseSession) => void;
   setMissedLectures: (courseId: string, missed: number) => void;
   addMissedSession: (
     courseId: string,
@@ -1067,6 +1079,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Local-only removal for the undo flow: pull the note from state and hand it
+  // back so it can be restored, but DON'T touch the cloud yet. The real delete
+  // (deletePlannerNote) runs only when the undo window closes.
+  const softDeletePlannerNote = useCallback((id: string): PlannerNote | undefined => {
+    const note = data.planner.notes.find((n) => n.id === id);
+    if (!note) return undefined;
+    setData((d) => ({
+      ...d,
+      planner: { ...d.planner, notes: d.planner.notes.filter((n) => n.id !== id) },
+    }));
+    return note;
+  }, [data.planner.notes]);
+
+  const restorePlannerNote = useCallback((note: PlannerNote) => {
+    setData((d) => ({
+      ...d,
+      planner: { ...d.planner, notes: [...d.planner.notes, note] },
+    }));
+  }, []);
+
   const setPlannerAutoEdit = useCallback(
     (id: string, patch: PlannerData["autoEdits"][string]) => {
       let nextAutoEdits: PlannerData["autoEdits"] = {};
@@ -1372,6 +1404,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Local-only removal for the undo flow (cloud delete is deferred to commit).
+  const softDeleteComponent = useCallback(
+    (courseId: string, componentId: string): GradeComponent | undefined => {
+      const comp = data.courses
+        .find((c) => c.id === courseId)
+        ?.components.find((k) => k.id === componentId);
+      if (!comp) return undefined;
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId
+            ? { ...c, components: c.components.filter((k) => k.id !== componentId) }
+            : c
+        ),
+      }));
+      return comp;
+    },
+    [data.courses]
+  );
+
+  const restoreComponent = useCallback((courseId: string, component: GradeComponent) => {
+    setData((d) => ({
+      ...d,
+      courses: d.courses.map((c) =>
+        c.id === courseId ? { ...c, components: [...c.components, component] } : c
+      ),
+    }));
+  }, []);
+
   // --- Attendance + timetable (cloud-backed) --------------------------------
   // A weekly session is an attendance_sessions row (day + duration, its own id).
   // Its optional timetable details (time / building / room / notes) live in a
@@ -1541,6 +1602,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
     }
+  }, []);
+
+  // Local-only removal for the undo flow. The full snapshot (including its
+  // timetableId) is returned so restore re-adds it intact; the cloud delete +
+  // its timetable-detail cascade only run on commit (deleteSession).
+  const softDeleteSession = useCallback(
+    (courseId: string, sessionId: string): CourseSession | undefined => {
+      const sess = data.courses
+        .find((c) => c.id === courseId)
+        ?.sessions.find((s) => s.id === sessionId);
+      if (!sess) return undefined;
+      setData((d) => ({
+        ...d,
+        courses: d.courses.map((c) =>
+          c.id === courseId
+            ? { ...c, sessions: c.sessions.filter((s) => s.id !== sessionId) }
+            : c
+        ),
+      }));
+      return sess;
+    },
+    [data.courses]
+  );
+
+  const restoreSession = useCallback((courseId: string, session: CourseSession) => {
+    setData((d) => ({
+      ...d,
+      courses: d.courses.map((c) =>
+        c.id === courseId ? { ...c, sessions: [...c.sessions, session] } : c
+      ),
+    }));
   }, []);
 
   // Legacy by-lecture count — unused by the current UI/attendance math; kept
@@ -1735,6 +1827,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addPlannerNote,
     updatePlannerNote,
     deletePlannerNote,
+    softDeletePlannerNote,
+    restorePlannerNote,
     setPlannerAutoEdit,
     setLanguage,
     setTheme,
@@ -1762,9 +1856,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addComponent,
     updateComponent,
     deleteComponent,
+    softDeleteComponent,
+    restoreComponent,
     addSession,
     updateSession,
     deleteSession,
+    softDeleteSession,
+    restoreSession,
     setMissedLectures,
     addMissedSession,
     updateMissedSession,

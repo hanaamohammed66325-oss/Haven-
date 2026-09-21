@@ -142,6 +142,26 @@ export default function SettingsPage() {
   const { sub, profile } = useSubscription();
   const { deleteAccount, loading: deleting, error: deleteError, reset: resetDeleteError } = useDeleteAccount();
 
+  // Arriving from the dashboard notifications nudge → scroll straight to the
+  // Notifications section (one-shot flag set by NotifNudge before navigating).
+  useEffect(() => {
+    if (!hydrated) return;
+    let flagged = false;
+    try {
+      flagged = sessionStorage.getItem("haven-focus-notif") === "1";
+      if (flagged) sessionStorage.removeItem("haven-focus-notif");
+    } catch {
+      /* ignore */
+    }
+    if (!flagged) return;
+    const id = window.setTimeout(() => {
+      document
+        .querySelector('[data-tour="notif-section"]')
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+    return () => window.clearTimeout(id);
+  }, [hydrated]);
+
   const closeDelete = () => {
     if (deleting) return; // don't let a click-away cancel a deletion in progress
     setConfirmDelete(false);

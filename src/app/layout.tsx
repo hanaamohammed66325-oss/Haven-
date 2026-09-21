@@ -5,6 +5,7 @@ import { Providers } from "@/components/Providers";
 import HaviMascot from "@/components/HaviMascot";
 import RegisterSW from "@/components/RegisterSW";
 import InstallPrompt from "@/components/InstallPrompt";
+import InstallGuideModal from "@/components/InstallGuideModal";
 import { SubscriptionProvider } from "@/lib/subscription";
 
 // This is a STATIC site (next.config: output "export"), so the SSR <title>,
@@ -124,6 +125,7 @@ export default function RootLayout({
             flow. Mounted once here so they exist on every route. */}
         <RegisterSW />
         <InstallPrompt />
+        <InstallGuideModal />
       </body>
     </html>
   );

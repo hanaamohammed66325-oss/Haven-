@@ -7,6 +7,7 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { formatTime } from "@/lib/dates";
 import { collectUpcoming } from "@/lib/reminders";
+import { noteTag } from "@/lib/plannerKind";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 // One combined toast, shown once per app open, listing every dated item
@@ -36,8 +37,11 @@ export function ReminderToast() {
 
     setLines(
       items.map((it) => {
-        // Planner items show their tag (e.g. "موعد تسليم: <note>").
-        const label = it.tag ? `${t(it.tag as TranslationKey)}: ${it.title}` : it.title;
+        // Planner items show their tag (e.g. "موعد تسليم: <note>"). The label
+        // follows the note's TEXT, so a mis-tagged "موعد تسليم" never shows as
+        // "اختبار"; course items (no tag) show just their title.
+        const effTag = it.tag ? noteTag(it.title, it.tag) : undefined;
+        const label = effTag ? `${t(effTag as TranslationKey)}: ${it.title}` : it.title;
         if (it.time) {
           const time = formatTime(it.time, lang);
           return it.diff === 0

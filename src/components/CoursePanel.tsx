@@ -10,6 +10,7 @@ import { AddCourseModal } from "./AddCourseModal";
 import { BoundedNumberInput } from "./BoundedNumberInput";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
+import { useUndo } from "./UndoManager";
 import {
   courseCurrentPct,
   weightsTotal,
@@ -20,7 +21,8 @@ import type { Course, GradeComponent } from "@/types";
 
 export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDeleteCourse?: (id: string) => void }) {
   const { t, lang } = useT();
-  const { semester, addComponent, updateComponent, deleteComponent, deleteCourse, updateCourse } = useStore();
+  const { semester, addComponent, updateComponent, deleteComponent, softDeleteComponent, restoreComponent, deleteCourse, updateCourse } = useStore();
+  const { undoableDelete } = useUndo();
   const [addingItem, setAddingItem] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<GradeComponent | null>(null);
@@ -159,7 +161,15 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
                   celebrateFor(score, comp.total);
                 }}
                 onEdit={() => setEditingItem(comp)}
-                onDelete={() => deleteComponent(course.id, comp.id)}
+                onDelete={() => {
+                  const removed = softDeleteComponent(course.id, comp.id);
+                  if (!removed) return;
+                  undoableDelete({
+                    message: t("itemDeleted", { name: removed.name }),
+                    onUndo: () => restoreComponent(course.id, removed),
+                    onCommit: () => deleteComponent(course.id, comp.id),
+                  });
+                }}
               />
             ))}
           </div>

@@ -279,6 +279,13 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         })),
       deletePlannerNote: (id) =>
         setData((d) => ({ ...d, planner: { ...d.planner, notes: d.planner.notes.filter((n) => n.id !== id) } })),
+      softDeletePlannerNote: (id) => {
+        const note = data.planner.notes.find((n) => n.id === id);
+        if (note) setData((d) => ({ ...d, planner: { ...d.planner, notes: d.planner.notes.filter((n) => n.id !== id) } }));
+        return note;
+      },
+      restorePlannerNote: (note) =>
+        setData((d) => ({ ...d, planner: { ...d.planner, notes: [...d.planner.notes, note] } })),
       setPlannerAutoEdit: (id, ap) =>
         setData((d) => ({
           ...d,
@@ -333,6 +340,13 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         ),
       deleteComponent: (courseId, componentId) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, components: c.components.filter((x) => x.id !== componentId) }))),
+      softDeleteComponent: (courseId, componentId) => {
+        const comp = data.courses.find((c) => c.id === courseId)?.components.find((x) => x.id === componentId);
+        if (comp) mapCourses(inCourse(courseId, (c) => ({ ...c, components: c.components.filter((x) => x.id !== componentId) })));
+        return comp;
+      },
+      restoreComponent: (courseId, component) =>
+        mapCourses(inCourse(courseId, (c) => ({ ...c, components: [...c.components, component] }))),
 
       addSession: (courseId, s) => {
         mapCourses(inCourse(courseId, (c) => ({ ...c, sessions: [...c.sessions, { ...s, id: uid(), notes: s.notes ?? [] }] })));
@@ -347,6 +361,13 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         ),
       deleteSession: (courseId, sessionId) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, sessions: c.sessions.filter((s) => s.id !== sessionId) }))),
+      softDeleteSession: (courseId, sessionId) => {
+        const sess = data.courses.find((c) => c.id === courseId)?.sessions.find((s) => s.id === sessionId);
+        if (sess) mapCourses(inCourse(courseId, (c) => ({ ...c, sessions: c.sessions.filter((s) => s.id !== sessionId) })));
+        return sess;
+      },
+      restoreSession: (courseId, session) =>
+        mapCourses(inCourse(courseId, (c) => ({ ...c, sessions: [...c.sessions, session] }))),
 
       setMissedLectures: (courseId, missed) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedLectures: Math.max(0, missed) }))),

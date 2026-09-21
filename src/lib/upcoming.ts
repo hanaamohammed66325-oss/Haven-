@@ -12,6 +12,7 @@
 import type { Course, PlannerData, Semester } from "@/types";
 import { toISODate } from "./dates";
 import { plannerItemDate, REMINDER_TAGS } from "./reminders";
+import { noteBucket, noteTag } from "./plannerKind";
 
 /** Component types routed to the exams section. */
 export const EXAM_TYPES = ["quiz", "midterm", "final"];
@@ -147,13 +148,17 @@ export function buildUpcoming(
     const d = plannerItemDate(sem, n.week, n.day);
     if (!d) continue;
     const iso = toISODate(d);
-    const bucket: UpcomingBucket = PLANNER_EXAM_TAGS.has(n.tag) ? "exam" : "task";
+    // The note's TEXT decides both its bucket AND its displayed label when it
+    // clearly reads as an exam or a task ("موعد تسليم" → task, "اختبار" → exam),
+    // so a mis-tagged item is never bucketed or labelled as the wrong kind; only
+    // when the text is unclear do we fall back to the chip's tag.
+    const bucket: UpcomingBucket = noteBucket(n.text, n.tag);
     if (!isUpcoming(bucket, iso, now)) continue;
     add({
       href: "/schedule",
       courseName: null,
       name: n.text,
-      kind: n.tag,
+      kind: noteTag(n.text, n.tag) ?? n.tag,
       source: "planner",
       date: iso,
       time: n.dueTime ?? null,

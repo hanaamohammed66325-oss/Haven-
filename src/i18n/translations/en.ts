@@ -380,14 +380,14 @@ export const en = {
   smart_gpaGoal: "GPA {current} — push a bit more to reach {goal}",
   smart_allGood: "Everything's on track!",
   smart_studyNudge: "Feel like studying? Open Haven and knock out a task 📚",
-  smart_examTomorrow: "You've got {exam} tomorrow — want to review a bit?",
+  smart_examTomorrow: "You've got {exam} tomorrow — start a focus session to prepare?",
   smart_taskTomorrowSoon: "{task} is due tomorrow — knock it out now before it slips your mind?",
   smart_manyTasksTomorrow: "You've got {n} things due tomorrow — want to start now?",
 
   // Re-engagement / return nudge (in-app modal).
   nudge_titleNotif: "Don't miss a thing",
-  nudge_bodyNotif: "Reminders keep you from missing an exam or a lecture.",
-  nudge_ctaNotif: "Turn on reminders",
+  nudge_bodyNotif: "Notifications keep you from missing an exam or a lecture.",
+  nudge_ctaNotif: "Turn on notifications",
   nudge_titleCourses: "Finish setting up?",
   nudge_bodyCourses: "Your courses are missing — adding them takes a minute and we'll start tracking your GPA.",
   nudge_ctaCourses: "Add courses",
@@ -460,7 +460,7 @@ export const en = {
   tour_courseCredits: "Set the course's credit hours",
   tour_courseSave: "Save — and your course is added",
   tour_courseAdded: "Done! Your course is added. Same steps for the rest.",
-  tour_notifWhere: "From Settings → Notifications, turn on reminders so you never miss an exam or lecture.",
+  tour_notifWhere: "From Settings → Notifications, turn on notifications so you never miss an exam or lecture.",
   tour_addComponent: "Use \"Add item\" to add a course's exams and grades.",
   tour_itemName: "The item's name — e.g. Quiz 1.",
   tour_itemType: "Its type: quiz, midterm, assignment, project, or final.",
@@ -469,7 +469,7 @@ export const en = {
   tour_itemScore: "The score you got — your GPA updates automatically.",
   tour_itemSave: "Save, and the item is added and counted in your GPA.",
   tour_itemAdded: "Done! The grade item was added and your GPA updated.",
-  tour_notifHere: "Turn reminders on here — lectures and exams reach you ahead of time. Don't skip this!",
+  tour_notifHere: "Turn notifications on here — lectures, exams and tasks reach you before they're due, so nothing slips. Important: add Haven to your Home Screen first, or notifications can't reach you.",
   tour_haviIntro: "I'm Havi — I'll show you everything in Haven, step by step.",
 
   // Deep guided tour — full walkthrough callouts (every page, element-level).
@@ -521,7 +521,7 @@ export const en = {
   tour_addSession: "Tap \"Add session\" — let's add one.",
   tour_sessionSet: "For each lecture set its day and length; its clock time is set in the \"Weekly timetable\".",
   tour_jumpTo: "Jump to:",
-  tour_jump_notif: "Reminders",
+  tour_jump_notif: "Notifications",
   tour_jump_course: "Add course",
   tour_jump_item: "Add item",
   tour_jump_lecture: "Add lecture",
@@ -716,6 +716,8 @@ export const en = {
   addInstructor: "Add instructor name",
   resetColor: "Reset to default",
   courseDeleted: "\"{name}\" deleted",
+  itemDeleted: "\"{name}\" deleted",
+  sessionDeleted: "Class session removed",
   undo: "Undo",
   haviNameLabel: "Name your buddy",
   haviNamePlaceholder: "Havi",
@@ -810,6 +812,33 @@ export const en = {
   notifSending: "Sending…",
   notifSentToast: "Sent to {n} device(s). Check your notifications.",
   notifCleanedSuffix: " (cleaned {n} expired)",
+
+  // Dashboard notifications nudge — the bell button next to "Add course",
+  // shown only to users who haven't turned notifications on.
+  notifNudge_button: "Turn on notifications",
+  notifNudge_installTitle: "Install the app first",
+  notifNudge_installBody:
+    "To get notifications for your lectures, exams and tasks, add Haven to your Home Screen first. Once installed, open the app from its icon and try again.",
+  notifNudge_installCta: "How to install",
+  notifNudge_enableTitle: "Turn on notifications",
+  notifNudge_enableBody:
+    "Turn notifications on so your lectures, exams and tasks reach you ahead of time and nothing slips.",
+  notifNudge_enableCta: "Turn on notifications",
+  notifNudge_later: "Later",
+
+  // "What's new" — a one-time popup shown only inside the installed app.
+  whatsnew_title: "What's new in Haven",
+  whatsnew_subtitle: "A small update to make things easier:",
+  whatsnew_undo_title: "Undo button",
+  whatsnew_undo_body:
+    "Deleted a course, grade, attendance or task by mistake? An “Undo” button now lets you bring it back before it's gone for good.",
+  whatsnew_notif_title: "Turn-on-notifications button",
+  whatsnew_notif_body:
+    "A new button on your home page reminds you to turn notifications on — so your lectures, exams and tasks reach you ahead of time. It only shows while your notifications are off, and disappears once you turn them on.",
+  whatsnew_fixes_title: "Fixes & improvements",
+  whatsnew_fixes_body:
+    "We fixed a few issues with reminders and how tasks are sorted, so they reach you on time and everything shows where it should.",
+  whatsnew_cta: "Got it",
 
   sectionData: "Data",
 
@@ -1037,7 +1066,7 @@ export const en = {
   gam_challengesDone: "All done!",
   gam_challengeProgress: "{done}/{total}",
   gam_ch_dueToday: "Complete \"{task}\" — due today!",
-  gam_ch_examPrep: "Prep for {exam} — tomorrow!",
+  gam_ch_examPrep: "{exam} is tomorrow — finish a focus session to prepare",
   gam_ch_checkin: "Check in today",
   gam_ch_addTask: "Add a new planner task",
   gam_ch_completeTask: "Complete a planner task",

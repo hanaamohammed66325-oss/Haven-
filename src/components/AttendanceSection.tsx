@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
+import { useUndo } from "./UndoManager";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { attendanceInfo, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
@@ -75,9 +76,12 @@ export function AttendanceSection({ course }: { course: Course }) {
     addSession,
     updateSession,
     deleteSession,
+    softDeleteSession,
+    restoreSession,
     addMissedSession,
     removeMissedSession,
   } = useStore();
+  const { undoableDelete } = useUndo();
 
   const att = attendanceInfo(course, semester);
   const border = { borderColor: "var(--color-border)" };
@@ -179,7 +183,15 @@ export function AttendanceSection({ course }: { course: Course }) {
                     <span className="text-xs" style={{ color: "var(--color-muted)" }}>{mUnit}</span>
                   </div>
                   <button
-                    onClick={() => deleteSession(course.id, s.id)}
+                    onClick={() => {
+                      const removed = softDeleteSession(course.id, s.id);
+                      if (!removed) return;
+                      undoableDelete({
+                        message: t("sessionDeleted"),
+                        onUndo: () => restoreSession(course.id, removed),
+                        onCommit: () => deleteSession(course.id, s.id),
+                      });
+                    }}
                     className="rounded-lg p-1.5 transition-colors hover:bg-black/5 shrink-0"
                     aria-label={t("delete")}
                   >

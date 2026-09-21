@@ -1,85 +1,37 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { Plus, BookOpen, Undo2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Plus, BookOpen } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
+import { useUndo } from "@/components/UndoManager";
 import { Card } from "@/components/Card";
 import { CoursePanel } from "@/components/CoursePanel";
 import { AddCourseModal } from "@/components/AddCourseModal";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useSubscription } from "@/lib/subscription";
 import { canAddCourse } from "@/lib/premium";
-import type { Course } from "@/types";
-
-const UNDO_MS = 5000;
 
 export default function CoursesPage() {
   const { t } = useT();
   usePageTitle("nav_courses");
   const { hydrated, courses, semester, addCourse, deleteCourse, softDeleteCourse, restoreCourse } = useStore();
+  const { undoableDelete } = useUndo();
   const { sub, profile } = useSubscription();
   const [adding, setAdding] = useState(false);
   const [gateOpen, setGateOpen] = useState(false);
 
-  const [pendingDelete, setPendingDelete] = useState<Course | null>(null);
-  const pendingRef = useRef<Course | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearPending = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = null;
-    pendingRef.current = null;
-    setPendingDelete(null);
-  }, []);
-
+  // Soft-delete + a shared undo toast: the course leaves the list at once, but
+  // the cloud delete only lands after the undo window closes.
   const handleDeleteCourse = useCallback((id: string) => {
-    if (pendingRef.current) {
-      deleteCourse(pendingRef.current.id);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-
     const removed = softDeleteCourse(id);
     if (!removed) return;
-
-    pendingRef.current = removed;
-    setPendingDelete(removed);
-    timerRef.current = setTimeout(() => {
-      const c = pendingRef.current;
-      if (c) {
-        deleteCourse(c.id);
-        pendingRef.current = null;
-        timerRef.current = null;
-        setPendingDelete(null);
-      }
-    }, UNDO_MS);
-  }, [deleteCourse, softDeleteCourse]);
-
-  const handleUndo = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    const course = pendingRef.current;
-    if (!course) return;
-    restoreCourse(course);
-    clearPending();
-  }, [restoreCourse, clearPending]);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!pendingRef.current) return;
-    const commit = () => {
-      const c = pendingRef.current;
-      if (c) deleteCourse(c.id);
-    };
-    window.addEventListener("beforeunload", commit);
-    return () => window.removeEventListener("beforeunload", commit);
-  }, [pendingDelete, deleteCourse]);
+    undoableDelete({
+      message: t("courseDeleted", { name: removed.name }),
+      onUndo: () => restoreCourse(removed),
+      onCommit: () => deleteCourse(removed.id),
+    });
+  }, [softDeleteCourse, restoreCourse, deleteCourse, undoableDelete, t]);
 
   const canAdd = canAddCourse(profile, sub, courses.length);
 
@@ -118,7 +70,7 @@ export default function CoursesPage() {
         {t("coursesSubtitle")}
       </p>
 
-      {courses.length === 0 && !pendingDelete ? (
+      {courses.length === 0 ? (
         <Card className="flex flex-col items-center justify-center text-center py-16">
           <div
             className="flex items-center justify-center rounded-2xl mb-4"
@@ -137,26 +89,6 @@ export default function CoursesPage() {
             </div>
           ))}
         </div>
-      )}
-
-      {pendingDelete && createPortal(
-        <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-lg haven-fade-up"
-          style={{ background: "var(--color-ink)", color: "var(--color-bg)" }}
-        >
-          <span className="text-sm font-medium">
-            {t("courseDeleted", { name: pendingDelete.name })}
-          </span>
-          <button
-            onClick={handleUndo}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
-            style={{ background: "var(--color-primary)", color: "#fff" }}
-          >
-            <Undo2 size={14} />
-            {t("undo")}
-          </button>
-        </div>,
-        document.body
       )}
 
       <AddCourseModal
