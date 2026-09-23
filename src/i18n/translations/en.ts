@@ -228,7 +228,7 @@ export const en = {
   cumNoGradeYet: "no grade yet",
   cumResultLabel: "New cumulative GPA",
   cumBreakdown:
-    "This semester: {sem} / 5.0 · Previous: {prev} / 5.0 → New cumulative: {next} / 5.0",
+    "This semester: {sem} / {max} · Previous: {prev} / {max} → New cumulative: {next} / {max}",
   cumNote: "Simulation only — your saved data isn't changed.",
   cumTabCurrent: "This semester's courses",
   cumTabManual: "Manual entry",
@@ -720,6 +720,7 @@ export const en = {
   sessionDeleted: "Class session removed",
   undo: "Undo",
   haviNameLabel: "Name your buddy",
+  haviOutfitLabel: "Buddy's outfit",
   haviNamePlaceholder: "Havi",
   gradesRecorded: "Grades recorded",
   currentTotal: "Current total",
@@ -751,11 +752,36 @@ export const en = {
   attMethodLabel: "Counting method",
   attMethodLecture: "By lecture",
   attMethodHour: "By hour",
+  attMethodHint: "By hour weighs each session by its length. By lecture counts every missed lecture the same.",
+  perLecturePctLabel: "% per lecture",
+  perLecturePctPlaceholder: "Auto",
+  perLecturePctHint: "Leave empty to split evenly ({pct}% each). Set it only if your professor uses a fixed value.",
   withdrawalLimitLabel: "Withdrawal limit (%)",
   semesterWeeksLabel: "Teaching weeks",
   finalsWeeksLabel: "Finals weeks",
   weeksCustom: "Custom",
   weeksSuggestion: "≈ {total} weeks total ({teaching} teaching + {finals} finals)",
+
+  // Holidays — student-managed calendar (built-in dismiss/restore + custom add)
+  sectionHolidays: "Holidays",
+  holidaysDesc:
+    "Official and religious holidays apply automatically. If your university's calendar differs, remove a holiday or add your own to match its official calendar — it flows straight into your attendance and withdrawal math.",
+  holidaysNeedDates: "Set the semester's start and end dates first to see this term's holidays.",
+  holidaysEmpty: "No holidays fall within this semester's dates.",
+  holidayOfficial: "Official",
+  holidayCustom: "Custom",
+  holidayRemove: "Remove",
+  holidayRestore: "Restore",
+  holidayDelete: "Delete",
+  holidayAddBtn: "Add holiday",
+  holidayAdd: "Add",
+  holidayNamePlaceholder: "Holiday name (e.g. Mid-term break)",
+  holidayStart: "From",
+  holidayEnd: "To",
+  holidayWholeWeek: "Whole week",
+  holidayErrName: "Enter a name for the holiday.",
+  holidayErrDates: "Pick a start and end date.",
+  holidayErrOrder: "The end date must be on or after the start.",
 
   // Reminders
   sectionReminders: "Reminders",
@@ -828,16 +854,23 @@ export const en = {
 
   // "What's new" — a one-time popup shown only inside the installed app.
   whatsnew_title: "What's new in Haven",
-  whatsnew_subtitle: "A small update to make things easier:",
-  whatsnew_undo_title: "Undo button",
-  whatsnew_undo_body:
-    "Deleted a course, grade, attendance or task by mistake? An “Undo” button now lets you bring it back before it's gone for good.",
-  whatsnew_notif_title: "Turn-on-notifications button",
-  whatsnew_notif_body:
-    "A new button on your home page reminds you to turn notifications on — so your lectures, exams and tasks reach you ahead of time. It only shows while your notifications are off, and disappears once you turn them on.",
-  whatsnew_fixes_title: "Fixes & improvements",
-  whatsnew_fixes_body:
-    "We fixed a few issues with reminders and how tasks are sorted, so they reach you on time and everything shows where it should.",
+  whatsnew_subtitle: "Updates that bring Haven closer to your university.",
+  whatsnew_academic_title: "Academic profile",
+  whatsnew_academic_body:
+    "Set your university, major and level once — and the rest of the app tunes itself to them.",
+  whatsnew_gpa_title: "GPA system by university",
+  whatsnew_gpa_body:
+    "Out of 5.0, 4.0, or a percentage — detected automatically from your university's official system.",
+  whatsnew_holidays_title: "Holidays manager",
+  whatsnew_holidays_body:
+    "Official holidays apply on their own and flow into your attendance and withdrawal (حرمان) maths.",
+  whatsnew_attendance_title: "Attendance counting",
+  whatsnew_attendance_body:
+    "Count absences by hour or by lecture — per course, whichever your professor uses.",
+  whatsnew_scope_note:
+    "Automatic detection of your university and GPA, and the official holidays, currently covers Saudi universities — expanding to more soon.",
+  whatsnew_general_fixes:
+    "Plus general improvements and fixes across performance, notifications, and the interface.",
   whatsnew_cta: "Got it",
 
   sectionData: "Data",
@@ -1235,6 +1268,31 @@ export const en = {
   gam_badge_perfectScore_desc: "Get {n} full marks",
   gam_badge_perfectScore_why: "Full marks earned!",
   gam_badge_perfectScore_howToGet: "Score {pct}%+ on {n} graded components",
+
+  // Academic profile (university / major / level)
+  academicSectionTitle: "Academic profile",
+  academicSectionDesc: "Your university, major, and level — used to tailor Haven to you.",
+  universityLabel: "University",
+  universitySelectPlaceholder: "Select your university",
+  universityOther: "Other",
+  universityCustomPlaceholder: "Type your university name",
+  majorLabel: "Major",
+  majorPlaceholder: "e.g. Nursing",
+  levelLabel: "Level",
+  levelSelectPlaceholder: "Select your level",
+  levelOption: "Level {n}",
+  levelCustom: "Custom",
+  levelCustomPlaceholder: "Your level",
+  gpaSchemeLabel: "GPA system",
+  gpaSchemeAuto: "Automatic (by university)",
+  gradeScheme5: "Out of 5.0",
+  gradeScheme4: "Out of 4.0",
+  gradeSchemePlusMinus: "International 4.0 (A- / ±)",
+  gradeSchemePercent: "Percentage",
+  gpaSchemeDetected: "Detected: {scheme}",
+  gpaSchemeHint: "We detect this from your university. Change it if your regulations differ.",
+  academicBannerPrompt: "Complete your academic profile",
+  academicLevelShort: "Level {n}",
 };
 
 export type TranslationKey = keyof typeof en;

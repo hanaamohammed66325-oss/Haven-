@@ -81,8 +81,8 @@ function pushContent(lang: string, variant: Variant, seed: number): { title: str
     return { title: ar ? 'نحسب معدلك؟' : 'Calculate your GPA?', body: pick(bodies, seed), url: '/courses?reengage=1' };
   }
   const titles = ar
-    ? ['طمنّا عنك 👋', 'Haven بانتظارك', 'اشتقنا لك']
-    : ['Checking in 👋', 'Haven misses you', 'We miss you'];
+    ? ['طمنّا عنك', 'Haven بانتظارك', 'اشتقنا لك']
+    : ['Checking in', 'Haven misses you', 'We miss you'];
   const bodies = ar
     ? [
         'صار لك فترة ما دخلت — متأكد وضعك تمام؟ تحديث سريع يطمنك',
@@ -153,13 +153,21 @@ serve(async (req) => {
 
     // 2) Cooldown — drop anyone nudged within COOLDOWN_DAYS (skipped for a
     //    targeted self-test so it can be re-run freely).
+    //    notifications_sent has NO timestamp column we can filter on, but every
+    //    reengage touch's item_key encodes the day it was sent
+    //    (`reengage-YYYY-MM-DD`), so we look for a touch under any of the last
+    //    COOLDOWN_DAYS day-keys instead of a created_at range.
     const skip = new Set<string>();
     if (!onlyUser) {
+      const recentKeys: string[] = [];
+      for (let d = 0; d < COOLDOWN_DAYS; d++) {
+        recentKeys.push(`reengage-${new Date(now - d * DAY).toISOString().slice(0, 10)}`);
+      }
       const { data: recent } = await admin
         .from('notifications_sent')
         .select('user_id')
         .eq('kind', 'reengage')
-        .gt('created_at', new Date(now - COOLDOWN_DAYS * DAY).toISOString())
+        .in('item_key', recentKeys)
         .in('user_id', userIds);
       for (const r of recent ?? []) skip.add(r.user_id);
     }

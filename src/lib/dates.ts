@@ -14,6 +14,11 @@ export function addDays(d: Date, n: number): Date {
   return x;
 }
 
+/** Convert Arabic-Indic digits (٠-٩) to ASCII (0-9); other characters pass through. */
+export function normalizeArabicDigits(raw: string): string {
+  return raw.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+}
+
 /** Local-time ISO date (YYYY-MM-DD) without timezone drift. */
 export function toISODate(d: Date): string {
   const y = d.getFullYear();

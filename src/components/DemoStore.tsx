@@ -205,6 +205,7 @@ function buildInitialData(): AppData {
   return {
     profileName: "Sara",
     email: "sara@example.com",
+    academic: { universitySlug: "king-saud", universityName: "جامعة الملك سعود", major: "Computer Science", level: "4" },
     profilePhoto: null,
     gpaGoal: 4.75,
     language: "en",
@@ -250,6 +251,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
 
       setProfileName: (name) => patch({ profileName: name }),
       setEmail: (email) => patch({ email }),
+      setAcademic: (p) => patch({ academic: { ...data.academic, ...p } }),
       setProfilePhoto: (profilePhoto) => patch({ profilePhoto }),
       setGpaGoal: (gpaGoal) => patch({ gpaGoal }),
 

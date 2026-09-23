@@ -9,12 +9,12 @@ import { attendanceInfo } from "@/lib/grades";
 
 export function NeedsAttentionCard() {
   const { t } = useT();
-  const { courses, semester } = useStore();
+  const { courses, semester, academic } = useStore();
 
   const items = courses
     .map((c) => {
       const reasons: string[] = [];
-      const att = attendanceInfo(c, semester);
+      const att = attendanceInfo(c, semester, academic?.universitySlug);
       if (att?.status === "danger") {
         reasons.push(t("attnWithdrawal", { n: att.absence.toFixed(0) }));
       } else if (att?.status === "warn") {

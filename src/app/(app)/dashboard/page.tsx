@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil, Flame, Sparkles, Lock, Target, CheckCircle2 } from "lucide-react";
-import { useStore } from "@/store";
+import { useStore, useScheme } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
+import { AcademicBanner } from "@/components/AcademicBanner";
 import { CircularProgress } from "@/components/CircularProgress";
 import { InfoPopover } from "@/components/InfoPopover";
 import { GradeBadge } from "@/components/GradeBadge";
@@ -60,6 +61,7 @@ export default function DashboardPage() {
     setCumulativeGpa,
     setCumulativeHours,
   } = store;
+  const gradeScheme = useScheme();
   const { gamification, recordAppOpen, doCheckIn, awardGamificationXP, refreshGamChallenges } = store;
   const { profile, sub } = useSubscription();
   const isPremium = hasActiveAccess(profile, sub);
@@ -97,10 +99,10 @@ export default function DashboardPage() {
   }, [doCheckIn, refreshGamChallenges]);
 
   const progress = useMemo(() => semesterProgress(semester), [semester]);
-  const gpa = useMemo(() => semesterGPA(courses), [courses]);
+  const gpa = useMemo(() => semesterGPA(courses, gradeScheme), [courses, gradeScheme]);
   const projected = useMemo(
-    () => projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours),
-    [courses, cumulativeGpa, cumulativeHours]
+    () => projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, gradeScheme),
+    [courses, cumulativeGpa, cumulativeHours, gradeScheme]
   );
   const shownGpa = gpaMode === "cumulative" ? projected : gpa;
 
@@ -166,6 +168,9 @@ export default function DashboardPage() {
           <p className="text-[15px] mt-2.5" style={{ color: "var(--color-muted)" }}>
             {semester.name}
           </p>
+          {/* Academic identity — a light, seamless line that personalises the page.
+              Editing lives on the profile, so no edit control is shown here. */}
+          <AcademicBanner />
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
           <NotifNudge />
@@ -439,9 +444,9 @@ export default function DashboardPage() {
                       <div className={revealGpa ? "haven-clear" : "haven-blur"}>
                         <span className="inline-flex items-center gap-1">
                           <span className="font-display text-[40px] leading-none" style={{ color: "var(--color-brass)", opacity: 0.6 }}>
-                            5.00
+                            {gradeScheme.max.toFixed(2)}
                           </span>
-                          <span className="text-base" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
+                          <span className="text-base" style={{ color: "var(--color-muted)" }}>/ {gradeScheme.max}</span>
                           <InfoPopover
                             label={t("gradeDescNote")}
                             trigger={
@@ -464,7 +469,7 @@ export default function DashboardPage() {
                         <span className="font-display text-[40px] leading-none" style={{ color: "var(--color-brass)" }}>
                           <CountUp value={shownGpa} decimals={2} />
                         </span>
-                        <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
+                        <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ {gradeScheme.max}</span>
                       </div>
                       {gpaMode === "semester" && (
                         <div className="text-[10px] leading-none" style={{ color: "var(--color-muted)" }}>
@@ -490,7 +495,7 @@ export default function DashboardPage() {
                       <input
                         type="number"
                         min="0"
-                        max="5"
+                        max={gradeScheme.max}
                         step="0.01"
                         inputMode="decimal"
                         placeholder="0.00"
@@ -614,14 +619,15 @@ function gradeColor(pct: number | null): string {
 
 function DashboardCourseCard({ course, index }: { course: Course; index: number }) {
   const { t, lang } = useT();
-  const { semester, planner, updateCourse } = useStore();
+  const { semester, planner, academic, updateCourse } = useStore();
+  const scheme = useScheme();
   const [revealed, setRevealed] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState(false);
   const [instrDraft, setInstrDraft] = useState(course.instructorName ?? "");
   const [colorOpen, setColorOpen] = useState(false);
   const colorRef = useRef<HTMLDivElement>(null);
   const pct = courseCurrentPct(course);
-  const att = attendanceInfo(course, semester);
+  const att = attendanceInfo(course, semester, academic?.universitySlug);
   const cardColor = course.color;
 
   useEffect(() => {
@@ -754,7 +760,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             className="relative z-[2] shrink-0 flex flex-col items-end gap-1.5 cursor-pointer select-none"
           >
             <span className={revealed ? "haven-clear" : "haven-blur"}>
-              <GradeBadge pct={pct} size="md" />
+              <GradeBadge scheme={scheme} pct={pct} size="md" />
             </span>
             {revealed ? <EyeOff size={14} color="var(--color-muted)" /> : <Eye size={14} color="var(--color-muted)" />}
           </span>

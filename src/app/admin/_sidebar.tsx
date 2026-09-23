@@ -4,7 +4,7 @@ import { useC, useTheme } from "./_lib";
 import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
-  | "dashboard" | "users" | "insights" | "notifications"
+  | "dashboard" | "users" | "insights" | "retention" | "notifications"
   | "subscriptions" | "payments" | "support" | "coupons";
 
 /** Sections that are only relevant once paid subscriptions are live. Hidden by
@@ -30,6 +30,7 @@ export function AdminSidebar({
     { id: "dashboard",     label: "Dashboard",     icon: "🏠" },
     { id: "users",         label: "Users",         icon: "👥" },
     { id: "insights",      label: "Insights",      icon: "📊" },
+    { id: "retention",     label: "Retention",     icon: "🔁" },
     { id: "notifications", label: "Notifications", icon: "🔔" },
     { id: "subscriptions", label: "Subscriptions", icon: "💳" },
     { id: "payments",      label: "Payments",      icon: "💰", badge: badges?.payments },

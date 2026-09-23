@@ -8,7 +8,7 @@ import { AttendanceSection } from "./AttendanceSection";
 import { AddItemModal } from "./AddItemModal";
 import { AddCourseModal } from "./AddCourseModal";
 import { BoundedNumberInput } from "./BoundedNumberInput";
-import { useStore } from "@/store";
+import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { useUndo } from "./UndoManager";
 import {
@@ -22,6 +22,7 @@ import type { Course, GradeComponent } from "@/types";
 export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDeleteCourse?: (id: string) => void }) {
   const { t, lang } = useT();
   const { semester, addComponent, updateComponent, deleteComponent, softDeleteComponent, restoreComponent, deleteCourse, updateCourse } = useStore();
+  const scheme = useScheme();
   const { undoableDelete } = useUndo();
   const [addingItem, setAddingItem] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -31,7 +32,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
   const pct = courseCurrentPct(course);
   const used = weightsTotal(course);
   const left = Math.max(0, 100 - used);
-  const advice = finalAdvice(course);
+  const advice = finalAdvice(course, scheme);
 
   // Share of the FULL course (out of 100) that is actually graded — drives the
   // "provisional" note. Measured against 100, not just the weight defined so
@@ -103,7 +104,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <GradeBadge pct={pct} size="lg" showDefaultNote gradedPct={gradedPct} showProvisional />
+          <GradeBadge scheme={scheme} pct={pct} size="lg" showDefaultNote gradedPct={gradedPct} showProvisional />
           <button
             onClick={() => setEditing(true)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"

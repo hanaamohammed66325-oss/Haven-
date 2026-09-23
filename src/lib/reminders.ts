@@ -89,15 +89,19 @@ export function collectUpcoming(
     out.push({ key, diff, title, tag: opts.tag, time, ts });
   };
 
-  // Course-derived dated items (tasks / exams / assignments).
+  // Course-derived dated items (tasks / exams / assignments). Skip items the
+  // student has checked off or removed in the planner.
   for (const c of courses) {
     for (const comp of c.components) {
+      const ae = planner.autoEdits?.[comp.id];
+      if (ae?.done || ae?.hidden) continue;
       if (comp.date) push(comp.date, comp.name, {});
     }
   }
 
   // Planner deadline chips: reminder-eligible tag + a specific day (not -1).
   for (const n of planner.notes) {
+    if (n.done) continue; // checked off → stop reminding
     if (!n.tag || !REMINDER_TAGS.has(n.tag)) continue;
     if (n.day == null) continue; // whole-week chips are never reminded
     const d = plannerItemDate(sem, n.week, n.day);

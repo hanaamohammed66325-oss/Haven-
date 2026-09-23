@@ -229,7 +229,7 @@ export const ar: Record<TranslationKey, string> = {
   cumNoGradeYet: "لا يوجد تقدير بعد",
   cumResultLabel: "المعدل التراكمي الجديد",
   cumBreakdown:
-    "هذا الفصل: {sem} / 5.0 · السابق: {prev} / 5.0 ← الجديد: {next} / 5.0",
+    "هذا الفصل: {sem} / {max} · السابق: {prev} / {max} ← الجديد: {next} / {max}",
   cumNote: "محاكاة فقط — لا يتغيّر شيء من بياناتك المحفوظة.",
   cumTabCurrent: "مواد الفصل الحالي",
   cumTabManual: "إدخال يدوي",
@@ -721,6 +721,7 @@ export const ar: Record<TranslationKey, string> = {
   sessionDeleted: "تم حذف الجلسة",
   undo: "تراجع",
   haviNameLabel: "سمّ رفيقك",
+  haviOutfitLabel: "زِيّ رفيقك",
   haviNamePlaceholder: "هافي",
   gradesRecorded: "الدرجات المرصودة",
   currentTotal: "المجموع الحالي",
@@ -752,11 +753,36 @@ export const ar: Record<TranslationKey, string> = {
   attMethodLabel: "طريقة الاحتساب",
   attMethodLecture: "بالمحاضرة",
   attMethodHour: "بالساعة",
+  attMethodHint: "بالساعة يحسب كل جلسة حسب طولها. بالمحاضرة يحسب كل محاضرة فائتة بالتساوي.",
+  perLecturePctLabel: "النسبة لكل محاضرة",
+  perLecturePctPlaceholder: "تلقائي",
+  perLecturePctHint: "اتركه فاضي عشان يوزّع بالتساوي ({pct}٪ لكل محاضرة). حطّه فقط لو دكتورك يعتمد نسبة ثابتة.",
   withdrawalLimitLabel: "حد الحرمان (٪)",
   semesterWeeksLabel: "أسابيع التدريس",
   finalsWeeksLabel: "أسابيع النهائيات",
   weeksCustom: "مخصص",
   weeksSuggestion: "≈ {total} أسبوعًا إجمالًا ({teaching} تدريس + {finals} نهائيات)",
+
+  // Holidays — student-managed calendar (built-in dismiss/restore + custom add)
+  sectionHolidays: "الإجازات",
+  holidaysDesc:
+    "الإجازات الرسمية والدينية تنطبق تلقائيًا. لو تقويم جامعتك يختلف، احذف إجازة أو أضف وحدة لتطابق تقويمك الرسمي — وينعكس مباشرة على حساب الغياب والحرمان.",
+  holidaysNeedDates: "حدّد تاريخ بداية ونهاية الفصل أولًا عشان تظهر إجازات هذا الفصل.",
+  holidaysEmpty: "لا توجد إجازات ضمن تواريخ هذا الفصل.",
+  holidayOfficial: "رسمية",
+  holidayCustom: "مخصّصة",
+  holidayRemove: "حذف",
+  holidayRestore: "استرجاع",
+  holidayDelete: "حذف",
+  holidayAddBtn: "إضافة إجازة",
+  holidayAdd: "إضافة",
+  holidayNamePlaceholder: "اسم الإجازة (مثال: إجازة منتصف الفصل)",
+  holidayStart: "من",
+  holidayEnd: "إلى",
+  holidayWholeWeek: "أسبوع كامل",
+  holidayErrName: "اكتب اسم الإجازة.",
+  holidayErrDates: "حدّد تاريخ البداية والنهاية.",
+  holidayErrOrder: "تاريخ النهاية لازم يكون بعد البداية.",
 
   // Reminders
   sectionReminders: "التذكيرات",
@@ -829,17 +855,24 @@ export const ar: Record<TranslationKey, string> = {
 
   // "What's new" — a one-time popup shown only inside the installed app.
   whatsnew_title: "وش الجديد في Haven",
-  whatsnew_subtitle: "تحديث صغير يخلّي استخدامك أسهل:",
-  whatsnew_undo_title: "زر التراجع",
-  whatsnew_undo_body:
-    "حذفت مقرر أو درجة أو حضور أو مهمة بالغلط؟ الحين يطلع لك زر «تراجع» تقدر ترجّعها فيه قبل ما تنحذف نهائيًا.",
-  whatsnew_notif_title: "زر تفعيل الإشعارات",
-  whatsnew_notif_body:
-    "زر جديد في الرئيسية يذكّرك تفعّل الإشعارات — عشان توصلك محاضراتك واختباراتك ومهامك قبلها بوقت وما يفوتك شي. يظهر فقط إذا كانت إشعاراتك غير مفعّلة، ويختفي أول ما تفعّلها.",
-  whatsnew_fixes_title: "إصلاحات وتحسينات",
-  whatsnew_fixes_body:
-    "صلّحنا كم مشكلة في التذكيرات وتصنيف المهام، عشان توصلك بوقتها الصحيح وكل شي يظهر في مكانه.",
-  whatsnew_cta: "تمام، فهمت",
+  whatsnew_subtitle: "تحديثات تقرّب Haven من جامعتك.",
+  whatsnew_academic_title: "الملف الأكاديمي",
+  whatsnew_academic_body:
+    "عرّف جامعتك وتخصصك ومستواك مرّة وحدة، وباقي التطبيق يضبط نفسه عليها.",
+  whatsnew_gpa_title: "نظام المعدل حسب جامعتك",
+  whatsnew_gpa_body:
+    "من 5.0 أو 4.0 أو نسبة مئوية — يُكتشف تلقائيًا من النظام الرسمي لجامعتك.",
+  whatsnew_holidays_title: "مدير الإجازات",
+  whatsnew_holidays_body:
+    "الإجازات الرسمية تنطبق تلقائيًا وتدخل في حساب الحضور والحرمان.",
+  whatsnew_attendance_title: "احتساب الحضور",
+  whatsnew_attendance_body:
+    "احسب الغياب بالساعة أو بالمحاضرة — لكل مقرر، حسب اللي يعتمده أستاذك.",
+  whatsnew_scope_note:
+    "الاكتشاف التلقائي لجامعتك ومعدّلك، والإجازات الرسمية، حاليًا يغطّي الجامعات السعودية — ونتوسّع لغيرها قريبًا.",
+  whatsnew_general_fixes:
+    "بالإضافة إلى تحسينات وإصلاحات عامة في الأداء والإشعارات والواجهة.",
+  whatsnew_cta: "تمام",
 
   sectionData: "البيانات",
 
@@ -1234,4 +1267,29 @@ export const ar: Record<TranslationKey, string> = {
   gam_badge_perfectScore_desc: "احصل على {n} درجات كاملة",
   gam_badge_perfectScore_why: "حققت درجات كاملة!",
   gam_badge_perfectScore_howToGet: "احصل على {pct}٪ فأعلى في {n} اختبارات أو واجبات",
+
+  // Academic profile (university / major / level)
+  academicSectionTitle: "الملف الأكاديمي",
+  academicSectionDesc: "جامعتك وتخصصك ومستواك — تُستخدم لتخصيص Haven لك.",
+  universityLabel: "الجامعة",
+  universitySelectPlaceholder: "اختر جامعتك",
+  universityOther: "أخرى",
+  universityCustomPlaceholder: "اكتب اسم جامعتك",
+  majorLabel: "التخصص",
+  majorPlaceholder: "مثال: تمريض",
+  levelLabel: "المستوى",
+  levelSelectPlaceholder: "اختر مستواك",
+  levelOption: "المستوى {n}",
+  levelCustom: "مخصص",
+  levelCustomPlaceholder: "مستواك",
+  gpaSchemeLabel: "نظام المعدل",
+  gpaSchemeAuto: "تلقائي (حسب الجامعة)",
+  gradeScheme5: "من 5.0",
+  gradeScheme4: "من 4.0",
+  gradeSchemePlusMinus: "دولي 4.0 (A-‏ / ±)",
+  gradeSchemePercent: "نسبة مئوية",
+  gpaSchemeDetected: "المكتشَف: {scheme}",
+  gpaSchemeHint: "نحدده تلقائيًا من جامعتك. غيّره إذا كانت لائحتك مختلفة.",
+  academicBannerPrompt: "أكمل ملفك الأكاديمي",
+  academicLevelShort: "المستوى {n}",
 };

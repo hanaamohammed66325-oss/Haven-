@@ -1,6 +1,7 @@
 import type { Course, Semester } from "@/types";
-import { resolveHolidaysForSemester, holidayMinutes } from "./holidays";
+import { resolveHolidaysForSemester, holidayMinutes, holidayLectureCount } from "./holidays";
 import { resolveTardinessRule, tardinessToAbsenceMinutes } from "./tardiness";
+import { SAUDI5, bandForPct, pointsForPct, type GradeScheme } from "./gradeSchemes";
 
 /** Status thresholds scale with each course's own limit: "approaching" starts at
  *  70% of the limit, "withdrawal risk" at the limit itself. */
@@ -19,20 +20,16 @@ export function courseLimit(c: Course, sem?: Semester): number {
   return sem && sem.withdrawalLimit > 0 ? sem.withdrawalLimit : 25;
 }
 
-// Saudi 5.0 scale (default cutoffs; make editable later)
-export const SCALE = [
-  { min: 95, letter: "A+", points: 5.0 },
-  { min: 90, letter: "A", points: 4.75 },
-  { min: 85, letter: "B+", points: 4.5 },
-  { min: 80, letter: "B", points: 4.0 },
-  { min: 75, letter: "C+", points: 3.5 },
-  { min: 70, letter: "C", points: 3.0 },
-  { min: 65, letter: "D+", points: 2.5 },
-  { min: 60, letter: "D", points: 2.0 },
-  { min: 0, letter: "F", points: 1.0 },
-];
+// Saudi 5.0 scale — the historical default. The full set of systems (5.0 / 4.0 /
+// percentage) lives in ./gradeSchemes; SCALE stays as an alias of the 5.0 bands
+// so older callers keep working.
+export const SCALE = SAUDI5.bands;
 
-export const pctToGrade = (p: number) => SCALE.find((s) => p >= s.min)!;
+/** The band a percentage earns under a scheme (defaults to Saudi 5.0). The
+ *  LETTER is the same across the point-based schemes, so callers that only need
+ *  the letter can ignore the scheme argument. */
+export const pctToGrade = (p: number, scheme: GradeScheme = SAUDI5) =>
+  bandForPct(scheme, p);
 
 /**
  * Course grade as it currently stands, out of the FULL 100 — descending from
@@ -71,21 +68,27 @@ export interface SemesterGpaDetail {
   points: number; // Σ(points × credits) over graded courses
   credits: number; // Σ(credits) over graded courses
 }
-export function semesterGpaDetail(courses: Course[]): SemesterGpaDetail {
+export function semesterGpaDetail(
+  courses: Course[],
+  scheme: GradeScheme = SAUDI5
+): SemesterGpaDetail {
   let n = 0,
     d = 0;
   courses.forEach((c) => {
     const p = courseCurrentPct(c);
     if (p == null) return;
-    n += pctToGrade(p).points * c.creditHours;
+    n += pointsForPct(scheme, p) * c.creditHours;
     d += c.creditHours;
   });
   return { gpa: d ? n / d : null, points: n, credits: d };
 }
 
 // Semester GPA = Σ(points × credits) / Σ(credits)
-export function semesterGPA(courses: Course[]): number | null {
-  return semesterGpaDetail(courses).gpa;
+export function semesterGPA(
+  courses: Course[],
+  scheme: GradeScheme = SAUDI5
+): number | null {
+  return semesterGpaDetail(courses, scheme).gpa;
 }
 
 /** Blend a set of semester quality points/credits with the entered current
@@ -95,13 +98,15 @@ export function projectedCumulativeFromParts(
   points: number,
   credits: number,
   currentGpa: number,
-  completedHours: number
+  completedHours: number,
+  scheme: GradeScheme = SAUDI5
 ): number | null {
-  const prevGpa = Math.max(0, Math.min(5, Number(currentGpa) || 0));
+  const max = scheme.max;
+  const prevGpa = Math.max(0, Math.min(max, Number(currentGpa) || 0));
   const prevHours = Math.max(0, Number(completedHours) || 0);
   const totalHours = prevHours + credits;
   if (totalHours <= 0) return prevHours > 0 ? prevGpa : null;
-  return Math.min(5, (prevGpa * prevHours + points) / totalHours);
+  return Math.min(max, (prevGpa * prevHours + points) / totalHours);
 }
 
 /** Projected new cumulative GPA: blends the entered current cumulative GPA
@@ -110,10 +115,11 @@ export function projectedCumulativeFromParts(
 export function projectedCumulativeGpa(
   courses: Course[],
   currentGpa: number,
-  completedHours: number
+  completedHours: number,
+  scheme: GradeScheme = SAUDI5
 ): number | null {
-  const { points, credits } = semesterGpaDetail(courses);
-  return projectedCumulativeFromParts(points, credits, currentGpa, completedHours);
+  const { points, credits } = semesterGpaDetail(courses, scheme);
+  return projectedCumulativeFromParts(points, credits, currentGpa, completedHours, scheme);
 }
 
 export const weightsTotal = (c: Course) =>
@@ -174,7 +180,10 @@ export const minutesPerWeek = (c: Course) =>
 
 export interface AttendanceInfo {
   weeks: number;
-  /** percentage cost of one contact hour */
+  /** the counting method these numbers were produced with */
+  mode: "hour" | "lecture";
+  /** percentage cost of one absence UNIT — a contact hour in "hour" mode, a
+   *  single lecture in "lecture" mode. */
   unit: number;
   absence: number;
   rate: number;
@@ -192,11 +201,21 @@ export interface AttendanceInfo {
   holidayMinutesOff: number;
   /** hours remaining before reaching the limit */
   hoursRemaining: number;
+  /** total lectures in the term (after subtracting holiday lectures) */
+  totalLectures: number;
+  /** missed (unexcused, full) lectures counted */
+  missedLectures: number;
+  /** lectures still missable before reaching the limit */
+  lecturesRemaining: number;
 }
 
 // Duration-based absence: every session and every logged absence is weighted by its real length
 // in minutes, so a 2-hour class counts twice a 1-hour one. Compared against the withdrawal limit.
-export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null {
+export function attendanceInfo(
+  c: Course,
+  sem?: Semester,
+  universitySlug?: string | null
+): AttendanceInfo | null {
   const weeks = teachingWeeks(sem);
   const limit = courseLimit(c, sem);
   const approaching = APPROACHING_FRACTION * limit;
@@ -204,15 +223,17 @@ export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null
   const rawTotal = minutesPerWeek(c) * weeks;
   if (!rawTotal) return null;
 
-  // Subtract holiday sessions from total contact time
+  // Subtract holiday sessions from both totals (contact minutes AND lecture count)
   let holidayMins = 0;
+  let holidayLectures = 0;
   if (sem?.startDate && sem?.endDate) {
-    const holidays = resolveHolidaysForSemester(
-      sem.startDate,
-      sem.endDate,
-      sem.dismissedHolidays
-    );
+    const holidays = resolveHolidaysForSemester(sem.startDate, sem.endDate, {
+      dismissed: sem.dismissedHolidays,
+      universitySlug,
+      customHolidays: sem.customHolidays,
+    });
     holidayMins = holidayMinutes(c.sessions, holidays);
+    holidayLectures = holidayLectureCount(c.sessions, holidays);
   }
   const total = Math.max(1, rawTotal - holidayMins);
 
@@ -236,17 +257,47 @@ export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null
   const tardinessAbsence = tardinessToAbsenceMinutes(tardies, rule);
   missed += tardinessAbsence;
 
-  const unit = (100 / total) * 60;
-  const absence = Math.min(100, (missed / total) * 100);
+  // ── By-hour figures (duration-based; always computed for the detail stats) ──
+  const unitHour = (100 / total) * 60;
+  const absenceHour = Math.min(100, (missed / total) * 100);
+  const limitMinutes = (limit / 100) * total;
+  const hoursRemainingHour = Math.max(0, (limitMinutes - missed) / 60);
+
+  // ── By-lecture figures — each logged (unexcused, full) absence is ONE lecture,
+  // reusing the same absence data; tardies aren't full absences so they're left
+  // out. The per-lecture % is auto (an equal share of 100) unless the student
+  // pinned their professor's own value.
+  const sessionsPerWeek = c.sessions.length;
+  const totalLectures = Math.max(1, sessionsPerWeek * weeks - holidayLectures);
+  let missedLectures = 0;
+  for (const m of c.missedSessions ?? []) {
+    if (m.excused) continue;
+    if (m.tardiness && m.tardiness > 0) continue;
+    missedLectures++;
+  }
+  const perLecture =
+    c.perLecturePct && c.perLecturePct > 0 ? c.perLecturePct : 100 / totalLectures;
+  const absenceLecture = Math.min(100, missedLectures * perLecture);
+  // Last count still under the limit (exceeding it = denial), mirroring the tool.
+  const allowedLectures = Math.max(0, Math.ceil(limit / perLecture) - 1);
+  const lecturesRemaining = Math.max(0, allowedLectures - missedLectures);
+
+  // ── Active method drives the حرمان-critical numbers; the other set stays as
+  // truthful context on the detail page. Undefined mode = the historical "hour".
+  const mode: "hour" | "lecture" = c.attendanceMode === "lecture" ? "lecture" : "hour";
+  const absence = mode === "lecture" ? absenceLecture : absenceHour;
+  const unit = mode === "lecture" ? perLecture : unitHour;
   const rate = 100 - absence;
   const status: "ok" | "warn" | "danger" =
     absence >= limit ? "danger" : absence >= approaching ? "warn" : "ok";
-
-  const limitMinutes = (limit / 100) * total;
-  const hoursRemaining = Math.max(0, (limitMinutes - missed) / 60);
+  const hoursRemaining =
+    mode === "lecture"
+      ? (lecturesRemaining * (total / totalLectures)) / 60
+      : hoursRemainingHour;
 
   return {
     weeks,
+    mode,
     unit,
     absence,
     rate,
@@ -258,6 +309,9 @@ export function attendanceInfo(c: Course, sem?: Semester): AttendanceInfo | null
     tardinessMinutes: tardinessAbsence,
     holidayMinutesOff: holidayMins,
     hoursRemaining,
+    totalLectures,
+    missedLectures,
+    lecturesRemaining,
   };
 }
 
@@ -343,8 +397,10 @@ export function semesterProgress(sem: Semester) {
   };
 }
 
-// "What you need on the final" — only when the final is the single remaining ungraded item
-export function finalAdvice(course: Course) {
+// "What you need on the final" — only when the final is the single remaining
+// ungraded item. Letters follow the student's scheme so a plus/minus student
+// sees A-/B-, not the 5.0 letters.
+export function finalAdvice(course: Course, scheme: GradeScheme = SAUDI5) {
   const final = course.components.find((c) => c.type === "final");
   if (!final || final.score != null) return null;
   const others = course.components.filter((c) => c.type !== "final");
@@ -357,7 +413,7 @@ export function finalAdvice(course: Course) {
   );
   const need = (T: number) => ((T / 100) * totalW - earned) / final.weight; // fraction 0..1
   let ceiling: { letter: string; raw: number } | null = null;
-  for (const s of SCALE) {
+  for (const s of scheme.bands) {
     if (s.letter === "F") continue;
     if (need(s.min) <= 1) {
       ceiling = {
@@ -373,6 +429,6 @@ export function finalAdvice(course: Course) {
     finalTotal: final.total,
     avoidFraw: Math.max(0, Math.ceil(need(60) * final.total)),
     passesAtZero: pctIfZero >= 60,
-    securedLetter: pctToGrade(pctIfZero).letter,
+    securedLetter: bandForPct(scheme, pctIfZero).letter,
   };
 }

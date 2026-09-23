@@ -4,6 +4,7 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useCallback,
@@ -11,8 +12,10 @@ import React, {
 } from "react";
 import type {
   AppData,
+  AcademicInfo,
   Course,
   CourseSession,
+  CustomHoliday,
   GradeComponent,
   MissedEntry,
   NotifPrefs,
@@ -42,6 +45,8 @@ import {
 } from "@/lib/gamification";
 import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
 import { semesterGPA } from "@/lib/grades";
+import { resolveScheme } from "@/lib/gradeSchemes";
+import { universityBySlug } from "@/lib/tools/universities";
 import type { Session } from "@supabase/supabase-js";
 
 // localStorage scope depends on whether someone is signed in:
@@ -114,6 +119,51 @@ const defaultSemester: Semester = {
 
 const emptyPlanner: PlannerData = { notes: [], strokes: [], highlights: [], autoEdits: {} };
 
+const emptyAcademic: AcademicInfo = {
+  universitySlug: null,
+  universityName: "",
+  major: "",
+  level: "",
+  gpaSchemeId: "auto",
+};
+
+const SCHEME_IDS = ["auto", "saudi5", "saudi4", "percentage", "plusminus4"] as const;
+
+/** Reshape the stored preferences.academic blob into a safe AcademicInfo. */
+function readAcademic(raw: unknown): AcademicInfo {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const scheme = SCHEME_IDS.find((s) => s === o.gpaSchemeId) ?? "auto";
+  return {
+    universitySlug: typeof o.universitySlug === "string" ? o.universitySlug : null,
+    universityName: str(o.universityName),
+    major: str(o.major),
+    level: str(o.level),
+    gpaSchemeId: scheme,
+  };
+}
+
+/** Validate the stored preferences.customHolidays blob into safe CustomHoliday[].
+ *  A bad entry is dropped rather than trusted, so it can never skew the حرمان
+ *  math. Returns undefined when there are none, matching the optional field. */
+function sanitizeCustomHolidays(raw: unknown): CustomHoliday[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  const out: CustomHoliday[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const id = typeof o.id === "string" ? o.id : "";
+    const name = typeof o.name === "string" ? o.name.trim() : "";
+    const startDate = typeof o.startDate === "string" ? o.startDate : "";
+    const endDate = typeof o.endDate === "string" ? o.endDate : "";
+    if (!id || !name || !iso.test(startDate) || !iso.test(endDate)) continue;
+    if (endDate < startDate) continue;
+    out.push({ id, name, startDate, endDate });
+  }
+  return out.length ? out : undefined;
+}
+
 const defaultPomodoroSettings: PomodoroSettings = {
   focusMinutes: 25,
   shortBreakMinutes: 5,
@@ -155,6 +205,7 @@ function emitAchievement(newBadges: string[], tierAdvanced: boolean, newTier: nu
 const initialData: AppData = {
   profileName: "Student",
   email: "",
+  academic: emptyAcademic,
   profilePhoto: null,
   gpaGoal: 4.5,
   language: "ar",
@@ -233,12 +284,46 @@ export type MutationResult = { ok: true } | { ok: false; error: string };
 const asError = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const NOT_SIGNED_IN: MutationResult = { ok: false, error: "not signed in" };
 
+// Hard ceiling on a single cloud-load attempt. Without it, a resumed PWA whose
+// access-token refresh stalls on a waking-up network radio leaves the very first
+// db.* call (getPreferences / ensureActiveSemester) pending FOREVER — it never
+// resolves and never rejects — so the store never hydrates and the app is wedged
+// on the Havi loader until a manual reload (the exact "stuck on loading, have to
+// refresh and reopen" bug). Racing each load attempt against this timer turns the
+// infinite hang into a normal rejection, which the retry/backoff below recovers
+// from (and, worst case, surfaces the working "Try again" screen instead of a
+// dead spinner).
+const LOAD_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(p: Promise<T>, label: string, ms = LOAD_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(
+      () => reject(new Error(`Haven: cloud load timed out (${label})`)),
+      ms
+    );
+    p.then(
+      (v) => {
+        clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(id);
+        reject(e);
+      }
+    );
+  });
+}
+
 export interface StoreValue extends AppData {
   hydrated: boolean;
   loadFailed: boolean;
   retryLoad: () => void;
   setProfileName: (name: string) => void;
   setEmail: (email: string) => void;
+  /** Update the student's academic info (university/major/level); persisted per
+   *  account in preferences.academic. Selecting a known university also applies
+   *  its usual حرمان limit to the semester. */
+  setAcademic: (patch: Partial<AcademicInfo>) => void;
   setProfilePhoto: (photo: string | null) => void;
   setGpaGoal: (goal: number) => void;
   // Planner notes are cloud-backed (planner_items); autoEdits ride in
@@ -353,6 +438,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadingRef = useRef(false);
   const retryCountRef = useRef(0);
   const MAX_RETRIES = 3;
+  // Mirrors of hydrated/loadFailed for the resume watchdog (below), so it can
+  // read the latest values without re-subscribing on every state change.
+  const hydratedRef = useRef(false);
+  const loadFailedRef = useRef(false);
+  const lastResumeRetryRef = useRef(0);
   const [loadGeneration, setLoadGeneration] = useState(0);
   const retryLoad = useCallback(() => {
     retryCountRef.current = 0;
@@ -368,6 +458,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     plannerRef.current = data.planner;
   }, [data.planner]);
+  useEffect(() => {
+    hydratedRef.current = hydrated;
+  }, [hydrated]);
+  useEffect(() => {
+    loadFailedRef.current = loadFailed;
+  }, [loadFailed]);
+
+  // Resume watchdog. When the app returns to the foreground (an installed PWA
+  // relaunch or a tab regaining focus) still stuck on the loader — because the
+  // load that ran while it was backgrounded hung on a stalled token refresh and
+  // was left for dead — re-drive it instead of waiting on the spinner forever.
+  // Paired with the per-attempt timeout above: the timeout bounds a stuck load,
+  // this restarts one the moment the user comes back. A 3s debounce keeps rapid
+  // visibility toggles during a legitimately slow first load from thrashing.
+  useEffect(() => {
+    const onVisible = () => {
+      if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+      if (hydratedRef.current || loadFailedRef.current) return;
+      const now = Date.now();
+      if (now - lastResumeRetryRef.current < 3000) return;
+      lastResumeRetryRef.current = now;
+      retryLoad();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [retryLoad]);
 
   // Load (and re-load) the store from auth state. A single onAuthStateChange
   // listener drives everything: the initial session, sign-in, sign-out, and
@@ -414,10 +534,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const applyForUser = async (session: Session) => {
       const user = session.user;
       try {
-        const [prefs, sem] = await Promise.all([
-          db.getPreferences(),
-          db.ensureActiveSemester(),
-        ]);
+        const [prefs, sem] = await withTimeout(
+          Promise.all([db.getPreferences(), db.ensureActiveSemester()]),
+          "prefs+semester"
+        );
         if (cancelled) return;
         semesterIdRef.current = sem.id;
 
@@ -430,16 +550,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             return [];
           });
         const [cloudCourses, cloudSessions, cloudTimetable, cloudAbsences, cloudPlanner] =
-          await Promise.all([
-            // Courses gets the same protection as its siblings: a hiccup here
-            // used to reject the whole Promise.all and drop the user into the
-            // catch below, which published empty defaults over their account.
-            safe(db.getCourses(sem.id), "courses"),
-            safe(db.getAttendanceSessions(), "attendance sessions"),
-            safe(db.getTimetable(), "timetable"),
-            safe(db.getAbsences(), "absences"),
-            safe(db.getPlannerItems(), "planner"),
-          ]);
+          await withTimeout(
+            Promise.all([
+              // Courses gets the same protection as its siblings: a hiccup here
+              // used to reject the whole Promise.all and drop the user into the
+              // catch below, which published empty defaults over their account.
+              safe(db.getCourses(sem.id), "courses"),
+              safe(db.getAttendanceSessions(), "attendance sessions"),
+              safe(db.getTimetable(), "timetable"),
+              safe(db.getAbsences(), "absences"),
+              safe(db.getPlannerItems(), "planner"),
+            ]),
+            "schedule domains"
+          );
         if (cancelled) return;
 
         // Merge each attendance session (day + duration, its own id) with its
@@ -502,14 +625,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           absencesByCourse.set(a.courseId, arr);
         }
 
-        const courses: Course[] = await Promise.all(
-          cloudCourses.map(async (cc) => {
+        const courses: Course[] = await withTimeout(
+          Promise.all(
+            cloudCourses.map(async (cc) => {
             const components = await db.getGradeComponents(cc.id);
             return {
               id: cc.id,
               name: cc.name,
               creditHours: cc.creditHours,
               attendanceLimit: cc.attendanceLimit,
+              attendanceMode: cc.attendanceMode,
+              perLecturePct: cc.perLecturePct,
               instructorName: cc.instructorName,
               color: cc.color,
               sessions: sessionsByCourse.get(cc.id) ?? [],
@@ -518,6 +644,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               components,
             };
           })
+          ),
+          "grade components"
         );
         if (cancelled) return;
 
@@ -540,6 +668,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ((user.user_metadata?.full_name as string) ?? "") ||
             initialData.profileName,
           email: user.email ?? "",
+          academic: readAcademic(prefs.academic),
           profilePhoto: typeof prefs.profilePhoto === "string" ? prefs.profilePhoto : null,
           gpaGoal: num(prefs.gpaGoal, initialData.gpaGoal),
           language: prefs.language === "en" ? "en" : "ar",
@@ -606,6 +735,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             startDate: str(sem.startDate, str(prefs.startDate, defaultSemester.startDate)),
             endDate: str(sem.endDate, str(prefs.endDate, defaultSemester.endDate)),
             withdrawalLimit: num(prefs.withdrawalLimit, defaultSemester.withdrawalLimit),
+            dismissedHolidays: Array.isArray(prefs.dismissedHolidays)
+              ? (prefs.dismissedHolidays as unknown[]).filter(
+                  (x): x is string => typeof x === "string"
+                )
+              : defaultSemester.dismissedHolidays,
+            customHolidays: sanitizeCustomHolidays(prefs.customHolidays),
           },
           courses,
         });
@@ -777,7 +912,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const ctx: BadgeContext = {
         courses: d.courses,
         planner: d.planner,
-        semesterGpa: semesterGPA(d.courses),
+        semesterGpa: semesterGPA(d.courses, resolveScheme(d.academic)),
         semesterStartDate: d.semester.startDate,
         semesterWeeks: d.semester.weeks,
       };
@@ -799,7 +934,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const ctx: BadgeContext = {
           courses: d.courses,
           planner: d.planner,
-          semesterGpa: semesterGPA(d.courses),
+          semesterGpa: semesterGPA(d.courses, resolveScheme(d.academic)),
           semesterStartDate: d.semester.startDate,
           semesterWeeks: d.semester.weeks,
         };
@@ -1161,9 +1296,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setCumulativeGpa = useCallback(
     (gpa: number) => {
-      const g = Math.max(0, Math.min(5, Number(gpa) || 0));
-      setData((d) => ({ ...d, cumulativeGpa: g }));
-      persistPref({ cumulativeGpa: g });
+      const raw = Math.max(0, Number(gpa) || 0);
+      setData((d) => {
+        const g = Math.min(resolveScheme(d.academic).max, raw);
+        persistPref({ cumulativeGpa: g });
+        return { ...d, cumulativeGpa: g };
+      });
     },
     [persistPref]
   );
@@ -1243,8 +1381,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (patch.tardinessRuleId !== undefined) prefPatch.tardinessRuleId = patch.tardinessRuleId;
     if (patch.customTardinessThreshold !== undefined) prefPatch.customTardinessThreshold = patch.customTardinessThreshold;
     if (patch.customTardiesPerAbsence !== undefined) prefPatch.customTardiesPerAbsence = patch.customTardiesPerAbsence;
+    // Holiday customisations live only in preferences (no cloud column). Use "in"
+    // so clearing the last dismiss/custom entry persists the empty array (a plain
+    // !== undefined check would drop an intentional reset back to no overrides).
+    if ("dismissedHolidays" in patch) prefPatch.dismissedHolidays = patch.dismissedHolidays ?? [];
+    if ("customHolidays" in patch) prefPatch.customHolidays = patch.customHolidays ?? [];
     if (Object.keys(prefPatch).length) persistPref(prefPatch);
   }, [persistPref]);
+
+  const setAcademic = useCallback(
+    (patch: Partial<AcademicInfo>) => {
+      let next = emptyAcademic;
+      setData((d) => {
+        next = { ...d.academic, ...patch };
+        return { ...d, academic: next };
+      });
+      persistPref({ academic: next as unknown as Record<string, unknown> });
+      // Picking a known university applies its usual حرمان (denial) limit so the
+      // attendance math matches that school out of the box; the student can still
+      // override it in Settings. (The university's GPA scale is kept on the list
+      // entry for future 4.0 support — the app currently grades on Saudi 5.0.)
+      if (patch.universitySlug) {
+        const uni = universityBySlug(patch.universitySlug);
+        if (uni && uni.denialPct > 0) setSemester({ withdrawalLimit: uni.denialPct });
+      }
+    },
+    [persistPref, setSemester]
+  );
 
   const addCourse = useCallback(
     async (course: {
@@ -1299,6 +1462,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         (patch.name !== undefined ||
           patch.creditHours !== undefined ||
           patch.attendanceLimit !== undefined ||
+          patch.attendanceMode !== undefined ||
+          "perLecturePct" in patch ||
           patch.instructorName !== undefined ||
           patch.color !== undefined)
       ) {
@@ -1306,6 +1471,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...(patch.name !== undefined ? { name: patch.name } : {}),
           ...(patch.creditHours !== undefined ? { creditHours: patch.creditHours } : {}),
           ...(patch.attendanceLimit !== undefined ? { attendanceLimit: patch.attendanceLimit } : {}),
+          ...(patch.attendanceMode !== undefined ? { attendanceMode: patch.attendanceMode } : {}),
+          ...("perLecturePct" in patch ? { perLecturePct: patch.perLecturePct ?? null } : {}),
           ...(patch.instructorName !== undefined ? { instructorName: patch.instructorName ?? null } : {}),
           ...(patch.color !== undefined ? { color: patch.color ?? null } : {}),
         }).catch((e) => console.error("Haven: failed to update course", e));
@@ -1822,6 +1989,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     retryLoad,
     setProfileName,
     setEmail,
+    setAcademic,
     setProfilePhoto,
     setGpaGoal,
     addPlannerNote,
@@ -1880,4 +2048,13 @@ export function useStore() {
   const ctx = useContext(StoreContext);
   if (!ctx) throw new Error("useStore must be used within StoreProvider");
   return ctx;
+}
+
+/** The active grade scheme, resolved once from the student's academic info and
+ *  memoized. Consumers should read this instead of calling `resolveScheme`
+ *  themselves so the (occasionally fuzzy) resolution runs once per change, not
+ *  on every render. */
+export function useScheme() {
+  const { academic } = useStore();
+  return useMemo(() => resolveScheme(academic), [academic]);
 }

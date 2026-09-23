@@ -66,6 +66,16 @@ export interface Course {
   /** this course's own withdrawal ("حرمان") limit as an absence % (from
    *  courses.attendance_limit). 0/undefined → fall back to the semester default. */
   attendanceLimit?: number;
+  /** how this course counts absence toward حرمان:
+   *  - "hour" (default): duration-based — each contact hour is a share of 100%.
+   *  - "lecture": each missed lecture is an equal share (100 / total lectures),
+   *    matching a professor who counts absences by session, not by hour.
+   *  Undefined behaves as "hour" so existing courses are unchanged. */
+  attendanceMode?: "hour" | "lecture";
+  /** lecture mode only: a manual per-lecture % that overrides the auto share,
+   *  for a professor who fixes each absence at a set percentage (e.g. 8%).
+   *  0/undefined → auto (100 / total lectures). */
+  perLecturePct?: number;
   instructorName?: string;
   color?: string;
   /** weekly class meetings — drives totals for both counting methods */
@@ -95,6 +105,19 @@ export interface Semester {
   customTardiesPerAbsence?: number;
   /** holiday IDs the student has dismissed (don't apply to them) */
   dismissedHolidays?: string[];
+  /** extra holidays the student added by hand to match their university's own
+   *  official calendar (the escape hatch for per-university variance). */
+  customHolidays?: CustomHoliday[];
+}
+
+/** A user-added holiday for the active semester — the freedom to make the app's
+ *  calendar match a university's real, recently published one. Persisted inside
+ *  profiles.preferences alongside the rest of the semester config (no DB column). */
+export interface CustomHoliday {
+  id: string; // "custom-<timestamp>"
+  name: string; // student-typed label (shown as-is in both languages)
+  startDate: string; // ISO yyyy-mm-dd (inclusive)
+  endDate: string; // ISO yyyy-mm-dd (inclusive)
 }
 
 /** A typed note/task placed inside a planner week. */
@@ -135,9 +158,28 @@ export interface PlannerData {
   autoEdits: Record<string, PlannerAutoEdit>; // component-id → planner override
 }
 
+/** The student's academic identity — university, major, and level. Stored per
+ *  account in profiles.preferences.academic and shown as a header on the
+ *  dashboard/profile plus in the admin per-user view and aggregates. */
+export interface AcademicInfo {
+  /** slug from lib/tools/universities, or "other" for a manually typed name. */
+  universitySlug: string | null;
+  /** display name of the university (the custom text when slug is "other"). */
+  universityName: string;
+  /** free-text field of study. */
+  major: string;
+  /** academic level: "1".."10", or any custom text the student enters. */
+  level: string;
+  /** GPA grading system: "auto" (or unset) detects it from the university;
+   *  the rest force a specific scheme. Mirrors SchemeId in lib/gradeSchemes. */
+  gpaSchemeId?: "auto" | "saudi5" | "saudi4" | "percentage" | "plusminus4";
+}
+
 export interface AppData {
   profileName: string;
   email: string;
+  /** the student's university / major / level (per account). */
+  academic: AcademicInfo;
   /** profile picture as a data URL (stored locally) */
   profilePhoto: string | null;
   /** target semester GPA (0–5) */

@@ -5,7 +5,7 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { scheduleAll, cancelAll, type SmartAlert } from "@/lib/notifScheduler";
 import { buildSmartSuggestions } from "@/lib/smartSuggestions";
-import { enqueueScheduledPush } from "@/lib/db";
+import { enqueueScheduledPush, reconcileScheduledPushes } from "@/lib/db";
 import { plannerItemDate } from "@/lib/reminders";
 
 function isoDate(d: Date): string {
@@ -13,7 +13,7 @@ function isoDate(d: Date): string {
 }
 
 export function NotifScheduler() {
-  const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal } = useStore();
+  const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic } = useStore();
   const { t, lang } = useT();
 
   useEffect(() => {
@@ -21,20 +21,25 @@ export function NotifScheduler() {
 
     // Highest-priority suggestion → the day's single smart reminder. On a calm
     // day (nothing urgent → "all good") fall back to a friendly study nudge so
-    // the daily reminder still arrives, instead of going silent.
-    const top = buildSmartSuggestions(
-      { courses, planner, semester, gamification, gpaGoal },
-      t
-    )[0];
-    const body = top && top.kind !== "all-good" ? top.text : t("smart_studyNudge");
-    const smartAlert: SmartAlert = {
-      id: top?.kind !== "all-good" ? (top?.id ?? "study-nudge") : "study-nudge",
-      title: lang === "ar" ? "Haven — تذكير" : "Haven — Reminder",
-      body,
+    // the daily reminder still arrives, instead of going silent. Built AS OF a
+    // given moment: the in-tab timer uses "now", but the queued server push is
+    // built as of its SEND time so a deadline that will already be past when it
+    // fires is never named (a quiz due today isn't announced in tomorrow's push).
+    const buildAlert = (asOf: Date): SmartAlert => {
+      const top = buildSmartSuggestions(
+        { courses, planner, semester, gamification, gpaGoal, universitySlug: academic?.universitySlug, now: asOf },
+        t
+      )[0];
+      const body = top && top.kind !== "all-good" ? top.text : t("smart_studyNudge");
+      return {
+        id: top && top.kind !== "all-good" ? (top.id ?? "study-nudge") : "study-nudge",
+        title: lang === "ar" ? "Haven — تذكير" : "Haven — Reminder",
+        body,
+      };
     };
 
     // In-tab timers (fires while the app is open, and catches up on open).
-    scheduleAll(courses, planner, semester, notifPrefs, lang, smartAlert);
+    scheduleAll(courses, planner, semester, notifPrefs, lang, buildAlert(new Date()));
 
     // Outbox: queue the reminder for SERVER delivery so it arrives even when the
     // app is CLOSED. Schedule the next occurrence of the daily reminder hour —
@@ -45,11 +50,12 @@ export function NotifScheduler() {
       const sendAt = new Date();
       sendAt.setHours(notifPrefs.dailyReminderHour, 0, 0, 0);
       if (sendAt.getTime() <= Date.now()) sendAt.setDate(sendAt.getDate() + 1);
+      const queuedAlert = buildAlert(sendAt); // content as it will be at send time
       void enqueueScheduledPush({
         dedupKey: `smart-${isoDate(sendAt)}`,
         sendAt: sendAt.toISOString(),
-        title: smartAlert.title,
-        body: smartAlert.body,
+        title: queuedAlert.title,
+        body: queuedAlert.body,
       });
     }
 
@@ -63,7 +69,14 @@ export function NotifScheduler() {
     // push coalesce on the same notification tag instead of double-firing.
     if (notifPrefs.tasks.enabled) {
       const now = Date.now();
+      // The reminders that SHOULD exist right now: every hour-mark of every
+      // active (still-present, not checked-off) dated task. We reconcile the
+      // server outbox against this set so a task that was DELETED or checked off
+      // stops firing — a deleted task leaves no note to cancel by key, so the
+      // outbox is pruned to "only what's still live" instead.
+      const liveKeys = new Set<string>();
       for (const note of planner.notes) {
+        if (note.done) continue; // checked off → not a live reminder
         if (!note.dueTime || note.day == null) continue;
         const d = plannerItemDate(semester, note.week, note.day);
         if (!d) continue;
@@ -74,6 +87,8 @@ export function NotifScheduler() {
         const dueMs = due.getTime();
 
         for (const hoursAhead of notifPrefs.tasks.hours) {
+          const dedupKey = `task-${note.id}-${hoursAhead}h`;
+          liveKeys.add(dedupKey); // live even if its lead time already passed
           const fireAt = dueMs - hoursAhead * 3600_000;
           if (fireAt <= now) continue; // lead time already passed → nothing to queue
           const body =
@@ -81,17 +96,19 @@ export function NotifScheduler() {
               ? `موعد التسليم خلال ${hoursAhead} ساعة`
               : `Due in ${hoursAhead}h`;
           void enqueueScheduledPush({
-            dedupKey: `task-${note.id}-${hoursAhead}h`,
+            dedupKey,
             sendAt: new Date(fireAt).toISOString(),
             title: `Haven — ${note.text}`,
             body,
           });
         }
       }
+      // Drop any queued-but-undelivered task push whose task is gone/checked off.
+      void reconcileScheduledPushes("task-", liveKeys);
     }
 
     return cancelAll;
-  }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, lang, t]);
+  }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic?.universitySlug, lang, t]);
 
   return null;
 }

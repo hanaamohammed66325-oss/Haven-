@@ -12,7 +12,7 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { useStore } from "@/store";
+import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { buildSmartSuggestions, type SuggestionKind } from "@/lib/smartSuggestions";
 
@@ -31,15 +31,16 @@ const ICON: Record<SuggestionKind, React.ReactNode> = {
 
 export function SmartSuggestions() {
   const { t } = useT();
-  const { courses, semester, planner, gamification, gpaGoal } = useStore();
+  const { courses, semester, planner, gamification, gpaGoal, academic } = useStore();
+  const scheme = useScheme();
 
   const suggestions = useMemo(
     () =>
       buildSmartSuggestions(
-        { courses, planner, semester, gamification, gpaGoal },
+        { courses, planner, semester, gamification, gpaGoal, scheme, universitySlug: academic?.universitySlug },
         t
       ),
-    [courses, semester, planner, gamification, gpaGoal, t]
+    [courses, semester, planner, gamification, gpaGoal, scheme, academic?.universitySlug, t]
   );
 
   return (

@@ -21,6 +21,7 @@ import {
 import { buildUpcoming } from "./upcoming";
 import { toISODate } from "./dates";
 import { POMODORO_ENABLED } from "./featureFlags";
+import { SAUDI5, type GradeScheme } from "./gradeSchemes";
 
 export type SuggestionKind =
   | "att-danger"
@@ -49,6 +50,10 @@ export interface SmartContext {
   semester: Semester;
   gamification: GamificationState;
   gpaGoal: number;
+  /** the active grading scheme, so the GPA-goal nudge compares like-for-like. */
+  scheme?: GradeScheme;
+  /** the student's university slug, so attendance uses their holiday calendar. */
+  universitySlug?: string | null;
   now?: Date;
 }
 
@@ -56,7 +61,8 @@ type T = (key: TranslationKey, params?: Record<string, string | number>) => stri
 
 /** Build the prioritized suggestion list (lowest `priority` = most urgent). */
 export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
-  const { courses, planner, semester, gamification, gpaGoal } = ctx;
+  const { courses, planner, semester, gamification, gpaGoal, scheme = SAUDI5 } = ctx;
+  const universitySlug = ctx.universitySlug;
   const now = ctx.now ?? new Date();
   const today = toISODate(now);
   const checkedIn = gamification.checkedInToday === today;
@@ -64,7 +70,7 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
 
   // 1. Attendance danger / warn
   for (const c of courses) {
-    const att = attendanceInfo(c, semester);
+    const att = attendanceInfo(c, semester, universitySlug);
     if (att?.status === "danger") {
       items.push({
         id: `att-danger-${c.id}`,
@@ -207,7 +213,7 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
 
   // 8. GPA goal tracking
   if (gpaGoal > 0 && courses.some((c) => courseCurrentPct(c) != null)) {
-    const currentGpa = semesterGPA(courses);
+    const currentGpa = semesterGPA(courses, scheme);
     if (currentGpa != null && currentGpa < gpaGoal && gpaGoal - currentGpa <= 0.5) {
       items.push({
         id: "gpa-goal",

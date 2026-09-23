@@ -12,6 +12,7 @@ import { DashboardSection } from "./dashboard";
 import { UsersSection } from "./users";
 import { UserDetailSection } from "./user-detail";
 import { InsightsSection } from "./insights";
+import { RetentionSection } from "./retention";
 import { NotificationsSection } from "./notifications";
 import { SubscriptionsSection } from "./subscriptions";
 import { PaymentsSection } from "./payments";
@@ -177,6 +178,8 @@ function AdminPage() {
             <UsersSection session={session} onOpenUser={openUser} />
           ) : section === "insights" ? (
             <InsightsSection />
+          ) : section === "retention" ? (
+            <RetentionSection />
           ) : section === "notifications" ? (
             <NotificationsSection />
           ) : section === "subscriptions" ? (

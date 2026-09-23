@@ -4,16 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Info } from "lucide-react";
 import { Modal } from "./Modal";
 import { InfoPopover } from "./InfoPopover";
-import { useStore } from "@/store";
+import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
-import { SCALE, courseCurrentPct, pctToGrade } from "@/lib/grades";
+import { courseCurrentPct } from "@/lib/grades";
+import { bandForPct, pointsForPct, type GradeScheme } from "@/lib/gradeSchemes";
 
 const field =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 const cellInput =
   "rounded-lg border px-2.5 py-1.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 
-const pointsFor = (letter: string) => SCALE.find((s) => s.letter === letter)?.points ?? 0;
+// Points a hand-picked letter contributes under the active scheme. In percentage
+// mode letters have no points, so the grade's floor % stands in as a representative
+// value (an approximation the exact 5.0/4.0 schemes never need).
+const letterPoints = (scheme: GradeScheme, letter: string) => {
+  const b = scheme.bands.find((x) => x.letter === letter);
+  return b ? (scheme.percent ? b.min : b.points) : 0;
+};
 const rid = () => Math.random().toString(36).slice(2);
 
 type Mode = "current" | "manual";
@@ -33,6 +40,7 @@ interface CumulativeGpaModalProps {
 export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
   const { t } = useT();
   const { courses } = useStore();
+  const scheme = useScheme();
 
   const [mode, setMode] = useState<Mode>("current");
   const [prevGpa, setPrevGpa] = useState("");
@@ -57,18 +65,26 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
       courses.map((c) => {
         const pct = courseCurrentPct(c);
         const graded = pct != null;
-        const projected = graded ? pctToGrade(pct).letter : null;
-        const letter = overrides[c.id] ?? projected;
+        const projected = graded ? bandForPct(scheme, pct).letter : null;
+        const override = overrides[c.id];
+        const letter = override ?? projected;
+        // Default row stays exact (from the %); an override falls back to the letter.
+        const points =
+          override != null
+            ? letterPoints(scheme, override)
+            : graded
+            ? pointsForPct(scheme, pct!)
+            : null;
         return {
           id: c.id,
           name: c.name,
           credits: Number(c.creditHours) || 0,
           graded,
           letter,
-          points: letter ? pointsFor(letter) : null,
+          points,
         };
       }),
-    [courses, overrides]
+    [courses, overrides, scheme]
   );
 
   // ---- semester totals for the active tab ----
@@ -83,16 +99,16 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
     const g = manual.filter((r) => (Number(r.credits) || 0) > 0);
     return {
       semesterCredits: g.reduce((s, r) => s + (Number(r.credits) || 0), 0),
-      semesterPoints: g.reduce((s, r) => s + pointsFor(r.letter) * (Number(r.credits) || 0), 0),
+      semesterPoints: g.reduce((s, r) => s + letterPoints(scheme, r.letter) * (Number(r.credits) || 0), 0),
     };
-  }, [mode, currentRows, manual]);
+  }, [mode, currentRows, manual, scheme]);
 
   const semGpa = semesterCredits > 0 ? semesterPoints / semesterCredits : null;
-  const pGpa = Math.min(5, Math.max(0, Number(prevGpa) || 0));
+  const pGpa = Math.min(scheme.max, Math.max(0, Number(prevGpa) || 0));
   const pHours = Math.max(0, Number(prevHours) || 0);
   const hasPrev = pHours > 0;
   const totalCredits = pHours + semesterCredits;
-  const newGpa = totalCredits > 0 ? Math.min(5, (pGpa * pHours + semesterPoints) / totalCredits) : null;
+  const newGpa = totalCredits > 0 ? Math.min(scheme.max, (pGpa * pHours + semesterPoints) / totalCredits) : null;
 
   const fmt = (n: number | null) => (n == null ? "—" : n.toFixed(2));
 
@@ -113,9 +129,9 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
     { key: "manual", label: t("cumTabManual") },
   ];
 
-  const gradeOptions = SCALE.map((s) => (
+  const gradeOptions = scheme.bands.map((s) => (
     <option key={s.letter} value={s.letter}>
-      {s.letter} · {s.points.toFixed(2)}
+      {scheme.percent ? s.letter : `${s.letter} · ${s.points.toFixed(2)}`}
     </option>
   ));
 
@@ -172,7 +188,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
                 style={border}
                 type="number"
                 min="0"
-                max="5"
+                max={scheme.max}
                 step="0.01"
                 inputMode="decimal"
                 placeholder="0.00"
@@ -313,10 +329,10 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
           </div>
           <div className="mt-2.5 leading-none">
             <span className="font-display text-[44px]" style={{ color: "var(--color-brass)" }}>{fmt(newGpa)}</span>
-            <span className="text-base ms-1.5" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
+            <span className="text-base ms-1.5" style={{ color: "var(--color-muted)" }}>/ {scheme.max}</span>
           </div>
           <p className="text-xs mt-4 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-            {t("cumBreakdown", { sem: fmt(semGpa), prev: hasPrev ? fmt(pGpa) : "—", next: fmt(newGpa) })}
+            {t("cumBreakdown", { sem: fmt(semGpa), prev: hasPrev ? fmt(pGpa) : "—", next: fmt(newGpa), max: scheme.max })}
           </p>
         </section>
 

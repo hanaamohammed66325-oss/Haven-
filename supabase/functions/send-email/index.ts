@@ -105,7 +105,9 @@ function renderTemplate(template: string, d: TemplateData): { subject: string; h
       d.variant === 'notif' ? 'notif' : 'back';
     const backUrl = 'https://havenstudent.com/dashboard?reengage=1';
     const setupUrl = 'https://havenstudent.com/courses?reengage=1';
-    const notifUrl = 'https://havenstudent.com/settings?reengage=1';
+    // Lands the user directly on the notifications enable control (the settings
+    // page detects ?focus=notif, scrolls to it and highlights it).
+    const notifUrl = 'https://havenstudent.com/settings?focus=notif';
     const url = variant === 'setup' ? setupUrl : variant === 'notif' ? notifUrl : backUrl;
 
     const heading =
@@ -117,7 +119,7 @@ function renderTemplate(template: string, d: TemplateData): { subject: string; h
       : variant === 'grades'
       ? '<p>موادك جاهزة في Haven — باقي درجاتك عشان نحسب معدلك ونتابع تقدّمك.</p>'
       : variant === 'notif'
-      ? '<p>صار لك فترة ما مرّيت علينا واشتقنا لك 👋 فعّل الإشعارات وخلّنا نذكّرك بمحاضراتك واختباراتك وغيابك قبل لا يفوتك شي — تفعيلها ياخذ ثواني، وبتفرق معك واجد.</p>'
+      ? '<p>صار لك فترة ما مرّيت علينا واشتقنا لك. فعّل الإشعارات وخلّنا نذكّرك بمحاضراتك واختباراتك وغيابك قبل لا يفوتك شي — تفعيلها ياخذ ثواني، وبتفرق معك واجد.</p>'
       : '<p>مرّت فترة من آخر زيارة لـ Haven. تحديث سريع لدرجاتك يبيّن لك وين وصلت، وتذكيراتك جاهزة عشان ما يفوتك اختبار ولا محاضرة.</p>';
     const enBody = variant === 'setup'
       ? '<p>Your account is ready — add your courses so we can start tracking your GPA and remind you about lectures and exams. It takes a minute.</p>'

@@ -11,6 +11,7 @@ import { DateField } from "@/components/DateField";
 import { DemoPlayer } from "@/components/DemoPlayer";
 import { NotificationsSettings } from "@/components/NotificationsSettings";
 import { RemindersSettings } from "@/components/RemindersSettings";
+import { HolidaysManager } from "@/components/HolidaysManager";
 import { signOut as clearSession } from "@/lib/auth";
 import { useDeleteAccount } from "@/lib/useDeleteAccount";
 import { PremiumGate } from "@/components/PremiumGate";
@@ -143,23 +144,67 @@ export default function SettingsPage() {
   const { deleteAccount, loading: deleting, error: deleteError, reset: resetDeleteError } = useDeleteAccount();
 
   // Arriving from the dashboard notifications nudge → scroll straight to the
-  // Notifications section (one-shot flag set by NotifNudge before navigating).
+  // Notifications enable button (one-shot flag set by NotifNudge before
+  // navigating). The section briefly renders a "checking" spinner with no anchor,
+  // so we poll until the real section mounts before scrolling — and only clear
+  // the flag once we've actually landed, so a trailing-slash remount can't drop it.
   useEffect(() => {
     if (!hydrated) return;
     let flagged = false;
     try {
       flagged = sessionStorage.getItem("haven-focus-notif") === "1";
-      if (flagged) sessionStorage.removeItem("haven-focus-notif");
+    } catch {
+      /* ignore */
+    }
+    // Also honor an external deep-link: the win-back "turn on notifications"
+    // email points at /settings?focus=notif. Those users arrive with no in-app
+    // sessionStorage flag, so detect the query param and strip it once landed,
+    // so a refresh doesn't re-trigger the scroll.
+    let fromParam = false;
+    try {
+      if (new URLSearchParams(window.location.search).get("focus") === "notif") {
+        fromParam = true;
+        flagged = true;
+      }
     } catch {
       /* ignore */
     }
     if (!flagged) return;
-    const id = window.setTimeout(() => {
-      document
-        .querySelector('[data-tour="notif-section"]')
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 200);
-    return () => window.clearTimeout(id);
+
+    const clearFlags = () => {
+      try {
+        sessionStorage.removeItem("haven-focus-notif");
+      } catch {
+        /* ignore */
+      }
+      if (!fromParam) return;
+      try {
+        const p = new URLSearchParams(window.location.search);
+        p.delete("focus");
+        const qs = p.toString();
+        window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
+      } catch {
+        /* ignore */
+      }
+    };
+
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      const el = document.querySelector('[data-tour="notif-section"]');
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Draw the eye to the enable control for a moment.
+        el.classList.add("haven-target");
+        window.setTimeout(() => el.classList.remove("haven-target"), 1800);
+        clearFlags();
+        window.clearInterval(timer);
+      } else if (++tries > 50) {
+        // Give up after ~5s (element never appeared).
+        clearFlags();
+        window.clearInterval(timer);
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
   }, [hydrated]);
 
   const closeDelete = () => {
@@ -196,7 +241,7 @@ export default function SettingsPage() {
       <h1 className="font-display text-[34px] leading-tight" style={{ color: "var(--color-ink)" }}>
         {t("settingsTitle")}
       </h1>
-      <p className="text-[15px] mt-3 mb-12" style={{ color: "var(--color-muted)" }}>
+      <p className="text-[15px] mt-3 mb-8" style={{ color: "var(--color-muted)" }}>
         {t("settingsSubtitle")}
       </p>
 
@@ -390,6 +435,12 @@ export default function SettingsPage() {
             </div>
           </Row>
         </div>
+      </Section>
+
+      {/* Holidays — student-managed calendar so absence math matches their own
+          university's real breaks (built-in dismiss/restore + custom add). */}
+      <Section title={t("sectionHolidays")} anchor="set-holidays">
+        <HolidaysManager />
       </Section>
 
       {/* Reminders — customizable notification preferences (notifPrefs) */}

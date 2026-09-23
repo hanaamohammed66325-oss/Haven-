@@ -1,5 +1,6 @@
 // supabase/functions/scheduler-tick/index.ts
-// Cron-invoked edge function: sends push notifications for upcoming lectures.
+// Cron-invoked edge function: sends push notifications for upcoming lectures and
+// delivers client-queued smart reminders from the scheduled_pushes outbox.
 // Runs every minute via pg_cron + pg_net; a WINDOW-minute send window plus an
 // atomic per-lecture claim (notifications_sent unique key) guarantees exactly
 // one push per lecture even though many ticks fall inside the window.
@@ -170,17 +171,61 @@ async function deliverOutbox(
   webpush: any,
   onClean: () => void,
 ): Promise<number> {
-  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  // A reminder this many ms past its send time is stale — better to drop it than
+  // deliver a notification for something whose moment has passed (e.g. a push
+  // queued for yesterday that missed its window arriving today).
+  const STALE_MS = 3 * 3_600_000;
   const { data: due } = await supabase
     .from('scheduled_pushes')
-    .select('id, user_id, dedup_key, title, body')
+    .select('id, user_id, dedup_key, title, body, send_at')
     .is('sent_at', null)
     .lte('send_at', nowIso)
     .limit(200);
 
   if (!due?.length) return 0;
 
-  const dueUserIds = [...new Set(due.map((r: any) => r.user_id))];
+  // Validate task/exam reminders against their planner item at delivery time: a
+  // checked-off (done) or deleted task must not fire, even if the app was never
+  // reopened to cancel it client-side. dedup_key is `task-<uuid>-<n>h`.
+  const UUID = /^task-([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})-/;
+  const taskNoteId = (key: string): string | null => {
+    const m = UUID.exec(key);
+    return m ? m[1] : null;
+  };
+  const noteIds = [...new Set(due.map((r: any) => taskNoteId(r.dedup_key)).filter(Boolean))] as string[];
+  const noteDone = new Map<string, boolean>();
+  const noteExists = new Set<string>();
+  // If the lookup fails we must NOT treat every task as deleted (that would
+  // suppress all task reminders this tick) — fall back to delivering normally.
+  let noteLookupOk = true;
+  if (noteIds.length) {
+    const { data: items, error } = await supabase
+      .from('planner_items')
+      .select('id, done')
+      .in('id', noteIds);
+    if (error) noteLookupOk = false;
+    else for (const it of items ?? []) { noteExists.add(it.id); noteDone.set(it.id, !!it.done); }
+  }
+
+  // Drop stale rows and reminders whose task is gone/checked off: claim them
+  // (flip sent_at) so they never deliver, but send nothing.
+  const deliver: any[] = [];
+  const skipIds: string[] = [];
+  for (const row of due) {
+    const stale = nowMs - new Date(row.send_at).getTime() > STALE_MS;
+    const nid = taskNoteId(row.dedup_key);
+    const deadTask = noteLookupOk && nid != null && (!noteExists.has(nid) || noteDone.get(nid) === true);
+    if (stale || deadTask) skipIds.push(row.id);
+    else deliver.push(row);
+  }
+  if (skipIds.length) {
+    await supabase.from('scheduled_pushes').update({ sent_at: nowIso }).in('id', skipIds).is('sent_at', null);
+  }
+  if (!deliver.length) return 0;
+
+  const dueUserIds = [...new Set(deliver.map((r: any) => r.user_id))];
   const { data: dueSubs } = await supabase
     .from('push_subscriptions')
     .select('user_id, id, endpoint, p256dh, auth')
@@ -193,7 +238,7 @@ async function deliverOutbox(
   }
 
   let scheduledSent = 0;
-  for (const row of due) {
+  for (const row of deliver) {
     // Atomic claim — only the first tick to flip sent_at delivers this row.
     const { data: claimed } = await supabase
       .from('scheduled_pushes')

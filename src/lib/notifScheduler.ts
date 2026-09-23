@@ -183,6 +183,7 @@ function scheduleTasks(
   const now = Date.now();
 
   for (const note of planner.notes) {
+    if (note.done) continue; // checked off → don't remind
     if (!note.dueTime || note.day == null) continue;
     const d = plannerItemDate(semester, note.week, note.day);
     if (!d) continue;

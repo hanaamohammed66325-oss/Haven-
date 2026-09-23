@@ -139,6 +139,7 @@ export function Planner() {
   const {
     hydrated,
     semester,
+    academic,
     courses,
     planner,
     addPlannerNote,
@@ -215,11 +216,11 @@ export function Planner() {
   const holidayNotesByWeek = useMemo(() => {
     const map: Record<number, PlannerNote[]> = {};
     if (!semester?.startDate || !semester?.endDate) return map;
-    const holidays = resolveHolidaysForSemester(
-      semester.startDate,
-      semester.endDate,
-      semester.dismissedHolidays
-    );
+    const holidays = resolveHolidaysForSemester(semester.startDate, semester.endDate, {
+      dismissed: semester.dismissedHolidays,
+      universitySlug: academic?.universitySlug,
+      customHolidays: semester.customHolidays,
+    });
     const dateToWeek = new Map<string, number>();
     for (const wk of weeks) {
       if (!wk.start || !wk.end) continue;
@@ -274,7 +275,15 @@ export function Planner() {
       }
     }
     return map;
-  }, [semester?.startDate, semester?.endDate, semester?.dismissedHolidays, weeks, lang]);
+  }, [
+    semester?.startDate,
+    semester?.endDate,
+    semester?.dismissedHolidays,
+    semester?.customHolidays,
+    academic?.universitySlug,
+    weeks,
+    lang,
+  ]);
 
   // ---- mutations (cloud-backed via the store) ----
   // NOTE: `week` here is the 1-based displayed week number ("Week 11" → 11),

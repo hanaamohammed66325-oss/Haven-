@@ -8,10 +8,23 @@ import { useUndo } from "./UndoManager";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { attendanceInfo, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
+import { normalizeArabicDigits } from "@/lib/dates";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/** Sanitise the manual "% per lecture" box: Arabic or ASCII digits with one
+ *  optional decimal, clamped to (0, 100]. Anything else (a sign, letters, an
+ *  empty box) → undefined, which means "auto" (an even split). Blocks negatives
+ *  and nonsense so a bad value can never drive the حرمان math. */
+function sanitizePct(raw: string): number | undefined {
+  const s = normalizeArabicDigits(raw).replace(/[^0-9.]/g, "");
+  if (s === "") return undefined;
+  const n = parseFloat(s);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.min(100, n);
+}
 
 
 /** A number input with up/down stepper buttons, matching the day selector's
@@ -73,6 +86,8 @@ export function AttendanceSection({ course }: { course: Course }) {
   const { t } = useT();
   const {
     semester,
+    academic,
+    updateCourse,
     addSession,
     updateSession,
     deleteSession,
@@ -83,7 +98,8 @@ export function AttendanceSection({ course }: { course: Course }) {
   } = useStore();
   const { undoableDelete } = useUndo();
 
-  const att = attendanceInfo(course, semester);
+  const att = attendanceInfo(course, semester, academic?.universitySlug);
+  const mode = course.attendanceMode ?? "hour";
   const border = { borderColor: "var(--color-border)" };
   // Surfaced when a cloud-backed add fails, so it isn't a silent no-op.
   const [addError, setAddError] = useState("");
@@ -117,10 +133,84 @@ export function AttendanceSection({ course }: { course: Course }) {
               {att.absence.toFixed(1)}%
             </span>
             <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
-              {t("eachHour", { pct: att.unit.toFixed(1) })} · {t("attLimitShort", { n: att.limit })}
+              {t(att.mode === "lecture" ? "eachLecture" : "eachHour", {
+                pct: att.unit.toFixed(1),
+              })}{" "}
+              · {t("attLimitShort", { n: att.limit })}
             </div>
           </div>
         )}
+      </div>
+
+      {/* Counting method — per course. "By hour" weighs each session by length;
+          "by lecture" counts every missed lecture equally, with an optional
+          fixed per-lecture % for professors who set one. */}
+      <div className="mb-6 flex flex-col gap-2">
+        <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+          {t("attMethodLabel")}
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="inline-flex rounded-xl p-1"
+            style={{ background: "var(--color-primary-soft)" }}
+          >
+            {(["hour", "lecture"] as const).map((m) => {
+              const active = mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => updateCourse(course.id, { attendanceMode: m })}
+                  aria-pressed={active}
+                  className="rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors"
+                  style={
+                    active
+                      ? {
+                          background: "var(--color-surface)",
+                          color: "var(--color-primary)",
+                          boxShadow: "var(--shadow-card)",
+                        }
+                      : { color: "var(--color-muted)" }
+                  }
+                >
+                  {t(m === "hour" ? "attMethodHour" : "attMethodLecture")}
+                </button>
+              );
+            })}
+          </div>
+          {mode === "lecture" && (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                inputMode="decimal"
+                className="w-20 rounded-lg border px-2.5 py-1.5 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+                placeholder={att ? att.unit.toFixed(1) : t("perLecturePctPlaceholder")}
+                value={
+                  course.perLecturePct && course.perLecturePct > 0
+                    ? String(course.perLecturePct)
+                    : ""
+                }
+                onChange={(e) =>
+                  updateCourse(course.id, { perLecturePct: sanitizePct(e.target.value) })
+                }
+                aria-label={t("perLecturePctLabel")}
+              />
+              <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                {t("perLecturePctLabel")}
+              </span>
+            </div>
+          )}
+        </div>
+        <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+          {mode === "lecture" && att
+            ? t("perLecturePctHint", { pct: (100 / att.totalLectures).toFixed(1) })
+            : t("attMethodHint")}
+        </p>
       </div>
 
       {/* Weekly sessions editor */}

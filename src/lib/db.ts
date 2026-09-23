@@ -79,6 +79,44 @@ export async function enqueueScheduledPush(p: {
   }
 }
 
+/**
+ * Reconcile the outbox: keep only the undelivered reminders that SHOULD still
+ * fire. Among this user's rows whose dedup_key starts with `prefix` and that
+ * haven't been sent yet, any key not in `keep` is deleted. This is how a
+ * reminder stops firing once its task is checked off OR deleted — a deleted
+ * task leaves no note to cancel by key, so we prune by "not in the live set"
+ * instead. A stale row is CANCELLED by stamping `sent_at` (the delivery cron,
+ * deliverOutbox, only picks `sent_at IS NULL`), rather than deleted: the table
+ * grants owners insert/select/update but not delete, and an UPDATE keeps this
+ * working with no schema/RLS change. Only undelivered rows are touched.
+ * Fire-and-forget; never throws.
+ */
+export async function reconcileScheduledPushes(prefix: string, keep: Set<string>): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return;
+    const { data: rows } = await supabase
+      .from("scheduled_pushes")
+      .select("dedup_key")
+      .eq("user_id", uid)
+      .is("sent_at", null)
+      .like("dedup_key", `${prefix}%`);
+    if (!rows?.length) return;
+    const stale = rows.map((r) => r.dedup_key as string).filter((k) => !keep.has(k));
+    if (!stale.length) return;
+    // Stamp sent_at so the outbox cron skips these — the task is gone/checked off.
+    await supabase
+      .from("scheduled_pushes")
+      .update({ sent_at: new Date().toISOString() })
+      .eq("user_id", uid)
+      .is("sent_at", null)
+      .in("dedup_key", stale);
+  } catch {
+    // best-effort — ignore failures
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Subscription / premium entitlement (public.subscriptions)
 // ---------------------------------------------------------------------------
@@ -208,6 +246,8 @@ export interface DbCourse {
   creditHours: number; // credits
   position: number;
   attendanceLimit: number; // attendance_limit (per-course withdrawal % )
+  attendanceMode?: "hour" | "lecture"; // attendance_mode (counting method)
+  perLecturePct?: number; // per_lecture_pct (manual % per lecture, lecture mode)
   instructorName?: string;
   color?: string;
 }
@@ -360,6 +400,8 @@ const mapCourse = (row: {
   credits: number;
   position: number;
   attendance_limit: number | null;
+  attendance_mode: string | null;
+  per_lecture_pct: number | null;
   instructor_name: string | null;
   color: string | null;
 }): DbCourse => ({
@@ -368,11 +410,14 @@ const mapCourse = (row: {
   creditHours: Number(row.credits) || 0,
   position: row.position ?? 0,
   attendanceLimit: Number(row.attendance_limit) || 0,
+  attendanceMode: row.attendance_mode === "lecture" ? "lecture" : "hour",
+  perLecturePct: row.per_lecture_pct != null ? Number(row.per_lecture_pct) : undefined,
   instructorName: row.instructor_name ?? undefined,
   color: row.color ?? undefined,
 });
 
-const COURSE_COLS = "id, name, credits, position, attendance_limit, instructor_name, color";
+const COURSE_COLS =
+  "id, name, credits, position, attendance_limit, attendance_mode, per_lecture_pct, instructor_name, color";
 
 export async function getCourses(semesterId: string): Promise<DbCourse[]> {
   const userId = await currentUserId();
@@ -423,13 +468,15 @@ export async function addCourse(
 
 export async function updateCourse(
   id: string,
-  fields: Partial<{ name: string; creditHours: number; position: number; attendanceLimit: number; instructorName: string | null; color: string | null }>
+  fields: Partial<{ name: string; creditHours: number; position: number; attendanceLimit: number; attendanceMode: "hour" | "lecture"; perLecturePct: number | null; instructorName: string | null; color: string | null }>
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
   if (fields.name !== undefined) patch.name = fields.name;
   if (fields.creditHours !== undefined) patch.credits = fields.creditHours;
   if (fields.position !== undefined) patch.position = fields.position;
   if (fields.attendanceLimit !== undefined) patch.attendance_limit = fields.attendanceLimit;
+  if (fields.attendanceMode !== undefined) patch.attendance_mode = fields.attendanceMode;
+  if (fields.perLecturePct !== undefined) patch.per_lecture_pct = fields.perLecturePct;
   if (fields.instructorName !== undefined) patch.instructor_name = fields.instructorName;
   if (fields.color !== undefined) patch.color = fields.color;
   if (Object.keys(patch).length === 0) return;

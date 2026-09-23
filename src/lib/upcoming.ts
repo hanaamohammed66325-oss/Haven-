@@ -119,10 +119,13 @@ export function buildUpcoming(
     out.push(e);
   };
 
-  // Course items: still ungraded, real date, inside their bucket's window.
+  // Course items: still ungraded, not checked-off/hidden in the planner, with a
+  // real date inside their bucket's window.
   for (const c of courses) {
     for (const comp of c.components) {
       if (comp.score != null) continue; // already graded
+      const ae = planner.autoEdits?.[comp.id];
+      if (ae?.done || ae?.hidden) continue; // checked off / removed in the planner
       const bucket = bucketForComponentType(comp.type);
       if (!bucket) continue;
       if (!isUpcoming(bucket, comp.date, now)) continue;
@@ -143,6 +146,7 @@ export function buildUpcoming(
   // Planner deadline chips — reminder-eligible tag pinned to a specific day.
   // Their real date comes from the week's start date + weekday offset.
   for (const n of planner.notes) {
+    if (n.done) continue; // checked off → no longer upcoming
     if (!n.tag || !REMINDER_TAGS.has(n.tag)) continue;
     if (n.day == null) continue; // whole-week chips have no due day
     const d = plannerItemDate(sem, n.week, n.day);

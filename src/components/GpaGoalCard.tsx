@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useStore } from "@/store";
+import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { CircularProgress } from "./CircularProgress";
@@ -12,15 +12,16 @@ import { semesterGPA, projectedCumulativeGpa } from "@/lib/grades";
 export function GpaGoalCard() {
   const { t } = useT();
   const { courses, gpaGoal, setGpaGoal, gpaMode, cumulativeGpa, cumulativeHours } = useStore();
+  const scheme = useScheme();
 
   // Follow the same Semester / Cumulative toggle the GPA card uses (shared
   // store state) so this ring shows — and measures progress against — the GPA
   // currently on screen, not a fixed semester figure.
   const gpa =
     gpaMode === "cumulative"
-      ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours)
-      : semesterGPA(courses);
-  const goal = gpaGoal > 0 ? gpaGoal : 5;
+      ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, scheme)
+      : semesterGPA(courses, scheme);
+  const goal = gpaGoal > 0 ? gpaGoal : scheme.max;
   const pct = gpa != null ? Math.min(100, (gpa / goal) * 100) : 0;
   const reached = gpa != null && gpa >= goal;
   const message =
@@ -61,7 +62,7 @@ export function GpaGoalCard() {
           <input
             type="number"
             min="0"
-            max="5"
+            max={scheme.max}
             step="0.1"
             value={gpaGoal}
             onChange={(e) => setGpaGoal(Number(e.target.value) || 0)}

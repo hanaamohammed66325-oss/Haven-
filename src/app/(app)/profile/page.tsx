@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
 import { BADGES, badgesForTier, getBadgeThreshold, getBadgePercent, type BadgeContext } from "@/lib/gamification";
 import { semesterGPA } from "@/lib/grades";
+import { resolveScheme } from "@/lib/gradeSchemes";
 import { hasActiveAccess } from "@/lib/premium";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
 import { PENDING_EMAIL_CHANGE_KEY } from "@/lib/auth";
@@ -16,6 +17,8 @@ import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
 import { SubscriptionSection } from "@/components/SubscriptionSection";
 import { BadgeCrest, TierMedal } from "@/components/BadgeCrest";
+import { AcademicBanner } from "@/components/AcademicBanner";
+import { AcademicSettings } from "@/components/AcademicSettings";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -63,6 +66,7 @@ export default function ProfilePage() {
     courses,
     planner,
     semester,
+    academic,
     setProfileName,
     setProfilePhoto,
   } = useStore();
@@ -128,9 +132,15 @@ export default function ProfilePage() {
       <h1 className="font-display text-[34px] leading-tight" style={{ color: "var(--color-ink)" }}>
         {t("profileTitle")}
       </h1>
-      <p className="text-[15px] mt-3 mb-12" style={{ color: "var(--color-muted)" }}>
+      <p className="text-[15px] mt-3" style={{ color: "var(--color-muted)" }}>
         {t("profileSubtitle")}
       </p>
+
+      {/* Academic identity — the "تعريف": a light, seamless line with an edit
+          affordance that jumps to the editor card below. */}
+      <div className="mb-12">
+        <AcademicBanner editHref="#academic-profile" />
+      </div>
 
       <Card padding="p-5 sm:p-8" className="haven-stagger" data-havi-role="profile">
         {/* Photo */}
@@ -196,6 +206,19 @@ export default function ProfilePage() {
         </div>
       </Card>
 
+      {/* Academic profile — user-specific settings live on the profile. */}
+      <div className="mt-8 scroll-mt-24" id="academic-profile">
+        <h2 className="font-display text-lg mb-4" style={{ color: "var(--color-ink)" }}>
+          {t("academicSectionTitle")}
+        </h2>
+        <Card padding="p-5 sm:p-6">
+          <p className="text-[13px] mb-4 -mt-1" style={{ color: "var(--color-muted)" }}>
+            {t("academicSectionDesc")}
+          </p>
+          <AcademicSettings />
+        </Card>
+      </div>
+
       {/* Sign-in & security — email + password change */}
       <div className="mt-8">
         <h2 className="font-display text-lg mb-4" style={{ color: "var(--color-ink)" }}>
@@ -245,7 +268,7 @@ export default function ProfilePage() {
         const badgeCtx: BadgeContext = {
           courses,
           planner,
-          semesterGpa: semesterGPA(courses),
+          semesterGpa: semesterGPA(courses, resolveScheme(academic)),
           semesterStartDate: semester.startDate,
           semesterWeeks: semester.weeks,
         };

@@ -53,7 +53,7 @@ function StatBox({
 
 function CourseAttendanceCard({ course }: { course: Course }) {
   const { t, lang } = useT();
-  const { semester, updateMissedSession, addMissedSession, removeMissedSession } = useStore();
+  const { semester, academic, updateMissedSession, addMissedSession, removeMissedSession } = useStore();
   const [expanded, setExpanded] = useState(false);
   const [addingAbsence, setAddingAbsence] = useState(false);
   const [addType, setAddType] = useState<"full" | "late">("full");
@@ -62,7 +62,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
   const [editTardinessId, setEditTardinessId] = useState<string | null>(null);
   const [editTardinessVal, setEditTardinessVal] = useState("");
 
-  const att = attendanceInfo(course, semester);
+  const att = attendanceInfo(course, semester, academic?.universitySlug);
   if (!att) return null;
 
   const hUnit = t("hoursUnit");
@@ -394,16 +394,22 @@ function CourseAttendanceCard({ course }: { course: Course }) {
 export default function AttendancePage() {
   const { t, lang } = useT();
   usePageTitle("attendancePageTitle");
-  const { courses, semester, setSemester } = useStore();
+  const { courses, semester, academic, setSemester } = useStore();
 
   const holidays = useMemo(() => {
     if (!semester?.startDate || !semester?.endDate) return [];
-    return resolveHolidaysForSemester(
-      semester.startDate,
-      semester.endDate,
-      semester.dismissedHolidays
-    );
-  }, [semester?.startDate, semester?.endDate, semester?.dismissedHolidays]);
+    return resolveHolidaysForSemester(semester.startDate, semester.endDate, {
+      dismissed: semester.dismissedHolidays,
+      universitySlug: academic?.universitySlug,
+      customHolidays: semester.customHolidays,
+    });
+  }, [
+    semester?.startDate,
+    semester?.endDate,
+    semester?.dismissedHolidays,
+    semester?.customHolidays,
+    academic?.universitySlug,
+  ]);
 
   const ruleId = semester?.tardinessRuleId ?? DEFAULT_RULE_ID;
   const tardinessRule = resolveTardinessRule(semester);
@@ -422,7 +428,7 @@ export default function AttendancePage() {
     let approaching = 0;
 
     for (const c of coursesWithAttendance) {
-      const att = attendanceInfo(c, semester);
+      const att = attendanceInfo(c, semester, academic?.universitySlug);
       if (!att) continue;
       totalMissed += att.missedMinutes;
       totalExcused += att.excusedMinutes;
@@ -432,7 +438,7 @@ export default function AttendancePage() {
     }
 
     return { totalMissed, totalExcused, totalContact, atRisk, approaching };
-  }, [coursesWithAttendance, semester]);
+  }, [coursesWithAttendance, semester, academic?.universitySlug]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">

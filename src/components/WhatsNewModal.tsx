@@ -1,12 +1,9 @@
 "use client";
 
-// WhatsNewModal — a one-time "what's new" popup shown ONLY inside the installed
-// app (standalone / Home-Screen), never in a plain browser tab. It announces the
-// latest round of changes (undo, the notifications nudge, reminder fixes) once
-// per device, then never nags again.
+// WhatsNewModal — a one-time "what's new" popup that announces the latest round
+// of changes once per device (in the browser and the installed app alike), then
+// never nags again.
 //
-// Why installed-only: these are quality-of-life notes that matter most to people
-// who actually live in the app; browser visitors get the install guide instead.
 // The "seen" flag is versioned (…_v1) so a future update can bump the key and
 // resurface a fresh set without disturbing this one.
 //
@@ -15,26 +12,16 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Undo2, Bell, Sparkles } from "lucide-react";
+import { GraduationCap, Calculator, CalendarDays, ClipboardCheck, Sparkles } from "lucide-react";
 import { useT } from "@/i18n";
 
-const SEEN_KEY = "haven_whatsnew_seen_v1";
-
-function isStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-  return (
-    window.matchMedia?.("(display-mode: standalone)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
+const SEEN_KEY = "haven_whatsnew_seen_v2";
 
 export function WhatsNewModal() {
   const { t } = useT();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!isStandalone() && !/[?&]whatsnew=1/.test(window.location.search)) return; // installed app only (localhost preview: ?whatsnew=1)
-
     let seen = false;
     try {
       seen = localStorage.getItem(SEEN_KEY) === "1";
@@ -60,9 +47,10 @@ export function WhatsNewModal() {
   if (!open || typeof document === "undefined") return null;
 
   const items = [
-    { icon: <Undo2 size={20} />, title: t("whatsnew_undo_title"), body: t("whatsnew_undo_body") },
-    { icon: <Bell size={20} />, title: t("whatsnew_notif_title"), body: t("whatsnew_notif_body") },
-    { icon: <Sparkles size={20} />, title: t("whatsnew_fixes_title"), body: t("whatsnew_fixes_body") },
+    { icon: <GraduationCap size={20} />, title: t("whatsnew_academic_title"), body: t("whatsnew_academic_body") },
+    { icon: <Calculator size={20} />, title: t("whatsnew_gpa_title"), body: t("whatsnew_gpa_body") },
+    { icon: <CalendarDays size={20} />, title: t("whatsnew_holidays_title"), body: t("whatsnew_holidays_body") },
+    { icon: <ClipboardCheck size={20} />, title: t("whatsnew_attendance_title"), body: t("whatsnew_attendance_body") },
   ];
 
   return createPortal(
@@ -148,10 +136,26 @@ export function WhatsNewModal() {
           ))}
         </div>
 
+        {/* Scope note — auto-detection + holidays are Saudi-only for now. */}
+        <div
+          className="mt-5 rounded-xl px-3.5 py-3 text-[12px] leading-relaxed"
+          style={{
+            background: "var(--color-brass-soft, var(--color-primary-soft))",
+            color: "var(--color-ink)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          {t("whatsnew_scope_note")}
+        </div>
+
+        <p className="text-[12px] mt-4 leading-relaxed" style={{ color: "var(--color-muted)" }}>
+          {t("whatsnew_general_fixes")}
+        </p>
+
         <button
           type="button"
           onClick={close}
-          className="haven-btn w-full mt-6 inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold"
+          className="haven-btn w-full mt-5 inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold"
         >
           {t("whatsnew_cta")}
         </button>

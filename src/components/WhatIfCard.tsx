@@ -2,15 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { RotateCcw } from "lucide-react";
-import { useStore } from "@/store";
+import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { CountUp } from "./CountUp";
-import { courseCurrentPct, pctToGrade, projectedCumulativeFromParts } from "@/lib/grades";
+import { courseCurrentPct, projectedCumulativeFromParts } from "@/lib/grades";
+import { bandForPct, pointsForPct } from "@/lib/gradeSchemes";
 
 export function WhatIfCard() {
   const { t } = useT();
   const { courses, gpaMode, cumulativeGpa, cumulativeHours } = useStore();
+  const scheme = useScheme();
 
   const buildInitial = useMemo(
     () => () =>
@@ -38,14 +40,14 @@ export function WhatIfCard() {
     let credits = 0;
     courses.forEach((c) => {
       const p = sim[c.id] ?? 75;
-      points += pctToGrade(p).points * c.creditHours;
+      points += pointsForPct(scheme, p) * c.creditHours;
       credits += c.creditHours;
     });
     if (gpaMode === "cumulative") {
-      return projectedCumulativeFromParts(points, credits, cumulativeGpa, cumulativeHours);
+      return projectedCumulativeFromParts(points, credits, cumulativeGpa, cumulativeHours, scheme);
     }
     return credits ? points / credits : null;
-  }, [sim, courses, gpaMode, cumulativeGpa, cumulativeHours]);
+  }, [sim, courses, gpaMode, cumulativeGpa, cumulativeHours, scheme]);
 
   if (!courses.length) return null;
 
@@ -75,7 +77,7 @@ export function WhatIfCard() {
       <div className="flex flex-col gap-5">
         {courses.map((c) => {
           const v = sim[c.id] ?? 75;
-          const g = pctToGrade(v);
+          const g = bandForPct(scheme, v);
           return (
             <div key={c.id} className="flex items-center gap-3 sm:gap-4">
               <span
@@ -117,7 +119,7 @@ export function WhatIfCard() {
         <span className="haven-label">{resultLabel}</span>
         <span className="font-display text-3xl" style={{ color: "var(--color-brass)" }}>
           {gpa != null ? <CountUp value={gpa} decimals={2} duration={500} /> : "—"}
-          <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ 5.0</span>
+          <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ {scheme.max}</span>
         </span>
       </div>
     </Card>
