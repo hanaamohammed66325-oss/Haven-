@@ -106,10 +106,10 @@ export function describePolicyAr(p: Pick<AttendancePolicy, "method" | "max_absen
       const verb = p.details?.limit_inclusive === true ? "وصل" : "تجاوز";
       lines.push(`الحرمان إذا ${verb} الغياب بدون عذر ${pct(unexc)}، أو ${verb} الغياب كله مع الأعذار ${pct(max)}`);
     } else if (!p.excused_counts && (unexc ?? max) != null) {
-      lines.push(`الحرمان إذا تجاوز الغياب بدون عذر ${pct((unexc ?? max) as number)}، والغياب بعذر ما ينحسب منها`);
+      lines.push(`الحرمان إذا تجاوز الغياب بدون عذر ${pct((unexc ?? max) as number)}، والغياب بعذر ما يُحسب منها`);
     } else if (max != null) {
       const reach = p.details?.limit_inclusive === true;
-      lines.push(`الحرمان إذا ${reach ? "وصل" : "تجاوز"} الغياب ${pct(max)}${p.excused_counts ? "، والغياب بعذر ينحسب منها" : ""}`);
+      lines.push(`الحرمان إذا ${reach ? "وصل" : "تجاوز"} الغياب ${pct(max)}${p.excused_counts ? "، والغياب بعذر يُحسب منها" : ""}`);
     } else if (unexc != null) {
       lines.push(`الحرمان إذا تجاوز الغياب بدون عذر ${pct(unexc)}`);
     }
@@ -117,7 +117,7 @@ export function describePolicyAr(p: Pick<AttendancePolicy, "method" | "max_absen
   if (p.excuse_floor_attendance != null) {
     lines.push(`مع العذر المقبول تقدر الكلية ترفع الحرمان إذا ما قل الحضور عن ${pct(p.excuse_floor_attendance)}`);
   }
-  if (p.separate_components) lines.push("النظري والعملي (والسريري) كل واحد ينحسب لحاله");
+  if (p.separate_components) lines.push("النظري والعملي (والسريري) كل واحد يُحسب لحاله");
   if (p.component_limits) {
     for (const [k, v] of Object.entries(p.component_limits)) lines.push(`${COMPONENT_AR[k] ?? k}: ${pct(v)}`);
   }

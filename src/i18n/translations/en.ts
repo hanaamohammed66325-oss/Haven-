@@ -148,7 +148,7 @@ export const en = {
   premiumCurrentPlan: "Your current plan",
   premiumPermanentPlan: "Permanent plan",
   premiumUpgradeTitle: "Upgrade to Premium",
-  premiumCoursesLimit: "Your free plan includes up to {n} courses. Upgrade to add more.",
+  premiumCoursesLimit: "Your free plan includes up to {n|# course|# courses}. Upgrade to add more.",
   premiumFeatureLocked: "This is a Premium feature. Upgrade to unlock it.",
   comingSoon: "Coming soon",
   switchToArabic: "العربية",
@@ -203,7 +203,7 @@ export const en = {
   examsHeading: "Exams",
   dueToday: "Today",
   dueTomorrow: "Tomorrow",
-  dueInDays: "in {n} days",
+  dueInDays: "in {n|# day|# days}",
 
   // GPA goal
   gpaGoalTitle: "GPA goal",
@@ -373,8 +373,8 @@ export const en = {
   smart_examSoon: "{name} ({course}) {when}",
   smart_today: "today",
   smart_tomorrow: "tomorrow",
-  smart_tasksDue: "{n} tasks due this week",
-  smart_ungraded: "{n} grades not entered yet",
+  smart_tasksDue: "{n|# task|# tasks} due this week",
+  smart_ungraded: "{n|# grade|# grades} not entered yet",
   smart_checkin: "Check in to start your streak!",
   smart_checkinStreak: "Check in to keep your {n}-day streak!",
   smart_finalsWeek: "Finals week — stay focused!",
@@ -384,7 +384,7 @@ export const en = {
   smart_studyNudge: "Feel like studying? Open Haven and knock out a task.",
   smart_examTomorrow: "You've got {exam} tomorrow — start a focus session to prepare?",
   smart_taskTomorrowSoon: "{task} is due tomorrow — knock it out now before it slips your mind?",
-  smart_manyTasksTomorrow: "You've got {n} things due tomorrow — want to start now?",
+  smart_manyTasksTomorrow: "You've got {n|# thing|# things} due tomorrow — want to start now?",
 
   // Re-engagement / return nudge (in-app modal).
   nudge_titleNotif: "Don't miss a thing",
@@ -605,7 +605,7 @@ export const en = {
   scoreMax: "Max score: {max}",
   scoreMin: "Cannot be negative",
   attendance: "Attendance",
-  attendedOf: "{attended} / {total} lectures",
+  attendedOf: "{attended} / {total|# lecture|# lectures}",
   attStatus_ok: "On track",
   attStatus_warn: "Approaching limit",
   attStatus_danger: "Withdrawal risk",
@@ -699,7 +699,7 @@ export const en = {
   nav_attendance: "Attendance",
   attendancePageTitle: "Attendance Tracking",
   attendancePageSubtitle: "Track absences, tardiness, and holidays for each course.",
-  hoursRemaining: "{n} hours remaining",
+  hoursRemaining: "{n|# hour|# hours} remaining",
   hoursRemainingBeforeLimit: "{n}h left before limit",
   totalContactHours: "Total contact hours",
   missedHours: "Missed hours",
@@ -777,7 +777,7 @@ export const en = {
   weeksHint: "From the first day of classes to the start of finals, breaks included — we subtract them separately. Don't enter your university's count with breaks already taken out.",
   finalsWeeksLabel: "Finals weeks",
   weeksCustom: "Custom",
-  weeksSuggestion: "≈ {total} weeks total ({teaching} teaching + {finals} finals)",
+  weeksSuggestion: "≈ {total|# week|# weeks} total ({teaching} teaching + {finals} finals)",
 
   // Holidays — student-managed calendar (built-in dismiss/restore + custom add)
   sectionHolidays: "Holidays",
@@ -823,10 +823,10 @@ export const en = {
   reminderToastTitle: "Upcoming",
   reminderToday: "Today: {title}",
   reminderTomorrow: "Tomorrow: {title}",
-  reminderInDays: "In {n} days: {title}",
+  reminderInDays: "In {n|# day|# days}: {title}",
   reminderTodayAt: "Today at {time}: {title}",
   reminderTomorrowAt: "Tomorrow at {time}: {title}",
-  reminderInDaysAt: "In {n} days at {time}: {title}",
+  reminderInDaysAt: "In {n|# day|# days} at {time}: {title}",
 
   // Reminders — customizable notification preferences (notifPrefs)
   remExamsTitle: "Exam reminders",
@@ -870,7 +870,7 @@ export const en = {
   // Send-test-notification (Phase 2)
   notifSendTest: "Send test notification",
   notifSending: "Sending…",
-  notifSentToast: "Sent to {n} device(s). Check your notifications.",
+  notifSentToast: "Sent to {n|# device|# devices}. Check your notifications.",
   notifCleanedSuffix: " (cleaned {n} expired)",
 
   // Dashboard notifications nudge — the bell button next to "Add course",
@@ -1127,7 +1127,7 @@ export const en = {
 
   // ── Gamification ──────────────────────────────────────────────
   gam_streak: "Streak",
-  gam_streakDays: "{n} days",
+  gam_streakDays: "{n|# day|# days}",
   gam_streakBroke: "Your streak reset — start a new one today!",
   gam_streakMilestone: "{n}-day streak! Keep going!",
   gam_checkin: "Daily Check-in",
@@ -1137,7 +1137,7 @@ export const en = {
   gam_checkinStreak: "{n}-day streak — keep going!",
   gam_checkinStartStreak: "Start your streak today!",
   gam_checkinTap: "Tap here to check in!",
-  gam_checkinTotal: "{n} total check-ins",
+  gam_checkinTotal: "{n|# check-in|# check-ins} in total",
   gam_xp: "XP",
   gam_level: "Level",
   gam_xpProgress: "{current} / {next} XP",
@@ -1155,11 +1155,11 @@ export const en = {
   gam_ch_addTask: "Add a new planner task",
   gam_ch_completeTask: "Complete a planner task",
   gam_ch_openStreak: "Maintain your streak",
-  gam_ch_completeNTasks: "Complete {n} tasks this week",
-  gam_ch_checkinWeek: "Check in {n} times this week",
+  gam_ch_completeNTasks: "Complete {n|# task|# tasks} this week",
+  gam_ch_checkinWeek: "Check in {n|once|# times} this week",
   gam_ch_logMarksCourse: "Log all coursework marks for {course}",
   gam_ch_perfectAttendanceWeek: "Zero absences this week",
-  gam_ch_updateGrades: "Enter {n} new grades this week",
+  gam_ch_updateGrades: "Enter {n|# new grade|# new grades} this week",
   gam_ch_pomodoroFocus: "Finish 2 focus sessions today",
   gam_ch_pomodoroStreak: "Use the focus timer 3 days in a row",
 
@@ -1218,7 +1218,7 @@ export const en = {
   pom_viewAuto: "Auto (by clock)",
   pom_viewDay: "Day",
   pom_viewNight: "Night",
-  pom_groveCount: "{count} lily pads grown across all your focus sessions.",
+  pom_groveCount: "{count|# lily pad|# lily pads} grown across all your focus sessions.",
   pom_groveOne: "Your first lily pad — one focus session down.",
   pom_groveEmpty: "Finish a focus session to grow your first lily pad here.",
 
@@ -1254,7 +1254,7 @@ export const en = {
   gam_tierLabel_4: "Diamond",
 
   gam_achievementBadge: "Badge unlocked!",
-  gam_achievementBadges: "{n} badges unlocked!",
+  gam_achievementBadges: "{n|# badge|# badges} unlocked!",
   gam_achievementTierUp: "Tier up!",
   gam_achievementTierUpDesc: "You advanced to {tier}",
 
@@ -1270,7 +1270,7 @@ export const en = {
   wr_dismiss: "Got it!",
 
   gam_badge_firstCheckin: "Daily Regular",
-  gam_badge_firstCheckin_desc: "Check in {n} times",
+  gam_badge_firstCheckin_desc: "Check in {n|once|# times}",
   gam_badge_firstCheckin_why: "Your check-in habit is growing!",
   gam_badge_firstCheckin_howToGet: "Check in {n} times via the dashboard card",
 
@@ -1280,7 +1280,7 @@ export const en = {
   gam_badge_safe_howToGet: "Stay below the withdrawal limit for {n}+ weeks",
 
   gam_badge_organized: "Organized",
-  gam_badge_organized_desc: "Complete {n} planner tasks",
+  gam_badge_organized_desc: "Complete {n|# planner task|# planner tasks}",
   gam_badge_organized_why: "Planning and finishing tasks shows discipline",
   gam_badge_organized_howToGet: "Mark {n} tasks as done in the planner",
 
@@ -1300,7 +1300,7 @@ export const en = {
   gam_badge_levelUp_howToGet: "Earn {n} XP — open the app, check in, log grades",
 
   gam_badge_courseworkComplete: "Coursework Done",
-  gam_badge_courseworkComplete_desc: "Log all coursework marks for {n} courses",
+  gam_badge_courseworkComplete_desc: "Log all coursework marks for {n|# course|# courses}",
   gam_badge_courseworkComplete_desc_all: "Log all coursework marks for every course",
   gam_badge_courseworkComplete_desc_diamond: "Log every coursework mark across all courses",
   gam_badge_courseworkComplete_why: "All your pre-final marks are recorded!",
@@ -1316,7 +1316,7 @@ export const en = {
   gam_badge_allMarksComplete_howToGet_all: "Enter every mark including finals for all your courses",
 
   gam_badge_perfectScore: "Perfect Score",
-  gam_badge_perfectScore_desc: "Get {n} full marks",
+  gam_badge_perfectScore_desc: "Get {n|# full mark|# full marks}",
   gam_badge_perfectScore_why: "Full marks earned!",
   gam_badge_perfectScore_howToGet: "Score {pct}%+ on {n} graded components",
 
@@ -1475,7 +1475,7 @@ export const en = {
   tc_profileNotEndedNoDate: "The term isn't over yet. We'll show you a window to check your GPA when it ends.",
   tc_cumTitle: "Your cumulative GPA",
   tc_cumIntro: "Your cumulative GPA after this term, as we count it:",
-  tc_cumFrom: "From your cumulative GPA before this term ({gpa} over {hours} hours) and this term's courses.",
+  tc_cumFrom: "From your cumulative GPA before this term ({gpa} over {hours|# hour|# hours}) and this term's courses.",
   tc_cumEditBefore: "Edit",
   tc_cumNeedBefore: "To count your cumulative GPA after this term, enter your cumulative GPA before it and the hours it covers.",
   tc_cumBeforeGpa: "Cumulative before this term",
@@ -1635,7 +1635,7 @@ export const en = {
   setup_tagFromDates: "Worked out from the official dates",
   setup_tagEnter: "Enter from your university's calendar",
   setup_tagCheck: "Default, please check",
-  setup_semSpan: "Between the two dates: {n} weeks",
+  setup_semSpan: "Between the two dates: {n|# week|# weeks}",
   setup_semTeachingWeeks: "Teaching weeks (breaks included)",
   setup_semFinalsWeeks: "Finals weeks",
   setup_semLimit: "Denial limit (%)",

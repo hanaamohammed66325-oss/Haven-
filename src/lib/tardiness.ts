@@ -1,3 +1,5 @@
+import { plural } from "./format";
+
 export interface TardinessRule {
   id: string;
   nameAr: string;
@@ -16,7 +18,7 @@ export const TARDINESS_RULES: TardinessRule[] = [
   },
   {
     id: "strict",
-    nameAr: "صارم (١٠ دقائق، ٢ تأخيرات = غياب)",
+    nameAr: "صارم (١٠ دقائق، تأخيرين = غياب)",
     nameEn: "Strict (10 min, 2 tardies = 1 absence)",
     thresholdMinutes: 10,
     tardiesPerAbsence: 2,
@@ -53,7 +55,7 @@ export function getRuleById(id: string): TardinessRule {
 export function buildCustomRule(thresholdMinutes: number, tardiesPerAbsence: number): TardinessRule {
   return {
     id: "custom",
-    nameAr: `مخصص (${thresholdMinutes} د، ${tardiesPerAbsence} تأخيرات = غياب)`,
+    nameAr: `مخصص (${thresholdMinutes} د، ${plural(tardiesPerAbsence, ["تأخير واحد", "تأخيرين", "# تأخيرات", "# تأخير"])} = غياب)`,
     nameEn: `Custom (${thresholdMinutes} min, ${tardiesPerAbsence} tardies = 1 absence)`,
     thresholdMinutes,
     tardiesPerAbsence,

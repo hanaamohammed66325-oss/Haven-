@@ -4,15 +4,18 @@ import React, { createContext, useContext, useEffect, ReactNode } from "react";
 import { en, type TranslationKey } from "./translations/en";
 import { ar } from "./translations/ar";
 import { useStore } from "@/store";
+import { plural } from "@/lib/format";
 
 const dictionaries = { en, ar };
 
 type Params = Record<string, string | number>;
 
+// "{n}" is replaced by the value; "{n|one|two|few|many}" (Arabic) or
+// "{n|one|other}" (English) picks the noun form its number takes — see plural().
 function interpolate(template: string, params?: Params): string {
   if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (_, key) =>
-    key in params ? String(params[key]) : `{${key}}`
+  return template.replace(/\{(\w+)(?:\|([^{}]*))?\}/g, (whole, key, forms) =>
+    !(key in params) ? whole : forms ? plural(params[key], forms.split("|")) : String(params[key])
   );
 }
 

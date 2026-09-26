@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Trash2, GraduationCap, ArrowLeft } from "lucide-react";
+import { plural } from "@/lib/format";
 
 // Standalone, no-login GPA calculator for the public /tools/gpa-calculator page.
 // Deliberately self-contained (no store, no i18n) so it renders instantly for a
@@ -238,7 +239,7 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
             </span>
           </div>
           <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
-            {semesterCredits > 0 ? `${semesterCredits} ساعة معتمدة` : "أدخل موادك"}
+            {semesterCredits > 0 ? plural(semesterCredits, ["ساعة معتمدة واحدة", "ساعتان معتمدتان", "# ساعات معتمدة", "# ساعة معتمدة"]) : "أدخل موادك"}
           </div>
         </div>
         {cumulativeGpa != null && (

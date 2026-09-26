@@ -9,6 +9,7 @@ import { enqueueScheduledPush, reconcileScheduledPushes } from "@/lib/db";
 import { plannerItemDate } from "@/lib/reminders";
 import { holidayCalendar } from "@/lib/universityCountry";
 import { classOffDays } from "@/lib/holidays";
+import { plural } from "@/lib/format";
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -122,7 +123,7 @@ export function NotifScheduler() {
           if (fireAt <= now) continue; // lead time already passed → nothing to queue
           const body =
             lang === "ar"
-              ? `موعد التسليم خلال ${hoursAhead} ساعة`
+              ? `موعد التسليم خلال ${plural(hoursAhead, ["ساعة", "ساعتين", "# ساعات", "# ساعة"])}`
               : `Due in ${hoursAhead}h`;
           void enqueueScheduledPush({
             dedupKey,

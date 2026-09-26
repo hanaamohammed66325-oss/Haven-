@@ -12,6 +12,7 @@
 
 import type { Course, NotifPrefs, PlannerData, Semester } from "@/types";
 import { plannerItemDate } from "./reminders";
+import { plural } from "./format";
 
 /** A single, ready-to-fire smart reminder (built in the React layer from
  *  buildSmartSuggestions, so the notification says the same smart thing the
@@ -40,7 +41,7 @@ function lectureBody(lang: "en" | "ar", course: string, mins: number): string {
     return v[Math.floor(Math.random() * v.length)];
   }
   const v = [
-    `محاضرة ${course} تبدأ بعد ${mins} دقيقة.`,
+    `محاضرة ${course} تبدأ بعد ${plural(mins, ["دقيقة", "دقيقتين", "# دقائق", "# دقيقة"])}.`,
     `محاضرة ${course} قرّبت.`,
     `استعد لمحاضرة ${course}.`,
   ];
@@ -202,7 +203,7 @@ function scheduleTasks(
       const delay = fireAt - now;
       const id = `task-${note.id}-${hoursAhead}h`;
       const body = lang === "ar"
-        ? `موعد التسليم خلال ${hoursAhead} ساعة`
+        ? `موعد التسليم خلال ${plural(hoursAhead, ["ساعة", "ساعتين", "# ساعات", "# ساعة"])}`
         : `Due in ${hoursAhead}h`;
       scheduleAt(delay, `Haven — ${note.text}`, body, id);
     }

@@ -9,6 +9,24 @@ export function creditHoursLabel(n: number, lang: "en" | "ar"): string {
   return `${n} cr`;
 }
 
+/** A counted noun in the form its number takes, "#" standing for the number.
+ *  Four forms follow Arabic: 1, 2, 3–10, then 11+ (and 100, 101…) —
+ *  plural(3, ["درجة وحدة", "درجتين", "# درجات", "# درجة"]) → "3 درجات".
+ *  Two forms follow English: 1, then the rest. A fraction or a non-number
+ *  takes the last form ("2.5 ساعة"). */
+export function plural(n: number | string, forms: string[]): string {
+  const v = Number(n);
+  const last = forms.length - 1;
+  let i = last;
+  if (Number.isInteger(v)) {
+    if (forms.length === 2) i = v === 1 ? 0 : 1;
+    else if (v === 1) i = 0;
+    else if (v === 2) i = 1;
+    else if (v === 0 || (v % 100 >= 3 && v % 100 <= 10)) i = 2;
+  }
+  return forms[i].replace(/#/g, String(n));
+}
+
 // Friendly duration from minutes, e.g. 90 → "1h 30m" / "1س 30د".
 export function formatDuration(minutes: number, hUnit: string, mUnit: string): string {
   const total = Math.max(0, Math.round(minutes));

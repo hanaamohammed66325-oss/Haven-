@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { useT } from "@/i18n";
+import { plural } from "@/lib/format";
 import { useSubscription } from "@/lib/subscription";
 import { isInTrial, isVip, daysUntilTrialEnds, ENFORCE_PREMIUM } from "@/lib/premium";
 
@@ -25,7 +26,7 @@ export function TrialBanner() {
   const seePlans = lang === "ar" ? "عرض الخطط" : "See plans";
   const message =
     lang === "ar"
-      ? `تنتهي التجربة المجانية خلال ${n} يوم.`
+      ? `تنتهي التجربة المجانية خلال ${plural(n, ["يوم", "يومين", "# أيام", "# يوم"])}.`
       : `Free trial ends in ${n} ${n === 1 ? "day" : "days"}.`;
 
   return (

@@ -333,11 +333,19 @@ function lectureBody(lang: string, course: string, mins: number, room: string | 
   }
   const r = room ? ` — القاعة ${room}` : '';
   const v = [
-    `محاضرة ${course} تبدأ بعد ${mins} دقيقة${r}.`,
+    `محاضرة ${course} تبدأ بعد ${arMinutes(mins)}${r}.`,
     `محاضرة ${course} قرّبت${r}.`,
     `استعد لمحاضرة ${course}${r}.`,
   ];
   return v[Math.floor(Math.random() * v.length)];
+}
+
+// "دقيقة" in the form its number takes: 1, 2, 3–10, 11+.
+function arMinutes(n: number): string {
+  if (n === 1) return 'دقيقة';
+  if (n === 2) return 'دقيقتين';
+  const m = n % 100;
+  return m >= 3 && m <= 10 ? `${n} دقائق` : `${n} دقيقة`;
 }
 
 function json(obj: unknown, status = 200) {
