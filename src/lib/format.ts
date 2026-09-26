@@ -29,3 +29,9 @@ export function addMinutesToTime(hhmm: string, minutes: number): string {
   const mi = total % 60;
   return `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
 }
+
+/** An absence percentage as university portals show it: up to two decimals,
+ *  no trailing zeros (1 of 15 lectures → "6.67", 25 → "25"). */
+export function fmtPct(n: number): string {
+  return String(Number((Number.isFinite(n) ? n : 0).toFixed(2)));
+}

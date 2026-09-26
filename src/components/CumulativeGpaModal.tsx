@@ -6,8 +6,9 @@ import { Modal } from "./Modal";
 import { InfoPopover } from "./InfoPopover";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
-import { courseCurrentPct } from "@/lib/grades";
-import { bandForPct, pointsForPct, type GradeScheme } from "@/lib/gradeSchemes";
+import { courseCurrentPct, projectedCumulativeFromParts } from "@/lib/grades";
+import { repeatAdjust } from "@/lib/repeats";
+import { bandForPct, isWithdrawn, pointsForOfficial, pointsForPct, type GradeScheme } from "@/lib/gradeSchemes";
 
 const field =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -39,7 +40,7 @@ interface CumulativeGpaModalProps {
 
 export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
   const { t } = useT();
-  const { courses } = useStore();
+  const { courses, academic } = useStore();
   const scheme = useScheme();
 
   const [mode, setMode] = useState<Mode>("current");
@@ -63,17 +64,31 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
   const currentRows = useMemo(
     () =>
       courses.map((c) => {
+        // Withdrawn (W): listed, but out of the GPA.
+        if (isWithdrawn(c.official)) {
+          return { id: c.id, name: c.name, credits: Number(c.creditHours) || 0, graded: false, letter: c.official!.letter!, points: null };
+        }
         const pct = courseCurrentPct(c);
-        const graded = pct != null;
-        const projected = graded ? bandForPct(scheme, pct).letter : null;
+        // The official portal result (end-of-term check) beats the estimate.
+        const officialPts = c.official ? pointsForOfficial(scheme, c.official) : null;
+        const officialLetter =
+          officialPts == null
+            ? null
+            : scheme.percent
+            ? bandForPct(scheme, officialPts).letter
+            : c.official!.letter!;
+        const graded = pct != null || officialPts != null;
+        const projected = officialLetter ?? (pct != null ? bandForPct(scheme, pct).letter : null);
         const override = overrides[c.id];
         const letter = override ?? projected;
-        // Default row stays exact (from the %); an override falls back to the letter.
+        // Default row stays exact (official, else from the %); an override falls back to the letter.
         const points =
           override != null
             ? letterPoints(scheme, override)
-            : graded
-            ? pointsForPct(scheme, pct!)
+            : officialPts != null
+            ? officialPts
+            : pct != null
+            ? pointsForPct(scheme, pct)
             : null;
         return {
           id: c.id,
@@ -107,8 +122,9 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
   const pGpa = Math.min(scheme.max, Math.max(0, Number(prevGpa) || 0));
   const pHours = Math.max(0, Number(prevHours) || 0);
   const hasPrev = pHours > 0;
-  const totalCredits = pHours + semesterCredits;
-  const newGpa = totalCredits > 0 ? Math.min(scheme.max, (pGpa * pHours + semesterPoints) / totalCredits) : null;
+  // Repeated courses only apply to this term's own courses, not hand-entered rows.
+  const repeats = mode === "current" ? repeatAdjust(courses, scheme, academic) : undefined;
+  const newGpa = projectedCumulativeFromParts(semesterPoints, semesterCredits, pGpa, pHours, scheme, repeats);
 
   const fmt = (n: number | null) => (n == null ? "—" : n.toFixed(2));
 
@@ -209,6 +225,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
                 value={prevHours}
                 onChange={(e) => setPrevHours(e.target.value)}
               />
+              <p className="text-[11px] leading-relaxed" style={{ color: "var(--color-muted)" }}>{t("gpaHoursHint")}</p>
             </div>
           </div>
         </section>

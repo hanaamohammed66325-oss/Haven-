@@ -7,11 +7,12 @@ import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { CountUp } from "./CountUp";
 import { courseCurrentPct, projectedCumulativeFromParts } from "@/lib/grades";
-import { bandForPct, pointsForPct } from "@/lib/gradeSchemes";
+import { repeatAdjust } from "@/lib/repeats";
+import { bandForPct, isWithdrawn, pointsForOfficial, pointsForPct } from "@/lib/gradeSchemes";
 
 export function WhatIfCard() {
   const { t } = useT();
-  const { courses, gpaMode, cumulativeGpa, cumulativeHours } = useStore();
+  const { courses, gpaMode, cumulativeGpa, cumulativeHours, academic } = useStore();
   const scheme = useScheme();
 
   const buildInitial = useMemo(
@@ -39,15 +40,20 @@ export function WhatIfCard() {
     let points = 0;
     let credits = 0;
     courses.forEach((c) => {
+      // A course with its official result is settled — it doesn't move; a
+      // withdrawn one is out of the GPA.
+      if (isWithdrawn(c.official)) return;
+      const fixed = c.official ? pointsForOfficial(scheme, c.official) : null;
       const p = sim[c.id] ?? 75;
-      points += pointsForPct(scheme, p) * c.creditHours;
+      points += (fixed ?? pointsForPct(scheme, p)) * c.creditHours;
       credits += c.creditHours;
     });
     if (gpaMode === "cumulative") {
-      return projectedCumulativeFromParts(points, credits, cumulativeGpa, cumulativeHours, scheme);
+      const repeats = repeatAdjust(courses, scheme, academic);
+      return projectedCumulativeFromParts(points, credits, cumulativeGpa, cumulativeHours, scheme, repeats);
     }
     return credits ? points / credits : null;
-  }, [sim, courses, gpaMode, cumulativeGpa, cumulativeHours, scheme]);
+  }, [sim, courses, gpaMode, cumulativeGpa, cumulativeHours, scheme, academic]);
 
   if (!courses.length) return null;
 
@@ -76,6 +82,34 @@ export function WhatIfCard() {
 
       <div className="flex flex-col gap-5">
         {courses.map((c) => {
+          const fixed = c.official ? pointsForOfficial(scheme, c.official) : null;
+          if (fixed != null || isWithdrawn(c.official)) {
+            const letter = fixed != null && scheme.percent ? bandForPct(scheme, fixed).letter : c.official!.letter;
+            return (
+              <div key={c.id} className="flex items-center gap-3 sm:gap-4">
+                <span
+                  className="w-20 sm:w-32 shrink-0 text-sm font-medium truncate"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {c.name}
+                </span>
+                <span className="flex-1 min-w-0 text-xs" style={{ color: "var(--color-muted)" }}>
+                  {t("gradeOfficial")}
+                </span>
+                {scheme.percent && fixed != null && (
+                  <span className="w-12 shrink-0 text-end text-sm" style={{ color: "var(--color-muted)" }}>
+                    {fixed}%
+                  </span>
+                )}
+                <span
+                  className="w-9 shrink-0 text-end text-sm font-semibold"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {letter}
+                </span>
+              </div>
+            );
+          }
           const v = sim[c.id] ?? 75;
           const g = bandForPct(scheme, v);
           return (

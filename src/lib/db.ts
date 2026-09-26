@@ -47,6 +47,25 @@ export async function logEvent(event: string, meta: Record<string, unknown> = {}
 }
 
 /**
+ * Percentage cutoffs the admin approved from students' real results
+ * (public.grade_cutoffs, readable by everyone): catalogue slug → lowest % per
+ * letter. Never throws — without them the estimated cutoffs stay.
+ */
+export async function getGradeCutoffs(): Promise<Record<string, Record<string, number>>> {
+  try {
+    const { data, error } = await supabase.from("grade_cutoffs").select("university, cutoffs");
+    if (error || !data) return {};
+    const out: Record<string, Record<string, number>> = {};
+    for (const r of data as { university: string; cutoffs: unknown }[]) {
+      if (r.cutoffs && typeof r.cutoffs === "object") out[r.university] = r.cutoffs as Record<string, number>;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Queue a push reminder for later delivery (the "outbox"). The CLIENT computes
  * the smart content and the exact send time; the scheduler-tick edge function
  * delivers it even when the app is closed. Upsert on (user_id, dedup_key) keeps
@@ -314,6 +333,9 @@ async function semesterOwnerId(semesterId: string): Promise<string | null> {
   return (data?.user_id as string | undefined) ?? null;
 }
 
+/** The name a new account's term is saved with; shown translated. */
+export const DEFAULT_SEMESTER_NAME = "Current semester";
+
 /**
  * Return the active semester, creating one if the user has none yet.
  * `settings` (the app's semester settings) seeds the new row's week counts.
@@ -353,7 +375,7 @@ export async function ensureActiveSemester(settings?: {
     .from("semesters")
     .insert({
       user_id: userId,
-      name: settings?.name?.trim() || "Current semester",
+      name: settings?.name?.trim() || DEFAULT_SEMESTER_NAME,
       teaching_weeks: teachingWeeks,
       finals_weeks: finalsWeeks,
       is_active: true,
@@ -432,7 +454,7 @@ export async function getCourses(semesterId: string): Promise<DbCourse[]> {
 }
 
 export async function addCourse(
-  course: { name: string; creditHours: number; position?: number; attendanceLimit?: number }
+  course: { name: string; creditHours: number; position?: number; attendanceLimit?: number; attendanceMode?: "hour" | "lecture" }
 ): Promise<DbCourse> {
   const userId = await currentUserId();
   // ALWAYS resolve the active semester fresh for THIS user at insert time.
@@ -455,10 +477,10 @@ export async function addCourse(
       name: course.name,
       credits: course.creditHours,
       position: course.position ?? 0,
-      // Seed the per-course limit (e.g. from the global default); omit → DB default.
-      ...(course.attendanceLimit != null && course.attendanceLimit > 0
-        ? { attendance_limit: course.attendanceLimit }
-        : {}),
+      // The student's own limit, or 0 = follow the term's rule (the column's
+      // default of 25 would otherwise read as a limit nobody chose).
+      attendance_limit: course.attendanceLimit != null && course.attendanceLimit > 0 ? course.attendanceLimit : 0,
+      ...(course.attendanceMode ? { attendance_mode: course.attendanceMode } : {}),
     })
     .select(COURSE_COLS)
     .single();
@@ -681,7 +703,7 @@ function isoForWeekday(day: number): string {
   const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + offset));
   return d.toISOString().slice(0, 10);
 }
-function weekdayFromIso(iso: string | null): number {
+export function weekdayFromIso(iso: string | null): number {
   if (!iso) return 0;
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return 0;
@@ -953,6 +975,7 @@ export interface DbPlannerItem {
   text: string;
   done: boolean;
   dueTime: string | null; // due_time "HH:MM" (24h) or null
+  color: string | null; // custom colour-wheel pick; null = follow the tag's colour
 }
 // planner_items.day_of_week is NOT NULL — sentinel for whole-week (general) notes.
 const PLANNER_WHOLE_WEEK = -1;
@@ -968,11 +991,17 @@ const cleanTime = (t?: string | null): string | null => {
   return `${String(h).padStart(2, "0")}:${m[2]}`;
 };
 
+// Normalize a colour to "#rrggbb" or null; guards the DB CHECK constraint.
+const cleanColor = (c?: string | null): string | null =>
+  c && /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : null;
+
+const PLANNER_COLS = "id, week_number, day_of_week, tag, note, done, due_time, color";
+
 export async function getPlannerItems(): Promise<DbPlannerItem[]> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("planner_items")
-    .select("id, week_number, day_of_week, tag, note, done, due_time")
+    .select(PLANNER_COLS)
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
@@ -984,6 +1013,7 @@ export async function getPlannerItems(): Promise<DbPlannerItem[]> {
     text: r.note ?? "",
     done: !!r.done,
     dueTime: r.due_time ?? null,
+    color: r.color ?? null,
   }));
 }
 
@@ -994,6 +1024,7 @@ export async function addPlannerItem(item: {
   text: string;
   done?: boolean;
   dueTime?: string | null;
+  color?: string | null;
 }): Promise<DbPlannerItem> {
   const userId = await currentUserId();
   const sem = await ensureActiveSemester();
@@ -1008,8 +1039,9 @@ export async function addPlannerItem(item: {
       note: item.text,
       done: item.done ?? false,
       due_time: cleanTime(item.dueTime),
+      color: cleanColor(item.color),
     })
-    .select("id, week_number, day_of_week, tag, note, done, due_time")
+    .select(PLANNER_COLS)
     .single();
   if (error) throw new Error(error.message);
   return {
@@ -1020,6 +1052,7 @@ export async function addPlannerItem(item: {
     text: data.note ?? "",
     done: !!data.done,
     dueTime: data.due_time ?? null,
+    color: data.color ?? null,
   };
 }
 
@@ -1032,6 +1065,7 @@ export async function updatePlannerItem(
     text: string;
     done: boolean;
     dueTime: string | null;
+    color: string | null;
   }>
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
@@ -1041,6 +1075,7 @@ export async function updatePlannerItem(
   if (fields.text !== undefined) patch.note = fields.text;
   if (fields.done !== undefined) patch.done = fields.done;
   if (fields.dueTime !== undefined) patch.due_time = cleanTime(fields.dueTime); // null when unset
+  if (fields.color !== undefined) patch.color = cleanColor(fields.color);
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("planner_items").update(patch).eq("id", id);
   if (error) throw new Error(error.message);

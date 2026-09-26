@@ -14,6 +14,9 @@ import type {
 } from "@/types";
 import { DEFAULT_NOTIF_PREFS } from "@/lib/notifPrefs";
 import { addMinutesToTime } from "@/lib/format";
+import { withOfficial } from "@/lib/termCheck";
+import { withRepeats } from "@/lib/repeats";
+import { NoCollapse } from "./Collapsible";
 
 // A fully self-contained, interactive copy of the store used ONLY by the demo
 // modal. It renders the REAL app pages, but every mutation stays in local React
@@ -221,14 +224,22 @@ function buildInitialData(): AppData {
     notifPrefs: DEFAULT_NOTIF_PREFS,
     haviName: "Havi",
     onboardingSeen: true,
+    attendanceEnabled: true,
+    personalAttendanceRule: null,
+    attendancePolicyAck: null,
+    ownLimits: [],
+    setupConfirmed: { semester: true },
     gamification: { streak: { current: 3, longest: 7, lastActiveDate: null }, xp: 45, badges: ["first-checkin"], badgeTier: 1, totalCheckIns: 3, checkedInToday: null, challenges: { daily: { date: "", items: [] }, weekly: { weekStart: "", items: [] } }, weeklySnapshot: null, lastWeeklyReport: null },
     pomodoroSettings: { focusMinutes: 25, shortBreakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4, soundEnabled: true, autoStartBreaks: false, autoStartFocus: false },
+    termCheck: null,
+    pastTerms: [],
+    repeats: {},
     pomodoroStats: { totalSessions: pads.length, totalFocusMinutes: pads.length * 25, longestDailyStreak: 4, currentDailyStreak: 2, lastSessionDate: dayOffset(0), recentDays: [], lilyPadCount: pads.length, pads },
   };
 }
 
-export function DemoStoreProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<AppData>(buildInitialData);
+export function DemoStoreProvider({ children, initial }: { children: ReactNode; initial?: Partial<AppData> }) {
+  const [data, setData] = useState<AppData>(() => ({ ...buildInitialData(), ...initial }));
 
   const patch = useCallback((p: Partial<AppData>) => setData((d) => ({ ...d, ...p })), []);
   const mapCourses = useCallback(
@@ -241,6 +252,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
 
     return {
       ...data,
+      courses: withRepeats(withOfficial(data.courses, data.termCheck), data.repeats),
       hydrated: true,
       loadFailed: false,
       retryLoad: () => {},
@@ -251,7 +263,18 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
 
       setProfileName: (name) => patch({ profileName: name }),
       setEmail: (email) => patch({ email }),
+      saveClassOff: () => {},
       setAcademic: (p) => patch({ academic: { ...data.academic, ...p } }),
+      reportGradeTable: () => {},
+      setTermCheck: (check) => patch({ termCheck: check ? { ...check, term: "demo" } : null }),
+      reportTermCheck: () => {},
+      setPastTerms: (pastTerms) => patch({ pastTerms }),
+      setCourseRepeat: (id, earlier) => {
+        const repeats = { ...data.repeats };
+        if (earlier) repeats[id] = earlier;
+        else delete repeats[id];
+        patch({ repeats });
+      },
       setProfilePhoto: (profilePhoto) => patch({ profilePhoto }),
       setGpaGoal: (gpaGoal) => patch({ gpaGoal }),
 
@@ -395,6 +418,13 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
 
       setHaviName: (name) => patch({ haviName: name || "Havi" }),
       completeOnboarding: () => {},
+      confirmSetup: (patch) => setData((d) => ({ ...d, setupConfirmed: { ...d.setupConfirmed, ...patch } })),
+      universityPolicy: null,
+      policyOptions: [],
+      publishedCalendar: null,
+      setAttendanceEnabled: () => {},
+      setPersonalAttendanceRule: () => {},
+      ackAttendancePolicy: () => {},
       recordAppOpen: () => ({ xpEarned: 0, streakBroke: false, streakCurrent: 0 }),
       doCheckIn: () => ({ xpEarned: 0, alreadyDone: true, newBadges: [], tierAdvanced: false }),
       awardGamificationXP: () => ({ newBadges: [], tierAdvanced: false }),
@@ -411,5 +441,10 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     };
   }, [data, patch, mapCourses]);
 
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+  // The demo / tour always shows cards open, whatever this device folded.
+  return (
+    <NoCollapse.Provider value={true}>
+      <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+    </NoCollapse.Provider>
+  );
 }

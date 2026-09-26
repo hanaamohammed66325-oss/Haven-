@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
 import { GpaCalculatorTool } from "@/components/tools/GpaCalculatorTool";
-import { UNIVERSITIES } from "@/lib/tools/universities";
+import { SEO_UNIVERSITIES } from "@/lib/tools/universities";
 import { ShareButton } from "@/components/tools/ShareButton";
 
 // PUBLIC, no-login GPA calculator — the flagship SEO landing page. This is a
@@ -56,7 +56,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "كيف أحسب المعدل التراكمي؟",
-    a: "افتح خيار «احسب المعدل التراكمي»، وأدخل معدلك التراكمي الحالي وعدد ساعاتك المكتسبة سابقاً، ثم أضف مواد الفصل الحالي — يظهر لك المعدل التراكمي المتوقّع تلقائياً.",
+    a: "افتح خيار «احسب المعدل التراكمي»، وأدخل معدلك التراكمي الحالي وعدد الساعات المحسوبة في معدلك (ومنها ساعات المواد التي رسبت فيها)، ثم أضف مواد الفصل الحالي — يظهر لك المعدل التراكمي المتوقّع تلقائياً.",
   },
   {
     q: "هل الحاسبة مجانية وتحتاج تسجيل؟",
@@ -154,7 +154,7 @@ export default function GpaCalculatorPage() {
             ومادة ٣ ساعات بتقدير B (٤.٠) → المعدل = (٥×٣ + ٤×٣) ÷ ٦ = ٤.٥٠.
           </p>
           <p className="text-[15px] leading-relaxed" style={{ color: "var(--color-muted)" }}>
-            أما المعدل التراكمي فيدمج معدلك السابق وساعاتك المكتسبة مع مواد الفصل
+            أما المعدل التراكمي فيدمج معدلك السابق والساعات المحسوبة فيه مع مواد الفصل
             الحالي، والحاسبة أعلاه تحسبه لك تلقائياً عند إدخال بياناتك السابقة.
           </p>
         </section>
@@ -166,7 +166,7 @@ export default function GpaCalculatorPage() {
             حاسبة المعدل حسب جامعتك
           </h2>
           <div className="flex flex-wrap gap-2">
-            {UNIVERSITIES.map((u) => (
+            {SEO_UNIVERSITIES.map((u) => (
               <Link
                 key={u.slug}
                 href={`/tools/gpa-calculator/${u.slug}/`}

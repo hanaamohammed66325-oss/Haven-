@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, AlertTriangle, XCircle, CalendarX2, ArrowLeft } from "lucide-react";
+import { fmtPct } from "@/lib/format";
 
 // Standalone, no-login absence / حرمان calculator for /tools/absence-calculator.
 // Tells a student how many lectures they can still miss before hitting their
@@ -28,10 +29,12 @@ export function AbsenceCalculatorTool() {
     const total = pw > 0 && wk > 0 ? pw * wk : 0;
     if (total <= 0 || !Number.isFinite(th) || th <= 0) return null;
 
-    // Allowed absences before denial: absences must stay UNDER the threshold, so
-    // the last "safe" count is ceil(total*th) - 1 (exceeding the limit = denial).
+    // Allowed absences before denial: denial is only when absence goes ABOVE the
+    // threshold (CUA unified regulation Art. 14 — attendance falling below the
+    // required %), so reaching it exactly is still allowed: floor(total*th).
+    // The epsilon keeps float noise (e.g. 60 × 0.25) from dropping one.
     const limitExact = (total * th) / 100;
-    const allowed = Math.max(0, Math.ceil(limitExact) - 1);
+    const allowed = Math.max(0, Math.floor(limitExact + 1e-9));
     const usedPct = total > 0 ? (ms / total) * 100 : 0;
     const remaining = allowed - ms;
 
@@ -122,7 +125,11 @@ export function AbsenceCalculatorTool() {
         <div className="rounded-2xl p-5" style={{ background: "var(--color-primary-soft)" }}>
           <div className="flex items-center gap-2 mb-4" style={{ color: STATUS[result.status].color }}>
             {STATUS[result.status].icon}
-            <span className="font-semibold">{STATUS[result.status].label}</span>
+            <span className="font-semibold">
+              {result.status === "warn" && result.remaining === 0
+                ? "وصلت الحد بالضبط — أي غياب إضافي يعني الحرمان"
+                : STATUS[result.status].label}
+            </span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Stat label="محاضرات المادة" value={String(result.total)} />
@@ -132,7 +139,7 @@ export function AbsenceCalculatorTool() {
               value={result.remaining >= 0 ? String(result.remaining) : "0"}
               color={STATUS[result.status].color}
             />
-            <Stat label="نسبة غيابك" value={`${result.usedPct.toFixed(1)}٪`} />
+            <Stat label="نسبة غيابك" value={`${fmtPct(result.usedPct)}٪`} />
           </div>
         </div>
       )}

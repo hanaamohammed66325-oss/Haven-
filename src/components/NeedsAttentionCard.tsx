@@ -5,20 +5,21 @@ import { AlertTriangle } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
-import { attendanceInfo } from "@/lib/grades";
+import { attendanceInfo, fmtPct } from "@/lib/grades";
+import { holidayCalendar } from "@/lib/universityCountry";
 
 export function NeedsAttentionCard() {
   const { t } = useT();
-  const { courses, semester, academic } = useStore();
+  const { courses, semester, academic, attendanceEnabled } = useStore();
 
   const items = courses
     .map((c) => {
       const reasons: string[] = [];
-      const att = attendanceInfo(c, semester, academic?.universitySlug);
+      const att = attendanceEnabled ? attendanceInfo(c, semester, holidayCalendar(academic)) : null;
       if (att?.status === "danger") {
-        reasons.push(t("attnWithdrawal", { n: att.absence.toFixed(0) }));
+        reasons.push(t("attnWithdrawal", { n: fmtPct(att.absence) }));
       } else if (att?.status === "warn") {
-        reasons.push(t("attnApproaching", { n: att.absence.toFixed(0) }));
+        reasons.push(t("attnApproaching", { n: fmtPct(att.absence) }));
       }
       // (No "current grade C" reason: the grade is a best-case ceiling out of
       //  100, so a single graded task must not raise a low-grade alarm.)

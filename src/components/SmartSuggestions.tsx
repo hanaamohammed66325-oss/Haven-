@@ -15,6 +15,7 @@ import {
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { buildSmartSuggestions, type SuggestionKind } from "@/lib/smartSuggestions";
+import { holidayCalendar } from "@/lib/universityCountry";
 
 const ICON: Record<SuggestionKind, React.ReactNode> = {
   "att-danger": <AlertTriangle size={14} />,
@@ -31,16 +32,16 @@ const ICON: Record<SuggestionKind, React.ReactNode> = {
 
 export function SmartSuggestions() {
   const { t } = useT();
-  const { courses, semester, planner, gamification, gpaGoal, academic } = useStore();
+  const { courses, semester, planner, gamification, gpaGoal, academic, attendanceEnabled } = useStore();
   const scheme = useScheme();
 
   const suggestions = useMemo(
     () =>
       buildSmartSuggestions(
-        { courses, planner, semester, gamification, gpaGoal, scheme, universitySlug: academic?.universitySlug },
+        { courses, planner, semester, gamification, gpaGoal, scheme, holidayCalendar: holidayCalendar(academic), attendanceEnabled },
         t
       ),
-    [courses, semester, planner, gamification, gpaGoal, scheme, academic?.universitySlug, t]
+    [courses, semester, planner, gamification, gpaGoal, scheme, academic, attendanceEnabled, t]
   );
 
   return (

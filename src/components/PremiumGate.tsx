@@ -11,11 +11,11 @@ export type PremiumFeature = "course" | "theme" | "havi" | "generic";
 // (no feminine-only verb forms). "Haven"/"Havi" always stay in Latin script.
 const COPY: Record<PremiumFeature, { ar: { title: string; body: string }; en: { title: string; body: string } }> = {
   course: {
-    ar: { title: "الحد المجاني للكورسات", body: "الاشتراك يفتح كورسات غير محدودة، وHavi، وكل الثيمات." },
+    ar: { title: "الحد المجاني للمقررات", body: "الاشتراك يفتح مقررات غير محدودة، وHavi، وكل السمات." },
     en: { title: "Free course limit reached", body: "Subscribe to unlock unlimited courses, Havi, and all themes." },
   },
   theme: {
-    ar: { title: "ثيم مميّز", body: "هذا الثيم متاح مع الاشتراك." },
+    ar: { title: "سمة مميّزة", body: "هذه السمة متاحة مع الاشتراك." },
     en: { title: "Premium theme", body: "This theme is available with a subscription." },
   },
   havi: {

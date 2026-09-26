@@ -4,7 +4,8 @@ import { useC, useTheme } from "./_lib";
 import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
-  | "dashboard" | "users" | "insights" | "retention" | "notifications"
+  | "dashboard" | "users" | "insights" | "retention" | "top-users" | "universities" | "grade-tables" | "gpa-checks" | "facts"
+  | "attendance" | "notifications"
   | "subscriptions" | "payments" | "support" | "coupons";
 
 /** Sections that are only relevant once paid subscriptions are live. Hidden by
@@ -31,6 +32,12 @@ export function AdminSidebar({
     { id: "users",         label: "Users",         icon: "👥" },
     { id: "insights",      label: "Insights",      icon: "📊" },
     { id: "retention",     label: "Retention",     icon: "🔁" },
+    { id: "top-users",     label: "Top users",     icon: "🏆" },
+    { id: "universities",  label: "Universities",  icon: "🎓" },
+    { id: "grade-tables",  label: "Grade tables",  icon: "📐" },
+    { id: "gpa-checks",    label: "GPA checks",    icon: "✅" },
+    { id: "facts",         label: "University facts", icon: "📅", badge: badges?.facts },
+    { id: "attendance",    label: "Attendance audit", icon: "📋" },
     { id: "notifications", label: "Notifications", icon: "🔔" },
     { id: "subscriptions", label: "Subscriptions", icon: "💳" },
     { id: "payments",      label: "Payments",      icon: "💰", badge: badges?.payments },
@@ -138,7 +145,7 @@ export function AdminTopBar({
   session: Session;
 }) {
   const C = useC();
-  const label = current[0].toUpperCase() + current.slice(1);
+  const label = (current[0].toUpperCase() + current.slice(1)).replace("-", " ");
   return (
     <header
       className="haven-safe-top md:hidden sticky top-0 z-40 border-b flex items-center justify-between px-4 py-3"

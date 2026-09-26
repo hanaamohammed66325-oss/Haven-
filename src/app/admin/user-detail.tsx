@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Badge, useC, useS, callAdmin, fmtDateTime, fmtSar, fmtNum, timeAgo, Loading, StatCard } from "./_lib";
+import { Badge, useC, useS, callAdmin, supabase, fmtDateTime, fmtSar, fmtNum, timeAgo, Loading, StatCard } from "./_lib";
+import { AttendanceAuditView, type AuditRecord } from "./attendance-audit";
 
 interface Detail {
   profile: {
@@ -139,6 +140,9 @@ export function UserDetailSection({
       {/* Calculation inputs — exactly what the student entered that the app's
           grade/attendance maths depend on, with integrity flags. */}
       <InputsCard inputs={detail.inputs} />
+
+      {/* Attendance % per course, recomputed with the app's own maths */}
+      <AttendanceCard userId={userId} />
 
       {/* Subscription + payment summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -440,6 +444,38 @@ function InputsCard({ inputs }: { inputs?: Detail["inputs"] }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ---------- Attendance audit (this user) ----------
+function AttendanceCard({ userId }: { userId: string }) {
+  const C = useC();
+  const [records, setRecords] = useState<AuditRecord[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    supabase.rpc("admin_attendance_audit", { p_user: userId }).then(({ data, error: e }) => {
+      if (cancelled) return;
+      if (e) setError(e.message);
+      else setRecords((data as AuditRecord[]) ?? []);
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  return (
+    <div className="rounded-xl border p-5 mb-4" style={{ borderColor: C.border, background: C.panel }}>
+      <h2 className="text-[13px] font-semibold uppercase tracking-wide mb-1" style={{ color: C.textDim }}>Attendance — as the app calculates it</h2>
+      <p className="text-[12px] mb-4" style={{ color: C.textFaint }}>Computed with the same function the student&apos;s screen uses. Click a course to see each session and absence.</p>
+      {error ? (
+        <p className="text-[13px]" style={{ color: C.danger }}>{error}</p>
+      ) : !records ? (
+        <p className="text-[13px]" style={{ color: C.textDim }}>Loading…</p>
+      ) : records.length === 0 ? (
+        <p className="text-[13px]" style={{ color: C.textFaint }}>No courses in the active semester.</p>
+      ) : (
+        <AttendanceAuditView records={records} />
+      )}
     </div>
   );
 }

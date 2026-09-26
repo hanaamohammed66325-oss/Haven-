@@ -13,6 +13,10 @@ import React, {
 import type {
   AppData,
   AcademicInfo,
+  CustomSchemeData,
+  GradeCheck,
+  HolidayCheck,
+  SetupConfirmed,
   Course,
   CourseSession,
   CustomHoliday,
@@ -26,6 +30,11 @@ import type {
   GpaMode,
   PomodoroSettings,
   PomodoroStats,
+  TermCheck,
+  PastTerm,
+  RepeatInfo,
+  AttendanceRule,
+  PersonalAttendanceRule,
 } from "@/types";
 import { DEFAULT_NOTIF_PREFS, normalizeNotifPrefs } from "@/lib/notifPrefs";
 import { demoCourses } from "@/lib/demo";
@@ -33,6 +42,8 @@ import { supabase } from "@/lib/supabase";
 import { toISODate, addDays } from "@/lib/dates";
 import { addMinutesToTime } from "@/lib/format";
 import * as db from "@/lib/db";
+import { fetchUniversityPolicies, isStudentAlternative, policyAckKey, submitVote, type AttendancePolicy } from "@/lib/attendancePolicy";
+import { loadPublishedCalendar, mayHavePublishedCalendar } from "@/lib/publishedCalendars";
 import {
   defaultGamification,
   updateStreak,
@@ -44,10 +55,14 @@ import {
   XP_REWARDS,
 } from "@/lib/gamification";
 import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
-import { semesterGPA } from "@/lib/grades";
-import { resolveScheme } from "@/lib/gradeSchemes";
+import { ruleMode, semesterGPA } from "@/lib/grades";
+import { resolveScheme, setLearnedCutoffs, type LearnedCutoffs } from "@/lib/gradeSchemes";
+import { readPastTerms, readTermCheck, withOfficial } from "@/lib/termCheck";
+import { readRepeats, withRepeats } from "@/lib/repeats";
 import { universityBySlug } from "@/lib/tools/universities";
 import type { Session } from "@supabase/supabase-js";
+import { holidayCalendar } from "@/lib/universityCountry";
+import { releaseUniversityHolidays } from "@/lib/universityFacts";
 
 // localStorage scope depends on whether someone is signed in:
 //   • Signed OUT (anonymous): holds the full app state (theme/language/etc) so a
@@ -127,9 +142,65 @@ const emptyAcademic: AcademicInfo = {
   gpaSchemeId: "auto",
 };
 
-const SCHEME_IDS = ["auto", "saudi5", "saudi4", "percentage", "plusminus4"] as const;
+const SCHEME_IDS = [
+  "auto",
+  "saudi5",
+  "saudi4",
+  "percentage",
+  "plusminus4",
+  "qatar4",
+  "jordan4",
+  "jordan4new",
+  "jordan4plus",
+  "custom",
+] as const;
+
+/** Validate preferences.academic.gradeCheck. */
+function readGradeCheck(raw: unknown): GradeCheck | undefined {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!r || typeof r.key !== "string" || (r.answer !== "yes" && r.answer !== "no")) return undefined;
+  return { key: r.key, answer: r.answer, at: typeof r.at === "string" ? r.at : "" };
+}
+
+/** Validate preferences.academic.holidayCheck. */
+function readHolidayCheck(raw: unknown): HolidayCheck | undefined {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!r || typeof r.calendar !== "string" || !r.calendar || r.calendar.length > 60) return undefined;
+  return { calendar: r.calendar, at: typeof r.at === "string" ? r.at : "" };
+}
+
+/** Validate preferences.academic.customScheme — bad rows are dropped. */
+function readCustomScheme(raw: unknown): CustomSchemeData | undefined {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!r || typeof r.max !== "number" || !(r.max > 0) || !Array.isArray(r.bands)) return undefined;
+  const bands = r.bands.flatMap((b) => {
+    const o = b && typeof b === "object" ? (b as Record<string, unknown>) : null;
+    if (!o || typeof o.letter !== "string" || typeof o.points !== "number") return [];
+    return [{ letter: o.letter.slice(0, 24), points: o.points, min: typeof o.min === "number" ? o.min : null }];
+  });
+  if (!bands.length) return undefined;
+  return { max: r.max, bands: bands.slice(0, 40), ...(r.percent === true ? { percent: true } : {}) };
+}
 
 /** Reshape the stored preferences.academic blob into a safe AcademicInfo. */
+/** Validate preferences.setupConfirmed — unknown keys and bad values dropped. */
+function readSetupConfirmed(raw: unknown): SetupConfirmed {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out: SetupConfirmed = {};
+  if (r.semester === true) out.semester = true;
+  if (typeof r.calendar === "string" && r.calendar.length <= 120) out.calendar = r.calendar;
+  if (typeof r.termApplied === "string" && r.termApplied.length <= 120) out.termApplied = r.termApplied;
+  if (typeof r.termAnswered === "string" && r.termAnswered.length <= 120) out.termAnswered = r.termAnswered;
+  const p = (r.termPrev && typeof r.termPrev === "object" ? r.termPrev : null) as Record<string, unknown> | null;
+  const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const a = (r.termAppliedDates && typeof r.termAppliedDates === "object" ? r.termAppliedDates : null) as Record<string, unknown> | null;
+  if (a && isDate(a.start) && isDate(a.end)) out.termAppliedDates = { start: a.start, end: a.end };
+  if (p && isDate(p.startDate) && isDate(p.endDate) && Number.isFinite(p.weeks) && Number.isFinite(p.finalsWeeks)) {
+    out.termPrev = { startDate: p.startDate, endDate: p.endDate, weeks: Number(p.weeks), finalsWeeks: Number(p.finalsWeeks) };
+  }
+  return out;
+}
+
 function readAcademic(raw: unknown): AcademicInfo {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -140,13 +211,23 @@ function readAcademic(raw: unknown): AcademicInfo {
     major: str(o.major),
     level: str(o.level),
     gpaSchemeId: scheme,
+    gradeCheck: readGradeCheck(o.gradeCheck),
+    holidayCheck: readHolidayCheck(o.holidayCheck),
+    customScheme: readCustomScheme(o.customScheme),
+    ...(o.repeatPolicy === "higher" || o.repeatPolicy === "latest" || o.repeatPolicy === "both" || o.repeatPolicy === "other"
+      ? { repeatPolicy: o.repeatPolicy }
+      : {}),
+    ...(typeof o.repeatPolicyNote === "string" && o.repeatPolicyNote.trim()
+      ? { repeatPolicyNote: o.repeatPolicyNote.slice(0, 300) }
+      : {}),
+    ...(typeof o.gradMinGpa === "number" && o.gradMinGpa >= 0 && o.gradMinGpa <= 100 ? { gradMinGpa: o.gradMinGpa } : {}),
   };
 }
 
 /** Validate the stored preferences.customHolidays blob into safe CustomHoliday[].
  *  A bad entry is dropped rather than trusted, so it can never skew the حرمان
  *  math. Returns undefined when there are none, matching the optional field. */
-function sanitizeCustomHolidays(raw: unknown): CustomHoliday[] | undefined {
+export function sanitizeCustomHolidays(raw: unknown): CustomHoliday[] | undefined {
   if (!Array.isArray(raw)) return undefined;
   const iso = /^\d{4}-\d{2}-\d{2}$/;
   const out: CustomHoliday[] = [];
@@ -162,6 +243,68 @@ function sanitizeCustomHolidays(raw: unknown): CustomHoliday[] | undefined {
     out.push({ id, name, startDate, endDate });
   }
   return out.length ? out : undefined;
+}
+
+/** Validate preferences.attendanceRule (the student's own absence rule). A bad
+ *  number is dropped rather than trusted, so it can never skew the حرمان math. */
+export function readPersonalRule(raw: unknown): PersonalAttendanceRule | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const pct = (v: unknown) => (typeof v === "number" && v > 0 && v <= 100 ? v : null);
+  const maxAbsence = pct(o.maxAbsence);
+  const maxUnexcused = pct(o.maxUnexcused);
+  if (maxAbsence == null && maxUnexcused == null) return null;
+  const method = o.method === "hours" || o.method === "lectures" ? o.method : "unspecified";
+  return {
+    maxAbsence,
+    maxUnexcused,
+    excusedCounts: o.excusedCounts !== false,
+    method,
+    lateRule: typeof o.lateRule === "string" ? o.lateRule.slice(0, 200) : null,
+    regulationUrl: typeof o.regulationUrl === "string" && /^https?:\/\//.test(o.regulationUrl) ? o.regulationUrl : null,
+    reportedAt: typeof o.reportedAt === "string" ? o.reportedAt : "",
+  };
+}
+
+/** The rule the term's absence is held to: the student's own answer first
+ *  (they told us it differs), then the university's rule once the student has
+ *  confirmed it, else none. A rule not confirmed yet is `pending`: absence is
+ *  shown without a percentage until the student confirms it. */
+export function resolveAttendanceRule(
+  personal: PersonalAttendanceRule | null,
+  policy: AttendancePolicy | null,
+  confirmed = true
+): AttendanceRule {
+  if (personal) {
+    return {
+      source: "personal",
+      maxAbsence: personal.maxAbsence,
+      maxUnexcused: personal.maxUnexcused,
+      excusedCounts: personal.excusedCounts,
+      warnings: [],
+      method: personal.method,
+    };
+  }
+  if (policy && confirmed) {
+    return {
+      source: "university",
+      maxAbsence: policy.max_absence,
+      maxUnexcused: policy.max_unexcused,
+      excusedCounts: policy.excused_counts,
+      warnings: Array.isArray(policy.warnings) ? policy.warnings.filter((w) => typeof w === "number") : [],
+      method: policy.method,
+      inclusive: policy.details?.limit_inclusive === true,
+    };
+  }
+  return {
+    source: "none",
+    maxAbsence: null,
+    maxUnexcused: null,
+    excusedCounts: true,
+    warnings: [],
+    method: "unspecified",
+    ...(policy ? { pending: true } : {}),
+  };
 }
 
 const defaultPomodoroSettings: PomodoroSettings = {
@@ -221,9 +364,17 @@ const initialData: AppData = {
   notifPrefs: DEFAULT_NOTIF_PREFS,
   haviName: "Havi",
   onboardingSeen: false,
+  setupConfirmed: {},
+  attendanceEnabled: true,
+  personalAttendanceRule: null,
+  attendancePolicyAck: null,
+  ownLimits: [],
   gamification: defaultGamification,
   pomodoroSettings: defaultPomodoroSettings,
   pomodoroStats: defaultPomodoroStats,
+  termCheck: null,
+  pastTerms: [],
+  repeats: {},
 };
 
 // Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
@@ -238,6 +389,10 @@ const PLANNER_TAG_COLORS: Record<string, string> = {
 const DEFAULT_NOTE_COLOR = "#477680";
 const colorForTag = (tag?: string | null) =>
   (tag && PLANNER_TAG_COLORS[tag]) || DEFAULT_NOTE_COLOR;
+/** The colour to store in the cloud: null when it's just the tag's own colour,
+ *  so only a real colour-wheel pick is persisted (and a retag resets it). */
+const customColor = (color: string | undefined, tag?: string | null): string | null =>
+  color && color.toLowerCase() !== colorForTag(tag).toLowerCase() ? color : null;
 
 /** Client-side id for optimistic rows before the cloud assigns a real one. */
 const newId = (): string =>
@@ -260,7 +415,7 @@ function buildPlanner(
     week: it.week,
     day: it.day == null ? undefined : it.day,
     text: it.text,
-    color: colorForTag(it.tag),
+    color: it.color ?? colorForTag(it.tag),
     tag: it.tag ?? undefined,
     done: it.done,
     dueTime: it.dueTime,
@@ -314,6 +469,19 @@ function withTimeout<T>(p: Promise<T>, label: string, ms = LOAD_TIMEOUT_MS): Pro
   });
 }
 
+export type GradeTableEvent = "grade_table_confirmed" | "grade_table_rejected" | "grade_table_submitted";
+export type TermCheckEvent =
+  | "term_gpa_match"
+  | "term_gpa_mismatch"
+  | "term_grades_saved"
+  | "term_mismatch_reason"
+  | "term_consent_withdrawn"
+  | "past_term_checked"
+  | "past_term_reason"
+  | "repeat_policy_other"
+  | "term_cum_checked"
+  | "term_cum_reason";
+
 export interface StoreValue extends AppData {
   hydrated: boolean;
   loadFailed: boolean;
@@ -324,6 +492,21 @@ export interface StoreValue extends AppData {
    *  account in preferences.academic. Selecting a known university also applies
    *  its usual حرمان limit to the semester. */
   setAcademic: (patch: Partial<AcademicInfo>) => void;
+  /** Report a student's answer about their university's points table (confirm /
+   *  reject / their own table) to the admin activity feed. No-op in the demo. */
+  reportGradeTable: (event: GradeTableEvent, meta: Record<string, unknown>) => void;
+  /** Save the end-of-term check answers for the current semester (null clears
+   *  them); persisted per account in preferences.termCheck. */
+  setTermCheck: (check: Omit<TermCheck, "term"> | null) => void;
+  /** Report an end-of-term check answer to the admin activity feed. Callers
+   *  only send course details when the student consented. No-op in the demo. */
+  reportTermCheck: (event: TermCheckEvent, meta?: Record<string, unknown>) => void;
+  /** Replace the saved past terms (Profile → "try it on a past term");
+   *  persisted per account in preferences.pastTerms. */
+  setPastTerms: (terms: PastTerm[]) => void;
+  /** Mark a course as repeated with its earlier attempt's grade, or clear it
+   *  (null); persisted to preferences.repeats for the current semester. */
+  setCourseRepeat: (courseId: string, earlier: RepeatInfo | null) => void;
   setProfilePhoto: (photo: string | null) => void;
   setGpaGoal: (goal: number) => void;
   // Planner notes are cloud-backed (planner_items); autoEdits ride in
@@ -355,11 +538,33 @@ export interface StoreValue extends AppData {
   setHaviName: (name: string) => void;
   /** Mark the first-run onboarding walkthrough as completed/skipped. */
   completeOnboarding: () => void;
+  /** Record essential-setup answers; persisted to preferences.setupConfirmed. */
+  confirmSetup: (patch: Partial<SetupConfirmed>) => void;
+  /** The university's absence rule in force for the student: the one they
+   *  confirmed, else the main one (null when none is on record). */
+  universityPolicy: AttendancePolicy | null;
+  /** The university's rules the student can pick from: the main one first,
+   *  then any its students describe (empty when none is on record). */
+  policyOptions: AttendancePolicy[];
+  /** The key of the calendar the admin published for the student's university
+   *  (lib/publishedCalendars), once fetched; null when there's none. */
+  publishedCalendar: string | null;
+  /** Turn the whole absence system on/off (preferences.attendanceEnabled). */
+  setAttendanceEnabled: (on: boolean) => void;
+  /** Save (or clear) the student's own absence rule; applies to them at once. */
+  setPersonalAttendanceRule: (rule: PersonalAttendanceRule | null) => void;
+  /** The student confirmed the university's verified rule matches theirs. */
+  ackAttendancePolicy: (policy: AttendancePolicy) => void;
   setSemester: (patch: Partial<Semester>) => void;
+  /** Save the student's holiday days and time zone for the server's lecture
+   *  reminders (preferences.classOff). */
+  saveClassOff: (v: { tz: string; days: string[] }) => void;
   addCourse: (course: {
     name: string;
     creditHours: number;
     attendanceLimit?: number;
+    /** the earlier attempt, when the course is being repeated */
+    repeat?: RepeatInfo | null;
   }) => Promise<MutationResult>;
   updateCourse: (
     id: string,
@@ -419,6 +624,11 @@ export const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
+  // The latest data for callbacks that must save what they computed: a setData
+  // updater can run later (during the next render), so a value assigned inside
+  // one isn't there yet when the call returns.
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const [hydrated, setHydrated] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -427,6 +637,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const semesterIdRef = useRef<string | null>(null);
   const loggedInRef = useRef(false);
   const coursesRef = useRef<Course[]>([]);
+  // How the term's rule counts absence, so a new course starts on it.
+  const ruleModeRef = useRef<"hour" | "lecture" | null>(null);
   // Mirror of the planner so mutations can read the pre-change note synchronously
   // (to detect a real "just completed" transition) WITHOUT doing it inside a
   // setData updater — matching how updateComponent reads coursesRef.
@@ -533,6 +745,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // details, planner items, and absences from their own per-account tables.
     const applyForUser = async (session: Session) => {
       const user = session.user;
+      // Approved cutoffs for universities that don't publish them; fetched
+      // alongside everything else and applied before the first GPA is shown.
+      const cutoffs = db.getGradeCutoffs();
       try {
         const [prefs, sem] = await withTimeout(
           Promise.all([db.getPreferences(), db.ensureActiveSemester()]),
@@ -647,6 +862,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
           "grade components"
         );
+        // Never hold the app back for them: a stalled request just keeps the estimates.
+        setLearnedCutoffs(
+          await Promise.race([cutoffs, new Promise<LearnedCutoffs>((r) => setTimeout(() => r({}), 4000))])
+        );
         if (cancelled) return;
 
         const num = (v: unknown, fb: number) => (typeof v === "number" ? v : fb);
@@ -688,6 +907,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
           haviName: str(prefs.haviName, "Havi") || "Havi",
           onboardingSeen: prefs.onboardingSeen === true,
+          attendanceEnabled: prefs.attendanceEnabled !== false,
+          personalAttendanceRule: readPersonalRule(prefs.attendanceRule),
+          attendancePolicyAck: typeof prefs.attendancePolicyAck === "string" ? prefs.attendancePolicyAck : null,
+          ownLimits: Array.isArray(prefs.ownLimits)
+            ? (prefs.ownLimits as unknown[]).filter((x): x is string => typeof x === "string")
+            : [],
+          setupConfirmed: readSetupConfirmed(prefs.setupConfirmed),
+          termCheck: readTermCheck(prefs.termCheck, sem.id),
+          pastTerms: readPastTerms(prefs.pastTerms),
+          repeats: readRepeats(prefs.repeats, sem.id),
           pomodoroSettings: {
             ...defaultPomodoroSettings,
             ...((prefs.pomodoroSettings as Partial<PomodoroSettings>) ?? {}),
@@ -735,6 +964,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             startDate: str(sem.startDate, str(prefs.startDate, defaultSemester.startDate)),
             endDate: str(sem.endDate, str(prefs.endDate, defaultSemester.endDate)),
             withdrawalLimit: num(prefs.withdrawalLimit, defaultSemester.withdrawalLimit),
+            // Tardiness rule is saved to preferences by setSemester; restore it
+            // here or every reload silently fell back to the default rule.
+            ...(typeof prefs.tardinessRuleId === "string" ? { tardinessRuleId: prefs.tardinessRuleId } : {}),
+            ...(typeof prefs.customTardinessThreshold === "number"
+              ? { customTardinessThreshold: prefs.customTardinessThreshold }
+              : {}),
+            ...(typeof prefs.customTardiesPerAbsence === "number"
+              ? { customTardiesPerAbsence: prefs.customTardiesPerAbsence }
+              : {}),
             dismissedHolidays: Array.isArray(prefs.dismissedHolidays)
               ? (prefs.dismissedHolidays as unknown[]).filter(
                   (x): x is string => typeof x === "string"
@@ -910,11 +1148,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       db.logEvent("check_in"); // per-user activity tracking
       const ctx: BadgeContext = {
-        courses: d.courses,
+        courses: withOfficial(d.courses, d.termCheck),
         planner: d.planner,
-        semesterGpa: semesterGPA(d.courses, resolveScheme(d.academic)),
+        semesterGpa: semesterGPA(withOfficial(d.courses, d.termCheck), resolveScheme(d.academic)),
+        gpaMax: resolveScheme(d.academic).max,
         semesterStartDate: d.semester.startDate,
         semesterWeeks: d.semester.weeks,
+        semester: d.semester,
+        holidayCalendar: holidayCalendar(d.academic),
       };
       const br = checkBadges(r.state, ctx);
       result = { xpEarned: r.xpEarned, alreadyDone: false, newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
@@ -932,11 +1173,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setData((d) => {
         const next = awardXP(d.gamification, amount);
         const ctx: BadgeContext = {
-          courses: d.courses,
+          courses: withOfficial(d.courses, d.termCheck),
           planner: d.planner,
-          semesterGpa: semesterGPA(d.courses, resolveScheme(d.academic)),
+          semesterGpa: semesterGPA(withOfficial(d.courses, d.termCheck), resolveScheme(d.academic)),
+          gpaMax: resolveScheme(d.academic).max,
           semesterStartDate: d.semester.startDate,
           semesterWeeks: d.semester.weeks,
+          semester: d.semester,
+          holidayCalendar: holidayCalendar(d.academic),
         };
         const br = checkBadges(next, ctx);
         result = { newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
@@ -1131,6 +1375,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         text: note.text,
         done: note.done ?? false,
         dueTime: note.dueTime ?? null,
+        color: customColor(note.color, note.tag),
       });
       // Swap the temp row for the real one in place (keeps its grid position).
       setData((d) => ({
@@ -1144,7 +1389,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   week: row.week,
                   day: row.day == null ? undefined : row.day,
                   text: row.text,
-                  color: colorForTag(row.tag),
+                  color: row.color ?? colorForTag(row.tag),
                   tag: row.tag ?? undefined,
                   done: row.done,
                   dueTime: row.dueTime,
@@ -1194,6 +1439,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.text !== undefined) dbPatch.text = patch.text;
       if (patch.done !== undefined) dbPatch.done = patch.done;
       if (patch.dueTime !== undefined) dbPatch.dueTime = patch.dueTime ?? null;
+      // A retag resets to the tag's colour (stored as null); a colour-wheel pick
+      // is stored as-is so it survives a reload.
+      if (withColor.color !== undefined) {
+        dbPatch.color = customColor(withColor.color, patch.tag !== undefined ? patch.tag : prevNote?.tag);
+      }
       if (Object.keys(dbPatch).length) {
         db.updatePlannerItem(id, dbPatch).catch((e) =>
           console.error("Haven: failed to update planner note", e)
@@ -1341,6 +1591,79 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     persistPref({ onboardingSeen: true });
   }, [persistPref]);
 
+  const confirmSetup = useCallback(
+    (patch: Partial<SetupConfirmed>) => {
+      let next: SetupConfirmed = {};
+      setData((d) => {
+        next = { ...d.setupConfirmed, ...patch };
+        return { ...d, setupConfirmed: next };
+      });
+      persistPref({ setupConfirmed: next as unknown as Record<string, unknown> });
+    },
+    [persistPref]
+  );
+
+  const setAttendanceEnabled = useCallback(
+    (on: boolean) => {
+      setData((d) => ({ ...d, attendanceEnabled: on }));
+      persistPref({ attendanceEnabled: on });
+    },
+    [persistPref]
+  );
+
+  // A rule the student takes on sets how every course counts absence (by hour
+  // or by lecture). A course can still be switched on its own afterwards.
+  const applyRuleMethod = useCallback((method: PersonalAttendanceRule["method"] | AttendancePolicy["method"]) => {
+    const mode = method === "lectures" ? "lecture" : method === "hours" ? "hour" : null;
+    if (!mode) return;
+    const changed = coursesRef.current.filter((c) => (c.attendanceMode ?? "hour") !== mode).map((c) => c.id);
+    if (!changed.length) return;
+    setData((d) => ({
+      ...d,
+      courses: d.courses.map((c) => (changed.includes(c.id) ? { ...c, attendanceMode: mode } : c)),
+    }));
+    if (loggedInRef.current) {
+      for (const id of changed) {
+        db.updateCourse(id, { attendanceMode: mode }).catch((e) => console.error("Haven: failed to update course", e));
+      }
+    }
+  }, []);
+
+  const setPersonalAttendanceRule = useCallback(
+    (rule: PersonalAttendanceRule | null) => {
+      setData((d) => ({ ...d, personalAttendanceRule: rule }));
+      persistPref({ attendanceRule: rule as unknown as Record<string, unknown> | null });
+      if (rule) applyRuleMethod(rule.method);
+    },
+    [persistPref, applyRuleMethod]
+  );
+
+  // "صح": the rule applies from now on, and the answer counts towards
+  // approving it for the whole university.
+  const ackAttendancePolicy = useCallback(
+    (policy: AttendancePolicy) => {
+      const ack = policyAckKey(policy);
+      setData((d) => ({ ...d, attendancePolicyAck: ack }));
+      persistPref({ attendancePolicyAck: ack });
+      applyRuleMethod(policy.method);
+      void submitVote({
+        subject: "attendance",
+        universitySlug: policy.university_slug,
+        // Picking the rule its students describe differs from the main one.
+        agrees: !isStudentAlternative(policy),
+        answer: {
+          method: policy.method,
+          max_absence: policy.max_absence,
+          max_unexcused: policy.max_unexcused,
+          excused_counts: policy.excused_counts,
+        },
+      }).catch(() => {
+        /* the confirmation applies to the student either way */
+      });
+    },
+    [persistPref, applyRuleMethod]
+  );
+
   const setSemester = useCallback((patch: Partial<Semester>) => {
     setData((d) => ({ ...d, semester: { ...d.semester, ...patch } }));
     // Mirror the cloud-backed fields to the active semesters row. name/weeks/
@@ -1389,31 +1712,96 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (Object.keys(prefPatch).length) persistPref(prefPatch);
   }, [persistPref]);
 
+  const saveClassOff = useCallback(
+    (v: { tz: string; days: string[] }) => persistPref({ classOff: v as unknown as Record<string, unknown> }),
+    [persistPref]
+  );
+
   const setAcademic = useCallback(
     (patch: Partial<AcademicInfo>) => {
-      let next = emptyAcademic;
-      setData((d) => {
-        next = { ...d.academic, ...patch };
-        return { ...d, academic: next };
-      });
+      // Worked out from dataRef, not inside the setData updater: when React ran
+      // that updater later, the profile saved was the empty one, wiping the
+      // student's university from their account.
+      const cur = dataRef.current;
+      const next = { ...cur.academic, ...patch };
+      // A different university: its official breaks no longer apply.
+      const released =
+        patch.universitySlug !== undefined && patch.universitySlug !== cur.academic.universitySlug
+          ? releaseUniversityHolidays(cur.semester)
+          : null;
+      dataRef.current = { ...cur, academic: next };
+      setData((d) => ({ ...d, academic: { ...d.academic, ...patch } }));
       persistPref({ academic: next as unknown as Record<string, unknown> });
-      // Picking a known university applies its usual حرمان (denial) limit so the
-      // attendance math matches that school out of the box; the student can still
-      // override it in Settings. (The university's GPA scale is kept on the list
-      // entry for future 4.0 support — the app currently grades on Saudi 5.0.)
-      if (patch.universitySlug) {
-        const uni = universityBySlug(patch.universitySlug);
-        if (uni && uni.denialPct > 0) setSemester({ withdrawalLimit: uni.denialPct });
-      }
+      if (released) setSemester(released);
+      // No حرمان limit is applied from the university list: the limit now comes
+      // only from the university's VERIFIED rule (attendance_policies) or the
+      // student's own answer — never an assumed 25%.
     },
     [persistPref, setSemester]
   );
+
+  const reportGradeTable = useCallback((event: GradeTableEvent, meta: Record<string, unknown>) => {
+    void db.logEvent(event, meta);
+  }, []);
+
+  const setTermCheck = useCallback(
+    (check: Omit<TermCheck, "term"> | null) => {
+      const next: TermCheck | null = check ? { ...check, term: semesterIdRef.current ?? "" } : null;
+      setData((d) => ({ ...d, termCheck: next }));
+      persistPref({ termCheck: next as unknown as Record<string, unknown> | null });
+    },
+    [persistPref]
+  );
+
+  const setPastTerms = useCallback(
+    (terms: PastTerm[]) => {
+      setData((d) => ({ ...d, pastTerms: terms }));
+      persistPref({ pastTerms: terms as unknown as Record<string, unknown>[] });
+    },
+    [persistPref]
+  );
+
+  const setCourseRepeat = useCallback(
+    (courseId: string, earlier: RepeatInfo | null) => {
+      setData((d) => {
+        const next: Record<string, RepeatInfo> = {};
+        // Keep only courses that still exist, so deleted ones don't linger.
+        for (const c of d.courses) if (d.repeats[c.id] && c.id !== courseId) next[c.id] = d.repeats[c.id];
+        if (earlier) next[courseId] = earlier;
+        persistPref({ repeats: { term: semesterIdRef.current ?? "", courses: next } as unknown as Record<string, unknown> });
+        return { ...d, repeats: next };
+      });
+    },
+    [persistPref]
+  );
+
+  // Mark (or unmark) a course's limit as the student's own choice, dropping
+  // ids of deleted courses on the way.
+  const markOwnLimit = useCallback(
+    (courseId: string, own: boolean) => {
+      setData((d) => {
+        const live = new Set(d.courses.map((c) => c.id));
+        live.add(courseId);
+        const next = d.ownLimits.filter((id) => id !== courseId && live.has(id));
+        if (own) next.push(courseId);
+        if (next.length === d.ownLimits.length && next.every((id, i) => id === d.ownLimits[i])) return d;
+        persistPref({ ownLimits: next });
+        return { ...d, ownLimits: next };
+      });
+    },
+    [persistPref]
+  );
+
+  const reportTermCheck = useCallback((event: TermCheckEvent, meta?: Record<string, unknown>) => {
+    void db.logEvent(event, meta);
+  }, []);
 
   const addCourse = useCallback(
     async (course: {
       name: string;
       creditHours: number;
       attendanceLimit?: number;
+      repeat?: RepeatInfo | null;
     }): Promise<MutationResult> => {
       if (!loggedInRef.current) return NOT_SIGNED_IN;
       try {
@@ -1424,6 +1812,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           creditHours: course.creditHours,
           position: coursesRef.current.length,
           attendanceLimit: course.attendanceLimit,
+          attendanceMode: ruleModeRef.current ?? undefined,
         });
         setData((d) => ({
           ...d,
@@ -1434,6 +1823,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               name: row.name,
               creditHours: row.creditHours,
               attendanceLimit: row.attendanceLimit,
+              attendanceMode: row.attendanceMode,
               sessions: [],
               missedLectures: 0,
               missedSessions: [],
@@ -1441,13 +1831,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             },
           ],
         }));
+        if (course.repeat) setCourseRepeat(row.id, course.repeat);
+        if ((course.attendanceLimit ?? 0) > 0) markOwnLimit(row.id, true);
         return { ok: true };
       } catch (e) {
         console.error("Haven: failed to add course", e);
         return { ok: false, error: asError(e) };
       }
     },
-    []
+    [setCourseRepeat, markOwnLimit]
   );
 
   const updateCourse = useCallback(
@@ -1456,6 +1848,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...d,
         courses: d.courses.map((c) => (c.id === id ? { ...c, ...patch } : c)),
       }));
+      // A limit set here is the student's own; 0 clears it back to the term's rule.
+      if (patch.attendanceLimit !== undefined) markOwnLimit(id, patch.attendanceLimit > 0);
       // Name / credits / the per-course withdrawal limit live in the cloud.
       if (
         loggedInRef.current &&
@@ -1478,7 +1872,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }).catch((e) => console.error("Haven: failed to update course", e));
       }
     },
-    []
+    [markOwnLimit]
   );
 
   const deleteCourse = useCallback((id: string) => {
@@ -1982,14 +2376,91 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  // Official end-of-term results replace the estimates everywhere courses are read.
+  const coursesView = useMemo(() => {
+    const out = withRepeats(withOfficial(data.courses, data.termCheck), data.repeats);
+    if (!data.ownLimits.length) return out;
+    const own = new Set(data.ownLimits);
+    return out.map((c) => (own.has(c.id) ? { ...c, ownLimit: true } : c));
+  }, [data.courses, data.termCheck, data.repeats, data.ownLimits]);
+
+  // The university's absence rule (approved, or a suggestion waiting for
+  // approval), fetched whenever the university changes. Until the student
+  // confirms it — or without one — absence is logged but no percentage is shown.
+  const [policyOptions, setPolicyOptions] = useState<AttendancePolicy[]>([]);
+  const uniSlug = data.academic.universitySlug && data.academic.universitySlug !== "other" ? data.academic.universitySlug : null;
+  useEffect(() => {
+    if (!hydrated || !uniSlug) {
+      setPolicyOptions([]);
+      return;
+    }
+    let alive = true;
+    void fetchUniversityPolicies(uniSlug).then((list) => {
+      if (alive) setPolicyOptions(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [hydrated, uniSlug]);
+  // The rule in force: the one the student confirmed (the main rule or one
+  // from their fellow students), else the main one, waiting for them.
+  const universityPolicy = useMemo(
+    () => policyOptions.find((p) => data.attendancePolicyAck === policyAckKey(p)) ?? policyOptions[0] ?? null,
+    [policyOptions, data.attendancePolicyAck]
+  );
+
+  // A calendar the admin published for the student's university (outside
+  // Saudi Arabia, not in the code): once fetched it's registered with the
+  // others, and this re-renders every screen so the holidays follow it.
+  const [publishedCalendar, setPublishedCalendar] = useState<string | null>(null);
+  const typedUni = mayHavePublishedCalendar(data.academic) ? data.academic.universityName.trim() : "";
+  useEffect(() => {
+    if (!hydrated || !typedUni) return;
+    let alive = true;
+    void loadPublishedCalendar(typedUni).then((key) => {
+      if (alive) setPublishedCalendar(key);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [hydrated, typedUni]);
+
+  // The term as every screen reads it: with the absence rule attached, so each
+  // attendanceInfo() call uses the same verified / personal / unknown rule.
+  const semesterView = useMemo(
+    () => ({
+      ...data.semester,
+      attendanceRule: resolveAttendanceRule(
+        data.personalAttendanceRule,
+        universityPolicy,
+        !!universityPolicy && data.attendancePolicyAck === policyAckKey(universityPolicy)
+      ),
+    }),
+    [data.semester, data.personalAttendanceRule, universityPolicy, data.attendancePolicyAck]
+  );
+  ruleModeRef.current = ruleMode(semesterView);
+
   const value: StoreValue = {
     ...data,
+    semester: semesterView,
+    universityPolicy,
+    policyOptions,
+    publishedCalendar,
+    setAttendanceEnabled,
+    setPersonalAttendanceRule,
+    ackAttendancePolicy,
+    courses: coursesView,
+    setTermCheck,
+    reportTermCheck,
+    setPastTerms,
+    setCourseRepeat,
     hydrated,
     loadFailed,
     retryLoad,
     setProfileName,
     setEmail,
     setAcademic,
+    reportGradeTable,
     setProfilePhoto,
     setGpaGoal,
     addPlannerNote,
@@ -2008,6 +2479,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNotifPrefs,
     setHaviName,
     completeOnboarding,
+    confirmSetup,
     recordAppOpen,
     doCheckIn,
     awardGamificationXP,
@@ -2016,6 +2488,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     recordPomodoroComplete,
     recordPomodoroAbandon,
     setSemester,
+    saveClassOff,
     addCourse,
     updateCourse,
     deleteCourse,

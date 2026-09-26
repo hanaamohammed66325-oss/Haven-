@@ -17,10 +17,10 @@ import { SubscriptionProvider } from "@/lib/subscription";
 // which are read once by bots and never flash.
 const SITE_TITLE = "Haven — organize your semester";
 const SITE_DESCRIPTION =
-  "Haven helps university students track their GPA, grades, attendance, and deadlines in one place.";
+  "Haven helps university students track their GPA, grades, attendance, and deadlines in one place, calculated on their own university's system.";
 const OG_TITLE = "Haven — نظّم فصلك الدراسي";
 const OG_DESCRIPTION =
-  "Haven يساعد طلاب الجامعات على تتبّع المعدل والدرجات والحضور والمواعيد في مكان واحد.";
+  "Haven يساعد طلاب الجامعات على تتبّع المعدل والدرجات والحضور والمواعيد في مكان واحد، على نظام جامعتهم.";
 // The PWA icon set and the share card are the same Haven house/book logo on
 // brand navy, so one file serves both.
 const OG_IMAGE = "/icons/icon-512.png";

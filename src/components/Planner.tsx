@@ -14,6 +14,7 @@ import { REMINDER_TAGS } from "@/lib/reminders";
 import { detectPlannerKind, kindToTag } from "@/lib/plannerKind";
 import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
+import { holidayCalendar } from "@/lib/universityCountry";
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -50,10 +51,10 @@ const tagColorOf = (key?: string) => TAGS.find((t) => t.key === key)?.color;
 /** Tag keys that lightly shade the day / week they sit in: holiday, exam, quiz.
  *  (Deadline and assignment deliberately don't shade.) Ordered so stacked
  *  bands stay stable regardless of the order items were added. */
-const SHADE_TAG_ORDER = ["tagHoliday", "tagExam", "tagQuiz"] as const;
+const SHADE_TAG_ORDER = ["tagHoliday", "tagExam", "tagQuiz", "tagAssignment", "tagDeadline"] as const;
 
 /** A light, translucent background image shading a day cell or a whole week for
- *  the holiday / exam / quiz notes it contains. One type → a flat wash; several
+ *  the tagged notes it contains (every type chip, so each colour visibly tints). One type → a flat wash; several
  *  → equal hard-edged bands so every colour stays visible instead of one
  *  overriding the rest. Returns undefined when there's nothing to shade. */
 function shadeImage(notes: PlannerNote[]): string | undefined {
@@ -212,13 +213,19 @@ export function Planner() {
 
   // Virtual holiday notes — injected into planner weeks so holidays render
   // with the existing tagHoliday green shading. Not persisted; generated
-  // from the semester's resolved holidays each render.
+  // from the resolved holidays each render — for every day the weeks show
+  // (the last week can run past the term's end), weekends included: a holiday
+  // on a Friday is still that day's holiday (Qatar National Day, 18 Dec 2026).
   const holidayNotesByWeek = useMemo(() => {
     const map: Record<number, PlannerNote[]> = {};
-    if (!semester?.startDate || !semester?.endDate) return map;
-    const holidays = resolveHolidaysForSemester(semester.startDate, semester.endDate, {
+    const first = weeks[0]?.start;
+    const last = weeks[weeks.length - 1]?.end;
+    if (!semester?.startDate || !semester?.endDate || !first || !last) return map;
+    const from = toISODate(first) < semester.startDate ? toISODate(first) : semester.startDate;
+    const to = toISODate(last) > semester.endDate ? toISODate(last) : semester.endDate;
+    const holidays = resolveHolidaysForSemester(from, to, {
       dismissed: semester.dismissedHolidays,
-      universitySlug: academic?.universitySlug,
+      calendar: holidayCalendar(academic),
       customHolidays: semester.customHolidays,
     });
     const dateToWeek = new Map<string, number>();
@@ -238,7 +245,6 @@ export function Planner() {
       for (const dateStr of dates) {
         const d = new Date(`${dateStr}T00:00:00`);
         const dow = d.getDay();
-        if (dow === 5 || dow === 6) continue;
         const wi = dateToWeek.get(dateStr);
         if (wi != null) {
           (byWeek[wi] ??= []).push({ day: dow, dateStr });
@@ -247,9 +253,11 @@ export function Planner() {
       for (const [wi, entries] of Object.entries(byWeek)) {
         const idx = Number(wi);
         const arr = (map[idx] ??= []);
-        const workdays = new Set(entries.map((e) => e.day));
-        if (workdays.size === 5) {
-          // All Sun-Thu covered → single whole-week badge
+        const covered = new Set(entries.map((e) => e.day));
+        const all = (days: number[]) => days.every((x) => covered.has(x));
+        if (all([0, 1, 2, 3, 4]) || all([1, 2, 3, 4, 5])) {
+          // Every study day covered (Sun–Thu, or Mon–Fri where the weekend is
+          // Sat–Sun) → a single whole-week badge
           arr.push({
             id: `holiday-${h.id}-week-${idx}`,
             week: idx + 1,
@@ -280,7 +288,7 @@ export function Planner() {
     semester?.endDate,
     semester?.dismissedHolidays,
     semester?.customHolidays,
-    academic?.universitySlug,
+    academic,
     weeks,
     lang,
   ]);
@@ -729,7 +737,9 @@ function WeekCard({
         >
           {a.name}
         </span>
-        <span className="text-[10px] shrink-0" style={{ color: "var(--color-muted)", opacity: autoDone ? 0.5 : 1 }}>· {a.course}</span>
+        {/* Shrinks + truncates (full text stays in the chip's title) so a long
+            course name can't push the chip past its day cell. */}
+        <span className="text-[10px] truncate min-w-0 shrink-[2]" style={{ color: "var(--color-muted)", opacity: autoDone ? 0.5 : 1 }}>· {a.course}</span>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onHideAuto(a.id); }}

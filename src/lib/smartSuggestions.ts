@@ -15,13 +15,14 @@ import type { TranslationKey } from "@/i18n/translations/en";
 import {
   courseCurrentPct,
   attendanceInfo,
+  fmtPct,
   semesterProgress,
   semesterGPA,
 } from "./grades";
 import { buildUpcoming } from "./upcoming";
 import { toISODate } from "./dates";
 import { POMODORO_ENABLED } from "./featureFlags";
-import { SAUDI5, type GradeScheme } from "./gradeSchemes";
+import { SAUDI5, effectiveGpaGoal, type GradeScheme } from "./gradeSchemes";
 
 export type SuggestionKind =
   | "att-danger"
@@ -52,8 +53,10 @@ export interface SmartContext {
   gpaGoal: number;
   /** the active grading scheme, so the GPA-goal nudge compares like-for-like. */
   scheme?: GradeScheme;
-  /** the student's university slug, so attendance uses their holiday calendar. */
-  universitySlug?: string | null;
+  /** whose holidays attendance uses (lib/universityCountry holidayCalendar). */
+  holidayCalendar?: string | null;
+  /** false when the student turned absence tracking off: no absence nudges. */
+  attendanceEnabled?: boolean;
   now?: Date;
 }
 
@@ -62,20 +65,19 @@ type T = (key: TranslationKey, params?: Record<string, string | number>) => stri
 /** Build the prioritized suggestion list (lowest `priority` = most urgent). */
 export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
   const { courses, planner, semester, gamification, gpaGoal, scheme = SAUDI5 } = ctx;
-  const universitySlug = ctx.universitySlug;
   const now = ctx.now ?? new Date();
   const today = toISODate(now);
   const checkedIn = gamification.checkedInToday === today;
   const items: Suggestion[] = [];
 
   // 1. Attendance danger / warn
-  for (const c of courses) {
-    const att = attendanceInfo(c, semester, universitySlug);
+  for (const c of ctx.attendanceEnabled === false ? [] : courses) {
+    const att = attendanceInfo(c, semester, ctx.holidayCalendar);
     if (att?.status === "danger") {
       items.push({
         id: `att-danger-${c.id}`,
         kind: "att-danger",
-        text: t("smart_attDanger", { course: c.name, n: att.absence.toFixed(0) }),
+        text: t("smart_attDanger", { course: c.name, n: fmtPct(att.absence) }),
         href: `/courses#${c.id}`,
         color: "var(--color-danger)",
         priority: 1,
@@ -84,7 +86,7 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
       items.push({
         id: `att-warn-${c.id}`,
         kind: "att-warn",
-        text: t("smart_attWarn", { course: c.name, n: att.absence.toFixed(0) }),
+        text: t("smart_attWarn", { course: c.name, n: fmtPct(att.absence) }),
         href: `/courses#${c.id}`,
         color: "#C77E2E",
         priority: 2,
@@ -212,13 +214,20 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
   }
 
   // 8. GPA goal tracking
-  if (gpaGoal > 0 && courses.some((c) => courseCurrentPct(c) != null)) {
+  // Goal and "close to it" gap are on the student's own scale (0.5 on 5.0 =
+  // 10% of the max).
+  const goal = effectiveGpaGoal(gpaGoal, scheme);
+  // Skipped once official results are in: the term is over, nothing left to push for.
+  if (courses.some((c) => courseCurrentPct(c) != null) && !courses.some((c) => c.official)) {
     const currentGpa = semesterGPA(courses, scheme);
-    if (currentGpa != null && currentGpa < gpaGoal && gpaGoal - currentGpa <= 0.5) {
+    if (currentGpa != null && currentGpa < goal && goal - currentGpa <= scheme.max * 0.1) {
       items.push({
         id: "gpa-goal",
         kind: "gpa-goal",
-        text: t("smart_gpaGoal", { current: currentGpa.toFixed(2), goal: gpaGoal.toFixed(1) }),
+        text: t("smart_gpaGoal", {
+          current: currentGpa.toFixed(scheme.percent ? 1 : 2),
+          goal: String(goal),
+        }),
         color: "var(--color-primary)",
         priority: 5,
       });

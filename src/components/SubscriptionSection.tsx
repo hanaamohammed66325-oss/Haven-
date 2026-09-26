@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Crown, Loader2, Check } from "lucide-react";
 import { useT } from "@/i18n";
 import { Card } from "@/components/Card";
+import { CollapseBody, CollapseToggle, useCardCollapse } from "@/components/Collapsible";
 import { Modal } from "@/components/Modal";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription";
@@ -64,6 +65,7 @@ export function SubscriptionSection() {
   const { t, lang } = useT();
   const router = useRouter();
   const { sub, profile, loading, refresh } = useSubscription();
+  const fold = useCardCollapse("profile-subscription");
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -169,10 +171,15 @@ export function SubscriptionSection() {
   // Shared card shell so the title stays put across every state.
   const shell = (body: React.ReactNode) => (
     <Card padding="p-5 sm:p-8" className="mt-8">
-      <h2 className="font-display text-xl" style={{ color: "var(--color-ink)" }}>
-        {t("subscriptionTitle")}
-      </h2>
-      <div className="mt-4">{body}</div>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display text-xl" style={{ color: "var(--color-ink)" }}>
+          {t("subscriptionTitle")}
+        </h2>
+        <CollapseToggle open={fold.open} onToggle={fold.toggle} label={t("subscriptionTitle")} />
+      </div>
+      <CollapseBody open={fold.open}>
+        <div className="mt-4">{body}</div>
+      </CollapseBody>
     </Card>
   );
 

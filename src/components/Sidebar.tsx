@@ -135,7 +135,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const { t, lang } = useT();
-  const { language, setLanguage, profileName, email, profilePhoto } = useStore();
+  const { language, setLanguage, profileName, email, profilePhoto, attendanceEnabled } = useStore();
   const { sub, profile } = useSubscription();
   // Go Premium is only relevant to users who could still benefit from
   // subscribing. Hide it for anyone who already has full access — VIP, an active
@@ -254,7 +254,7 @@ export function Sidebar({
       {/* Menu */}
       {!collapsed && <SectionLabel>{t("sidebarMenu")}</SectionLabel>}
       <nav className="flex flex-col gap-1">
-        {MENU.map((item) => (
+        {MENU.filter((item) => attendanceEnabled || item.href !== "/attendance").map((item) => (
           <NavRow key={item.href} item={item} active={pathname === item.href} collapsed={collapsed} />
         ))}
       </nav>

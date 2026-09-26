@@ -21,7 +21,7 @@ import type { Course, GradeComponent } from "@/types";
 
 export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDeleteCourse?: (id: string) => void }) {
   const { t, lang } = useT();
-  const { semester, addComponent, updateComponent, deleteComponent, softDeleteComponent, restoreComponent, deleteCourse, updateCourse } = useStore();
+  const { attendanceEnabled, addComponent, updateComponent, deleteComponent, softDeleteComponent, restoreComponent, deleteCourse, updateCourse, setCourseRepeat } = useStore();
   const scheme = useScheme();
   const { undoableDelete } = useUndo();
   const [addingItem, setAddingItem] = useState(false);
@@ -32,7 +32,8 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
   const pct = courseCurrentPct(course);
   const used = weightsTotal(course);
   const left = Math.max(0, 100 - used);
-  const advice = finalAdvice(course, scheme);
+  // Once the official result is in, there is no final left to plan for.
+  const advice = course.official ? null : finalAdvice(course, scheme);
 
   // Share of the FULL course (out of 100) that is actually graded — drives the
   // "provisional" note. Measured against 100, not just the weight defined so
@@ -92,6 +93,12 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           </h2>
           <div className="flex items-center gap-2 mt-2.5 text-[13px]" style={{ color: "var(--color-muted)" }}>
             <span>{creditHoursLabel(course.creditHours, lang)}</span>
+            {course.repeat && (
+              <>
+                <span>·</span>
+                <span>{t("rep_tag")}</span>
+              </>
+            )}
             <span>·</span>
             {/* Weights that don't add up to 100% are a warning, never a block. */}
             <span style={used > 100 ? { color: "var(--color-danger)" } : undefined}>
@@ -104,7 +111,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <GradeBadge scheme={scheme} pct={pct} size="lg" showDefaultNote gradedPct={gradedPct} showProvisional />
+          <GradeBadge scheme={scheme} pct={pct} size="lg" showDefaultNote gradedPct={gradedPct} showProvisional official={course.official} />
           <button
             onClick={() => setEditing(true)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"
@@ -203,7 +210,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
       </div>
 
       {/* Attendance */}
-      <AttendanceSection course={course} />
+      {attendanceEnabled && <AttendanceSection course={course} />}
 
       <AddItemModal
         open={addingItem}
@@ -231,9 +238,17 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
       <AddCourseModal
         open={editing}
         onClose={() => setEditing(false)}
-        onSubmit={(data) => updateCourse(course.id, data)}
-        initial={{ name: course.name, creditHours: course.creditHours, attendanceLimit: course.attendanceLimit }}
-        defaultLimit={semester.withdrawalLimit}
+        onSubmit={({ repeat, ...data }) => {
+          updateCourse(course.id, data);
+          setCourseRepeat(course.id, repeat);
+        }}
+        initial={{
+          name: course.name,
+          creditHours: course.creditHours,
+          attendanceLimit: course.attendanceLimit,
+          ownLimit: course.ownLimit,
+          repeat: course.repeat,
+        }}
       />
     </Card>
   );

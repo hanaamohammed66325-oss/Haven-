@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X, Play, Pause, RotateCcw, Sparkles,
-  LayoutDashboard, BookOpen, ClipboardList, CalendarDays, ShieldCheck, Timer, Settings as SettingsIcon,
+  LayoutDashboard, BookOpen, ClipboardList, CalendarDays, ShieldCheck, Timer, Settings as SettingsIcon, UserRound,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { DemoStoreProvider } from "./DemoStore";
@@ -20,6 +20,7 @@ import SchedulePage from "@/app/(app)/schedule/page";
 import AttendancePage from "@/app/(app)/attendance/page";
 import PomodoroPage from "@/app/(app)/pomodoro/page";
 import SettingsPage from "@/app/(app)/settings/page";
+import ProfilePage from "@/app/(app)/profile/page";
 
 // ---------------------------------------------------------------------------
 // Guided live tour — the first-run onboarding. Havi (the mascot, identical to
@@ -33,7 +34,7 @@ import SettingsPage from "@/app/(app)/settings/page";
 
 type PageKey =
   | "dashboard" | "courses" | "assignments" | "schedule"
-  | "attendance" | "pomodoro" | "settings";
+  | "attendance" | "pomodoro" | "settings" | "profile";
 
 const PAGES: Record<PageKey, { Comp: React.ComponentType; nav: TranslationKey; Icon: typeof LayoutDashboard }> = {
   dashboard: { Comp: DashboardPage, nav: "nav_dashboard", Icon: LayoutDashboard },
@@ -43,8 +44,9 @@ const PAGES: Record<PageKey, { Comp: React.ComponentType; nav: TranslationKey; I
   attendance: { Comp: AttendancePage, nav: "nav_attendance", Icon: ShieldCheck },
   pomodoro: { Comp: PomodoroPage, nav: "nav_pomodoro", Icon: Timer },
   settings: { Comp: SettingsPage, nav: "nav_settings", Icon: SettingsIcon },
+  profile: { Comp: ProfilePage, nav: "nav_profile", Icon: UserRound },
 };
-const NAV_ORDER: PageKey[] = ["dashboard", "courses", "assignments", "schedule", "attendance", "pomodoro", "settings"];
+const NAV_ORDER: PageKey[] = ["dashboard", "profile", "courses", "assignments", "schedule", "attendance", "pomodoro", "settings"];
 
 type Action =
   | { kind: "click" }
@@ -78,6 +80,11 @@ const BEATS: Beat[] = [
   { page: "dashboard", target: "dash-upcoming", callout: "tour_dashUpcoming", hold: 2600 },
   { page: "dashboard", target: "dash-whatif", callout: "tour_dashWhatif", hold: 2800 },
 
+  // ── Profile: the academic profile every calculation is built on ──────
+  { page: "profile", title: "ob_profile_t", line: "ob_profile_p1", hold: 2400 },
+  { page: "profile", target: "profile-banner", callout: "tour_profileBanner", hold: 2800 },
+  { page: "profile", target: "profile-academic", callout: "tour_profileAcademic", hold: 4200 },
+
   // ── Courses: add a course live ───────────────────────────────────────
   { page: "courses", title: "ob_courses_t", line: "ob_courses_p3", hold: 2400 },
   { page: "courses", target: "add-course", callout: "tour_addCourseBtn", action: { kind: "click" }, hold: 500 },
@@ -89,7 +96,7 @@ const BEATS: Beat[] = [
   // ── Grade item — added to the NEW (empty) course, field by field ─────
   { page: "courses", title: "ob_grades_t", line: "ob_grades_p1", hold: 2400 },
   { page: "courses", target: "add-component", scope: "pageLast", callout: "tour_addComponent", action: { kind: "click" }, hold: 600 },
-  { page: "courses", target: "item-name", scope: "modal", callout: "tour_itemName", action: { kind: "type", ar: "كويز ١", en: "Quiz 1" }, hold: 500 },
+  { page: "courses", target: "item-name", scope: "modal", callout: "tour_itemName", action: { kind: "type", ar: "اختبار قصير ١", en: "Quiz 1" }, hold: 500 },
   { page: "courses", target: "item-type", scope: "modal", callout: "tour_itemType", hold: 2000 },
   { page: "courses", target: "item-weight", scope: "modal", callout: "tour_itemWeight", action: { kind: "type", ar: "10", en: "10" }, hold: 600 },
   { page: "courses", target: "item-total", scope: "modal", callout: "tour_itemTotal", action: { kind: "type", ar: "10", en: "10" }, hold: 600 },
@@ -158,6 +165,7 @@ const BEATS: Beat[] = [
 
 // Quick-nav chips → jump straight to the beats that matter most.
 const QUICK: { label: TranslationKey; anchor: string }[] = [
+  { label: "tour_jump_profile", anchor: "profile-academic" },
   { label: "tour_jump_notif", anchor: "notif-section" },
   { label: "tour_jump_course", anchor: "add-course" },
   { label: "tour_jump_item", anchor: "add-component" },

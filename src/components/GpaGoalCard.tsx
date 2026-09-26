@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Info } from "lucide-react";
+import { effectiveGpaGoal } from "@/lib/gradeSchemes";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
@@ -11,7 +13,7 @@ import { semesterGPA, projectedCumulativeGpa } from "@/lib/grades";
 
 export function GpaGoalCard() {
   const { t } = useT();
-  const { courses, gpaGoal, setGpaGoal, gpaMode, cumulativeGpa, cumulativeHours } = useStore();
+  const { courses, gpaGoal, setGpaGoal, gpaMode, cumulativeGpa, cumulativeHours, academic } = useStore();
   const scheme = useScheme();
 
   // Follow the same Semester / Cumulative toggle the GPA card uses (shared
@@ -19,9 +21,12 @@ export function GpaGoalCard() {
   // currently on screen, not a fixed semester figure.
   const gpa =
     gpaMode === "cumulative"
-      ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, scheme)
+      ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, scheme, academic)
       : semesterGPA(courses, scheme);
-  const goal = gpaGoal > 0 ? gpaGoal : scheme.max;
+  const goal = effectiveGpaGoal(gpaGoal, scheme);
+  // The box edits a draft so a percentage student can type "85" without the
+  // "8" being rejected mid-way; a valid value is committed as they type.
+  const [draft, setDraft] = useState<string | null>(null);
   const pct = gpa != null ? Math.min(100, (gpa / goal) * 100) : 0;
   const reached = gpa != null && gpa >= goal;
   const message =
@@ -63,9 +68,14 @@ export function GpaGoalCard() {
             type="number"
             min="0"
             max={scheme.max}
-            step="0.1"
-            value={gpaGoal}
-            onChange={(e) => setGpaGoal(Number(e.target.value) || 0)}
+            step={scheme.percent ? 1 : 0.1}
+            value={draft ?? String(goal)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              const n = Number(e.target.value);
+              if (n > 0 && n <= scheme.max) setGpaGoal(n);
+            }}
+            onBlur={() => setDraft(null)}
             className="w-20 rounded-xl border px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--color-primary)]"
             style={{ borderColor: "var(--color-border)" }}
           />

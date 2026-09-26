@@ -199,17 +199,20 @@ export const S: Styles = buildStyles(DARK);
 
 // ---------- StatCard (theme-aware) ----------
 export function StatCard({
-  label, value, accent, sub, wide,
+  label, value, accent, sub, wide, onClick,
 }: {
   label: string;
   value: number | string;
   accent?: string;
   sub?: string;
   wide?: boolean;
+  /** makes the card a button — used to drill into the users behind the number */
+  onClick?: () => void;
 }) {
   const c = useC();
   return (
-    <div
+    <ClickableCard
+      onClick={onClick}
       className={`rounded-xl border p-5 ${wide ? "md:col-span-2" : ""}`}
       style={{
         borderColor: accent ? c.tint(accent, "44") : c.border,
@@ -223,7 +226,37 @@ export function StatCard({
         {typeof value === "number" ? value.toLocaleString("en") : value}
       </div>
       {sub && <div className="text-[12px] mt-2" style={{ color: c.textDim }}>{sub}</div>}
-    </div>
+    </ClickableCard>
+  );
+}
+
+/** A card container that becomes a button (with a "View users" cue) when it has
+ *  an onClick, and stays a plain div otherwise. */
+export function ClickableCard({
+  onClick, className, style, children,
+}: {
+  onClick?: () => void;
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const c = useC();
+  if (!onClick) return <div className={className} style={style}>{children}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${className ?? ""} group relative text-start w-full transition-shadow hover:shadow-md`}
+      style={{ ...style, cursor: "pointer" }}
+    >
+      {children}
+      <span
+        className="absolute top-4 end-4 text-[11px] font-medium opacity-60 group-hover:opacity-100 transition-opacity"
+        style={{ color: c.textDim }}
+      >
+        <span className="hidden lg:inline">View users </span>→
+      </span>
+    </button>
   );
 }
 

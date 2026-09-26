@@ -12,7 +12,7 @@ import { Trash2, ClipboardList, ArrowLeft } from "lucide-react";
 
 const TAGS = [
   { key: "exam", label: "اختبار", color: "#d9534f" },
-  { key: "quiz", label: "كويز", color: "#e89b4a" },
+  { key: "quiz", label: "اختبار قصير", color: "#e89b4a" },
   { key: "assignment", label: "واجب", color: "#477680" },
   { key: "deadline", label: "تسليم", color: "#b8975a" },
   { key: "holiday", label: "إجازة", color: "#5fa98c" },

@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useStore, useScheme } from "@/store";
+import { useEffect, useMemo, useState } from "react";
+import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { UNIVERSITIES } from "@/lib/tools/universities";
 import { normalizeArabicDigits } from "@/lib/dates";
+import { detectScheme, gradeTableStatus, schemeById } from "@/lib/gradeSchemes";
+import { typedUniversityNames, universityChoices } from "@/lib/universityCountry";
+import { COUNTRY_LABEL, withCountry } from "@/lib/universityPick";
+import { GradeTableSection, SchemeChips } from "./GradeTableCheck";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 const fieldClass =
@@ -54,7 +58,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 /** Editor for the student's academic profile (university / major / level).
  *  Persists through the store, which also applies a known university's حرمان
  *  limit to the semester. */
-export function AcademicSettings() {
+export function AcademicSettings({ showScheme = true }: { showScheme?: boolean } = {}) {
   const { t, lang } = useT();
   const { academic, setAcademic } = useStore();
 
@@ -75,10 +79,7 @@ export function AcademicSettings() {
   const showCustomLevel = levelCustomMode || isCustomLevel;
   const levelSelectValue = showCustomLevel ? "custom" : academic.level;
 
-  // The GPA system: "auto" (default) is detected from the university; the rest
-  // force a scheme. Show the auto-detected result so the choice is transparent.
-  const schemeValue = academic.gpaSchemeId ?? "auto";
-  const detected = useScheme();
+  const [editingTable, setEditingTable] = useState(false);
 
   return (
     <div className="divide-y" style={{ borderColor: "var(--color-border)" }}>
@@ -115,44 +116,30 @@ export function AcademicSettings() {
               className={fieldClass}
               style={fieldStyle}
               placeholder={t("universityCustomPlaceholder")}
+              list="haven-university-catalog"
               value={academic.universityName}
               onChange={(e) => setAcademic({ universityName: e.target.value })}
             />
+          )}
+          {isOtherUni && <UniversityCatalogList />}
+          {isOtherUni && <SameNameChoice />}
+          {/* Until the name is recognised: the table (and so the GPA) comes
+              from matching it, so ask for the full, correct name. */}
+          {isOtherUni && detectScheme(academic).source === "default" && (
+            <p className="text-xs leading-relaxed" style={{ color: "var(--color-muted)" }}>
+              {t("universityNameHint")}
+            </p>
           )}
         </div>
       </Row>
 
       {/* GPA system — auto-detected from the university, overridable */}
-      <Row label={t("gpaSchemeLabel")}>
-        <div className="flex flex-col gap-2">
-          <select
-            className={fieldClass}
-            style={fieldStyle}
-            value={schemeValue}
-            onChange={(e) =>
-              setAcademic({
-                gpaSchemeId: e.target.value as
-                  | "auto"
-                  | "saudi5"
-                  | "saudi4"
-                  | "percentage"
-                  | "plusminus4",
-              })
-            }
-          >
-            <option value="auto">{t("gpaSchemeAuto")}</option>
-            <option value="saudi5">{t("gradeScheme5")}</option>
-            <option value="saudi4">{t("gradeScheme4")}</option>
-            <option value="plusminus4">{t("gradeSchemePlusMinus")}</option>
-            <option value="percentage">{t("gradeSchemePercent")}</option>
-          </select>
-          <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-            {schemeValue === "auto"
-              ? t("gpaSchemeDetected", { scheme: t(detected.labelKey as TranslationKey) })
-              : t("gpaSchemeHint")}
-          </p>
+      {showScheme && (
+        <div className="py-4 flex flex-col gap-3">
+          <GradeTableSection editing={editingTable} setEditing={setEditingTable} />
+          <SchemePicker onCustom={() => setEditingTable(true)} />
         </div>
-      </Row>
+      )}
 
       {/* Major */}
       <Row label={t("majorLabel")}>
@@ -203,6 +190,146 @@ export function AcademicSettings() {
           )}
         </div>
       </Row>
+    </div>
+  );
+}
+
+/** Suggestions for the typed university name: every catalogue university, in
+ *  both languages, so picking one gives an exact match. */
+function UniversityCatalogList() {
+  const names = useMemo(() => [...new Set(typedUniversityNames())], []);
+  return (
+    <datalist id="haven-university-catalog">
+      {names.map((n) => (
+        <option key={n} value={n} />
+      ))}
+    </datalist>
+  );
+}
+
+/** A typed name that universities in different countries share: each one with
+ *  its country, to pick from (saved with the country, lib/universityPick). */
+function SameNameChoice() {
+  const { t, lang } = useT();
+  const { academic, setAcademic } = useStore();
+  const choices = useMemo(() => universityChoices(academic.universityName), [academic.universityName]);
+  if (!choices) return null;
+  return (
+    <div
+      className="rounded-xl border p-3 flex flex-col gap-2"
+      style={{ borderColor: "var(--color-warning)", background: "var(--color-surface)" }}
+      role="group"
+      aria-label={t("uniSameNameTitle")}
+    >
+      <p className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
+        {t("uniSameNameTitle")}
+      </p>
+      <p className="text-xs leading-relaxed" style={{ color: "var(--color-muted)" }}>
+        {t("uniSameNameBody")}
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {choices.map((c) => {
+          const name = lang === "en" ? c.en : c.ar;
+          const country = COUNTRY_LABEL[c.country]?.[lang] ?? c.country;
+          return (
+            <button
+              key={`${c.ar}|${c.country}`}
+              type="button"
+              onClick={() => setAcademic({ universityName: withCountry(name, c.country, lang) })}
+              className="text-start rounded-lg border px-3 py-2 text-sm transition-colors hover:border-[var(--color-primary)]"
+              style={{ borderColor: "var(--color-border)", color: "var(--color-ink)", background: "transparent" }}
+            >
+              <span className="font-medium">{name}</span>
+              <span style={{ color: "var(--color-muted)" }}> · {t("uniSameNameIn", { country })}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** The GPA-system picker: a family (auto / 5 / 4 / % / the student's own
+ *  table), with the points table in use and a way to correct it. */
+export function SchemePicker({ onCustom }: { onCustom: () => void }) {
+  const { t, lang } = useT();
+  const { academic, setAcademic } = useStore();
+  const { scheme: detected, source, catalog } = detectScheme(academic);
+  // A table matched from the student's university is named after it: the same
+  // table can be shared (Abu Dhabi University's equals Qatar University's), and
+  // "Detected: Qatar University" would read as the wrong university.
+  const detectedName = catalog ? (lang === "en" ? catalog.en : catalog.ar) : t(detected.labelKey as TranslationKey);
+  const schemeValue = academic.gpaSchemeId ?? "auto";
+  const familyValue = schemeValue === "auto" ? "auto" : schemeValue === "custom" ? "custom" : detected.family;
+  const status = gradeTableStatus(academic);
+  const unknown = status === "unknown";
+
+  return (
+    <div>
+      <Row label={t("gpaSchemeLabel")}>
+        <div className="flex flex-col gap-2">
+          <select
+            className={fieldClass}
+            style={fieldStyle}
+            value={familyValue}
+            onChange={(e) => {
+              const f = e.target.value;
+              if (f === "auto") setAcademic({ gpaSchemeId: "auto" });
+              else if (f === "5") setAcademic({ gpaSchemeId: "saudi5" });
+              else if (f === "percent") setAcademic({ gpaSchemeId: "percentage" });
+              else if (f === "custom") {
+                if (academic.customScheme) setAcademic({ gpaSchemeId: "custom" });
+                else onCustom();
+              }
+              // "Out of 4" tables differ between universities (the catalogue
+              // has 91 of them), so keep the detected one when it is a 4.0
+              // system and otherwise start on the most common; the chips below
+              // show it and "edit the table" fixes whatever differs.
+              else setAcademic({ gpaSchemeId: schemeById(detected.id)?.family === "4" ? schemeById(detected.id)!.id : "plusminus4" });
+            }}
+          >
+            <option value="auto">{t("gpaSchemeAuto")}</option>
+            <option value="5">{t("gradeScheme5")}</option>
+            <option value="4">{t("gpaFamily4")}</option>
+            <option value="percent">{t("gradeSchemePercent")}</option>
+            <option value="custom">{t("gpaFamilyCustom")}</option>
+          </select>
+          <p className="text-xs" style={{ color: unknown ? "var(--color-warning)" : "var(--color-muted)" }}>
+            {unknown
+              ? t("gpaSchemeUnknown")
+              : schemeValue === "auto"
+              ? t("gpaSchemeDetected", { scheme: detectedName })
+              : t("gpaSchemeHint")}
+          </p>
+          {/* The table in use, so the student can hold it next to their
+              university's. A table still awaiting confirmation shows it in the
+              status card above. */}
+          {!unknown && status !== "confirm" && (
+            <div>
+              <SchemeChips scheme={detected} />
+              {source !== "custom" && (
+                <p className="mt-1.5 text-xs flex flex-wrap items-center gap-x-2" style={{ color: "var(--color-muted)" }}>
+                  <span>{t("gpaSchemeTableDiffers")}</span>
+                  <button type="button" onClick={onCustom} className="font-medium underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
+                    {t("gt_editTable")}
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </Row>
+
+      {detected.approxCutoffs && (
+        <p className="mt-2 text-xs" style={{ color: "var(--color-muted)" }}>
+          {t(source === "catalog" || source === "custom" ? "gpaSchemeApproxCatalog" : "gpaSchemeApprox")}
+        </p>
+      )}
+      {detected.learnedCutoffs && (
+        <p className="mt-2 text-xs" style={{ color: "var(--color-muted)" }}>
+          {t("gpaSchemeLearned")}
+        </p>
+      )}
     </div>
   );
 }

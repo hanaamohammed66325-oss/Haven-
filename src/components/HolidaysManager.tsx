@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, X, RotateCcw, CalendarDays } from "lucide-react";
+import { Plus, X, RotateCcw, CalendarDays, Check } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { DateField } from "./DateField";
@@ -10,7 +10,11 @@ import {
   type ResolvedHoliday,
 } from "@/lib/holidays";
 import { formatShortDate, addDays, toISODate } from "@/lib/dates";
+import { HolidayCountryNote } from "./HolidayCountryNote";
 import type { CustomHoliday } from "@/types";
+import { holidayCalendar, universityCountry } from "@/lib/universityCountry";
+import { UNI_HOLIDAY_PREFIX } from "@/lib/universityFacts";
+import { universityCalendar } from "@/lib/countryHolidays";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -25,9 +29,17 @@ const fieldClass =
  */
 export function HolidaysManager() {
   const { t, lang } = useT();
-  const { semester, academic, setSemester } = useStore();
+  const { semester, academic, setSemester, setAcademic } = useStore();
 
   const hasDates = Boolean(semester?.startDate && semester?.endDate);
+  const calendar = holidayCalendar(academic);
+  // A university outside Saudi Arabia: its students confirm its holidays, and
+  // their answers (with what they removed or added) reach the admin page.
+  const asksCheck = !!academic.universityName.trim() && universityCountry(academic) !== "SA";
+  const checked = academic.holidayCheck?.calendar === calendar;
+  // A calendar gathered from its students' reports isn't "official".
+  const own = universityCalendar(calendar);
+  const fromStudents = !!own && "source" in own && own.source === "students";
   const dismissed = useMemo(
     () => semester?.dismissedHolidays ?? [],
     [semester?.dismissedHolidays]
@@ -42,9 +54,9 @@ export function HolidaysManager() {
   const builtins = useMemo<ResolvedHoliday[]>(() => {
     if (!hasDates) return [];
     return resolveHolidaysForSemester(semester.startDate, semester.endDate, {
-      universitySlug: academic?.universitySlug,
+      calendar,
     });
-  }, [hasDates, semester?.startDate, semester?.endDate, academic?.universitySlug]);
+  }, [hasDates, semester?.startDate, semester?.endDate, calendar]);
 
   const cal = semester?.calendarType ?? "gregorian";
   const fmtRange = (start: string, end: string) =>
@@ -117,6 +129,7 @@ export function HolidaysManager() {
       <p className="text-[13px] mb-4 -mt-1" style={{ color: "var(--color-muted)" }}>
         {t("holidaysDesc")}
       </p>
+      <HolidayCountryNote className="mb-4" />
 
       <ul className="divide-y" style={rowStyle}>
         {builtins.map((h) => {
@@ -134,7 +147,8 @@ export function HolidaysManager() {
                   {lang === "ar" ? h.nameAr : h.nameEn}
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                  {fmtRange(h.startDate, h.endDate)} · {t("holidayOfficial")}
+                  {fmtRange(h.startDate, h.endDate)} · {t(fromStudents ? "holidaySuggested" : "holidayOfficial")}
+                  {h.estimated ? ` · ${t("holidayEstimated")}` : ""}
                 </div>
               </div>
               {off ? (
@@ -170,7 +184,7 @@ export function HolidaysManager() {
                 {c.name}
               </div>
               <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                {fmtRange(c.startDate, c.endDate)} · {t("holidayCustom")}
+                {fmtRange(c.startDate, c.endDate)} · {t(c.id.startsWith(UNI_HOLIDAY_PREFIX) ? "holidayFromUniversity" : "holidayCustom")}
               </div>
             </div>
             <button
@@ -285,6 +299,32 @@ export function HolidaysManager() {
           {t("holidayAddBtn")}
         </button>
       )}
+
+      {asksCheck &&
+        (checked ? (
+          <p className="mt-5 flex items-start gap-2 text-[13px]" style={{ color: "var(--color-muted)" }}>
+            <Check size={15} className="mt-0.5 shrink-0" style={{ color: "var(--color-primary)" }} />
+            {t("holidayCheckDone")}
+          </p>
+        ) : (
+          <div className="mt-5 rounded-xl border p-4" style={rowStyle}>
+            <div className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
+              {t("holidayCheckTitle")}
+            </div>
+            <p className="text-[13px] mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
+              {t("holidayCheckBody")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setAcademic({ holidayCheck: { calendar, at: new Date().toISOString() } })}
+              className="inline-flex items-center gap-2 mt-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
+              style={{ background: "var(--color-primary)" }}
+            >
+              <Check size={16} />
+              {t("holidayCheckBtn")}
+            </button>
+          </div>
+        ))}
     </div>
   );
 }

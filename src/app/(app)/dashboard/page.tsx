@@ -4,9 +4,11 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil, Flame, Sparkles, Lock, Target, CheckCircle2 } from "lucide-react";
 import { useStore, useScheme } from "@/store";
+import { gradeTableStatus } from "@/lib/gradeSchemes";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { AcademicBanner } from "@/components/AcademicBanner";
+import { AttendanceApproxNote } from "@/components/AttendanceApproxNote";
 import { CircularProgress } from "@/components/CircularProgress";
 import { InfoPopover } from "@/components/InfoPopover";
 import { GradeBadge } from "@/components/GradeBadge";
@@ -21,6 +23,8 @@ import { MiniCalendar } from "@/components/MiniCalendar";
 import { UpcomingPanel } from "@/components/UpcomingPanel";
 import { buildUpcoming } from "@/lib/upcoming";
 import { GpaGoalCard } from "@/components/GpaGoalCard";
+import { TermCheckCard } from "@/components/TermCheckCard";
+import { DEFAULT_SEMESTER_NAME } from "@/lib/db";
 import { WhatIfCard } from "@/components/WhatIfCard";
 import { SmartSuggestions } from "@/components/SmartSuggestions";
 import { NotifNudge } from "@/components/NotifNudge";
@@ -30,6 +34,7 @@ import {
   semesterProgress,
   courseCurrentPct,
   attendanceInfo,
+  fmtPct,
   projectedCumulativeGpa,
   STATUS_COLOR,
 } from "@/lib/grades";
@@ -37,6 +42,7 @@ import { creditHoursLabel } from "@/lib/format";
 import { toISODate } from "@/lib/dates";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
+import { holidayCalendar } from "@/lib/universityCountry";
 
 const CARD_PALETTE = [
   "#477680", "#5fa98c", "#e89b4a", "#8a6fb0", "#3b6ea5",
@@ -62,6 +68,18 @@ export default function DashboardPage() {
     setCumulativeHours,
   } = store;
   const gradeScheme = useScheme();
+  // The university's points table still needs the student: an unverified one
+  // to confirm, one they said is wrong, or none at all (GPA on 5.0 only by
+  // assumption). Point them at the Profile page, where it's handled.
+  const tableStatus = gradeTableStatus(store.academic);
+  const tableNudge =
+    tableStatus === "confirm"
+      ? "gpaSchemeCheckNudge"
+      : tableStatus === "rejected"
+      ? "gpaSchemeRejectedNudge"
+      : tableStatus === "unknown"
+      ? "gpaSchemeNudge"
+      : null;
   const { gamification, recordAppOpen, doCheckIn, awardGamificationXP, refreshGamChallenges } = store;
   const { profile, sub } = useSubscription();
   const isPremium = hasActiveAccess(profile, sub);
@@ -101,8 +119,8 @@ export default function DashboardPage() {
   const progress = useMemo(() => semesterProgress(semester), [semester]);
   const gpa = useMemo(() => semesterGPA(courses, gradeScheme), [courses, gradeScheme]);
   const projected = useMemo(
-    () => projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, gradeScheme),
-    [courses, cumulativeGpa, cumulativeHours, gradeScheme]
+    () => projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, gradeScheme, store.academic),
+    [courses, cumulativeGpa, cumulativeHours, gradeScheme, store.academic]
   );
   const shownGpa = gpaMode === "cumulative" ? projected : gpa;
 
@@ -166,7 +184,7 @@ export default function DashboardPage() {
             )}
           </h1>
           <p className="text-[15px] mt-2.5" style={{ color: "var(--color-muted)" }}>
-            {semester.name}
+            {semester.name === DEFAULT_SEMESTER_NAME ? t("semesterDefaultName") : semester.name}
           </p>
           {/* Academic identity — a light, seamless line that personalises the page.
               Editing lives on the profile, so no edit control is shown here. */}
@@ -183,6 +201,8 @@ export default function DashboardPage() {
           </Link>
         </div>
       </header>
+
+      <TermCheckCard className="haven-fade-up mb-8" />
 
       {/* ── Gamification strip ─────────────────────────────────── */}
       <div
@@ -483,6 +503,15 @@ export default function DashboardPage() {
                     </>
                   )}
                   </div>
+                  {tableNudge && (
+                    <Link
+                      href="/profile"
+                      className="text-xs font-medium underline underline-offset-2"
+                      style={{ color: "var(--color-warning)" }}
+                    >
+                      {t(tableNudge)}
+                    </Link>
+                  )}
                 </div>
 
                 {/* Cumulative inputs — the current GPA the projection starts from */}
@@ -505,8 +534,8 @@ export default function DashboardPage() {
                         style={{ borderColor: "var(--color-border)" }}
                       />
                     </label>
-                    <label className="flex flex-col items-center gap-1">
-                      <span className="text-[10px] leading-tight text-center" style={{ color: "var(--color-muted)" }}>
+                    <label className="flex flex-col items-center gap-1" title={t("gpaHoursHint")}>
+                      <span className="text-[10px] leading-tight text-center max-w-[5.5rem]" style={{ color: "var(--color-muted)" }}>
                         {t("gpaCompletedHours")}
                       </span>
                       <input
@@ -522,6 +551,12 @@ export default function DashboardPage() {
                       />
                     </label>
                   </div>
+                )}
+                {/* Which hours: shown until they're entered (easy to confuse with earned hours). */}
+                {gpaMode === "cumulative" && !cumulativeHours && (
+                  <p className="text-[10px] leading-snug text-center max-w-[15rem] mx-auto" style={{ color: "var(--color-muted)" }}>
+                    {t("gpaHoursHint")}
+                  </p>
                 )}
               </div>
 
@@ -575,6 +610,7 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+          {store.attendanceEnabled && courses.some((c) => c.sessions.length > 0) && <AttendanceApproxNote className="mt-4" compact />}
 
           {/* What-if simulator */}
           {courses.length > 0 && (
@@ -619,7 +655,7 @@ function gradeColor(pct: number | null): string {
 
 function DashboardCourseCard({ course, index }: { course: Course; index: number }) {
   const { t, lang } = useT();
-  const { semester, planner, academic, updateCourse } = useStore();
+  const { semester, planner, academic, updateCourse, attendanceEnabled } = useStore();
   const scheme = useScheme();
   const [revealed, setRevealed] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState(false);
@@ -627,7 +663,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
   const [colorOpen, setColorOpen] = useState(false);
   const colorRef = useRef<HTMLDivElement>(null);
   const pct = courseCurrentPct(course);
-  const att = attendanceInfo(course, semester, academic?.universitySlug);
+  const att = attendanceEnabled ? attendanceInfo(course, semester, holidayCalendar(academic)) : null;
   const cardColor = course.color;
 
   useEffect(() => {
@@ -760,7 +796,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             className="relative z-[2] shrink-0 flex flex-col items-end gap-1.5 cursor-pointer select-none"
           >
             <span className={revealed ? "haven-clear" : "haven-blur"}>
-              <GradeBadge scheme={scheme} pct={pct} size="md" />
+              <GradeBadge scheme={scheme} pct={pct} size="md" official={course.official} />
             </span>
             {revealed ? <EyeOff size={14} color="var(--color-muted)" /> : <Eye size={14} color="var(--color-muted)" />}
           </span>
@@ -787,7 +823,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
               style={{ background: `${STATUS_COLOR[att.status]}12` }}
             >
               <div className="text-sm font-semibold" style={{ color: STATUS_COLOR[att.status] }}>
-                {att.absence.toFixed(1)}%
+                {att.limitKnown ? `${fmtPct(att.absence)}%` : t("attMissedLectures", { n: att.missedLectures })}
               </div>
               <div className="text-[10px]" style={{ color: STATUS_COLOR[att.status], opacity: 0.7 }}>
                 {t("attendance")}
@@ -797,9 +833,9 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
         </div>
 
         {/* Attendance badge */}
-        {att && (
+        {att?.limitKnown && (
           <div className="relative z-[2] mb-2">
-            <AttendanceBadge status={att.status} explain limit={att.limit} />
+            <AttendanceBadge status={att.status} explain limit={att.limit} atLimit={att.atLimit} />
           </div>
         )}
 

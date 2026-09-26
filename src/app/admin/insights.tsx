@@ -6,7 +6,8 @@
 // no edge-function deploy is needed for this page to work.
 
 import { useCallback, useEffect, useState } from "react";
-import { supabase, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner, fmtNum } from "./_lib";
+import { supabase, useC, useS, StatCard, ClickableCard, SectionHeader, Loading, ErrorBanner, fmtNum } from "./_lib";
+import { useDrill } from "./_drill";
 
 interface Engagement {
   total_users: number;
@@ -34,6 +35,7 @@ interface Content {
 
 export function InsightsSection() {
   const C = useC();
+  const drill = useDrill();
   const [eng, setEng] = useState<Engagement | null>(null);
   const [content, setContent] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,17 +75,17 @@ export function InsightsSection() {
           <div>
             <SubHead text="Live activity" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="rounded-xl border p-5" style={{ borderColor: C.tint(C.success, "55"), background: C.tint(C.success, "11") }}>
+              <ClickableCard onClick={() => drill({ title: "Online now", card: "online_now" })} className="rounded-xl border p-5" style={{ borderColor: C.tint(C.success, "55"), background: C.tint(C.success, "11") }}>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: C.success, boxShadow: `0 0 0 3px ${C.tint(C.success, "33")}` }} />
                   <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.textDim }}>Online now</div>
                 </div>
                 <div className="text-[28px] font-bold leading-none tabular-nums" style={{ color: C.success }}>{fmtNum(eng.online_now)}</div>
                 <div className="text-[12px] mt-2" style={{ color: C.textDim }}>active in last 5 min</div>
-              </div>
-              <StatCard label="Last 15 min" value={eng.online_15m} />
-              <StatCard label="Active (24h)" value={eng.active_24h} accent={C.primary} />
-              <StatCard label="Active (7d)" value={eng.active_7d} />
+              </ClickableCard>
+              <StatCard label="Last 15 min" value={eng.online_15m} onClick={() => drill({ title: "Active in the last 15 min", card: "online_15m" })} />
+              <StatCard label="Active (24h)" value={eng.active_24h} accent={C.primary} onClick={() => drill({ title: "Active in the last 24h", card: "active_24h" })} />
+              <StatCard label="Active (7d)" value={eng.active_7d} onClick={() => drill({ title: "Active in the last 7 days", card: "active_7d" })} />
             </div>
           </div>
 
@@ -91,8 +93,8 @@ export function InsightsSection() {
           <div>
             <SubHead text="App installs (added to Home Screen)" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="Installed (tracked)" value={eng.installs_standalone} accent={C.indigo} sub="standalone opens — counts from now on" />
-              <StatCard label="iOS installs (est.)" value={eng.installs_ios_push} sub="iOS push requires install" />
+              <StatCard label="Installed (tracked)" value={eng.installs_standalone} accent={C.indigo} sub="standalone opens — counts from now on" onClick={() => drill({ title: "Installed the app", card: "installs_standalone" })} />
+              <StatCard label="iOS installs (est.)" value={eng.installs_ios_push} sub="iOS push requires install" onClick={() => drill({ title: "iOS installs (push devices)", card: "installs_ios" })} />
             </div>
             <p className="text-[12px] mt-2" style={{ color: C.textFaint }}>
               Install tracking was just added, so “Installed (tracked)” builds up as users open the app from the Home Screen. iOS push only works after install, so iOS push count is a reliable minimum for iPhone installs.

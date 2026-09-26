@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build && node scripts/stamp-sw.mjs",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/test-hooks.mjs --test \"tests/*.test.ts\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

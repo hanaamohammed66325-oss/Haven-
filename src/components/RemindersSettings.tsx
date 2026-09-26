@@ -30,7 +30,7 @@ const numField =
 const border = { borderColor: "var(--color-border)" };
 
 /** Accessible on/off switch; the knob mirrors correctly under RTL. */
-function Toggle({
+export function Toggle({
   checked,
   onChange,
   label,

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase, callAdmin, useC, fmtDateTime, fmtSar, StatCard, SectionHeader, Loading, timeAgo, ErrorBanner } from "./_lib";
+import { supabase, callAdmin, useC, fmtSar, StatCard, ClickableCard, SectionHeader, Loading, timeAgo, ErrorBanner } from "./_lib";
+import { useDrill } from "./_drill";
 
 interface Metrics {
   total_users: number;
@@ -59,6 +60,7 @@ function rangeLabel(days: number): string {
 
 export function DashboardSection({ session, showBilling }: { session: Session; showBilling: boolean }) {
   const C = useC();
+  const drill = useDrill();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [revenue, setRevenue] = useState<DayPoint[]>([]);
@@ -114,10 +116,10 @@ export function DashboardSection({ session, showBilling }: { session: Session; s
         <div className="flex flex-col gap-4">
           {/* Live presence — who is in the app vs the browser right now */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <LiveCard label="In app now" value={live?.in_app_now ?? 0} hint="installed app · last 5 min" accent={C.success} live />
-            <LiveCard label="In browser now" value={live?.in_browser_now ?? 0} hint="website · last 5 min" accent={C.primary} live />
-            <StatCard label="Online (total)" value={live?.online_now ?? 0} sub="active in last 5 min" />
-            <StatCard label="Last 15 min" value={live?.online_15m ?? 0} />
+            <LiveCard label="In app now" value={live?.in_app_now ?? 0} hint="installed app · last 5 min" accent={C.success} live onClick={() => drill({ title: "In app now", card: "in_app_now" })} />
+            <LiveCard label="In browser now" value={live?.in_browser_now ?? 0} hint="website · last 5 min" accent={C.primary} live onClick={() => drill({ title: "In browser now", card: "in_browser_now" })} />
+            <StatCard label="Online (total)" value={live?.online_now ?? 0} sub="active in last 5 min" onClick={() => drill({ title: "Online now", card: "online_now" })} />
+            <StatCard label="Last 15 min" value={live?.online_15m ?? 0} onClick={() => drill({ title: "Active in the last 15 min", card: "online_15m" })} />
           </div>
 
           {/* Range selector — pick days or months */}
@@ -128,7 +130,7 @@ export function DashboardSection({ session, showBilling }: { session: Session; s
             <StatCard label="Total users" value={metrics.total_users} />
             <StatCard label={`Active (${rangeLabel(rangeDays).replace("last ", "")})`} value={live?.active_users ?? metrics.active_users_30d} accent={C.primary} sub={`updates with range`} />
             <StatCard label={`New (${rangeLabel(rangeDays).replace("last ", "")})`} value={live?.new_users ?? metrics.new_users_30d} sub={`${metrics.new_users_7d} in last 7 days`} />
-            <StatCard label="Push devices" value={metrics.push_devices} />
+            <StatCard label="Push devices" value={metrics.push_devices} onClick={() => drill({ title: "Users with push devices", card: "push_devices" })} />
           </div>
 
           {/* Row 2 — Subscriptions (billing, hidden until launch) */}
@@ -189,18 +191,18 @@ export function DashboardSection({ session, showBilling }: { session: Session; s
 
 // ---------- Live presence card (with pulsing dot) ----------
 function LiveCard({
-  label, value, hint, accent, live,
-}: { label: string; value: number; hint: string; accent: string; live?: boolean }) {
+  label, value, hint, accent, live, onClick,
+}: { label: string; value: number; hint: string; accent: string; live?: boolean; onClick?: () => void }) {
   const C = useC();
   return (
-    <div className="rounded-xl border p-5" style={{ borderColor: C.tint(accent, "55"), background: C.tint(accent, "11") }}>
+    <ClickableCard onClick={onClick} className="rounded-xl border p-5" style={{ borderColor: C.tint(accent, "55"), background: C.tint(accent, "11") }}>
       <div className="flex items-center gap-2 mb-3">
         {live && <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: accent, boxShadow: `0 0 0 3px ${C.tint(accent, "33")}` }} />}
         <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.textDim }}>{label}</div>
       </div>
       <div className="text-[28px] font-bold leading-none tabular-nums" style={{ color: accent }}>{value.toLocaleString("en")}</div>
       <div className="text-[12px] mt-2" style={{ color: C.textDim }}>{hint}</div>
-    </div>
+    </ClickableCard>
   );
 }
 

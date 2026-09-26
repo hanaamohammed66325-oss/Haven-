@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { UNIVERSITIES } from "@/lib/tools/universities";
+import { SEO_UNIVERSITIES } from "@/lib/tools/universities";
 
 // Static sitemap (emitted at build — output:"export"). Lists the PUBLIC,
 // indexable pages only: the landing page, the free tool pages (top of the SEO
@@ -36,7 +36,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page("/tools/absence-calculator/", 0.9, "weekly"),
     page("/tools/planner/", 0.9, "weekly"),
     // Programmatic per-university GPA pages (long-tail search reach).
-    ...UNIVERSITIES.map((u) => page(`/tools/gpa-calculator/${u.slug}/`, 0.7, "monthly")),
+    ...SEO_UNIVERSITIES.map((u) => page(`/tools/gpa-calculator/${u.slug}/`, 0.7, "monthly")),
     // Auth entry points.
     page("/signup/", 0.7, "monthly"),
     page("/signin/", 0.5, "monthly"),

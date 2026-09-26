@@ -4,27 +4,38 @@
 // of changes once per device (in the browser and the installed app alike), then
 // never nags again.
 //
-// The "seen" flag is versioned (…_v1) so a future update can bump the key and
-// resurface a fresh set without disturbing this one.
+// The "seen" flag is versioned (…_v3 now) so a future update can bump the key
+// and resurface a fresh set without disturbing this one.
 //
 // Self-contained and portals to <body> so the dashboard's fade-in transform
 // can't break its fixed positioning (see the modal-portal note in memory).
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { GraduationCap, Calculator, CalendarDays, ClipboardCheck, Sparkles } from "lucide-react";
+import { BellRing, Calculator, CalendarDays, ClipboardCheck, Globe, Sparkles } from "lucide-react";
 import { useT } from "@/i18n";
+import { useStore } from "@/store";
 
-const SEEN_KEY = "haven_whatsnew_seen_v2";
+/** Set once the student has seen this round (SetupCheck and TermCheck wait for it). */
+export const WHATSNEW_SEEN_KEY = "haven_whatsnew_seen_v3";
+const SEEN_KEY = WHATSNEW_SEEN_KEY;
 
 export function WhatsNewModal() {
   const { t } = useT();
+  const { hydrated, onboardingSeen } = useStore();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    if (!hydrated) return;
     let seen = false;
     try {
       seen = localStorage.getItem(SEEN_KEY) === "1";
+      // A brand-new student gets the onboarding tour instead — everything is
+      // new to them, so "what's new" would only stack on top of it.
+      if (!seen && !onboardingSeen) {
+        localStorage.setItem(SEEN_KEY, "1");
+        seen = true;
+      }
     } catch {
       /* ignore */
     }
@@ -33,7 +44,9 @@ export function WhatsNewModal() {
     // Let the app paint first — feels like a welcome note, not a wall.
     const id = window.setTimeout(() => setOpen(true), 700);
     return () => window.clearTimeout(id);
-  }, []);
+    // Decided once, when the account has loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   const close = () => {
     setOpen(false);
@@ -42,15 +55,18 @@ export function WhatsNewModal() {
     } catch {
       /* ignore */
     }
+    // SetupCheck waits for this so the two popups never stack.
+    window.dispatchEvent(new Event("haven:whatsnew-closed"));
   };
 
   if (!open || typeof document === "undefined") return null;
 
   const items = [
-    { icon: <GraduationCap size={20} />, title: t("whatsnew_academic_title"), body: t("whatsnew_academic_body") },
+    { icon: <CalendarDays size={20} />, title: t("whatsnew_term_title"), body: t("whatsnew_term_body") },
+    { icon: <Globe size={20} />, title: t("whatsnew_abroad_title"), body: t("whatsnew_abroad_body") },
+    { icon: <ClipboardCheck size={20} />, title: t("whatsnew_rule_title"), body: t("whatsnew_rule_body") },
     { icon: <Calculator size={20} />, title: t("whatsnew_gpa_title"), body: t("whatsnew_gpa_body") },
-    { icon: <CalendarDays size={20} />, title: t("whatsnew_holidays_title"), body: t("whatsnew_holidays_body") },
-    { icon: <ClipboardCheck size={20} />, title: t("whatsnew_attendance_title"), body: t("whatsnew_attendance_body") },
+    { icon: <BellRing size={20} />, title: t("whatsnew_reminders_title"), body: t("whatsnew_reminders_body") },
   ];
 
   return createPortal(
@@ -136,7 +152,7 @@ export function WhatsNewModal() {
           ))}
         </div>
 
-        {/* Scope note — auto-detection + holidays are Saudi-only for now. */}
+        {/* Scope note — dates, holidays and the grade table follow the university; the student corrects what differs. */}
         <div
           className="mt-5 rounded-xl px-3.5 py-3 text-[12px] leading-relaxed"
           style={{

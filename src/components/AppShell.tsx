@@ -14,6 +14,8 @@ import { NotifScheduler } from "./NotifScheduler";
 import { ReturnNudge } from "./ReturnNudge";
 import { Onboarding } from "./Onboarding";
 import { WhatsNewModal } from "./WhatsNewModal";
+import { SetupCheck } from "./SetupCheck";
+import { TermCheck } from "./TermCheck";
 import { TrialBanner } from "./TrialBanner";
 import { EarlyAccessBanner } from "./EarlyAccessBanner";
 import { Footer } from "./Footer";
@@ -203,6 +205,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <NotifScheduler />
       <Onboarding />
       <WhatsNewModal />
+      <SetupCheck />
+      <TermCheck />
       <ReturnNudge />
     </div>
   );

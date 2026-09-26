@@ -20,6 +20,12 @@ import {
   Leaf,
   Bell,
   Timer,
+  CalendarDays,
+  UserCheck,
+  Calculator,
+  TreePalm,
+  Earth,
+  BellRing,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { HeroDemo } from "@/components/HeroDemo";
@@ -201,9 +207,22 @@ export default function LandingPage() {
             <FeatureCard icon={<Target size={22} />} title={t("land_f3Title")} desc={t("land_f3Desc")} />
             <FeatureCard icon={<CalendarRange size={22} />} title={t("land_f4Title")} desc={t("land_f4Desc")} />
           </div>
+
+          {/* The previous round's features, now part of the core set */}
+          <h3 className="font-display text-2xl text-center mt-16 mb-8" style={{ color: "var(--color-ink)" }}>
+            {t("land_moreTitle")}
+          </h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <NewCard accent="#e89b4a" icon={<Lightbulb size={22} />} title={t("land_n1Title")} desc={t("land_n1Desc")} />
+            <NewCard accent="#b8975a" icon={<Trophy size={22} />} title={t("land_n2Title")} desc={t("land_n2Desc")} />
+            <NewCard accent="#7f77dd" icon={<Medal size={22} />} title={t("land_n3Title")} desc={t("land_n3Desc")} />
+            <NewCard accent="#477680" icon={<BarChart3 size={22} />} title={t("land_n4Title")} desc={t("land_n4Desc")} />
+            <NewCard accent="#5fa98c" icon={<Leaf size={22} />} title={t("land_n5Title")} desc={t("land_n5Desc")} />
+            <NewCard accent="#4a90d9" icon={<Bell size={22} />} title={t("land_n6Title")} desc={t("land_n6Desc")} />
+          </div>
         </section>
 
-        {/* What's new — the features shipped this round */}
+        {/* What's new — Haven on each student's own university system */}
         <section id="new" className="pb-32">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span
@@ -220,16 +239,16 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <NewCard accent="#e89b4a" icon={<Lightbulb size={22} />} title={t("land_n1Title")} desc={t("land_n1Desc")} />
-            <NewCard accent="#b8975a" icon={<Trophy size={22} />} title={t("land_n2Title")} desc={t("land_n2Desc")} />
-            <NewCard accent="#7f77dd" icon={<Medal size={22} />} title={t("land_n3Title")} desc={t("land_n3Desc")} />
-            <NewCard accent="#477680" icon={<BarChart3 size={22} />} title={t("land_n4Title")} desc={t("land_n4Desc")} />
-            <NewCard accent="#5fa98c" icon={<Leaf size={22} />} title={t("land_n5Title")} desc={t("land_n5Desc")} />
-            <NewCard accent="#4a90d9" icon={<Bell size={22} />} title={t("land_n6Title")} desc={t("land_n6Desc")} />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <NewCard accent="#477680" icon={<CalendarDays size={22} />} title={t("land_u1Title")} desc={t("land_u1Desc")} />
+            <NewCard accent="#d9694a" icon={<UserCheck size={22} />} title={t("land_u2Title")} desc={t("land_u2Desc")} />
+            <NewCard accent="#b8975a" icon={<Calculator size={22} />} title={t("land_u3Title")} desc={t("land_u3Desc")} />
+            <NewCard accent="#5fa98c" icon={<TreePalm size={22} />} title={t("land_u4Title")} desc={t("land_u4Desc")} />
+            <NewCard accent="#7f77dd" icon={<Earth size={22} />} title={t("land_u5Title")} desc={t("land_u5Desc")} />
+            <NewCard accent="#4a90d9" icon={<BellRing size={22} />} title={t("land_u6Title")} desc={t("land_u6Desc")} />
           </div>
 
-          {/* Pomodoro — coming soon highlight */}
+          {/* Pomodoro — now open to everyone */}
           <div className="surface-card haven-card mt-6 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-start md:items-center gap-6">
             <div
               className="flex items-center justify-center rounded-2xl shrink-0"
@@ -242,9 +261,9 @@ export default function LandingPage() {
                 <h3 className="font-display text-xl" style={{ color: "var(--color-ink)" }}>{t("land_pomTitle")}</h3>
                 <span
                   className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                  style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
+                  style={{ background: "var(--color-brass)", color: "#1a1410" }}
                 >
-                  <Lock size={11} /> {t("comingSoon")}
+                  <Sparkles size={11} /> {t("land_pomBadge")}
                 </span>
               </div>
               <p className="text-[15px] leading-relaxed" style={{ color: "var(--color-muted)" }}>{t("land_pomDesc")}</p>

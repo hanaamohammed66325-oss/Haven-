@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
 import { GpaCalculatorTool } from "@/components/tools/GpaCalculatorTool";
-import { UNIVERSITIES, universityBySlug } from "@/lib/tools/universities";
+import { SEO_UNIVERSITIES } from "@/lib/tools/universities";
+
+const seoUniversity = (slug: string) => SEO_UNIVERSITIES.find((u) => u.slug === slug);
 import { ShareButton } from "@/components/tools/ShareButton";
 
 // Programmatic per-university GPA pages. One static page per university targets
@@ -14,7 +16,7 @@ import { ShareButton } from "@/components/tools/ShareButton";
 
 // Required for output:"export": pre-render one page per known university.
 export function generateStaticParams() {
-  return UNIVERSITIES.map((u) => ({ university: u.slug }));
+  return SEO_UNIVERSITIES.map((u) => ({ university: u.slug }));
 }
 
 export async function generateMetadata({
@@ -23,7 +25,7 @@ export async function generateMetadata({
   params: Promise<{ university: string }>;
 }): Promise<Metadata> {
   const { university } = await params;
-  const uni = universityBySlug(university);
+  const uni = seoUniversity(university);
   if (!uni) return { title: "حاسبة المعدل" };
   const path = `/tools/gpa-calculator/${uni.slug}/`;
   const title = `حاسبة معدل ${uni.name} — فصلي وتراكمي (نظام ${uni.scale}.0)`;
@@ -49,7 +51,7 @@ export default async function UniversityGpaPage({
   params: Promise<{ university: string }>;
 }) {
   const { university } = await params;
-  const uni = universityBySlug(university);
+  const uni = seoUniversity(university);
   if (!uni) {
     return (
       <div dir="rtl" lang="ar" className="min-h-dvh flex items-center justify-center p-6 text-center">
@@ -78,11 +80,11 @@ export default async function UniversityGpaPage({
     },
     {
       q: "كيف أحسب المعدل التراكمي؟",
-      a: "افتح خيار «احسب المعدل التراكمي» وأدخل معدلك الحالي وساعاتك المكتسبة، ثم أضف مواد الفصل — يظهر المعدل التراكمي المتوقّع تلقائياً.",
+      a: "افتح خيار «احسب المعدل التراكمي» وأدخل معدلك الحالي والساعات المحسوبة في معدلك، ثم أضف مواد الفصل — يظهر المعدل التراكمي المتوقّع تلقائياً.",
     },
     {
       q: `كم نسبة الحرمان في ${uni.name}؟`,
-      a: `عادةً يكون الحرمان عند تجاوز ${uni.denialPct}٪ من محاضرات المادة. استخدم حاسبة الغياب لمعرفة عدد المحاضرات المسموح غيابها.`,
+      a: `تحدد كل جامعة نسبة الحرمان في لائحتها الدراسية، ولا توجد نسبة واحدة لكل الجامعات. في أغلب الجامعات السعودية التي راجعنا لوائحها يكون الحرمان عند تجاوز ٢٥٪، وبعضها أقل أو يضع حداً منفصلاً للغياب بدون عذر. راجع لائحة ${uni.name}، واستخدم حاسبة الغياب لمعرفة عدد المحاضرات المسموح غيابها.`,
     },
   ];
 

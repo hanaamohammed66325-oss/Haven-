@@ -1,20 +1,45 @@
 "use client";
 
-import { useEffect } from "react";
-import { useStore } from "@/store";
+import { useEffect, useMemo } from "react";
+import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { scheduleAll, cancelAll, type SmartAlert } from "@/lib/notifScheduler";
 import { buildSmartSuggestions } from "@/lib/smartSuggestions";
 import { enqueueScheduledPush, reconcileScheduledPushes } from "@/lib/db";
 import { plannerItemDate } from "@/lib/reminders";
+import { holidayCalendar } from "@/lib/universityCountry";
+import { classOffDays } from "@/lib/holidays";
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function NotifScheduler() {
-  const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic } = useStore();
+  const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic, attendanceEnabled, saveClassOff } = useStore();
+  // The reminder's GPA must use the student's own system, like the dashboard.
+  const scheme = useScheme();
   const { t, lang } = useT();
+
+  // The term's holidays on the student's calendar: no lecture reminder on them,
+  // here or from the server (which also needs the student's time zone — a
+  // student in the UAE is an hour ahead of Riyadh).
+  const calendar = holidayCalendar(academic);
+  const offDays = useMemo(
+    () => classOffDays(semester, calendar),
+    [semester.startDate, semester.endDate, semester.dismissedHolidays, semester.customHolidays, calendar] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const offKey = offDays.join(",");
+  useEffect(() => {
+    if (!hydrated) return;
+    let tz = "Asia/Riyadh";
+    try {
+      tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz;
+    } catch {
+      /* keep Riyadh */
+    }
+    saveClassOff({ tz, days: offDays });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, offKey]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -27,7 +52,7 @@ export function NotifScheduler() {
     // fires is never named (a quiz due today isn't announced in tomorrow's push).
     const buildAlert = (asOf: Date): SmartAlert => {
       const top = buildSmartSuggestions(
-        { courses, planner, semester, gamification, gpaGoal, universitySlug: academic?.universitySlug, now: asOf },
+        { courses, planner, semester, gamification, gpaGoal, scheme, holidayCalendar: holidayCalendar(academic), attendanceEnabled, now: asOf },
         t
       )[0];
       const body = top && top.kind !== "all-good" ? top.text : t("smart_studyNudge");
@@ -39,7 +64,11 @@ export function NotifScheduler() {
     };
 
     // In-tab timers (fires while the app is open, and catches up on open).
-    scheduleAll(courses, planner, semester, notifPrefs, lang, buildAlert(new Date()));
+    // On a holiday the daily reminder goes out only with something that matters
+    // (an exam, a task due, attendance) — never the general study nudge.
+    const off = new Set(offDays);
+    const forDay = (alert: SmartAlert, day: Date) => (alert.id === "study-nudge" && off.has(isoDate(day)) ? null : alert);
+    scheduleAll(courses, planner, semester, notifPrefs, lang, forDay(buildAlert(new Date()), new Date()), off);
 
     // Outbox: queue the reminder for SERVER delivery so it arrives even when the
     // app is CLOSED. Schedule the next occurrence of the daily reminder hour —
@@ -50,8 +79,8 @@ export function NotifScheduler() {
       const sendAt = new Date();
       sendAt.setHours(notifPrefs.dailyReminderHour, 0, 0, 0);
       if (sendAt.getTime() <= Date.now()) sendAt.setDate(sendAt.getDate() + 1);
-      const queuedAlert = buildAlert(sendAt); // content as it will be at send time
-      void enqueueScheduledPush({
+      const queuedAlert = forDay(buildAlert(sendAt), sendAt); // content as it will be at send time
+      if (queuedAlert) void enqueueScheduledPush({
         dedupKey: `smart-${isoDate(sendAt)}`,
         sendAt: sendAt.toISOString(),
         title: queuedAlert.title,
@@ -108,7 +137,7 @@ export function NotifScheduler() {
     }
 
     return cancelAll;
-  }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic?.universitySlug, lang, t]);
+  }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, scheme, academic, lang, t]);
 
   return null;
 }

@@ -1,4 +1,5 @@
 import { hijriParts, addDays, toISODate } from "./dates";
+import { holidaysForCalendar } from "./countryHolidays";
 import type { CustomHoliday } from "@/types";
 
 export interface HolidayDef {
@@ -9,8 +10,8 @@ export interface HolidayDef {
   gregorianMonth?: number; // 0-based (0=Jan)
   gregorianDay?: number;
   durationDays: number;
-  // For hijri-anchor holidays: anchor is the Eid day itself,
-  // daysBefore/daysAfter define the university break around it.
+  // For hijri-anchor holidays: anchor is the Eid day itself; the break runs from
+  // the Friday on/before (Eid − daysBefore) to the Saturday on/after (Eid + daysAfter).
   anchorHijriMonth?: number;
   anchorHijriDay?: number;
   daysBefore?: number;
@@ -29,6 +30,8 @@ export interface ResolvedHoliday {
   startDate: string;
   endDate: string;
   durationDays: number;
+  /** a moon-based date that may move a day or two with the official sighting */
+  estimated?: boolean;
 }
 
 // The Saudi national baseline calendar — the holidays that are OFFICIAL and
@@ -81,6 +84,17 @@ export const SAUDI_HOLIDAYS: HolidayDef[] = [
     occurrence: 3, // 3rd Friday
     durationDays: 9, // Fri–Sat, wrapping the Sun–Thu teaching week
   },
+  // Eid breaks are whole Fri–Sat spans (they start after Thursday classes and
+  // end the Saturday before the return Sunday), so a fixed day count around the
+  // Eid day drifts onto real teaching days as the Hijri date slides ~11 days a
+  // year. Instead: start = the Friday on/before (Eid − daysBefore), end = the
+  // Saturday on/after (Eid + daysAfter). Verified against the official MoE
+  // calendar:
+  //   • Fitr 1448: Fri 26 Feb – Sat 13 Mar 2027 (Eid Tue 9 Mar). ✓
+  //   • Fitr 1447: Fri 6 Mar – Sat 28 Mar 2026 (Eid Fri 20 Mar). ✓
+  //   • Adha 1448: Fri 7 May – Sat 22 May 2027 (Eid Sun 16 May). ✓
+  //   • Adha 1447: Fri 22 May 2026 ✓ – official end was Mon 1 Jun (an
+  //     irregular, non-weekend return); this rule gives Sat 30 May.
   {
     id: "eid-fitr",
     nameAr: "إجازة عيد الفطر",
@@ -88,9 +102,9 @@ export const SAUDI_HOLIDAYS: HolidayDef[] = [
     type: "hijri-anchor",
     anchorHijriMonth: 10, // Shawwal 1 = Eid day
     anchorHijriDay: 1,
-    daysBefore: 12,
-    daysAfter: 5,
-    durationDays: 18, // 12 + 1 (eid day) + 5
+    daysBefore: 10,
+    daysAfter: 4,
+    durationDays: 16, // typical; the resolved span is computed per year
   },
   {
     id: "eid-adha",
@@ -99,32 +113,11 @@ export const SAUDI_HOLIDAYS: HolidayDef[] = [
     type: "hijri-anchor",
     anchorHijriMonth: 12, // Dhul Hijjah 10 = Eid day
     anchorHijriDay: 10,
-    daysBefore: 9,
-    daysAfter: 6,
-    durationDays: 16, // 9 + 1 (eid day) + 6
+    daysBefore: 5,
+    daysAfter: 3,
+    durationDays: 16, // typical; the resolved span is computed per year
   },
 ];
-
-// Per-university academic-break overrides, keyed by the slug in
-// lib/tools/universities. This is the "holidays derived from your university, not
-// one fixed list" hook: a university's entry REPLACES the academic breaks (e.g.
-// fall-break, Eid window length) while the national + religious holidays always
-// stay. DATA HONESTY: only add an entry from a university's own officially
-// published calendar — a guessed date would corrupt the حرمان math. Universities
-// without an entry inherit the universal SAUDI_HOLIDAYS baseline, and every
-// student can fine-tune with the add/dismiss controls. Kept intentionally empty
-// until verified per-university calendars are in hand; the plumbing is ready.
-export const UNIVERSITY_HOLIDAY_OVERRIDES: Record<string, HolidayDef[]> = {};
-
-/** The holiday calendar for a university slug: its verified override list when we
- *  have one, otherwise the universal Saudi baseline. Always national+religious
- *  safe; academic breaks are the part that can differ. */
-export function calendarForUniversity(slug?: string | null): HolidayDef[] {
-  if (slug && UNIVERSITY_HOLIDAY_OVERRIDES[slug]) {
-    return UNIVERSITY_HOLIDAY_OVERRIDES[slug];
-  }
-  return SAUDI_HOLIDAYS;
-}
 
 function findGregorianForHijri(
   hijriMonth: number,
@@ -170,8 +163,11 @@ function nthWeekdayOfMonth(
 export interface ResolveHolidayOptions {
   /** holiday ids the student turned off (built-in OR custom). */
   dismissed?: string[];
-  /** the student's university slug — selects that university's calendar. */
-  universitySlug?: string | null;
+  /** whose holidays apply (lib/universityCountry holidayCalendar): "SA" uses
+   *  the built-in rules above; a university or country of ours its official
+   *  holidays for the year (lib/countryHolidays), or none when we have none —
+   *  the student adds their university's own. */
+  calendar?: string | null;
   /** holidays the student added by hand, applied on top of the built-ins. */
   customHolidays?: CustomHoliday[];
 }
@@ -186,7 +182,8 @@ export function resolveHolidaysForSemester(
   if (isNaN(+start) || isNaN(+end) || end <= start) return [];
 
   const dismissedSet = new Set(options?.dismissed ?? []);
-  const calendar = calendarForUniversity(options?.universitySlug);
+  const key = options?.calendar ?? "SA";
+  const calendar = key === "SA" ? SAUDI_HOLIDAYS : [];
   const startYear = start.getFullYear();
   const endYear = end.getFullYear();
   const results: ResolvedHoliday[] = [];
@@ -210,8 +207,12 @@ export function resolveHolidaysForSemester(
       } else if (h.type === "hijri-anchor" && h.anchorHijriMonth && h.anchorHijriDay) {
         const eidDay = findGregorianForHijri(h.anchorHijriMonth, h.anchorHijriDay, year);
         if (!eidDay) continue;
-        holidayStart = addDays(eidDay, -(h.daysBefore ?? 0));
-        duration = (h.daysBefore ?? 0) + 1 + (h.daysAfter ?? 0);
+        // Snap to whole weekends: Friday on/before, Saturday on/after.
+        const rawStart = addDays(eidDay, -(h.daysBefore ?? 0));
+        const rawEnd = addDays(eidDay, h.daysAfter ?? 0);
+        holidayStart = addDays(rawStart, -((rawStart.getDay() - 5 + 7) % 7));
+        const snappedEnd = addDays(rawEnd, (6 - rawEnd.getDay() + 7) % 7);
+        duration = Math.round((+snappedEnd - +holidayStart) / 86400000) + 1;
       } else if (
         h.type === "nth-weekday" &&
         h.gregorianMonth != null &&
@@ -244,29 +245,66 @@ export function resolveHolidaysForSemester(
     }
   }
 
+  // A university's or another country's official holidays: fixed ranges for
+  // the year, clamped to the semester like the student's own.
+  if (key !== "SA") {
+    for (const h of holidaysForCalendar(key)) {
+      if (dismissedSet.has(h.id)) continue;
+      const r = clampRange(h.start, h.end, start, end);
+      if (r) results.push({ id: h.id, nameAr: h.nameAr, nameEn: h.nameEn, ...r, ...(h.estimated ? { estimated: true } : {}) });
+    }
+  }
+
   // Student-added holidays: explicit ranges applied on top, honouring dismiss and
   // clamped to the semester so an out-of-term entry can't skew the totals.
   for (const c of options?.customHolidays ?? []) {
     if (!c || dismissedSet.has(c.id)) continue;
-    const cs = new Date(`${c.startDate}T00:00:00`);
-    const ce = new Date(`${c.endDate}T00:00:00`);
-    if (isNaN(+cs) || isNaN(+ce) || ce < cs) continue;
-    if (ce < start || cs > end) continue;
-    const clampStart = cs < start ? start : cs;
-    const clampEnd = ce > end ? end : ce;
-    const duration =
-      Math.round((+clampEnd - +clampStart) / 86400000) + 1;
-    results.push({
-      id: c.id,
-      nameAr: c.name,
-      nameEn: c.name,
-      startDate: toISODate(clampStart),
-      endDate: toISODate(clampEnd),
-      durationDays: duration,
-    });
+    const r = clampRange(c.startDate, c.endDate, start, end);
+    if (r) results.push({ id: c.id, nameAr: c.name, nameEn: c.name, ...r });
   }
 
   return results.sort((a, b) => a.startDate.localeCompare(b.startDate));
+}
+
+/** An ISO date range cut to the semester, or null when it's invalid or falls
+ *  wholly outside it. */
+function clampRange(
+  startISO: string,
+  endISO: string,
+  semStart: Date,
+  semEnd: Date
+): { startDate: string; endDate: string; durationDays: number } | null {
+  const cs = new Date(`${startISO}T00:00:00`);
+  const ce = new Date(`${endISO}T00:00:00`);
+  if (isNaN(+cs) || isNaN(+ce) || ce < cs) return null;
+  if (ce < semStart || cs > semEnd) return null;
+  const clampStart = cs < semStart ? semStart : cs;
+  const clampEnd = ce > semEnd ? semEnd : ce;
+  return {
+    startDate: toISODate(clampStart),
+    endDate: toISODate(clampEnd),
+    durationDays: Math.round((+clampEnd - +clampStart) / 86400000) + 1,
+  };
+}
+
+/**
+ * Only the part of each holiday that falls inside [startISO, endISO] — the
+ * weeks the attendance total actually counts (first day of classes to the start
+ * of finals). A break that starts before classes (an Eid window straddling the
+ * first week) or lands in finals/after the counted weeks would otherwise remove
+ * lectures that were never in the total, understating the total and so
+ * overstating absence. Holidays wholly outside are dropped.
+ */
+export function clipHolidays(holidays: ResolvedHoliday[], startISO: string, endISO: string): ResolvedHoliday[] {
+  const out: ResolvedHoliday[] = [];
+  for (const h of holidays) {
+    const s = h.startDate < startISO ? startISO : h.startDate;
+    const e = h.endDate > endISO ? endISO : h.endDate;
+    if (e < s) continue;
+    const durationDays = Math.round((+new Date(`${e}T00:00:00`) - +new Date(`${s}T00:00:00`)) / 86400000) + 1;
+    out.push({ ...h, startDate: s, endDate: e, durationDays });
+  }
+  return out;
 }
 
 export function holidayMinutes(
@@ -281,15 +319,26 @@ export function holidayMinutes(
   }
 
   let total = 0;
-  for (const h of holidays) {
-    let d = new Date(`${h.startDate}T00:00:00`);
-    const hEnd = new Date(`${h.endDate}T00:00:00`);
-    while (d <= hEnd) {
-      total += minutesByDay.get(d.getDay()) ?? 0;
-      d = addDays(d, 1);
-    }
+  for (const d of uniqueHolidayDays(holidays)) {
+    total += minutesByDay.get(d.getDay()) ?? 0;
   }
   return total;
+}
+
+// Every holiday day once, even where holidays overlap (e.g. Founding Day inside
+// the Eid al-Fitr break, or a custom holiday over a built-in one) — otherwise the
+// shared days are subtracted twice and absence is overstated.
+function uniqueHolidayDays(holidays: ResolvedHoliday[]): Date[] {
+  const seen = new Set<string>();
+  const days: Date[] = [];
+  for (const h of holidays) {
+    for (const iso of holidayDates(h)) {
+      if (seen.has(iso)) continue;
+      seen.add(iso);
+      days.push(new Date(`${iso}T00:00:00`));
+    }
+  }
+  return days;
 }
 
 // Count, not duration: how many weekly LECTURES fall on holiday days — the
@@ -307,13 +356,8 @@ export function holidayLectureCount(
   }
 
   let total = 0;
-  for (const h of holidays) {
-    let d = new Date(`${h.startDate}T00:00:00`);
-    const hEnd = new Date(`${h.endDate}T00:00:00`);
-    while (d <= hEnd) {
-      total += countByDay.get(d.getDay()) ?? 0;
-      d = addDays(d, 1);
-    }
+  for (const d of uniqueHolidayDays(holidays)) {
+    total += countByDay.get(d.getDay()) ?? 0;
   }
   return total;
 }
@@ -327,4 +371,23 @@ export function holidayDates(holiday: ResolvedHoliday): string[] {
     d = addDays(d, 1);
   }
   return dates;
+}
+
+/** Every day of the term that is one of the student's holidays (their
+ *  university's or country's calendar, minus what they removed, plus what they
+ *  added), sorted — the days no lecture reminder goes out. */
+export function classOffDays(
+  sem: { startDate?: string; endDate?: string; dismissedHolidays?: string[]; customHolidays?: CustomHoliday[] },
+  calendar: string
+): string[] {
+  if (!sem.startDate || !sem.endDate) return [];
+  const days = new Set<string>();
+  for (const h of resolveHolidaysForSemester(sem.startDate, sem.endDate, {
+    dismissed: sem.dismissedHolidays,
+    calendar,
+    customHolidays: sem.customHolidays,
+  })) {
+    for (const d of holidayDates(h)) days.add(d);
+  }
+  return [...days].sort().slice(0, 366);
 }

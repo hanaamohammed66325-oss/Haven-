@@ -13,6 +13,8 @@ interface AttendanceBadgeProps {
   explain?: boolean;
   /** withdrawal limit (%) — shown as a note in the explanation popover */
   limit?: number;
+  /** absence is exactly on the limit — labels the warn badge accordingly */
+  atLimit?: boolean;
 }
 
 const palette: Record<Status, { bg: string; text: string }> = {
@@ -23,7 +25,7 @@ const palette: Record<Status, { bg: string; text: string }> = {
 
 const legendOrder: Status[] = ["ok", "warn", "danger"];
 
-export function AttendanceBadge({ status, size = "sm", explain = false, limit }: AttendanceBadgeProps) {
+export function AttendanceBadge({ status, size = "sm", explain = false, limit, atLimit = false }: AttendanceBadgeProps) {
   const { t } = useT();
   const c = palette[status];
   const iconSize = size === "sm" ? 13 : 15;
@@ -35,7 +37,7 @@ export function AttendanceBadge({ status, size = "sm", explain = false, limit }:
     ) : (
       <XCircle size={iconSize} />
     );
-  const label = t(`attStatus_${status}` as const);
+  const label = atLimit && status === "warn" ? t("attStatus_atLimit") : t(`attStatus_${status}` as const);
 
   const badge = (
     <span

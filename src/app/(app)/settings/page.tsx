@@ -6,11 +6,13 @@ import { Sparkles, Trash2, Check, Lock, LogOut } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
+import { CollapseBody, CollapseToggle, expandCard, useCardCollapse } from "@/components/Collapsible";
 import { Modal } from "@/components/Modal";
 import { DateField } from "@/components/DateField";
 import { DemoPlayer } from "@/components/DemoPlayer";
 import { NotificationsSettings } from "@/components/NotificationsSettings";
-import { RemindersSettings } from "@/components/RemindersSettings";
+import { RemindersSettings, Toggle } from "@/components/RemindersSettings";
+import { AttendanceRuleModal } from "@/components/AttendanceRuleModal";
 import { HolidaysManager } from "@/components/HolidaysManager";
 import { signOut as clearSession } from "@/lib/auth";
 import { useDeleteAccount } from "@/lib/useDeleteAccount";
@@ -18,6 +20,9 @@ import { PremiumGate } from "@/components/PremiumGate";
 import { useSubscription } from "@/lib/subscription";
 import { canUseTheme } from "@/lib/premium";
 import { SUPPORT_EMAIL, contactChannels } from "@/lib/contact";
+import { policyKind } from "@/lib/attendancePolicy";
+import { DEFAULT_SEMESTER_NAME } from "@/lib/db";
+import { TermCheckCard } from "@/components/TermCheckCard";
 import type { CalendarType, ThemeId } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -107,11 +112,22 @@ function ClampedNumberField({
   );
 }
 
-function Section({ title, children, anchor }: { title: string; children: React.ReactNode; anchor?: string }) {
+function Section({ id, title, children, anchor }: { id: string; title: string; children: React.ReactNode; anchor?: string }) {
+  const { open, toggle } = useCardCollapse(`settings-${id}`, `settings-${id}`);
   return (
-    <section className="mb-12" {...(anchor ? { "data-tour": anchor } : {})}>
-      <h2 className="haven-label mb-4">{title}</h2>
-      <Card padding="p-5 sm:p-8">{children}</Card>
+    <section
+      id={`settings-${id}`}
+      className="scroll-mt-24"
+      style={{ marginBottom: open ? "3rem" : "1.25rem", transition: "margin-bottom 0.35s cubic-bezier(0.22,1,0.36,1)" }}
+      {...(anchor ? { "data-tour": anchor } : {})}
+    >
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <h2 className="haven-label">{title}</h2>
+        <CollapseToggle open={open} onToggle={toggle} label={title} />
+      </div>
+      <CollapseBody open={open}>
+        <Card padding="p-5 sm:p-8">{children}</Card>
+      </CollapseBody>
     </section>
   );
 }
@@ -132,7 +148,9 @@ export default function SettingsPage() {
   usePageTitle("nav_settings");
   const router = useRouter();
   const store = useStore();
-  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, resetData, haviName, setHaviName } = store;
+  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, resetData, haviName, setHaviName, attendanceEnabled, setAttendanceEnabled, universityPolicy } = store;
+  const [ruleOpen, setRuleOpen] = useState(false);
+  const ruleSource = semester.attendanceRule?.source ?? "none";
   // Which of the two semester date fields was last rejected for inverting the
   // range (null = no problem). Drives the inline explanation under the fields.
   const [dateError, setDateError] = useState<"start" | "end" | null>(null);
@@ -190,6 +208,7 @@ export default function SettingsPage() {
 
     let tries = 0;
     const timer = window.setInterval(() => {
+      expandCard("settings-notifications");
       const el = document.querySelector('[data-tour="notif-section"]');
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -234,6 +253,16 @@ export default function SettingsPage() {
   const teachingWeeks = Number(semester.weeks) || 0;
   const finalsWeeks = Number(semester.finalsWeeks) || 0;
   const totalWeeks = teachingWeeks + finalsWeeks;
+  // Counted weeks from the term's own dates: whole weeks start → end, minus
+  // finals. Offered as a one-tap suggestion (the end date may sit a few days
+  // past the last exam, so it's never applied silently).
+  const datesWeeks =
+    semester.startDate && semester.endDate && semester.endDate > semester.startDate
+      ? Math.max(
+          1,
+          Math.round((+new Date(semester.endDate) - +new Date(semester.startDate) + 864e5) / (7 * 864e5)) - finalsWeeks
+        )
+      : null;
 
   return (
     <div className="max-w-2xl">
@@ -246,7 +275,7 @@ export default function SettingsPage() {
       </p>
 
       {/* User guide — reopen the first-run onboarding tour anytime. */}
-      <Section title={t("ob_settings_t")}>
+      <Section id="guide" title={t("ob_settings_t")}>
         <p className="text-[13px] mb-4 -mt-1" style={{ color: "var(--color-muted)" }}>
           {t("ob_settings_desc")}
         </p>
@@ -261,7 +290,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Preferences */}
-      <Section title={t("sectionPreferences")}>
+      <Section id="preferences" title={t("sectionPreferences")}>
         <div className="divide-y" style={divider}>
           <Row label={t("languageLabel")}>
             <div className="inline-flex rounded-xl p-1 w-full" style={{ background: "var(--color-primary-soft)" }}>
@@ -296,7 +325,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Theme */}
-      <Section title={t("sectionTheme")}>
+      <Section id="theme" title={t("sectionTheme")}>
         <p className="text-[13px] mb-5 -mt-1" style={{ color: "var(--color-muted)" }}>
           {t("themeSectionDesc")}
         </p>
@@ -308,13 +337,14 @@ export default function SettingsPage() {
       </Section>
 
       {/* Semester */}
-      <Section title={t("sectionSemester")} anchor="set-dates">
+      <Section id="semester" title={t("sectionSemester")} anchor="set-dates">
+        <TermCheckCard className="mb-5" />
         <div className="divide-y" style={divider}>
           <Row label={t("semesterName")}>
             <input
               className={fieldClass}
               style={divider}
-              value={semester.name}
+              value={semester.name === DEFAULT_SEMESTER_NAME ? t("semesterDefaultName") : semester.name}
               onChange={(e) => setSemester({ name: e.target.value })}
             />
           </Row>
@@ -379,18 +409,44 @@ export default function SettingsPage() {
       </Section>
 
       {/* Attendance */}
-      <Section title={t("sectionAttendance")} anchor="set-attendance">
+      <Section id="attendance" title={t("sectionAttendance")} anchor="set-attendance">
         <div className="divide-y" style={divider}>
-          <Row label={t("withdrawalLimitLabel")}>
-            <ClampedNumberField
-              value={semester.withdrawalLimit}
-              min={1}
-              max={100}
-              onCommit={(n) => setSemester({ withdrawalLimit: n })}
-              className={fieldClass}
-              style={divider}
-            />
+          <Row label={t("attSystemToggle")}>
+            <div className="flex flex-col gap-2 sm:items-end">
+              <Toggle checked={attendanceEnabled} onChange={setAttendanceEnabled} label={t("attSystemToggle")} />
+              <span className="text-xs leading-relaxed sm:text-end" style={{ color: "var(--color-muted)" }}>
+                {t("attSystemToggleHint")}
+              </span>
+            </div>
           </Row>
+          {attendanceEnabled && (
+            <Row label={t("attSystemRule")}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm" style={{ color: "var(--color-ink)" }}>
+                  {t(
+                    semester.attendanceRule?.pending
+                      ? "attSystemRulePending"
+                      : ruleSource === "university"
+                        ? universityPolicy && policyKind(universityPolicy) === "official"
+                          ? "attSystemRuleUniversity"
+                          : "attSystemRuleConfirmed"
+                        : ruleSource === "personal"
+                          ? "attSystemRulePersonal"
+                          : "attSystemRuleNone"
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRuleOpen(true)}
+                  className="rounded-lg px-3.5 py-2 text-sm font-medium shrink-0"
+                  style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
+                >
+                  {t("attSystemChange")}
+                </button>
+              </div>
+              <AttendanceRuleModal open={ruleOpen} onClose={() => setRuleOpen(false)} />
+            </Row>
+          )}
           <Row label={t("finalsWeeksLabel")}>
             <ClampedNumberField
               value={semester.finalsWeeks}
@@ -404,20 +460,20 @@ export default function SettingsPage() {
           <Row label={t("semesterWeeksLabel")}>
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                {[13, 15].map((w) => (
+                {datesWeeks != null && datesWeeks <= 40 && (
                   <button
-                    key={w}
-                    onClick={() => setSemester({ weeks: w })}
-                    className="rounded-lg px-3.5 py-2 text-sm font-medium transition-colors"
+                    onClick={() => setSemester({ weeks: datesWeeks })}
+                    title={t("weeksFromDates", { n: datesWeeks })}
+                    className="rounded-lg px-3.5 py-2 text-sm font-medium transition-colors shrink-0"
                     style={
-                      semester.weeks === w
+                      semester.weeks === datesWeeks
                         ? { background: "var(--color-primary)", color: "#fff" }
                         : { background: "var(--color-primary-soft)", color: "var(--color-primary)" }
                     }
                   >
-                    {w}
+                    {t("weeksFromDates", { n: datesWeeks })}
                   </button>
-                ))}
+                )}
                 <ClampedNumberField
                   value={semester.weeks}
                   min={1}
@@ -432,6 +488,9 @@ export default function SettingsPage() {
               <span className="text-xs" style={{ color: "var(--color-muted)" }}>
                 {t("weeksSuggestion", { teaching: teachingWeeks, total: totalWeeks, finals: finalsWeeks })}
               </span>
+              <span className="text-xs leading-relaxed" style={{ color: "var(--color-muted)" }}>
+                {t("weeksHint")}
+              </span>
             </div>
           </Row>
         </div>
@@ -439,22 +498,22 @@ export default function SettingsPage() {
 
       {/* Holidays — student-managed calendar so absence math matches their own
           university's real breaks (built-in dismiss/restore + custom add). */}
-      <Section title={t("sectionHolidays")} anchor="set-holidays">
+      <Section id="holidays" title={t("sectionHolidays")} anchor="set-holidays">
         <HolidaysManager />
       </Section>
 
       {/* Reminders — customizable notification preferences (notifPrefs) */}
-      <Section title={t("sectionReminders")} anchor="set-reminders">
+      <Section id="reminders" title={t("sectionReminders")} anchor="set-reminders">
         <RemindersSettings />
       </Section>
 
       {/* Notifications (free for all users — no premium gating) */}
-      <Section title={t("sectionNotifications")}>
+      <Section id="notifications" title={t("sectionNotifications")}>
         <NotificationsSettings />
       </Section>
 
       {/* Data */}
-      <Section title={t("sectionData")} anchor="set-data">
+      <Section id="data" title={t("sectionData")} anchor="set-data">
         <div className="divide-y" style={divider}>
           <div className="flex items-center justify-between gap-4 py-3 first:pt-0">
             <div>
@@ -490,7 +549,7 @@ export default function SettingsPage() {
       {/* Contact us — same channels as the /contact page (single source in
           @/lib/contact). Email and Instagram are live; WhatsApp is
           temporarily disabled. */}
-      <Section title={t("sectionContact")}>
+      <Section id="contact" title={t("sectionContact")}>
         <p className="text-[13px] mb-5 -mt-1" style={{ color: "var(--color-muted)" }}>
           {t("contactIntro")}
         </p>

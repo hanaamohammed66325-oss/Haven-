@@ -15,7 +15,7 @@ import { canAddCourse } from "@/lib/premium";
 export default function CoursesPage() {
   const { t } = useT();
   usePageTitle("nav_courses");
-  const { hydrated, courses, semester, addCourse, deleteCourse, softDeleteCourse, restoreCourse } = useStore();
+  const { hydrated, courses, addCourse, deleteCourse, softDeleteCourse, restoreCourse } = useStore();
   const { undoableDelete } = useUndo();
   const { sub, profile } = useSubscription();
   const [adding, setAdding] = useState(false);
@@ -95,7 +95,6 @@ export default function CoursesPage() {
         open={adding}
         onClose={() => setAdding(false)}
         onSubmit={addCourse}
-        defaultLimit={semester.withdrawalLimit}
       />
 
       <PremiumGate open={gateOpen} onClose={() => setGateOpen(false)} feature="course" />

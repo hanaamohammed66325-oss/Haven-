@@ -28,21 +28,21 @@ const FIRED_KEY = "haven-notif-fired";
 // setTimeout max safe delay (~24.85 days). Values above this wrap to 1ms.
 const MAX_DELAY = 0x7fffffff;
 
-// Friendly, varied lecture-reminder body (mirrors the server push template).
+// Lecture-reminder body, a few variations (mirrors the server push template).
 // The client has no room data, so room is omitted here.
 function lectureBody(lang: "en" | "ar", course: string, mins: number): string {
   if (lang === "en") {
     const v = [
-      `Don't forget ${course}! Starts in ${mins} min 🚀`,
-      `Heads up — ${course} is coming up 📚`,
-      `Time for ${course}! Get ready 🚀`,
+      `${course} starts in ${mins} min.`,
+      `${course} is coming up soon.`,
+      `Time to get ready for ${course}.`,
     ];
     return v[Math.floor(Math.random() * v.length)];
   }
   const v = [
-    `لا تنسى ${course}! يبدأ بعد ${mins} دقيقة 🚀`,
-    `يلا! عندك ${course} بعد شوي 📚`,
-    `وقت ${course}! جهّز نفسك 🚀`,
+    `محاضرة ${course} تبدأ بعد ${mins} دقيقة.`,
+    `محاضرة ${course} قرّبت.`,
+    `استعد لمحاضرة ${course}.`,
   ];
   return v[Math.floor(Math.random() * v.length)];
 }
@@ -52,8 +52,7 @@ function clearAll() {
   activeTimers = [];
 }
 
-function localDateStr(): string {
-  const d = new Date();
+function localDateStr(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -122,12 +121,16 @@ function scheduleLectures(
   prefs: NotifPrefs,
   semester: Semester,
   lang: "en" | "ar",
+  offDays: Set<string>,
 ) {
   if (!prefs.lectures.enabled) return;
   if (!isWithinSemester(semester)) return;
   const now = Date.now();
   const todayDay = new Date().getDay();
   const tomorrowDay = (todayDay + 1) % 7;
+  // No reminder on the student's holidays.
+  const todayOff = offDays.has(localDateStr());
+  const tomorrowOff = offDays.has(localDateStr(new Date(now + 86400000)));
 
   for (const course of courses) {
     for (const session of course.sessions) {
@@ -135,18 +138,18 @@ function scheduleLectures(
       const m = /^(\d{1,2}):(\d{2})$/.exec(session.time);
       if (!m) continue;
 
-      if (session.day === todayDay) {
+      if (session.day === todayDay && !todayOff) {
         const lectureMs = todayAt(Number(m[1]), Number(m[2]));
         const fireAt = lectureMs - prefs.lectures.minutesBefore * 60_000;
         const delay = fireAt - now;
         const id = `lec-${course.id}-${session.id}-${session.time}`;
-        scheduleAt(delay, `${course.name} 📚`, lectureBody(lang, course.name, prefs.lectures.minutesBefore), id);
-      } else if (session.day === tomorrowDay) {
+        scheduleAt(delay, `${course.name}`, lectureBody(lang, course.name, prefs.lectures.minutesBefore), id);
+      } else if (session.day === tomorrowDay && !tomorrowOff) {
         const tomorrowMs = todayAt(Number(m[1]), Number(m[2])) + 86400000;
         const fireAt = tomorrowMs - prefs.lectures.minutesBefore * 60_000;
         const delay = fireAt - now;
         const id = `lec-${course.id}-${session.id}-${session.time}-tmrw`;
-        scheduleAt(delay, `${course.name} 📚`, lectureBody(lang, course.name, prefs.lectures.minutesBefore), id);
+        scheduleAt(delay, `${course.name}`, lectureBody(lang, course.name, prefs.lectures.minutesBefore), id);
       }
     }
   }
@@ -215,12 +218,13 @@ export function scheduleAll(
   notifPrefs: NotifPrefs,
   lang: "en" | "ar",
   smartAlert: SmartAlert | null,
+  offDays: Set<string> = new Set(),
 ) {
   clearAll();
   if (typeof window === "undefined") return;
   if (!("Notification" in window) || Notification.permission !== "granted") return;
 
-  scheduleLectures(courses, notifPrefs, semester, lang);
+  scheduleLectures(courses, notifPrefs, semester, lang, offDays);
   scheduleSmartDaily(smartAlert, notifPrefs);
   scheduleTasks(planner, semester, notifPrefs, lang);
 }

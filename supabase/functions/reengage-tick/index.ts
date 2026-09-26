@@ -15,6 +15,11 @@
 //   ?onlyUser=<uuid>     → target just that user, bypassing the enable guard,
 //                          the lapse window, and the cooldown (for a self-test)
 //
+// TIMING: the cron runs every hour on the 1st and 15th; each student is nudged
+// in the hour their own clock reads SEND_HOUR (the time zone their app saved,
+// preferences.classOff.tz — Riyadh when none yet), and never on one of their
+// holidays (preferences.classOff.days, their university's calendar).
+//
 // AUTH: Bearer <SCHEDULER_SECRET>, same as send-email / the cron caller.
 //
 // SECRETS: SCHEDULER_SECRET, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT,
@@ -28,6 +33,22 @@ const LAPSE_DAYS = 7; // quiet for at least this long → eligible
 const MAX_DAYS = 120; // …but don't chase users who left months ago
 const COOLDOWN_DAYS = 14; // never nudge the same user more often than this
 const LIMIT = 200; // cap per run
+const SEND_HOUR = 10; // 10:xx on the student's own clock
+
+/** Today's date and hour on a student's clock (an IANA time zone; Riyadh when
+ *  missing or unknown). */
+function localNow(tz: unknown): { date: string; hour: number } {
+  const zone = typeof tz === 'string' && tz.length <= 64 ? tz : 'Asia/Riyadh';
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date());
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+    return { date: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) };
+  } catch {
+    return zone === 'Asia/Riyadh' ? { date: '', hour: -1 } : localNow('Asia/Riyadh');
+  }
+}
 
 const DAY = 86_400_000;
 
@@ -149,7 +170,17 @@ serve(async (req) => {
     if (pErr) return json({ error: pErr.message }, 500);
     if (!profiles?.length) return json({ ok: true, targeted: 0, msg: 'no lapsed users' });
 
-    let userIds = profiles.map((p: any) => p.id);
+    // Only those whose own clock reads SEND_HOUR now, on a day that isn't one of
+    // their holidays (a self-test or dry run is let through at any hour).
+    const due = profiles.filter((p: any) => {
+      if (onlyUser || dryRun) return true;
+      const off = p.preferences?.classOff;
+      const { date, hour } = localNow(off?.tz);
+      return hour === SEND_HOUR && !(Array.isArray(off?.days) && off.days.includes(date));
+    });
+    if (!due.length) return json({ ok: true, targeted: 0, msg: 'nobody at their send hour' });
+
+    let userIds = due.map((p: any) => p.id);
 
     // 2) Cooldown — drop anyone nudged within COOLDOWN_DAYS (skipped for a
     //    targeted self-test so it can be re-run freely).

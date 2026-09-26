@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Modal } from "./Modal";
+import { pendingSetupSteps } from "./SetupCheck";
 
 // A gentle, single-focus re-engagement / onboarding nudge shown once a returning
 // user lands in the app. It self-suppresses for a complete, active user (courses
@@ -46,7 +47,8 @@ const REASONS = {
 type Key = Parameters<ReturnType<typeof useT>["t"]>[0];
 
 export function ReturnNudge() {
-  const { hydrated, courses, onboardingSeen } = useStore();
+  const store = useStore();
+  const { hydrated, courses, onboardingSeen } = store;
   const { t } = useT();
   const router = useRouter();
   const [reason, setReason] = useState<Reason | null>(null);
@@ -56,6 +58,9 @@ export function ReturnNudge() {
     // The first-run onboarding tour owns a brand-new user's first session;
     // don't stack a nudge on top of it. Once the tour is done, nudges resume.
     if (!onboardingSeen) return;
+    // Missing essential settings come first — SetupCheck asks for them; a
+    // second popup in the same session would just be noise.
+    if (pendingSetupSteps(store).length) return;
 
     // Read (window, not useSearchParams — keeps this off the Suspense path that
     // static export otherwise requires) and clear the re-engage flag.

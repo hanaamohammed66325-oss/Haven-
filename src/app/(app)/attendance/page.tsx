@@ -1,12 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { AttendanceBadge } from "@/components/AttendanceBadge";
+import { AttendanceApproxNote } from "@/components/AttendanceApproxNote";
 import { ProgressBar } from "@/components/ProgressBar";
-import { attendanceInfo, courseLimit, STATUS_COLOR } from "@/lib/grades";
+import { attendanceInfo, courseLimit, fmtPct, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
 import { toISODate } from "@/lib/dates";
 import { resolveHolidaysForSemester } from "@/lib/holidays";
@@ -14,6 +16,8 @@ import { TARDINESS_RULES, resolveTardinessRule, buildCustomRule, DEFAULT_RULE_ID
 import { Shield, Clock, CalendarOff, ChevronDown, ChevronUp, CheckCircle, XCircle, AlertTriangle, X, Trash2 } from "lucide-react";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
+import { holidayCalendar } from "@/lib/universityCountry";
+import { HolidayCountryNote } from "@/components/HolidayCountryNote";
 
 const isTardy = (m: { tardiness?: number | null }) => (m.tardiness ?? 0) > 0;
 
@@ -62,7 +66,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
   const [editTardinessId, setEditTardinessId] = useState<string | null>(null);
   const [editTardinessVal, setEditTardinessVal] = useState("");
 
-  const att = attendanceInfo(course, semester, academic?.universitySlug);
+  const att = attendanceInfo(course, semester, holidayCalendar(academic));
   if (!att) return null;
 
   const hUnit = t("hoursUnit");
@@ -90,26 +94,53 @@ function CourseAttendanceCard({ course }: { course: Course }) {
               {course.name}
             </h3>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <AttendanceBadge status={att.status} explain limit={att.limit} />
-              <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>
-                {t("attLimitShort", { n: limit })}
-              </span>
+              {att.limitKnown ? (
+                <>
+                  <AttendanceBadge status={att.status} explain limit={att.limit} atLimit={att.atLimit} />
+                  <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                    {t("attLimitShort", { n: fmtPct(limit) })}
+                  </span>
+                </>
+              ) : (
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ background: "var(--color-primary-soft)", color: "var(--color-muted)" }}>
+                  {t("attNoRuleChip")}
+                </span>
+              )}
             </div>
           </div>
           <div className="text-end shrink-0">
-            <span
-              className="font-display text-2xl leading-none"
-              style={{ color: barColor }}
-            >
-              {pct.toFixed(1)}%
-            </span>
-            <div className="text-[11px] mt-0.5" style={{ color: "var(--color-muted)" }}>
-              {t("absenceRate")}
-            </div>
+            {att.limitKnown ? (
+              <>
+                <span
+                  className="font-display text-2xl leading-none"
+                  style={{ color: barColor }}
+                >
+                  {fmtPct(pct)}%
+                </span>
+                <div className="text-[11px] mt-0.5" style={{ color: "var(--color-muted)" }}>
+                  {t(att.limitIsUnexcused ? "attUnexcusedMain" : "absenceRate")}
+                </div>
+                {att.unexcusedLimit != null && (
+                  <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                    {t("attUnexcusedLine", { pct: fmtPct(att.unexcusedAbsence), limit: fmtPct(att.unexcusedLimit) })}
+                  </div>
+                )}
+              </>
+            ) : (
+              <span className="font-display text-lg leading-none" style={{ color: "var(--color-ink)" }}>
+                {t("attMissedLectures", { n: att.missedLectures })}
+              </span>
+            )}
+            {att.limitKnown && att.excusedPct > 0 && !att.limitIsUnexcused && (
+              <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                {t("attExcusedShare", { pct: fmtPct(att.excusedPct) })}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Progress bar */}
+        {att.limitKnown && (
         <div className="mb-4">
           <ProgressBar value={Math.min((pct / limit) * 100, 100)} color={barColor} />
           <div className="flex justify-between mt-1">
@@ -120,10 +151,16 @@ function CourseAttendanceCard({ course }: { course: Course }) {
               {t("hoursRemainingBeforeLimit", { n: att.hoursRemaining.toFixed(1) })}
             </span>
             <span className="text-[10px]" style={{ color: "var(--color-muted)" }}>
-              {limit}%
+              {fmtPct(limit)}%
             </span>
           </div>
+          {att.nextWarning != null && (
+            <div className="text-[10px] mt-0.5" style={{ color: "var(--color-muted)" }}>
+              {t("attNextWarning", { n: fmtPct(att.nextWarning) })}
+            </div>
+          )}
         </div>
+        )}
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
@@ -394,13 +431,13 @@ function CourseAttendanceCard({ course }: { course: Course }) {
 export default function AttendancePage() {
   const { t, lang } = useT();
   usePageTitle("attendancePageTitle");
-  const { courses, semester, academic, setSemester } = useStore();
+  const { courses, semester, academic, setSemester, attendanceEnabled } = useStore();
 
   const holidays = useMemo(() => {
     if (!semester?.startDate || !semester?.endDate) return [];
     return resolveHolidaysForSemester(semester.startDate, semester.endDate, {
       dismissed: semester.dismissedHolidays,
-      universitySlug: academic?.universitySlug,
+      calendar: holidayCalendar(academic),
       customHolidays: semester.customHolidays,
     });
   }, [
@@ -408,7 +445,7 @@ export default function AttendancePage() {
     semester?.endDate,
     semester?.dismissedHolidays,
     semester?.customHolidays,
-    academic?.universitySlug,
+    academic,
   ]);
 
   const ruleId = semester?.tardinessRuleId ?? DEFAULT_RULE_ID;
@@ -428,7 +465,7 @@ export default function AttendancePage() {
     let approaching = 0;
 
     for (const c of coursesWithAttendance) {
-      const att = attendanceInfo(c, semester, academic?.universitySlug);
+      const att = attendanceInfo(c, semester, holidayCalendar(academic));
       if (!att) continue;
       totalMissed += att.missedMinutes;
       totalExcused += att.excusedMinutes;
@@ -438,7 +475,23 @@ export default function AttendancePage() {
     }
 
     return { totalMissed, totalExcused, totalContact, atRisk, approaching };
-  }, [coursesWithAttendance, semester, academic?.universitySlug]);
+  }, [coursesWithAttendance, semester, academic]);
+
+  if (!attendanceEnabled) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        <h1 className="font-display text-2xl font-semibold" style={{ color: "var(--color-ink)" }}>
+          {t("attendancePageTitle")}
+        </h1>
+        <p className="text-sm mt-3" style={{ color: "var(--color-muted)" }}>
+          {t("attDisabledNote")}{" "}
+          <Link href="/settings#settings-attendance" className="font-semibold underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
+            {t("nav_settings")}
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
@@ -453,6 +506,7 @@ export default function AttendancePage() {
         <p className="text-sm mt-1" style={{ color: "var(--color-muted)" }}>
           {t("attendancePageSubtitle")}
         </p>
+        <AttendanceApproxNote className="mt-2" />
       </div>
 
       {/* Summary cards */}
@@ -483,6 +537,8 @@ export default function AttendancePage() {
           )}
         </div>
       )}
+
+      <HolidayCountryNote link className="mb-6" />
 
       {/* Holidays section */}
       {holidays.length > 0 && (

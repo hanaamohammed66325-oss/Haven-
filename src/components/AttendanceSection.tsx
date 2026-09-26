@@ -6,11 +6,13 @@ import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { useUndo } from "./UndoManager";
 import { AttendanceBadge } from "./AttendanceBadge";
-import { attendanceInfo, STATUS_COLOR } from "@/lib/grades";
+import { attendanceInfo, fmtPct, ruleMode, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
 import { normalizeArabicDigits } from "@/lib/dates";
+import { AttendanceApproxNote } from "./AttendanceApproxNote";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
+import { holidayCalendar } from "@/lib/universityCountry";
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -98,8 +100,11 @@ export function AttendanceSection({ course }: { course: Course }) {
   } = useStore();
   const { undoableDelete } = useUndo();
 
-  const att = attendanceInfo(course, semester, academic?.universitySlug);
+  const att = attendanceInfo(course, semester, holidayCalendar(academic));
   const mode = course.attendanceMode ?? "hour";
+  // The rule the student took on counts differently from this course.
+  const termMode = ruleMode(semester);
+  const offRule = termMode != null && termMode !== mode;
   const border = { borderColor: "var(--color-border)" };
   // Surfaced when a cloud-backed add fails, so it isn't a silent no-op.
   const [addError, setAddError] = useState("");
@@ -122,25 +127,43 @@ export function AttendanceSection({ course }: { course: Course }) {
           <span className="haven-label" style={{ color: "var(--color-ink)" }}>
             {t("attendanceEditor")}
           </span>
-          {att && <AttendanceBadge status={att.status} explain limit={att.limit} />}
+          {att?.limitKnown && <AttendanceBadge status={att.status} explain limit={att.limit} atLimit={att.atLimit} />}
         </div>
-        {att && (
+        {att && !att.limitKnown && (
+          <div className="text-right rtl:text-left">
+            <span className="font-display text-lg leading-none" style={{ color: "var(--color-ink)" }}>
+              {t("attMissedLectures", { n: att.missedLectures })}
+            </span>
+          </div>
+        )}
+        {att?.limitKnown && (
           <div className="text-right rtl:text-left">
             <span
               className="font-display text-2xl leading-none"
               style={{ color: STATUS_COLOR[att.status] }}
             >
-              {att.absence.toFixed(1)}%
+              {fmtPct(att.absence)}%
             </span>
             <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
               {t(att.mode === "lecture" ? "eachLecture" : "eachHour", {
-                pct: att.unit.toFixed(1),
+                pct: fmtPct(att.unit),
               })}{" "}
-              · {t("attLimitShort", { n: att.limit })}
+              · {t("attLimitShort", { n: fmtPct(att.limit) })}
             </div>
+            {att.unexcusedLimit != null && (
+              <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                {t("attUnexcusedLine", { pct: fmtPct(att.unexcusedAbsence), limit: fmtPct(att.unexcusedLimit) })}
+              </div>
+            )}
+            {att.excusedPct > 0 && !att.limitIsUnexcused && (
+              <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                {t("attExcusedShare", { pct: fmtPct(att.excusedPct) })}
+              </div>
+            )}
           </div>
         )}
       </div>
+      {att && <AttendanceApproxNote className="-mt-4 mb-6" compact />}
 
       {/* Counting method — per course. "By hour" weighs each session by length;
           "by lecture" counts every missed lecture equally, with an optional
@@ -189,7 +212,7 @@ export function AttendanceSection({ course }: { course: Course }) {
                   background: "var(--color-surface)",
                   color: "var(--color-ink)",
                 }}
-                placeholder={att ? att.unit.toFixed(1) : t("perLecturePctPlaceholder")}
+                placeholder={att ? fmtPct(att.unit) : t("perLecturePctPlaceholder")}
                 value={
                   course.perLecturePct && course.perLecturePct > 0
                     ? String(course.perLecturePct)
@@ -208,9 +231,17 @@ export function AttendanceSection({ course }: { course: Course }) {
         </div>
         <p className="text-xs" style={{ color: "var(--color-muted)" }}>
           {mode === "lecture" && att
-            ? t("perLecturePctHint", { pct: (100 / att.totalLectures).toFixed(1) })
+            ? t("perLecturePctHint", { pct: fmtPct(100 / att.totalLectures) })
             : t("attMethodHint")}
         </p>
+        {offRule && (
+          <p className="text-xs rounded-lg px-3 py-2" style={{ color: "var(--color-ink)", background: "rgba(199,126,46,0.12)" }}>
+            {t("attMethodOffRule", {
+              rule: t(termMode === "lecture" ? "attMethodLecture" : "attMethodHour").toLowerCase(),
+              course: t(mode === "lecture" ? "attMethodLecture" : "attMethodHour").toLowerCase(),
+            })}
+          </p>
+        )}
       </div>
 
       {/* Weekly sessions editor */}

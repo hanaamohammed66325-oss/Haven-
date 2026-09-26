@@ -15,9 +15,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  supabase, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner,
+  supabase, useC, useS, StatCard, ClickableCard, SectionHeader, Loading, ErrorBanner,
   fmtNum, fmtDateTime, timeAgo, useDebounce,
 } from "./_lib";
+import { useDrill } from "./_drill";
 
 interface UserRow {
   email: string | null;
@@ -54,6 +55,7 @@ function pickCohort(c: Retention["cohorts"]) {
 
 export function RetentionSection() {
   const C = useC();
+  const drill = useDrill();
   const [data, setData] = useState<Retention | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -136,10 +138,10 @@ export function RetentionSection() {
           <div>
             <SubHead text="Where users stand now" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="🌱 New (≤3d)" value={data.states.new} sub="just arrived — too early to judge" />
-              <StatCard label="✅ Active" value={data.states.active} accent={C.success} sub="opened in last 3 days" />
-              <StatCard label="⚠️ Slipping" value={data.states.slipping} accent={C.warning} sub="last seen 3–14 days ago" />
-              <StatCard label="💤 Dormant" value={data.states.dormant} accent={C.danger} sub="gone >14 days" />
+              <StatCard label="🌱 New (≤3d)" value={data.states.new} sub="just arrived — too early to judge" onClick={() => drill({ title: "New (≤3 days)", card: "state_new" })} />
+              <StatCard label="✅ Active" value={data.states.active} accent={C.success} sub="opened in last 3 days" onClick={() => drill({ title: "Active — opened in last 3 days", card: "state_active" })} />
+              <StatCard label="⚠️ Slipping" value={data.states.slipping} accent={C.warning} sub="last seen 3–14 days ago" onClick={() => drill({ title: "Slipping — last seen 3–14 days ago", card: "state_slipping" })} />
+              <StatCard label="💤 Dormant" value={data.states.dormant} accent={C.danger} sub="gone >14 days" onClick={() => drill({ title: "Dormant — gone >14 days", card: "state_dormant" })} />
             </div>
           </div>
 
@@ -147,9 +149,9 @@ export function RetentionSection() {
           <div>
             <SubHead text="Return rate by cohort (had time to come back)" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <CohortCard label="Joined ≥1 day ago" cohort={data.cohorts.c1d} returned={data.cohorts.r1d} />
-              <CohortCard label="Joined ≥3 days ago" cohort={data.cohorts.c3d} returned={data.cohorts.r3d} />
-              <CohortCard label="Joined ≥7 days ago" cohort={data.cohorts.c7d} returned={data.cohorts.r7d} />
+              <CohortCard label="Joined ≥1 day ago" cohort={data.cohorts.c1d} returned={data.cohorts.r1d} onClick={() => drill({ title: "Joined ≥1 day ago", card: "cohort", arg: "1" })} />
+              <CohortCard label="Joined ≥3 days ago" cohort={data.cohorts.c3d} returned={data.cohorts.r3d} onClick={() => drill({ title: "Joined ≥3 days ago", card: "cohort", arg: "3" })} />
+              <CohortCard label="Joined ≥7 days ago" cohort={data.cohorts.c7d} returned={data.cohorts.r7d} onClick={() => drill({ title: "Joined ≥7 days ago", card: "cohort", arg: "7" })} />
             </div>
             <p className="text-[12px] mt-2" style={{ color: C.textFaint }}>
               {data.new_today > 0
@@ -257,12 +259,14 @@ function BucketCard({
 }
 
 // ---------- Cohort card ----------
-function CohortCard({ label, cohort, returned }: { label: string; cohort: number; returned: number }) {
+function CohortCard({
+  label, cohort, returned, onClick,
+}: { label: string; cohort: number; returned: number; onClick?: () => void }) {
   const C = useC();
   const rate = cohort > 0 ? Math.round((returned / cohort) * 100) : null;
   const tone = rate == null ? C.textMuted : rate >= 40 ? C.success : rate >= 25 ? C.warning : C.danger;
   return (
-    <div className="rounded-xl border p-5" style={{ borderColor: C.border, background: C.panel }}>
+    <ClickableCard onClick={onClick} className="rounded-xl border p-5" style={{ borderColor: C.border, background: C.panel }}>
       <div className="text-[11px] font-semibold uppercase tracking-wide mb-3" style={{ color: C.textDim }}>{label}</div>
       <div className="text-[28px] font-bold leading-none tabular-nums" style={{ color: tone }}>
         {rate == null ? "—" : `${rate}%`}
@@ -270,7 +274,7 @@ function CohortCard({ label, cohort, returned }: { label: string; cohort: number
       <div className="text-[12px] mt-2" style={{ color: C.textDim }}>
         {cohort === 0 ? "no users old enough yet" : `${fmtNum(returned)} of ${fmtNum(cohort)} returned`}
       </div>
-    </div>
+    </ClickableCard>
   );
 }
 

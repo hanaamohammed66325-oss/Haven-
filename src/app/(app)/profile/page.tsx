@@ -19,6 +19,9 @@ import { SubscriptionSection } from "@/components/SubscriptionSection";
 import { BadgeCrest, TierMedal } from "@/components/BadgeCrest";
 import { AcademicBanner } from "@/components/AcademicBanner";
 import { AcademicSettings } from "@/components/AcademicSettings";
+import { GpaAccuracyCard } from "@/components/TermCheck";
+import { CollapseBody, CollapseToggle, CollapsibleSection, useCardCollapse } from "@/components/Collapsible";
+import { holidayCalendar } from "@/lib/universityCountry";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -54,6 +57,7 @@ function resizeImage(file: File, max = 256): Promise<string> {
 
 export default function ProfilePage() {
   const { t } = useT();
+  const badgesFold = useCardCollapse("profile-badges");
   const router = useRouter();
   const { profile, sub, refresh } = useSubscription();
   const isPremium = hasActiveAccess(profile, sub);
@@ -138,7 +142,7 @@ export default function ProfilePage() {
 
       {/* Academic identity — the "تعريف": a light, seamless line with an edit
           affordance that jumps to the editor card below. */}
-      <div className="mb-12">
+      <div className="mb-12" data-tour="profile-banner">
         <AcademicBanner editHref="#academic-profile" />
       </div>
 
@@ -207,23 +211,29 @@ export default function ProfilePage() {
       </Card>
 
       {/* Academic profile — user-specific settings live on the profile. */}
-      <div className="mt-8 scroll-mt-24" id="academic-profile">
-        <h2 className="font-display text-lg mb-4" style={{ color: "var(--color-ink)" }}>
-          {t("academicSectionTitle")}
-        </h2>
+      <CollapsibleSection
+        id="profile-academic"
+        anchor="academic-profile"
+        tour="profile-academic"
+        title={t("academicSectionTitle")}
+      >
         <Card padding="p-5 sm:p-6">
           <p className="text-[13px] mb-4 -mt-1" style={{ color: "var(--color-muted)" }}>
             {t("academicSectionDesc")}
           </p>
           <AcademicSettings />
         </Card>
-      </div>
+      </CollapsibleSection>
+
+      {/* GPA accuracy — this term's check + trying it on a past term. */}
+      <CollapsibleSection id="profile-accuracy" anchor="gpa-accuracy" title={t("acc_title")}>
+        <Card padding="p-5 sm:p-6">
+          <GpaAccuracyCard />
+        </Card>
+      </CollapsibleSection>
 
       {/* Sign-in & security — email + password change */}
-      <div className="mt-8">
-        <h2 className="font-display text-lg mb-4" style={{ color: "var(--color-ink)" }}>
-          {t("accountSecurityHeading")}
-        </h2>
+      <CollapsibleSection id="profile-security" title={t("accountSecurityHeading")}>
         <Card padding="p-5 sm:p-6">
           <div className="flex items-center justify-between gap-4 pb-5 border-b" style={border}>
             <div className="min-w-0">
@@ -256,7 +266,7 @@ export default function ProfilePage() {
             </button>
           </div>
         </Card>
-      </div>
+      </CollapsibleSection>
 
       {/* Subscription management */}
       <SubscriptionSection />
@@ -269,12 +279,18 @@ export default function ProfilePage() {
           courses,
           planner,
           semesterGpa: semesterGPA(courses, resolveScheme(academic)),
+          gpaMax: resolveScheme(academic).max,
           semesterStartDate: semester.startDate,
           semesterWeeks: semester.weeks,
+          semester,
+          holidayCalendar: holidayCalendar(academic),
         };
         return (
           <Card padding="p-5 sm:p-8" className="haven-stagger mt-8">
-            <div className="flex items-center justify-between mb-6">
+            <div
+              className="flex items-center justify-between"
+              style={{ marginBottom: badgesFold.open ? "1.5rem" : 0, transition: "margin-bottom 0.35s ease" }}
+            >
               <h2 className="font-display text-lg flex items-center gap-2" style={{ color: "var(--color-ink)" }}>
                 <Award size={20} style={{ color: "var(--color-brass)" }} />
                 {t("gam_badges")}
@@ -287,8 +303,10 @@ export default function ProfilePage() {
                 <span className="text-xs" style={{ color: "var(--color-muted)" }}>
                   {t("gam_tierProgress", { earned: String(earnedCount), total: String(Math.ceil(badgesForTier(tier).length * 0.8)) })}
                 </span>
+                <CollapseToggle open={badgesFold.open} onToggle={badgesFold.toggle} label={t("gam_badges")} />
               </div>
             </div>
+            <CollapseBody open={badgesFold.open}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {badgesForTier(tier).map((badge) => {
                 const earned = gamification.badges.includes(badge.id);
@@ -325,6 +343,7 @@ export default function ProfilePage() {
                 );
               })}
             </div>
+            </CollapseBody>
           </Card>
         );
       })()}

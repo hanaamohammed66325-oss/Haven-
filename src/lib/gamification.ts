@@ -1,4 +1,4 @@
-import type { Course, PlannerData } from "@/types";
+import type { Course, PlannerData, Semester } from "@/types";
 import { attendanceInfo } from "@/lib/grades";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -195,8 +195,15 @@ export interface BadgeContext {
   courses: Course[];
   planner: PlannerData;
   semesterGpa: number | null;
+  /** max of the student's GPA scheme (5, 4, 100) — GPA thresholds scale to it */
+  gpaMax?: number;
   semesterStartDate: string;
   semesterWeeks: number;
+  /** the real semester + university, so attendance badges use the SAME
+   *  numbers (term length, holidays, limit) the student sees on screen */
+  semester?: Semester;
+  /** whose holidays apply (lib/universityCountry holidayCalendar) */
+  holidayCalendar?: string | null;
 }
 
 function semesterWeeksElapsed(startDate: string): number {
@@ -282,8 +289,9 @@ export const BADGES: BadgeDef[] = [
       const withSessions = ctx.courses.filter((c) => c.sessions.length > 0);
       if (withSessions.length === 0) return false;
       return withSessions.every((c) => {
-        const info = attendanceInfo(c);
-        return !info || info.status !== "danger";
+        const info = attendanceInfo(c, ctx.semester, ctx.holidayCalendar);
+        // An unknown university rule can't prove the student is safe.
+        return !info || (info.limitKnown && info.status !== "danger");
       });
     },
   },
@@ -323,8 +331,14 @@ export const BADGES: BadgeDef[] = [
     id: "outstanding-gpa",
     icon: "🎓",
     minTier: 2,
+    // Base values are on the 5.0 scale; getThreshold scales them to the
+    // student's own system (4.0 → 3.2/3.6/3.8, percentage → 80/90/95) so a
+    // percentage student can't earn every tier at 50% and a 4.0 student isn't
+    // chasing an impossible 4.5.
     thresholds: [4.0, 4.0, 4.5, 4.75],
-    check: (_g, ctx, t) => {
+    getThreshold: (tier, ctx) =>
+      Math.round(([4.0, 4.0, 4.5, 4.75][Math.min(tier, MAX_TIER) - 1] / 5) * (ctx.gpaMax ?? 5) * 100) / 100,
+    check: (_g, ctx, t, tier) => {
       if (ctx.semesterGpa == null || ctx.semesterGpa < t) return false;
       if (ctx.courses.length === 0) return false;
       const allComps = ctx.courses.flatMap((c) => c.components);
@@ -332,10 +346,10 @@ export const BADGES: BadgeDef[] = [
       if (coursework.length === 0) return false;
       const cwGraded = coursework.filter((comp) => comp.score != null).length;
       const cwCoverage = cwGraded / coursework.length;
-      if (t >= 4.75) {
+      if (tier >= 4) {
         return allComps.length > 0 && allComps.every((comp) => comp.score != null);
       }
-      const minCoverage = t >= 4.5 ? 0.6 : 0.3;
+      const minCoverage = tier >= 3 ? 0.6 : 0.3;
       return cwCoverage >= minCoverage;
     },
   },

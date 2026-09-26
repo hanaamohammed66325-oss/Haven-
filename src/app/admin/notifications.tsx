@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner } from "./_lib";
+import { useDrill } from "./_drill";
 
 interface Group { sent: number; users: number }
 interface NotifUser {
@@ -30,6 +31,7 @@ const GROUP_LABEL: Record<string, string> = {
 export function NotificationsSection() {
   const C = useC();
   const S = useS();
+  const drill = useDrill();
   const [stats, setStats] = useState<NotifStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -66,11 +68,11 @@ export function NotificationsSection() {
           <div>
             <SubHead text="Enablement funnel" />
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <StatCard label="Opened settings" value={stats.funnel.touched_settings} />
-              <StatCard label="Have a device" value={stats.funnel.have_subscription} accent={C.success} />
-              <StatCard label="Enabled + device" value={stats.funnel.both} accent={C.primary} />
-              <StatCard label="Enabled, no device" value={stats.funnel.touched_no_sub} accent={stats.funnel.touched_no_sub > 0 ? C.danger : undefined} sub="tried but can't receive" />
-              <StatCard label="Device, no settings" value={stats.funnel.sub_no_prefs} />
+              <StatCard label="Opened settings" value={stats.funnel.touched_settings} onClick={() => drill({ title: "Opened notification settings", card: "funnel_touched" })} />
+              <StatCard label="Have a device" value={stats.funnel.have_subscription} accent={C.success} onClick={() => drill({ title: "Have a push device", card: "funnel_has_sub" })} />
+              <StatCard label="Enabled + device" value={stats.funnel.both} accent={C.primary} onClick={() => drill({ title: "Enabled + device", card: "funnel_both" })} />
+              <StatCard label="Enabled, no device" value={stats.funnel.touched_no_sub} accent={stats.funnel.touched_no_sub > 0 ? C.danger : undefined} sub="tried but can't receive" onClick={() => drill({ title: "Enabled, no device", card: "funnel_touched_no_sub" })} />
+              <StatCard label="Device, no settings" value={stats.funnel.sub_no_prefs} onClick={() => drill({ title: "Device, no settings", card: "funnel_sub_no_prefs" })} />
             </div>
             {stats.funnel.touched_no_sub > 0 && (
               <p className="text-[12px] mt-2" style={{ color: C.textFaint }}>
@@ -84,14 +86,14 @@ export function NotificationsSection() {
             <SubHead text="Delivered notifications by type" />
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {groups.map((g) => (
-                <StatCard key={g} label={GROUP_LABEL[g]} value={stats.by_group[g]?.sent ?? 0} sub={`${stats.by_group[g]?.users ?? 0} users`} />
+                <StatCard key={g} label={GROUP_LABEL[g]} value={stats.by_group[g]?.sent ?? 0} sub={`${stats.by_group[g]?.users ?? 0} users`} onClick={() => drill({ title: `${GROUP_LABEL[g]} notifications — who received them`, card: "notif_group", arg: g })} />
               ))}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <StatCard label="Total delivered" value={stats.delivered_total} accent={C.success} sub={`${stats.delivered_users} users reached`} />
               <StatCard label="Scheduled (queued)" value={stats.scheduled.total} sub={`${stats.scheduled.sent} sent · ${stats.scheduled.pending} pending`} />
-              <StatCard label="Live devices" value={stats.subscriptions.devices} sub={`${stats.subscriptions.users} users · ${stats.subscriptions.ios} iOS`} />
-              <StatCard label="Pomodoro sessions" value={stats.pomodoro.completions} sub={`${stats.pomodoro.users} users · no push type`} />
+              <StatCard label="Live devices" value={stats.subscriptions.devices} sub={`${stats.subscriptions.users} users · ${stats.subscriptions.ios} iOS`} onClick={() => drill({ title: "Users with live devices", card: "push_devices" })} />
+              <StatCard label="Pomodoro sessions" value={stats.pomodoro.completions} sub={`${stats.pomodoro.users} users · no push type`} onClick={() => drill({ title: "Pomodoro users", card: "pomodoro" })} />
             </div>
           </div>
 

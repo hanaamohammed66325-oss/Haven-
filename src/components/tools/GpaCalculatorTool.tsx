@@ -203,7 +203,7 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
             />
           </label>
           <label className="flex flex-col gap-1 text-xs" style={{ color: "var(--color-muted)" }}>
-            الساعات المكتسبة سابقاً
+            الساعات المحسوبة في المعدل
             <input
               type="number"
               min="0"
@@ -217,6 +217,9 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
             />
           </label>
         </div>
+        <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--color-muted)" }}>
+          انسخها من سجلك الأكاديمي: الساعات التي يُحسب عليها معدلك، ومنها ساعات المواد التي رسبت فيها، وليست الساعات المكتسبة.
+        </p>
       </details>
 
       {/* Results */}
