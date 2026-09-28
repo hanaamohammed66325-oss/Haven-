@@ -17,8 +17,10 @@ import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { Modal } from "./Modal";
 import { pendingSetupSteps } from "./SetupCheck";
+import { useGpaChecked } from "./GpaCheckNudge";
 import { courseCurrentPct, projectedCumulativeGpa, semesterGPA } from "@/lib/grades";
 import { DENIED, SPECIAL_RESULTS, detectScheme } from "@/lib/gradeSchemes";
+import { toEnglishDigits } from "@/lib/dates";
 import {
   estimatedLetter,
   explainGap,
@@ -126,12 +128,9 @@ type Done = "match" | "close" | "snoozed" | "found" | "saved" | "reason";
 
 const withoutOfficial = (courses: Course[]): Course[] => courses.map(({ official: _o, ...c }) => c);
 
-/** Arabic-Indic digits and the Arabic decimal comma → a parseable number. */
+/** English digits, with a decimal comma read as a point → a parseable number. */
 function parseNumber(raw: string): number {
-  const latin = raw
-    .trim()
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-    .replace(/[٫,]/g, ".");
+  const latin = toEnglishDigits(raw.trim()).replace(",", ".");
   return latin === "" ? NaN : Number(latin);
 }
 
@@ -944,6 +943,7 @@ const newId = () =>
 function PastTerms() {
   const { t } = useT();
   const { pastTerms, setPastTerms } = useStore();
+  const checked = useGpaChecked();
   const [editing, setEditing] = useState<PastTerm | "new" | null>(null);
   const [removed, setRemoved] = useState<{ term: PastTerm; index: number } | null>(null);
 
@@ -1032,7 +1032,7 @@ function PastTerms() {
           </p>
         )}
 
-        <div className="mt-3">
+        <div className="mt-3 relative inline-block">
           <Secondary
             onClick={() => {
               setRemoved(null);
@@ -1044,6 +1044,13 @@ function PastTerms() {
               {t("pt_add")}
             </span>
           </Secondary>
+          {/* Same pulsing dot as the dashboard's, until the first check. */}
+          {!checked && (
+            <span
+              className="absolute -top-1 -end-1 w-3 h-3 rounded-full animate-ping pointer-events-none"
+              style={{ background: "var(--color-brass)" }}
+            />
+          )}
         </div>
       </div>
       {editing && (

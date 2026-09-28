@@ -28,7 +28,7 @@ const STORAGE_KEY = "haven-sidebar-collapsed";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { t } = useT();
-  const { hydrated, loadFailed, retryLoad } = useStore();
+  const { hydrated, loadFailed } = useStore();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   // Mobile nav drawer (< lg). The desktop rail hides itself below lg and this
@@ -130,7 +130,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </p>
         <button
           type="button"
-          onClick={retryLoad}
+          // A fresh page, not an in-place retry: auth caches a refresh that
+          // failed on the network for a minute, and only a reload clears it.
+          onClick={() => window.location.reload()}
           className="haven-btn rounded-xl px-6 py-2.5 text-sm font-semibold"
           style={{ marginTop: 8 }}
         >

@@ -1,6 +1,7 @@
 "use client";
 
-// Grade tables — what students told us about their university's points table.
+// GPA systems — what students told us about their university's points table.
+// Shown at the top of the admin GPA page (gpa-checks.tsx).
 // The app detects a table from the unverified catalogue (lib/gradeCatalog) and
 // asks the student to confirm it; a "no" or an unknown university invites them
 // to enter their own. This page gathers those answers so a wrong catalogue
@@ -9,7 +10,7 @@
 // with the SAME detection code the app uses.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, useC, StatCard, SectionHeader, Loading, ErrorBanner, fmtDate } from "./_lib";
+import { supabase, useC, StatCard, Loading, ErrorBanner, fmtDate } from "./_lib";
 import { useDrill, type DrillUser } from "./_drill";
 import { detectScheme, gradeTableStatus, customScheme, type GradeScheme } from "@/lib/gradeSchemes";
 import type { AcademicInfo, CustomSchemeData, GradeCheck } from "@/types";
@@ -79,11 +80,15 @@ const KIND_LABEL: Record<Kind, string> = {
   verified: "Verified / chosen by hand",
 };
 
-function TableChips({ rows, compare }: { rows: [string, number][]; compare?: [string, number][] }) {
+/** [letter, points (or lowest % on a percentage scale), lowest % when a points
+ *  table also gives it] */
+type Chip = [string, number, number?];
+
+function TableChips({ rows, compare }: { rows: Chip[]; compare?: Chip[] }) {
   const C = useC();
   return (
     <div dir="ltr" className="flex flex-wrap gap-1">
-      {rows.map(([l, p], i) => {
+      {rows.map(([l, p, min], i) => {
         const differs = compare && (compare[i]?.[0] !== l || compare[i]?.[1] !== p);
         return (
           <span
@@ -92,6 +97,7 @@ function TableChips({ rows, compare }: { rows: [string, number][]; compare?: [st
             style={{ background: differs ? C.warning : C.border, color: differs ? "#fff" : C.text }}
           >
             {l} {p}
+            {min != null && <span style={{ opacity: 0.7 }}> · {min}%+</span>}
           </span>
         );
       })}
@@ -99,11 +105,11 @@ function TableChips({ rows, compare }: { rows: [string, number][]; compare?: [st
   );
 }
 
-const schemeRows = (s: GradeScheme): [string, number][] => s.bands.map((b) => [b.letter, s.percent ? b.min : b.points]);
-const customRows = (c: CustomSchemeData): [string, number][] =>
-  c.bands.map((b) => [b.letter, c.percent ? b.min ?? 0 : b.points]);
+const schemeRows = (s: GradeScheme): Chip[] => s.bands.map((b) => [b.letter, s.percent ? b.min : b.points]);
+const customRows = (c: CustomSchemeData): Chip[] =>
+  c.bands.map((b): Chip => (c.percent ? [b.letter, b.min ?? 0] : [b.letter, b.points, b.min ?? undefined]));
 
-export function GradeTablesSection() {
+export function GradeTablesPanel({ reloadKey, onOpenUser }: { reloadKey: number; onOpenUser: (id: string) => void }) {
   const C = useC();
   const drill = useDrill();
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -125,11 +131,11 @@ export function GradeTablesSection() {
   }, []);
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, reloadKey]);
 
   const all = useMemo(() => (rows ?? []).map(classify), [rows]);
-  const count = (k: Kind) => all.filter((r) => r.kind === k).length;
-  const submitted = all.filter((r) => r.kind === "custom");
+  const of = (...k: Kind[]) => all.filter((r) => k.includes(r.kind));
+  const submitted = of("custom");
 
   // One row per university with answers, most disputed first.
   const byUni = useMemo(() => {
@@ -155,38 +161,40 @@ export function GradeTablesSection() {
     drill({ title, users });
   };
 
-  if (loading && !rows) return <Loading text="Loading grade tables…" />;
+  if (loading && !rows) return <Loading text="Loading GPA systems…" />;
+
+  const card = (label: string, list: Classified[], accent?: string) => (
+    <StatCard label={label} value={list.length} accent={accent} onClick={list.length ? () => open(label, list) : undefined} />
+  );
 
   return (
     <div>
-      <SectionHeader
-        title="Grade tables"
-        action={
-          <button
-            onClick={() => void load()}
-            className="rounded-lg px-3 py-1.5 text-[12px]"
-            style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
-          >
-            {loading ? "…" : "↻ Refresh"}
-          </button>
-        }
-      />
+      <h2 className="text-[16px] font-semibold mb-1" style={{ color: C.text }}>
+        GPA systems students chose
+      </h2>
+      <p className="text-[12px] mb-4" style={{ color: C.textDim }}>
+        Whether each student confirmed the table we detected for their university, said it&apos;s wrong, or entered their own.
+        Click a number to see the students.
+      </p>
       {error && <ErrorBanner message={error} onRetry={load} />}
 
       {rows && (
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <StatCard label="Confirmed" value={count("confirmed")} />
-            <StatCard label="Said it's wrong" value={count("rejected") + count("custom")} />
-            <StatCard label="Tables submitted" value={count("custom")} />
-            <StatCard label="Not answered yet" value={count("pending")} />
-            <StatCard label="Not in catalogue" value={count("unknown")} />
+            {card("Confirmed our table", of("confirmed"), C.success)}
+            {card("Said it's wrong", of("rejected", "custom"), C.warning)}
+            {card("Entered their own table", of("custom"), C.warning)}
+            {card("Not answered yet", of("pending"))}
+            {card("University not in catalogue", of("unknown"))}
           </div>
 
           <div>
             <h3 className="text-[13px] font-semibold mb-2" style={{ color: C.text }}>
               Tables students entered
             </h3>
+            <p className="text-[12px] mb-2" style={{ color: C.textDim }}>
+              Their GPA is worked out with their own table. Each letter shows its points (or its lowest % on a percentage scale).
+            </p>
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: C.border, background: C.panel }}>
               {submitted.length === 0 ? (
                 <p className="p-6 text-center text-[13px]" style={{ color: C.textFaint }}>
@@ -207,12 +215,19 @@ export function GradeTablesSection() {
                           {r.uni}
                         </span>
                         <span className="text-[11px]" style={{ color: C.textDim }}>
-                          {[r.country, r.email, r.grade_check?.at ? fmtDate(r.grade_check.at) : null].filter(Boolean).join(" · ")}
+                          {[r.country, r.grade_check?.at ? fmtDate(r.grade_check.at) : null].filter(Boolean).join(" · ")}
                         </span>
                         <span className="text-[11px]" style={{ color: C.textDim }}>
                           out of {r.custom_scheme!.max}
                           {r.custom_scheme!.percent ? " (percentage)" : ""}
                         </span>
+                        <button
+                          onClick={() => onOpenUser(r.user_id)}
+                          className="text-[11px] underline-offset-2 hover:underline ms-auto"
+                          style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                        >
+                          {r.email ?? "user"}
+                        </button>
                       </div>
                       <div className="grid gap-1.5 md:grid-cols-[7rem_1fr] items-center">
                         <span className="text-[11px]" style={{ color: C.textFaint }}>Student&apos;s table</span>

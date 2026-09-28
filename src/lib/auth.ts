@@ -28,12 +28,6 @@ export const PENDING_SIGNUP_KEY = "haven_pending_signup";
 // other device (which just opened one of the confirmation links).
 export const PENDING_EMAIL_CHANGE_KEY = "haven_pending_email_change";
 
-export interface HavenUser {
-  id: string;
-  name: string;
-  email: string;
-}
-
 export type AuthResult =
   // `needsConfirmation` is set when sign up succeeded but the user must confirm
   // their email before they can sign in.
@@ -173,29 +167,5 @@ export async function signOut(): Promise<void> {
     await supabase.auth.signOut();
   } catch {
     // ignore
-  }
-}
-
-export async function getCurrentUser(): Promise<HavenUser | null> {
-  try {
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
-    if (!user) return null;
-    return {
-      id: user.id,
-      name: (user.user_metadata?.full_name as string) ?? "",
-      email: user.email ?? "",
-    };
-  } catch {
-    return null;
-  }
-}
-
-export async function isLoggedIn(): Promise<boolean> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    return data.session !== null;
-  } catch {
-    return false;
   }
 }

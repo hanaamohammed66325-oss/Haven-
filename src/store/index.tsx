@@ -1,6 +1,6 @@
 "use client";
 
-import React, {
+import {
   createContext,
   useContext,
   useEffect,
@@ -37,8 +37,7 @@ import type {
   PersonalAttendanceRule,
 } from "@/types";
 import { DEFAULT_NOTIF_PREFS, normalizeNotifPrefs } from "@/lib/notifPrefs";
-import { demoCourses } from "@/lib/demo";
-import { supabase } from "@/lib/supabase";
+import { supabase, hasStoredSession } from "@/lib/supabase";
 import { toISODate, addDays } from "@/lib/dates";
 import { addMinutesToTime } from "@/lib/format";
 import * as db from "@/lib/db";
@@ -56,10 +55,9 @@ import {
 } from "@/lib/gamification";
 import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
 import { ruleMode, semesterGPA } from "@/lib/grades";
-import { resolveScheme, setLearnedCutoffs, type LearnedCutoffs } from "@/lib/gradeSchemes";
+import { resolveScheme, setLearnedCutoffs, SCHEMES, type LearnedCutoffs } from "@/lib/gradeSchemes";
 import { readPastTerms, readTermCheck, withOfficial } from "@/lib/termCheck";
 import { readRepeats, withRepeats } from "@/lib/repeats";
-import { universityBySlug } from "@/lib/tools/universities";
 import type { Session } from "@supabase/supabase-js";
 import { holidayCalendar } from "@/lib/universityCountry";
 import { releaseUniversityHolidays } from "@/lib/universityFacts";
@@ -142,18 +140,11 @@ const emptyAcademic: AcademicInfo = {
   gpaSchemeId: "auto",
 };
 
-const SCHEME_IDS = [
-  "auto",
-  "saudi5",
-  "saudi4",
-  "percentage",
-  "plusminus4",
-  "qatar4",
-  "jordan4",
-  "jordan4new",
-  "jordan4plus",
-  "custom",
-] as const;
+// Read from the scheme registry itself: a hand-kept copy of the ids silently
+// reset a student to "auto" (another scale) if a new scheme was left out.
+function isSchemeChoice(v: unknown): v is NonNullable<AcademicInfo["gpaSchemeId"]> {
+  return v === "auto" || v === "custom" || SCHEMES.some((s) => s.id === v);
+}
 
 /** Validate preferences.academic.gradeCheck. */
 function readGradeCheck(raw: unknown): GradeCheck | undefined {
@@ -204,7 +195,7 @@ function readSetupConfirmed(raw: unknown): SetupConfirmed {
 function readAcademic(raw: unknown): AcademicInfo {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const str = (v: unknown) => (typeof v === "string" ? v : "");
-  const scheme = SCHEME_IDS.find((s) => s === o.gpaSchemeId) ?? "auto";
+  const scheme = isSchemeChoice(o.gpaSchemeId) ? o.gpaSchemeId : "auto";
   return {
     universitySlug: typeof o.universitySlug === "string" ? o.universitySlug : null,
     universityName: str(o.universityName),
@@ -264,6 +255,23 @@ export function readPersonalRule(raw: unknown): PersonalAttendanceRule | null {
     regulationUrl: typeof o.regulationUrl === "string" && /^https?:\/\//.test(o.regulationUrl) ? o.regulationUrl : null,
     reportedAt: typeof o.reportedAt === "string" ? o.reportedAt : "",
   };
+}
+
+/** The university rule in force: the one the student confirmed (the main rule
+ *  or one from their fellow students), else the main one, waiting for them. */
+export function policyInForce(options: AttendancePolicy[], ack: string | null): AttendancePolicy | null {
+  return options.find((p) => ack === policyAckKey(p)) ?? options[0] ?? null;
+}
+
+/** The absence rule a student's screens use, from their own answer, their
+ *  university's rules and the one they confirmed. */
+export function termAttendanceRule(
+  personal: PersonalAttendanceRule | null,
+  options: AttendancePolicy[],
+  ack: string | null
+): AttendanceRule {
+  const policy = policyInForce(options, ack);
+  return resolveAttendanceRule(personal, policy, !!policy && ack === policyAckKey(policy));
 }
 
 /** The rule the term's absence is held to: the student's own answer first
@@ -450,6 +458,11 @@ const NOT_SIGNED_IN: MutationResult = { ok: false, error: "not signed in" };
 // dead spinner).
 const LOAD_TIMEOUT_MS = 12000;
 
+// The stuck-start-up reload (see the watchdog in StoreProvider).
+const STUCK_RELOAD_MS = 25000;
+const RELOAD_GUARD_KEY = "haven-stuck-reload-at";
+const RELOAD_GUARD_MS = 2 * 60 * 1000;
+
 function withTimeout<T>(p: Promise<T>, label: string, ms = LOAD_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const id = setTimeout(
@@ -482,10 +495,15 @@ export type TermCheckEvent =
   | "term_cum_checked"
   | "term_cum_reason";
 
+export type AuthStatus = "pending" | "signedIn" | "signedOut";
+
 export interface StoreValue extends AppData {
   hydrated: boolean;
   loadFailed: boolean;
-  retryLoad: () => void;
+  /** Who is signed in, decided once here for the whole app: "pending" until
+   *  auth answers (or while a signed-in device waits out a network failure),
+   *  then "signedIn" / "signedOut". AuthGuard reads it. */
+  authStatus: AuthStatus;
   setProfileName: (name: string) => void;
   setEmail: (email: string) => void;
   /** Update the student's academic info (university/major/level); persisted per
@@ -524,8 +542,6 @@ export interface StoreValue extends AppData {
   /** Set the Tasks page section order and persist it to the cloud per account
    *  (profiles.preferences.taskOrder). Drives the Tasks page drag-to-reorder. */
   setTaskOrder: (order: string[]) => void;
-  /** Reminder window (days ahead); persisted to profiles.preferences per account. */
-  setReminderDays: (days: number) => void;
   /** Semester-GPA card mode (semester / cumulative); persisted per account. */
   setGpaMode: (mode: GpaMode) => void;
   /** The user's current cumulative GPA (cumulative mode); persisted per account. */
@@ -598,7 +614,6 @@ export interface StoreValue extends AppData {
   softDeleteSession: (courseId: string, sessionId: string) => CourseSession | undefined;
   /** Re-add a previously soft-deleted class session to local state. */
   restoreSession: (courseId: string, session: CourseSession) => void;
-  setMissedLectures: (courseId: string, missed: number) => void;
   addMissedSession: (
     courseId: string,
     sessionId: string,
@@ -606,7 +621,6 @@ export interface StoreValue extends AppData {
   ) => Promise<MutationResult>;
   updateMissedSession: (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null }) => void;
   removeMissedSession: (courseId: string, missedId: string) => void;
-  loadDemo: () => void;
   resetData: () => void;
   recordAppOpen: () => { xpEarned: number; streakBroke: boolean; streakCurrent: number };
   doCheckIn: () => { xpEarned: number; alreadyDone: boolean; newBadges: string[]; tierAdvanced: boolean };
@@ -622,6 +636,29 @@ export interface StoreValue extends AppData {
 
 export const StoreContext = createContext<StoreValue | null>(null);
 
+// What badges are judged against (the same for check-ins and XP).
+/** What badges are judged on: the courses and term exactly as the student's
+ *  screens show them (official results, repeats, their absence rule), so a
+ *  badge is earned on the same numbers its progress bar shows. */
+export function badgeContext({
+  courses,
+  planner,
+  academic,
+  semester,
+}: Pick<AppData, "courses" | "planner" | "academic" | "semester">): BadgeContext {
+  const scheme = resolveScheme(academic);
+  return {
+    courses,
+    planner,
+    semesterGpa: semesterGPA(courses, scheme),
+    gpaMax: scheme.max,
+    semesterStartDate: semester.startDate,
+    semesterWeeks: semester.weeks,
+    semester,
+    holidayCalendar: holidayCalendar(academic),
+  };
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
   // The latest data for callbacks that must save what they computed: a setData
@@ -629,20 +666,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // one isn't there yet when the call returns.
   const dataRef = useRef(data);
   dataRef.current = data;
+  // The courses and term as the screens read them (set further down, each
+  // render), for badge checks made inside callbacks.
+  const viewRef = useRef<Pick<AppData, "courses" | "semester">>(data);
+  // Recording a typed university name waits until the student stops typing.
+  const universityLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("pending");
 
   // Cloud bookkeeping kept in refs so the (stable) callbacks below always see
   // the latest value without being re-created.
   const semesterIdRef = useRef<string | null>(null);
   const loggedInRef = useRef(false);
-  const coursesRef = useRef<Course[]>([]);
   // How the term's rule counts absence, so a new course starts on it.
   const ruleModeRef = useRef<"hour" | "lecture" | null>(null);
-  // Mirror of the planner so mutations can read the pre-change note synchronously
-  // (to detect a real "just completed" transition) WITHOUT doing it inside a
-  // setData updater — matching how updateComponent reads coursesRef.
-  const plannerRef = useRef<PlannerData>(emptyPlanner);
   // The user id the in-memory store is currently populated for, so we can tell
   // a real account switch apart from a token refresh on the same account.
   const currentUidRef = useRef<string | null>(null);
@@ -650,56 +688,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadingRef = useRef(false);
   const retryCountRef = useRef(0);
   const MAX_RETRIES = 3;
-  // Mirrors of hydrated/loadFailed for the resume watchdog (below), so it can
-  // read the latest values without re-subscribing on every state change.
-  const hydratedRef = useRef(false);
-  const loadFailedRef = useRef(false);
-  const lastResumeRetryRef = useRef(0);
-  const [loadGeneration, setLoadGeneration] = useState(0);
-  const retryLoad = useCallback(() => {
-    retryCountRef.current = 0;
-    loadedOnceRef.current = false;
-    loadingRef.current = false;
-    setLoadFailed(false);
-    setHydrated(false);
-    setLoadGeneration((g) => g + 1);
-  }, []);
-  useEffect(() => {
-    coursesRef.current = data.courses;
-  }, [data.courses]);
-  useEffect(() => {
-    plannerRef.current = data.planner;
-  }, [data.planner]);
-  useEffect(() => {
-    hydratedRef.current = hydrated;
-  }, [hydrated]);
-  useEffect(() => {
-    loadFailedRef.current = loadFailed;
-  }, [loadFailed]);
 
-  // Resume watchdog. When the app returns to the foreground (an installed PWA
-  // relaunch or a tab regaining focus) still stuck on the loader — because the
-  // load that ran while it was backgrounded hung on a stalled token refresh and
-  // was left for dead — re-drive it instead of waiting on the spinner forever.
-  // Paired with the per-attempt timeout above: the timeout bounds a stuck load,
-  // this restarts one the moment the user comes back. A 3s debounce keeps rapid
-  // visibility toggles during a legitimately slow first load from thrashing.
+  // Last-resort recovery while start-up isn't finished. Requests are bounded
+  // (lib/supabase.ts) and a failed load retries, but a refresh that failed on
+  // the network is cached by auth for a minute, and only a fresh page clears
+  // it. So if the app is still loading after STUCK_RELOAD_MS of time actually
+  // on screen, reload it — what the user would otherwise do by force-closing.
+  // At most once per RELOAD_GUARD_MS, so a device that truly can't load never
+  // loops; after that the retries end on the "Try again" screen.
   useEffect(() => {
-    const onVisible = () => {
-      if (typeof document === "undefined" || document.visibilityState !== "visible") return;
-      if (hydratedRef.current || loadFailedRef.current) return;
-      const now = Date.now();
-      if (now - lastResumeRetryRef.current < 3000) return;
-      lastResumeRetryRef.current = now;
-      retryLoad();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
-    };
-  }, [retryLoad]);
+    if (hydrated || loadFailed) return;
+    let visibleMs = 0;
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      visibleMs += 1000;
+      if (visibleMs < STUCK_RELOAD_MS || navigator.onLine === false) return;
+      window.clearInterval(id);
+      try {
+        const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
+        if (Date.now() - last < RELOAD_GUARD_MS) return;
+        sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
+      } catch {
+        return;
+      }
+      window.location.reload();
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [hydrated, loadFailed]);
 
   // Load (and re-load) the store from auth state. A single onAuthStateChange
   // listener drives everything: the initial session, sign-in, sign-out, and
@@ -748,37 +763,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Approved cutoffs for universities that don't publish them; fetched
       // alongside everything else and applied before the first GPA is shown.
       const cutoffs = db.getGradeCutoffs();
+      // Load each schedule/attendance domain independently: a hiccup in one
+      // (e.g. a bad row) must not blank the others — that would look exactly
+      // like "nothing saved" after a refresh. Errors are logged, not thrown.
+      const safe = <T,>(p: Promise<T[]>, label: string): Promise<T[]> =>
+        p.catch((e) => {
+          console.error(`Haven: failed to load ${label}`, e);
+          return [];
+        });
       try {
-        const [prefs, sem] = await withTimeout(
-          Promise.all([db.getPreferences(), db.ensureActiveSemester()]),
-          "prefs+semester"
-        );
-        if (cancelled) return;
-        semesterIdRef.current = sem.id;
-
-        // Load each schedule/attendance domain independently: a hiccup in one
-        // (e.g. a bad row) must not blank the others — that would look exactly
-        // like "nothing saved" after a refresh. Errors are logged, not thrown.
-        const safe = <T,>(p: Promise<T[]>, label: string): Promise<T[]> =>
-          p.catch((e) => {
-            console.error(`Haven: failed to load ${label}`, e);
-            return [];
-          });
-        const [cloudCourses, cloudSessions, cloudTimetable, cloudAbsences, cloudPlanner] =
+        // Launch speed: every request goes out at once, in one round trip.
+        // Courses and grades are asked for "the active semester" instead of
+        // waiting for its id.
+        const [prefs, sem, activeCourses, componentsByCourse, cloudSessions, cloudTimetable, cloudAbsences, cloudPlanner] =
           await withTimeout(
             Promise.all([
+              db.getPreferences(),
+              db.ensureActiveSemester(),
               // Courses gets the same protection as its siblings: a hiccup here
               // used to reject the whole Promise.all and drop the user into the
               // catch below, which published empty defaults over their account.
-              safe(db.getCourses(sem.id), "courses"),
+              safe(db.getActiveCourses(), "courses"),
+              // Not softened: showing courses with their grades missing would
+              // look like lost data, so a failure here retries the whole load.
+              db.getActiveGradeComponents(),
               safe(db.getAttendanceSessions(), "attendance sessions"),
               safe(db.getTimetable(), "timetable"),
               safe(db.getAbsences(), "absences"),
               safe(db.getPlannerItems(), "planner"),
             ]),
-            "schedule domains"
+            "cloud data"
           );
         if (cancelled) return;
+        semesterIdRef.current = sem.id;
+        // Only the semester that was resolved (a brand-new one has no courses).
+        const cloudCourses = activeCourses.filter((c) => c.semesterId === sem.id);
 
         // Merge each attendance session (day + duration, its own id) with its
         // optional timetable-detail row (own id, linked back by `sessionId`).
@@ -840,28 +859,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           absencesByCourse.set(a.courseId, arr);
         }
 
-        const courses: Course[] = await withTimeout(
-          Promise.all(
-            cloudCourses.map(async (cc) => {
-            const components = await db.getGradeComponents(cc.id);
-            return {
-              id: cc.id,
-              name: cc.name,
-              creditHours: cc.creditHours,
-              attendanceLimit: cc.attendanceLimit,
-              attendanceMode: cc.attendanceMode,
-              perLecturePct: cc.perLecturePct,
-              instructorName: cc.instructorName,
-              color: cc.color,
-              sessions: sessionsByCourse.get(cc.id) ?? [],
-              missedLectures: 0,
-              missedSessions: absencesByCourse.get(cc.id) ?? [],
-              components,
-            };
-          })
-          ),
-          "grade components"
-        );
+        const courses: Course[] = cloudCourses.map((cc) => ({
+          id: cc.id,
+          name: cc.name,
+          creditHours: cc.creditHours,
+          attendanceLimit: cc.attendanceLimit,
+          attendanceMode: cc.attendanceMode,
+          perLecturePct: cc.perLecturePct,
+          instructorName: cc.instructorName,
+          color: cc.color,
+          sessions: sessionsByCourse.get(cc.id) ?? [],
+          missedLectures: 0,
+          missedSessions: absencesByCourse.get(cc.id) ?? [],
+          components: componentsByCourse.get(cc.id) ?? [],
+        }));
         // Never hold the app back for them: a stalled request just keeps the estimates.
         setLearnedCutoffs(
           await Promise.race([cutoffs, new Promise<LearnedCutoffs>((r) => setTimeout(() => r({}), 4000))])
@@ -1026,6 +1037,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
 
       if (event === "SIGNED_OUT") {
+        setAuthStatus("signedOut");
         currentUidRef.current = null;
         loggedInRef.current = false;
         semesterIdRef.current = null;
@@ -1036,6 +1048,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setHydrated(true);
         return;
       }
+
+      // No session at launch while the device still holds a sign-in: refreshing
+      // the expired token failed on the network. Don't load the signed-out
+      // state over the account; auth retries the refresh and fires
+      // TOKEN_REFRESHED, which loads it (and the stuck-start-up watchdog above
+      // reloads the app if that takes too long).
+      if (event === "INITIAL_SESSION" && !session && hasStoredSession()) return;
+      setAuthStatus(session ? "signedIn" : "signedOut");
 
       const uid = session?.user?.id ?? null;
       const prev = currentUidRef.current;
@@ -1063,7 +1083,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadGeneration]);
+  }, []);
 
   // Persist to localStorage on change, once hydrated.
   //   • Signed IN: nothing — a signed-in account's data lives entirely in the
@@ -1121,121 +1141,106 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  // Change store fields and have the new values right away. A setData updater
+  // can run later (on the next render, when another update is already queued),
+  // so a value worked out inside one isn't there yet when the call returns:
+  // saving or returning it wrote empty data to the account (it wiped a
+  // student's university once). Setters that save, return or announce what
+  // they computed work it out from dataRef, then commit it here, which keeps
+  // dataRef current for the next call in the same tick.
+  const commit = useCallback((patch: Partial<AppData>) => {
+    dataRef.current = { ...dataRef.current, ...patch };
+    setData((d) => ({ ...d, ...patch }));
+  }, []);
+
+  // A preference kept under the same name in the account: set it and save it.
+  const setPref = useCallback(
+    <K extends keyof AppData>(key: K, value: AppData[K]) => {
+      commit({ [key]: value } as Partial<AppData>);
+      persistPref({ [key]: value });
+    },
+    [commit, persistPref]
+  );
+
   const persistGamification = useCallback(
     (g: GamificationState) => persistPref({ gamification: g as unknown as Record<string, unknown> }),
     [persistPref]
   );
 
   const recordAppOpen = useCallback(() => {
-    let result = { xpEarned: 0, streakBroke: false, streakCurrent: 0 };
-    setData((d) => {
-      const r = updateStreak(d.gamification);
-      result = { xpEarned: r.xpEarned, streakBroke: r.streakBroke, streakCurrent: r.state.streak.current };
-      if (r.state === d.gamification) return d;
+    const d = dataRef.current;
+    const r = updateStreak(d.gamification);
+    if (r.state !== d.gamification) {
+      commit({ gamification: r.state });
       persistGamification(r.state);
-      return { ...d, gamification: r.state };
-    });
-    return result;
-  }, [persistGamification]);
+    }
+    return { xpEarned: r.xpEarned, streakBroke: r.streakBroke, streakCurrent: r.state.streak.current };
+  }, [commit, persistGamification]);
 
   const doCheckIn = useCallback(() => {
-    let result = { xpEarned: 0, alreadyDone: false, newBadges: [] as string[], tierAdvanced: false };
-    setData((d) => {
-      const r = gamCheckIn(d.gamification);
-      if (r.alreadyDone) {
-        result = { xpEarned: 0, alreadyDone: true, newBadges: [], tierAdvanced: false };
-        return d;
-      }
-      db.logEvent("check_in"); // per-user activity tracking
-      const ctx: BadgeContext = {
-        courses: withOfficial(d.courses, d.termCheck),
-        planner: d.planner,
-        semesterGpa: semesterGPA(withOfficial(d.courses, d.termCheck), resolveScheme(d.academic)),
-        gpaMax: resolveScheme(d.academic).max,
-        semesterStartDate: d.semester.startDate,
-        semesterWeeks: d.semester.weeks,
-        semester: d.semester,
-        holidayCalendar: holidayCalendar(d.academic),
-      };
-      const br = checkBadges(r.state, ctx);
-      result = { xpEarned: r.xpEarned, alreadyDone: false, newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
-      emitAchievement(br.newBadges, br.tierAdvanced, br.state.badgeTier + (br.tierAdvanced ? 1 : 0));
-      persistGamification(br.state);
-      return { ...d, gamification: br.state };
-    });
-    return result;
-  }, [persistGamification]);
+    const d = dataRef.current;
+    const r = gamCheckIn(d.gamification);
+    if (r.alreadyDone) return { xpEarned: 0, alreadyDone: true, newBadges: [] as string[], tierAdvanced: false };
+    db.logEvent("check_in"); // per-user activity tracking
+    const br = checkBadges(r.state, badgeContext({ ...d, ...viewRef.current }));
+    commit({ gamification: br.state });
+    emitAchievement(br.newBadges, br.tierAdvanced, br.state.badgeTier + (br.tierAdvanced ? 1 : 0));
+    persistGamification(br.state);
+    return { xpEarned: r.xpEarned, alreadyDone: false, newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
+  }, [commit, persistGamification]);
 
   const awardGamificationXP = useCallback(
     (amount: number, reason: string) => {
       db.logEvent(reason, { xp: amount }); // per-user activity tracking (fire-and-forget)
-      let result = { newBadges: [] as string[], tierAdvanced: false };
-      setData((d) => {
-        const next = awardXP(d.gamification, amount);
-        const ctx: BadgeContext = {
-          courses: withOfficial(d.courses, d.termCheck),
-          planner: d.planner,
-          semesterGpa: semesterGPA(withOfficial(d.courses, d.termCheck), resolveScheme(d.academic)),
-          gpaMax: resolveScheme(d.academic).max,
-          semesterStartDate: d.semester.startDate,
-          semesterWeeks: d.semester.weeks,
-          semester: d.semester,
-          holidayCalendar: holidayCalendar(d.academic),
-        };
-        const br = checkBadges(next, ctx);
-        result = { newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
-        emitAchievement(br.newBadges, br.tierAdvanced, next.badgeTier + (br.tierAdvanced ? 1 : 0));
-        persistGamification(br.state);
-        return { ...d, gamification: br.state };
-      });
-      return result;
+      const d = dataRef.current;
+      const next = awardXP(d.gamification, amount);
+      const br = checkBadges(next, badgeContext({ ...d, ...viewRef.current }));
+      commit({ gamification: br.state });
+      emitAchievement(br.newBadges, br.tierAdvanced, next.badgeTier + (br.tierAdvanced ? 1 : 0));
+      persistGamification(br.state);
+      return { newBadges: br.newBadges, tierAdvanced: br.tierAdvanced };
     },
-    [persistGamification]
+    [commit, persistGamification]
   );
 
   const refreshGamChallenges = useCallback(() => {
-    let result = { xpEarned: 0, newlyCompleted: [] as string[] };
-    setData((d) => {
-      const today = toISODate(new Date());
-      const cCtx: ChallengeContext = {
-        courses: d.courses,
-        planner: d.planner,
-        semester: d.semester,
-        gamification: d.gamification,
-        pomodoroStats: d.pomodoroStats,
-        today,
-      };
-      const r = refreshChallenges(d.gamification, cCtx);
-      if (r.xpEarned === 0 && r.newlyCompleted.length === 0 && !r.weeklyReport && r.state === d.gamification) return d;
-      result = { xpEarned: r.xpEarned, newlyCompleted: r.newlyCompleted };
-      if (r.weeklyReport) {
-        setTimeout(() => window.dispatchEvent(new CustomEvent("haven-weekly-report", { detail: r.weeklyReport })), 0);
-      }
-      persistGamification(r.state);
-      return { ...d, gamification: r.state };
-    });
-    return result;
-  }, [persistGamification]);
+    const d = dataRef.current;
+    const cCtx: ChallengeContext = {
+      courses: d.courses,
+      planner: d.planner,
+      semester: d.semester,
+      gamification: d.gamification,
+      pomodoroStats: d.pomodoroStats,
+      today: toISODate(new Date()),
+    };
+    const r = refreshChallenges(d.gamification, cCtx);
+    if (r.xpEarned === 0 && r.newlyCompleted.length === 0 && !r.weeklyReport && r.state === d.gamification) {
+      return { xpEarned: 0, newlyCompleted: [] as string[] };
+    }
+    commit({ gamification: r.state });
+    if (r.weeklyReport) {
+      setTimeout(() => window.dispatchEvent(new CustomEvent("haven-weekly-report", { detail: r.weeklyReport })), 0);
+    }
+    persistGamification(r.state);
+    return { xpEarned: r.xpEarned, newlyCompleted: r.newlyCompleted };
+  }, [commit, persistGamification]);
 
   // --- Pomodoro ------------------------------------------------------------
 
   const setPomodoroSettings = useCallback(
     (patch: Partial<PomodoroSettings>) => {
-      let merged: PomodoroSettings = defaultPomodoroSettings;
-      setData((d) => {
-        merged = { ...d.pomodoroSettings, ...patch };
-        return { ...d, pomodoroSettings: merged };
-      });
+      const merged: PomodoroSettings = { ...dataRef.current.pomodoroSettings, ...patch };
+      commit({ pomodoroSettings: merged });
       persistPref({ pomodoroSettings: merged as unknown as Record<string, unknown> });
     },
-    [persistPref]
+    [commit, persistPref]
   );
 
   // A focus session finished. Bump lifetime + today's counters, roll the daily
   // streak, add a lily pad, then hand off to the XP/challenge systems.
   const recordPomodoroComplete = useCallback((courseId: string | null = null) => {
-    let result = { xpEarned: 0, lilyPadCount: 0 };
-    setData((d) => {
+    {
+      const d = dataRef.current;
       const today = toISODate(new Date());
       const focusMin = d.pomodoroSettings.focusMinutes;
       const prev = d.pomodoroStats;
@@ -1280,22 +1285,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         lilyPadCount: prev.lilyPadCount + 1,
         pads,
       };
-      result = { xpEarned: XP_REWARDS.COMPLETE_POMODORO, lilyPadCount: stats.lilyPadCount };
+      commit({ pomodoroStats: stats });
       persistPref({ pomodoroStats: stats as unknown as Record<string, unknown> });
-      return { ...d, pomodoroStats: stats };
-    });
+    }
+    // Both read the stats just committed above.
     awardGamificationXP(XP_REWARDS.COMPLETE_POMODORO, "complete_pomodoro");
     refreshGamChallenges();
-    return result;
-  }, [persistPref, awardGamificationXP, refreshGamChallenges]);
+    return { xpEarned: XP_REWARDS.COMPLETE_POMODORO, lilyPadCount: dataRef.current.pomodoroStats.lilyPadCount };
+  }, [commit, persistPref, awardGamificationXP, refreshGamChallenges]);
 
   // A focus session was given up. Record the abandon; the pond stays alive —
   // the withered pad regrows rather than permanently shrinking the pond, so
   // lilyPadCount is preserved (the scene plays the wither → regrow drama).
   const recordPomodoroAbandon = useCallback(() => {
-    setData((d) => {
+    {
       const today = toISODate(new Date());
-      const prev = d.pomodoroStats;
+      const prev = dataRef.current.pomodoroStats;
       const recentDays = [...prev.recentDays];
       const idx = recentDays.findIndex((r) => r.date === today);
       if (idx >= 0) {
@@ -1305,17 +1310,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       while (recentDays.length > POMODORO_HISTORY_LIMIT) recentDays.shift();
       const stats: PomodoroStats = { ...prev, recentDays };
+      commit({ pomodoroStats: stats });
       persistPref({ pomodoroStats: stats as unknown as Record<string, unknown> });
-      return { ...d, pomodoroStats: stats };
-    });
-  }, [persistPref]);
+    }
+  }, [commit, persistPref]);
 
   const setProfileName = useCallback(
     (name: string) => {
-      setData((d) => ({ ...d, profileName: name }));
-      persistPref({ profileName: name });
+      setPref("profileName", name);
     },
-    [persistPref]
+    [setPref]
   );
 
   const setEmail = useCallback(
@@ -1325,18 +1329,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setProfilePhoto = useCallback(
     (photo: string | null) => {
-      setData((d) => ({ ...d, profilePhoto: photo }));
-      persistPref({ profilePhoto: photo });
+      setPref("profilePhoto", photo);
     },
-    [persistPref]
+    [setPref]
   );
 
   const setGpaGoal = useCallback(
     (goal: number) => {
-      setData((d) => ({ ...d, gpaGoal: goal }));
-      persistPref({ gpaGoal: goal });
+      setPref("gpaGoal", goal);
     },
-    [persistPref]
+    [setPref]
   );
 
   // --- Planner (cloud-backed notes + per-account autoEdits) -----------------
@@ -1418,7 +1420,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // mutating, so the XP + challenge refresh run AFTER setData (never inside the
     // updater — an impure updater double-fires under StrictMode and can miss the
     // refresh). Mirrors updateComponent's pattern.
-    const prevNote = plannerRef.current.notes.find((n) => n.id === id);
+    const prevNote = dataRef.current.planner.notes.find((n) => n.id === id);
     const justCompleted = patch.done === true && !!prevNote && !prevNote.done;
     setData((d) => ({
       ...d,
@@ -1468,14 +1470,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // back so it can be restored, but DON'T touch the cloud yet. The real delete
   // (deletePlannerNote) runs only when the undo window closes.
   const softDeletePlannerNote = useCallback((id: string): PlannerNote | undefined => {
-    const note = data.planner.notes.find((n) => n.id === id);
+    const note = dataRef.current.planner.notes.find((n) => n.id === id);
     if (!note) return undefined;
     setData((d) => ({
       ...d,
       planner: { ...d.planner, notes: d.planner.notes.filter((n) => n.id !== id) },
     }));
     return note;
-  }, [data.planner.notes]);
+  }, []);
 
   const restorePlannerNote = useCallback((note: PlannerNote) => {
     setData((d) => ({
@@ -1486,14 +1488,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setPlannerAutoEdit = useCallback(
     (id: string, patch: PlannerData["autoEdits"][string]) => {
-      let nextAutoEdits: PlannerData["autoEdits"] = {};
-      setData((d) => {
-        nextAutoEdits = {
-          ...(d.planner.autoEdits ?? {}),
-          [id]: { ...(d.planner.autoEdits?.[id] ?? {}), ...patch },
-        };
-        return { ...d, planner: { ...d.planner, autoEdits: nextAutoEdits } };
-      });
+      const cur = dataRef.current.planner.autoEdits ?? {};
+      const nextAutoEdits: PlannerData["autoEdits"] = { ...cur, [id]: { ...(cur[id] ?? {}), ...patch } };
+      // Only autoEdits is set here; the rest of the planner keeps any queued
+      // updates, so this can't go through commit().
+      dataRef.current = { ...dataRef.current, planner: { ...dataRef.current.planner, autoEdits: nextAutoEdits } };
+      setData((d) => ({ ...d, planner: { ...d.planner, autoEdits: nextAutoEdits } }));
       persistPref({ plannerAutoEdits: nextAutoEdits });
     },
     [persistPref]
@@ -1501,10 +1501,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = useCallback(
     (lang: "en" | "ar") => {
-      setData((d) => ({ ...d, language: lang }));
-      persistPref({ language: lang });
+      setPref("language", lang);
     },
-    [persistPref]
+    [setPref]
   );
 
   const setTheme = useCallback(
@@ -1520,49 +1519,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // devices and never leaks between accounts on a shared device.
   const setTaskOrder = useCallback(
     (order: string[]) => {
-      setData((d) => ({ ...d, taskOrder: order }));
-      persistPref({ taskOrder: order });
+      setPref("taskOrder", order);
     },
-    [persistPref]
-  );
-
-  const setReminderDays = useCallback(
-    (days: number) => {
-      const n = Math.max(1, Math.round(Number(days) || 1));
-      setData((d) => ({ ...d, reminderDays: n }));
-      persistPref({ reminderDays: n });
-    },
-    [persistPref]
+    [setPref]
   );
 
   const setGpaMode = useCallback(
     (mode: GpaMode) => {
       const m: GpaMode = mode === "cumulative" ? "cumulative" : "semester";
-      setData((d) => ({ ...d, gpaMode: m }));
-      persistPref({ gpaMode: m });
+      setPref("gpaMode", m);
     },
-    [persistPref]
+    [setPref]
   );
 
   const setCumulativeGpa = useCallback(
     (gpa: number) => {
-      const raw = Math.max(0, Number(gpa) || 0);
-      setData((d) => {
-        const g = Math.min(resolveScheme(d.academic).max, raw);
-        persistPref({ cumulativeGpa: g });
-        return { ...d, cumulativeGpa: g };
-      });
+      const g = Math.min(resolveScheme(dataRef.current.academic).max, Math.max(0, Number(gpa) || 0));
+      commit({ cumulativeGpa: g });
+      persistPref({ cumulativeGpa: g });
     },
-    [persistPref]
+    [commit, persistPref]
   );
 
   const setCumulativeHours = useCallback(
     (hours: number) => {
       const h = Math.max(0, Math.round(Number(hours) || 0));
-      setData((d) => ({ ...d, cumulativeHours: h }));
-      persistPref({ cumulativeHours: h });
+      setPref("cumulativeHours", h);
     },
-    [persistPref]
+    [setPref]
   );
 
   // WRITE helper for notifPrefs. Normalizes defensively (so a bad partial can
@@ -1572,18 +1556,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setNotifPrefs = useCallback(
     (next: NotifPrefs) => {
       const clean = normalizeNotifPrefs(next);
-      setData((d) => ({ ...d, notifPrefs: clean }));
-      persistPref({ notifPrefs: clean });
+      setPref("notifPrefs", clean);
     },
-    [persistPref]
+    [setPref]
   );
 
   const setHaviName = useCallback(
     (name: string) => {
-      setData((d) => ({ ...d, haviName: name || "Havi" }));
-      persistPref({ haviName: name || "Havi" });
+      setPref("haviName", name || "Havi");
     },
-    [persistPref]
+    [setPref]
   );
 
   const completeOnboarding = useCallback(() => {
@@ -1593,22 +1575,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const confirmSetup = useCallback(
     (patch: Partial<SetupConfirmed>) => {
-      let next: SetupConfirmed = {};
-      setData((d) => {
-        next = { ...d.setupConfirmed, ...patch };
-        return { ...d, setupConfirmed: next };
-      });
+      const prev = dataRef.current.setupConfirmed;
+      const next: SetupConfirmed = { ...prev, ...patch };
+      commit({ setupConfirmed: next });
+      if (patch.semester && !prev.semester) void db.logEvent("setup_confirmed");
       persistPref({ setupConfirmed: next as unknown as Record<string, unknown> });
     },
-    [persistPref]
+    [commit, persistPref]
   );
 
   const setAttendanceEnabled = useCallback(
     (on: boolean) => {
-      setData((d) => ({ ...d, attendanceEnabled: on }));
-      persistPref({ attendanceEnabled: on });
+      setPref("attendanceEnabled", on);
+      void db.logEvent("attendance_tracking", { on });
     },
-    [persistPref]
+    [setPref]
   );
 
   // A rule the student takes on sets how every course counts absence (by hour
@@ -1616,7 +1597,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const applyRuleMethod = useCallback((method: PersonalAttendanceRule["method"] | AttendancePolicy["method"]) => {
     const mode = method === "lectures" ? "lecture" : method === "hours" ? "hour" : null;
     if (!mode) return;
-    const changed = coursesRef.current.filter((c) => (c.attendanceMode ?? "hour") !== mode).map((c) => c.id);
+    const changed = dataRef.current.courses.filter((c) => (c.attendanceMode ?? "hour") !== mode).map((c) => c.id);
     if (!changed.length) return;
     setData((d) => ({
       ...d,
@@ -1633,7 +1614,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (rule: PersonalAttendanceRule | null) => {
       setData((d) => ({ ...d, personalAttendanceRule: rule }));
       persistPref({ attendanceRule: rule as unknown as Record<string, unknown> | null });
-      if (rule) applyRuleMethod(rule.method);
+      if (rule) {
+        applyRuleMethod(rule.method);
+        void db.logEvent("attendance_rule_own", {
+          limit: rule.maxUnexcused ?? rule.maxAbsence,
+          excused_counts: rule.excusedCounts,
+          method: rule.method,
+        });
+      }
     },
     [persistPref, applyRuleMethod]
   );
@@ -1643,9 +1631,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const ackAttendancePolicy = useCallback(
     (policy: AttendancePolicy) => {
       const ack = policyAckKey(policy);
-      setData((d) => ({ ...d, attendancePolicyAck: ack }));
-      persistPref({ attendancePolicyAck: ack });
+      setPref("attendancePolicyAck", ack);
       applyRuleMethod(policy.method);
+      void db.logEvent("attendance_rule_confirmed", {
+        limit: policy.max_unexcused ?? policy.max_absence,
+        method: policy.method,
+        ...(isStudentAlternative(policy) ? { alternative: true } : {}),
+      });
       void submitVote({
         subject: "attendance",
         universitySlug: policy.university_slug,
@@ -1729,15 +1721,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch.universitySlug !== undefined && patch.universitySlug !== cur.academic.universitySlug
           ? releaseUniversityHolidays(cur.semester)
           : null;
-      dataRef.current = { ...cur, academic: next };
-      setData((d) => ({ ...d, academic: { ...d.academic, ...patch } }));
+      commit({ academic: next });
       persistPref({ academic: next as unknown as Record<string, unknown> });
       if (released) setSemester(released);
+      // What the student chose, for the admin's view of their answers. A typed
+      // university name is recorded once they stop typing.
+      if (next.universitySlug !== cur.academic.universitySlug || next.universityName !== cur.academic.universityName) {
+        if (universityLogTimer.current) clearTimeout(universityLogTimer.current);
+        universityLogTimer.current = setTimeout(() => {
+          const a = dataRef.current.academic;
+          void db.logEvent("university_set", { slug: a.universitySlug, name: a.universityName });
+        }, 4000);
+      }
+      if (next.gpaSchemeId !== cur.academic.gpaSchemeId) void db.logEvent("gpa_system_set", { scheme: next.gpaSchemeId ?? "auto" });
+      if (patch.holidayCheck) void db.logEvent("holidays_confirmed", { calendar: patch.holidayCheck.calendar });
       // No حرمان limit is applied from the university list: the limit now comes
       // only from the university's VERIFIED rule (attendance_policies) or the
       // student's own answer — never an assumed 25%.
     },
-    [persistPref, setSemester]
+    [commit, persistPref, setSemester]
   );
 
   const reportGradeTable = useCallback((event: GradeTableEvent, meta: Record<string, unknown>) => {
@@ -1747,49 +1749,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setTermCheck = useCallback(
     (check: Omit<TermCheck, "term"> | null) => {
       const next: TermCheck | null = check ? { ...check, term: semesterIdRef.current ?? "" } : null;
-      setData((d) => ({ ...d, termCheck: next }));
-      persistPref({ termCheck: next as unknown as Record<string, unknown> | null });
+      setPref("termCheck", next);
     },
-    [persistPref]
+    [setPref]
   );
 
   const setPastTerms = useCallback(
     (terms: PastTerm[]) => {
-      setData((d) => ({ ...d, pastTerms: terms }));
-      persistPref({ pastTerms: terms as unknown as Record<string, unknown>[] });
+      setPref("pastTerms", terms);
     },
-    [persistPref]
+    [setPref]
   );
 
   const setCourseRepeat = useCallback(
     (courseId: string, earlier: RepeatInfo | null) => {
-      setData((d) => {
-        const next: Record<string, RepeatInfo> = {};
-        // Keep only courses that still exist, so deleted ones don't linger.
-        for (const c of d.courses) if (d.repeats[c.id] && c.id !== courseId) next[c.id] = d.repeats[c.id];
-        if (earlier) next[courseId] = earlier;
-        persistPref({ repeats: { term: semesterIdRef.current ?? "", courses: next } as unknown as Record<string, unknown> });
-        return { ...d, repeats: next };
-      });
+      const d = dataRef.current;
+      const next: Record<string, RepeatInfo> = {};
+      // Keep only courses that still exist, so deleted ones don't linger.
+      for (const c of d.courses) if (d.repeats[c.id] && c.id !== courseId) next[c.id] = d.repeats[c.id];
+      if (earlier) next[courseId] = earlier;
+      if (!!earlier !== !!d.repeats[courseId]) {
+        void db.logEvent("course_repeat", { on: !!earlier, course: d.courses.find((c) => c.id === courseId)?.name });
+      }
+      commit({ repeats: next });
+      persistPref({ repeats: { term: semesterIdRef.current ?? "", courses: next } as unknown as Record<string, unknown> });
     },
-    [persistPref]
+    [commit, persistPref]
   );
 
   // Mark (or unmark) a course's limit as the student's own choice, dropping
   // ids of deleted courses on the way.
   const markOwnLimit = useCallback(
     (courseId: string, own: boolean) => {
-      setData((d) => {
-        const live = new Set(d.courses.map((c) => c.id));
-        live.add(courseId);
-        const next = d.ownLimits.filter((id) => id !== courseId && live.has(id));
-        if (own) next.push(courseId);
-        if (next.length === d.ownLimits.length && next.every((id, i) => id === d.ownLimits[i])) return d;
-        persistPref({ ownLimits: next });
-        return { ...d, ownLimits: next };
-      });
+      const d = dataRef.current;
+      const live = new Set(d.courses.map((c) => c.id));
+      live.add(courseId);
+      const next = d.ownLimits.filter((id) => id !== courseId && live.has(id));
+      if (own) next.push(courseId);
+      if (next.length === d.ownLimits.length && next.every((id, i) => id === d.ownLimits[i])) return;
+      commit({ ownLimits: next });
+      persistPref({ ownLimits: next });
     },
-    [persistPref]
+    [commit, persistPref]
   );
 
   const reportTermCheck = useCallback((event: TermCheckEvent, meta?: Record<string, unknown>) => {
@@ -1810,7 +1811,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const row = await db.addCourse({
           name: course.name,
           creditHours: course.creditHours,
-          position: coursesRef.current.length,
+          position: dataRef.current.courses.length,
           attendanceLimit: course.attendanceLimit,
           attendanceMode: ruleModeRef.current ?? undefined,
         });
@@ -1883,11 +1884,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const softDeleteCourse = useCallback((id: string): Course | undefined => {
-    const deleted = data.courses.find((c) => c.id === id);
+    const deleted = dataRef.current.courses.find((c) => c.id === id);
     if (!deleted) return undefined;
     setData((d) => ({ ...d, courses: d.courses.filter((c) => c.id !== id) }));
     return deleted;
-  }, [data.courses]);
+  }, []);
 
   const restoreCourse = useCallback((course: Course) => {
     setData((d) => ({ ...d, courses: [...d.courses, course] }));
@@ -1933,7 +1934,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       }));
       if (patch.score != null) {
-        const course = coursesRef.current.find((c) => c.id === courseId);
+        const course = dataRef.current.courses.find((c) => c.id === courseId);
         const prev = course?.components.find((c) => c.id === componentId);
         if (prev && prev.score == null) {
           awardGamificationXP(XP_REWARDS.LOG_MARKS, "log_marks");
@@ -1968,7 +1969,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Local-only removal for the undo flow (cloud delete is deferred to commit).
   const softDeleteComponent = useCallback(
     (courseId: string, componentId: string): GradeComponent | undefined => {
-      const comp = data.courses
+      const comp = dataRef.current.courses
         .find((c) => c.id === courseId)
         ?.components.find((k) => k.id === componentId);
       if (!comp) return undefined;
@@ -1982,7 +1983,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }));
       return comp;
     },
-    [data.courses]
+    []
   );
 
   const restoreComponent = useCallback((courseId: string, component: GradeComponent) => {
@@ -2100,7 +2101,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Read the current session from the ref (deterministic — never rely on a
       // value captured inside a setData updater, which may not run synchronously)
       // and compute the merged result used for BOTH the UI and the DB writes.
-      const cur = coursesRef.current
+      const cur = dataRef.current.courses
         .find((c) => c.id === courseId)
         ?.sessions.find((s) => s.id === sessionId);
       const updated: CourseSession | undefined = cur ? { ...cur, ...patch } : undefined;
@@ -2140,7 +2141,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteSession = useCallback((courseId: string, sessionId: string) => {
-    const cur = coursesRef.current
+    const cur = dataRef.current.courses
       .find((c) => c.id === courseId)
       ?.sessions.find((s) => s.id === sessionId);
     const timetableId = cur?.timetableId;
@@ -2170,7 +2171,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // its timetable-detail cascade only run on commit (deleteSession).
   const softDeleteSession = useCallback(
     (courseId: string, sessionId: string): CourseSession | undefined => {
-      const sess = data.courses
+      const sess = dataRef.current.courses
         .find((c) => c.id === courseId)
         ?.sessions.find((s) => s.id === sessionId);
       if (!sess) return undefined;
@@ -2184,7 +2185,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }));
       return sess;
     },
-    [data.courses]
+    []
   );
 
   const restoreSession = useCallback((courseId: string, session: CourseSession) => {
@@ -2196,26 +2197,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  // Legacy by-lecture count — unused by the current UI/attendance math; kept
-  // in-memory only for API compatibility (never persisted).
-  const setMissedLectures = useCallback(
-    (courseId: string, missed: number) =>
-      setData((d) => ({
-        ...d,
-        courses: d.courses.map((c) =>
-          c.id === courseId ? { ...c, missedLectures: Math.max(0, missed) } : c
-        ),
-      })),
-    []
-  );
-
   const addMissedSession = useCallback(async (
     courseId: string,
     sessionId: string,
     extra?: { date?: string; excused?: boolean; tardiness?: number }
   ): Promise<MutationResult> => {
     if (!loggedInRef.current) return NOT_SIGNED_IN;
-    const course = coursesRef.current.find((c) => c.id === courseId);
+    const course = dataRef.current.courses.find((c) => c.id === courseId);
     const sess = course?.sessions.find((s) => s.id === sessionId);
     if (!sess) return { ok: false, error: "session not found" };
     try {
@@ -2299,57 +2287,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const loadDemo = useCallback(async () => {
-    if (!loggedInRef.current) return;
-    try {
-      // Resolve the current user's active semester fresh (don't trust the ref).
-      const sem = await db.ensureActiveSemester();
-      semesterIdRef.current = sem.id;
-      // Replace any existing courses with the demo set.
-      await db.deleteCoursesForSemester(sem.id);
-      const demo = demoCourses();
-      const courses: Course[] = [];
-      for (let i = 0; i < demo.length; i++) {
-        const dc = demo[i];
-        const row = await db.addCourse({
-          name: dc.name,
-          creditHours: dc.creditHours,
-          position: i,
-        });
-        const components: GradeComponent[] = [];
-        for (const comp of dc.components) {
-          // addGradeComponent ignores the demo's local id and returns the cloud row.
-          components.push(await db.addGradeComponent(row.id, comp));
-        }
-        // Persist the demo's weekly sessions + logged absences to the cloud too,
-        // so the demo timetable/attendance survive a reload like real data.
-        const sessions: CourseSession[] = [];
-        for (const ds of dc.sessions) {
-          const srow = await db.addAttendanceSession(row.id, { day: ds.day, minutes: ds.minutes });
-          sessions.push({ id: srow.id, day: srow.day, minutes: srow.minutes, notes: [] });
-        }
-        const missedSessions: MissedEntry[] = [];
-        for (const dm of dc.missedSessions) {
-          const arow = await db.addAbsence(row.id, { day: dm.day, minutes: dm.minutes });
-          missedSessions.push({ id: arow.id, day: arow.day, minutes: arow.minutes });
-        }
-        courses.push({
-          id: row.id,
-          name: row.name,
-          creditHours: row.creditHours,
-          attendanceLimit: row.attendanceLimit,
-          sessions,
-          missedLectures: 0,
-          missedSessions,
-          components,
-        });
-      }
-      setData((d) => ({ ...d, courses }));
-    } catch (e) {
-      console.error("Haven: failed to load demo data", e);
-    }
-  }, []);
-
   const resetData = useCallback(async () => {
     const semesterId = semesterIdRef.current;
     if (loggedInRef.current && semesterId) {
@@ -2402,10 +2339,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, [hydrated, uniSlug]);
-  // The rule in force: the one the student confirmed (the main rule or one
-  // from their fellow students), else the main one, waiting for them.
   const universityPolicy = useMemo(
-    () => policyOptions.find((p) => data.attendancePolicyAck === policyAckKey(p)) ?? policyOptions[0] ?? null,
+    () => policyInForce(policyOptions, data.attendancePolicyAck),
     [policyOptions, data.attendancePolicyAck]
   );
 
@@ -2430,15 +2365,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const semesterView = useMemo(
     () => ({
       ...data.semester,
-      attendanceRule: resolveAttendanceRule(
-        data.personalAttendanceRule,
-        universityPolicy,
-        !!universityPolicy && data.attendancePolicyAck === policyAckKey(universityPolicy)
-      ),
+      attendanceRule: termAttendanceRule(data.personalAttendanceRule, policyOptions, data.attendancePolicyAck),
     }),
-    [data.semester, data.personalAttendanceRule, universityPolicy, data.attendancePolicyAck]
+    [data.semester, data.personalAttendanceRule, policyOptions, data.attendancePolicyAck]
   );
   ruleModeRef.current = ruleMode(semesterView);
+  viewRef.current = { courses: coursesView, semester: semesterView };
 
   const value: StoreValue = {
     ...data,
@@ -2456,7 +2388,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCourseRepeat,
     hydrated,
     loadFailed,
-    retryLoad,
+    authStatus,
     setProfileName,
     setEmail,
     setAcademic,
@@ -2472,7 +2404,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLanguage,
     setTheme,
     setTaskOrder,
-    setReminderDays,
     setGpaMode,
     setCumulativeGpa,
     setCumulativeHours,
@@ -2504,11 +2435,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteSession,
     softDeleteSession,
     restoreSession,
-    setMissedLectures,
     addMissedSession,
     updateMissedSession,
     removeMissedSession,
-    loadDemo,
     resetData,
   };
 

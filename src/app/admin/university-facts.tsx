@@ -21,7 +21,7 @@
 // Reads/writes go straight to the tables under the is_admin_current() policies.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, useC, StatCard, SectionHeader, Loading, ErrorBanner } from "./_lib";
+import { supabase, sessionUserId, useC, StatCard, SectionHeader, Loading, ErrorBanner } from "./_lib";
 import { UNIVERSITIES, type University } from "@/lib/tools/universities";
 
 type Term = "first" | "second" | "summer";
@@ -225,13 +225,13 @@ export function UniversityFactsSection() {
   }, [query, sector, hasCalendar]);
 
   const decide = async (ids: string[], status: "verified" | "rejected") => {
-    const { data: auth } = await supabase.auth.getUser();
+    const adminId = await sessionUserId();
     const { error: e } = await supabase
       .from("university_facts")
       .update({
         status,
         verified_via: status === "verified" ? "admin" : null,
-        reviewed_by: auth.user?.id ?? null,
+        reviewed_by: adminId,
         reviewed_at: new Date().toISOString(),
       })
       .in("id", ids);
@@ -246,8 +246,8 @@ export function UniversityFactsSection() {
     const rows = (bySlug.get(slug) ?? []).filter(
       (f) => f.academic_year === yr && f.term === term && (f.status === "suggested" || f.status === "review"),
     );
-    const { data: auth } = await supabase.auth.getUser();
-    const stamp = { status: "verified", reviewed_by: auth.user?.id ?? null, reviewed_at: new Date().toISOString() };
+    const adminId = await sessionUserId();
+    const stamp = { status: "verified", reviewed_by: adminId, reviewed_at: new Date().toISOString() };
     const results = await Promise.all(
       (["suggested", "review"] as const).map((st) => {
         const ids = rows.filter((f) => f.status === st).map((f) => f.id);
@@ -545,9 +545,9 @@ function EntryForm({ slug, year, onSaved, onError }: { slug: string; year: strin
     if (!/^https?:\/\//.test(url.trim())) return setMsg("Add the official source link (https://…).");
     if (!/^\d{4}-\d{4}$/.test(yr)) return setMsg("Academic year looks like 2026-2027.");
     const now = new Date().toISOString();
-    const { data: auth } = await supabase.auth.getUser();
+    const adminId = await sessionUserId();
     const source = [{ url: url.trim(), title: title.trim() || undefined }];
-    const base = { university_slug: slug, academic_year: yr, term, status: "verified", verified_via: "admin", sources: source, note: null, updated_at: now, reviewed_by: auth.user?.id ?? null, reviewed_at: now };
+    const base = { university_slug: slug, academic_year: yr, term, status: "verified", verified_via: "admin", sources: source, note: null, updated_at: now, reviewed_by: adminId, reviewed_at: now };
     const rows: Record<string, unknown>[] = [];
     for (const [k, v] of Object.entries(dates)) if (v) rows.push({ ...base, fact_key: k, value: { date: v } });
     if (pct) {

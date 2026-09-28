@@ -94,12 +94,6 @@ export function courseLimit(c: Course, sem?: Semester): number {
 // so older callers keep working.
 export const SCALE = SAUDI5.bands;
 
-/** The band a percentage earns under a scheme (defaults to Saudi 5.0). The
- *  LETTER is the same across the point-based schemes, so callers that only need
- *  the letter can ignore the scheme argument. */
-export const pctToGrade = (p: number, scheme: GradeScheme = SAUDI5) =>
-  bandForPct(scheme, p);
-
 /**
  * Course grade as it currently stands, out of the FULL 100 — descending from
  * A+ downward.
@@ -275,7 +269,6 @@ export function parseBounded(raw: string, max?: number): BoundedValue {
   return { value: n, error: null, clamped: n };
 }
 
-export const sessionsPerWeek = (c: Course) => c.sessions.length;
 export const minutesPerWeek = (c: Course) =>
   c.sessions.reduce((s, x) => s + (Number(x.minutes) || 0), 0);
 

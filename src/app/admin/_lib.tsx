@@ -4,7 +4,7 @@
 // Theme-aware — call `useC()` inside components to react to the theme toggle.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
+import { supabase, sessionUserId, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
 export const ADMIN_API = `${SUPABASE_URL}/functions/v1/admin-api`;
@@ -28,7 +28,7 @@ export async function callAdmin(
   return res.json().catch(() => ({ ok: false, error: "Invalid response" }));
 }
 
-export { supabase };
+export { supabase, sessionUserId };
 
 // ---------- useDebounce ----------
 export function useDebounce<T>(value: T, ms = 300): T {

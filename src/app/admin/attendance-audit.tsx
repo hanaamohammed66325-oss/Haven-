@@ -4,16 +4,19 @@
 // produced it, so the maths can be checked by hand. admin_attendance_audit()
 // returns the raw rows (active semester, courses, weekly sessions, logged
 // absences, the semester prefs); they are rebuilt into the app's own
-// Semester/Course shapes exactly like the store does on load, then run through
-// the SAME attendanceInfo() the student's screen uses — so the % here can never
-// drift from what they see.
+// Semester/Course shapes exactly like the store does on load — with the same
+// absence rule (their own answer, or the university rule they confirmed) and
+// the same published holiday calendars — then run through the SAME
+// attendanceInfo() the student's screen uses, so the % here can never drift
+// from what they see.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, useC, useS, SectionHeader, Loading, ErrorBanner, fmtNum, useDebounce } from "./_lib";
-import { attendanceInfo, courseLimit, type AttendanceInfo } from "@/lib/grades";
+import { attendanceInfo, courseRule, type AttendanceInfo } from "@/lib/grades";
 import { resolveTardinessRule } from "@/lib/tardiness";
 import { weekdayFromIso } from "@/lib/db";
-import { sanitizeCustomHolidays } from "@/store";
+import { readPersonalRule, sanitizeCustomHolidays, termAttendanceRule } from "@/store";
+import { fetchUniversityPolicies, type AttendancePolicy } from "@/lib/attendancePolicy";
 import { holidayCalendar } from "@/lib/universityCountry";
 import { registerPublishedCalendar } from "@/lib/countryHolidays";
 import { calendarFromRow, type CalendarRow } from "@/lib/publishedCalendars";
@@ -30,6 +33,37 @@ export interface AuditRecord {
     sessions: { id: string; day: number; minutes: number | null }[];
     absences: { id: string; date: string | null; minutes: number | null; excused: boolean | null; tardiness: number | null }[];
   }[];
+  /** the university's absence rules, as the student's app fetches them */
+  policies?: AttendancePolicy[];
+}
+
+/** The audit rows for every student (null) or one, with everything their app
+ *  uses to work out the %: calendars the admin published and their
+ *  university's absence rules. */
+export async function loadAudit(user: string | null): Promise<AuditRecord[]> {
+  const cals = await supabase.from("university_calendars").select("*");
+  for (const r of (cals.data ?? []) as CalendarRow[]) registerPublishedCalendar(r.key, calendarFromRow(r));
+  const { data, error } = await supabase.rpc("admin_attendance_audit", { p_user: user });
+  if (error) throw error;
+  const records = (data as AuditRecord[]) ?? [];
+  const slugOf = (r: AuditRecord) => {
+    const s = r.prefs?.universitySlug;
+    return typeof s === "string" && s && s !== "other" ? s : null;
+  };
+  const slugs = [...new Set(records.map(slugOf).filter((s): s is string => !!s))];
+  const policies = new Map(await Promise.all(slugs.map(async (s) => [s, await fetchUniversityPolicies(s)] as const)));
+  return records.map((r) => ({ ...r, policies: policies.get(slugOf(r) ?? "") ?? [] }));
+}
+
+/** Which rule the student's % is held to, for the header row. */
+function ruleLabel(sem: Semester): string {
+  const r = sem.attendanceRule;
+  if (!r || r.source === "none") return "none yet (student sees no %)";
+  const lim = [r.maxAbsence != null && `${r.maxAbsence}% total`, r.maxUnexcused != null && `${r.maxUnexcused}% unexcused`]
+    .filter(Boolean)
+    .join(" · ");
+  const who = r.source === "personal" ? "student's own answer" : "university (confirmed)";
+  return `${lim || "no limit"} · ${who}${r.excusedCounts ? "" : " · excused not counted"}`;
 }
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -57,11 +91,17 @@ function toSemester(r: AuditRecord): Semester {
       ? (p.dismissedHolidays as unknown[]).filter((x): x is string => typeof x === "string")
       : undefined,
     customHolidays: sanitizeCustomHolidays(p.customHolidays),
+    attendanceRule: termAttendanceRule(
+      readPersonalRule(p.attendanceRule),
+      r.policies ?? [],
+      typeof p.attendancePolicyAck === "string" ? p.attendancePolicyAck : null
+    ),
   };
 }
 
-function toCourse(c: AuditRecord["courses"][number]): Course {
+function toCourse(c: AuditRecord["courses"][number], ownLimits: unknown): Course {
   return {
+    ...(Array.isArray(ownLimits) && ownLimits.includes(c.id) ? { ownLimit: true } : {}),
     id: c.id,
     name: c.name,
     creditHours: Number(c.credits) || 0,
@@ -101,7 +141,7 @@ function buildRows(records: AuditRecord[]): Row[] {
       universityName: typeof rec.prefs?.universityName === "string" ? rec.prefs.universityName : "",
     });
     for (const raw of rec.courses) {
-      const course = toCourse(raw);
+      const course = toCourse(raw, rec.prefs?.ownLimits);
       rows.push({ rec, sem, raw, course, att: attendanceInfo(course, sem, calendar) });
     }
   }
@@ -123,13 +163,11 @@ export function AttendanceAuditSection({ onOpenUser }: { onOpenUser: (id: string
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
-    // Calendars published from the admin page, so each student's holidays match
-    // their app (best-effort: without them the country's list is used).
-    const cals = await supabase.from("university_calendars").select("*");
-    for (const r of (cals.data ?? []) as CalendarRow[]) registerPublishedCalendar(r.key, calendarFromRow(r));
-    const { data, error: e } = await supabase.rpc("admin_attendance_audit", { p_user: null });
-    if (e) setError(e.message);
-    else setRecords((data as AuditRecord[]) ?? []);
+    try {
+      setRecords(await loadAudit(null));
+    } catch (e) {
+      setError((e as Error).message);
+    }
     setLoading(false);
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -149,8 +187,8 @@ export function AttendanceAuditSection({ onOpenUser }: { onOpenUser: (id: string
       users: records?.length ?? 0,
       courses: rows.length,
       withAbsences: rows.filter((r) => r.raw.absences.length > 0).length,
-      danger: rows.filter((r) => r.att?.status === "danger").length,
-      warn: rows.filter((r) => r.att?.status === "warn").length,
+      danger: rows.filter((r) => r.att?.limitKnown && r.att.status === "danger").length,
+      warn: rows.filter((r) => r.att?.limitKnown && r.att.status === "warn").length,
       noSessions: rows.filter((r) => !r.att).length,
     };
   }, [records]);
@@ -234,13 +272,13 @@ export function AttendanceAuditView({
       <table className="w-full text-[12.5px]">
         <thead><tr>{cols.map((h) => <th key={h} style={{ ...S.tableHead, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
         <tbody>
-          {groups.map(({ rec, rows }) => {
+          {groups.map(({ rec, rows }, gi) => {
             const sem = rows[0]?.sem;
             const rule = resolveTardinessRule(sem);
             const custom = sem?.customHolidays?.length ?? 0;
             const dismissed = sem?.dismissedHolidays?.length ?? 0;
             return (
-              <Fragment key={rec.user_id}>
+              <Fragment key={`${rec.user_id}:${gi}`}>
                 {/* Per-user semester inputs shared by all their courses */}
                 <tr style={{ background: C.mode === "light" ? C.panel2 : C.border }}>
                   <td colSpan={cols.length} style={{ ...S.tableCell, paddingTop: 10, paddingBottom: 10 }}>
@@ -254,7 +292,8 @@ export function AttendanceAuditView({
                       )}
                       <Kv k="Teaching weeks" v={rec.semester.teaching_weeks} />
                       <Kv k="Dates" v={`${sem?.startDate || "—"} → ${sem?.endDate || "—"}`} />
-                      <Kv k="Default limit" v={`${sem?.withdrawalLimit ?? 25}%`} />
+                      <Kv k="Absence rule" v={sem ? ruleLabel(sem) : "—"} />
+                      {rec.prefs?.attendanceEnabled === false && <Kv k="Absence tracking" v="turned off by the student" />}
                       <Kv k="Tardiness rule" v={rule.id} />
                       <Kv k="University" v={(rec.prefs?.universityName as string) || (rec.prefs?.universitySlug as string) || "—"} />
                       <Kv k="Holidays" v={`${custom} custom · ${dismissed} dismissed`} />
@@ -277,8 +316,18 @@ export function AttendanceAuditView({
                         </td>
                         <td style={S.tableCell}>{att?.mode ?? course.attendanceMode}</td>
                         <td style={S.tableCell}>
-                          {courseLimit(course, sem)}%
-                          <span className="ms-1 text-[10px]" style={{ color: C.textFaint }}>{course.attendanceLimit ? "course" : "default"}</span>
+                          {(() => {
+                            const lr = courseRule(course, sem);
+                            const lim = lr.total ?? lr.unexcused;
+                            return (
+                              <>
+                                {lim != null ? `${lim}%` : "—"}
+                                <span className="ms-1 text-[10px]" style={{ color: C.textFaint }}>
+                                  {lr.source === "course" ? "course (own)" : lr.source === "none" ? "no rule" : lr.source}
+                                </span>
+                              </>
+                            );
+                          })()}
                         </td>
                         <td style={{ ...S.tableCell, whiteSpace: "nowrap" }}>{course.sessions.length} × · {weeklyMin} min</td>
                         <td style={{ ...S.tableCell, whiteSpace: "nowrap" }}>
@@ -303,11 +352,12 @@ export function AttendanceAuditView({
                           {att ? `${r2(att.unit)}%` : "—"}
                           {att?.mode === "lecture" && course.perLecturePct ? <span className="ms-1 text-[10px]" style={{ color: C.textFaint }}>manual</span> : null}
                         </td>
-                        <td style={{ ...S.tableCell, fontWeight: 700, color: att ? statusTone(att.status) : C.textFaint }}>
+                        <td style={{ ...S.tableCell, fontWeight: 700, color: att?.limitKnown ? statusTone(att.status) : C.textFaint }}>
                           {att ? `${r1(att.absence)}%` : "—"}
+                          {att && !att.limitKnown && <span className="ms-1 text-[10px] font-normal">not shown to student</span>}
                         </td>
                         <td style={{ ...S.tableCell, color: C.textDim, whiteSpace: "nowrap" }}>
-                          {att ? (att.mode === "lecture" ? `${att.lecturesRemaining} lectures` : `${r1(att.hoursRemaining)} h`) : "—"}
+                          {att?.limitKnown ? (att.mode === "lecture" ? `${att.lecturesRemaining} lectures` : `${r1(att.hoursRemaining)} h`) : "—"}
                         </td>
                       </tr>
                       {isOpen && (

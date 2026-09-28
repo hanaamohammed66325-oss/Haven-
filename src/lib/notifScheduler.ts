@@ -13,6 +13,7 @@
 import type { Course, NotifPrefs, PlannerData, Semester } from "@/types";
 import { plannerItemDate } from "./reminders";
 import { plural } from "./format";
+import { toISODate } from "./dates";
 
 /** A single, ready-to-fire smart reminder (built in the React layer from
  *  buildSmartSuggestions, so the notification says the same smart thing the
@@ -54,7 +55,7 @@ function clearAll() {
 }
 
 function localDateStr(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return toISODate(d);
 }
 
 function firedToday(id: string): boolean {

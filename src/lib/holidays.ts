@@ -119,7 +119,25 @@ export const SAUDI_HOLIDAYS: HolidayDef[] = [
   },
 ];
 
+// The answer for a given Hijri date and year never changes, and the scan below
+// converts up to ~270 dates, so each answer is worked out once.
+const gregorianForHijri = new Map<string, number | null>();
+
 function findGregorianForHijri(
+  hijriMonth: number,
+  hijriDay: number,
+  nearYear: number
+): Date | null {
+  const key = `${hijriMonth}-${hijriDay}-${nearYear}`;
+  if (!gregorianForHijri.has(key)) {
+    gregorianForHijri.set(key, scanGregorianForHijri(hijriMonth, hijriDay, nearYear)?.getTime() ?? null);
+  }
+  const t = gregorianForHijri.get(key);
+  // A fresh Date each time, so no caller can change the cached one.
+  return t == null ? null : new Date(t);
+}
+
+function scanGregorianForHijri(
   hijriMonth: number,
   hijriDay: number,
   nearYear: number

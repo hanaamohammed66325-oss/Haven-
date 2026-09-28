@@ -15,19 +15,17 @@
 // already works and is provider-agnostic.
 // ---------------------------------------------------------------------------
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Sparkles, ShieldCheck } from "lucide-react";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
+import { callFunction } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription";
 import { PLANS, DEFAULT_PLAN_CYCLE, ENFORCE_PREMIUM } from "@/lib/premium";
 import { RedirectHome } from "@/components/RedirectHome";
 import type { TranslationKey } from "@/i18n/translations/en";
 
-const CREATE_SUBSCRIPTION_URL = `${SUPABASE_URL}/functions/v1/create-subscription`;
-const VALIDATE_COUPON_URL = `${SUPABASE_URL}/functions/v1/validate-coupon`;
 
 const fieldBase =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -87,22 +85,13 @@ function CheckoutInner() {
     setCouponError("");
     setCouponLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const res = await callFunction("validate-coupon", { code });
+      if (!res) {
         setCouponError(t("checkoutErrSession"));
         setCouponLoading(false);
         return;
       }
-      const res = await fetch(VALIDATE_COUPON_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ code }),
-      });
-      const json = await res.json().catch(() => ({}));
+      const json = res.json;
       if (res.ok && json?.valid) {
         setAppliedCoupon({ code: json.code ?? code, percentOff: Number(json.percent_off) || 0 });
         setCouponCode("");
@@ -130,25 +119,16 @@ function CheckoutInner() {
       setError("");
       setSubmitting(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
+        const res = await callFunction("create-subscription", {
+          plan: cycle,
+          ...(appliedCoupon ? { coupon_code: appliedCoupon.code } : {}),
+        });
+        if (!res) {
           setError(t("checkoutErrSession"));
           setSubmitting(false);
           return;
         }
-        const res = await fetch(CREATE_SUBSCRIPTION_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            plan: cycle,
-            ...(appliedCoupon ? { coupon_code: appliedCoupon.code } : {}),
-          }),
-        });
-        const json = await res.json().catch(() => ({}));
+        const json = res.json;
         if (res.ok && json?.ok) {
           await refresh();
           router.replace("/profile?subscribed=1");

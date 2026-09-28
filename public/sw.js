@@ -20,6 +20,10 @@ const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const ASSET_CACHE = `${CACHE_VERSION}-assets`;
 const PAGE_CACHE = `${CACHE_VERSION}-pages`;
 
+// How long a page navigation waits on the network before falling back to the
+// saved copy of that page. The app should open within about 3 seconds.
+const NAVIGATE_TIMEOUT_MS = 3000;
+
 // Kept small on purpose: anything that 404s here aborts the whole install.
 const SHELL_FILES = ["/", "/offline/", "/manifest.json"];
 
@@ -47,6 +51,12 @@ self.addEventListener("activate", (event) => {
           .filter((k) => !k.startsWith(CACHE_VERSION))
           .map((k) => caches.delete(k))
       );
+      // Start the page request while this worker is still waking up, instead
+      // of only once it's running (saves the worker's start-up time on every
+      // launch). Used as event.preloadResponse below.
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable().catch(() => {});
+      }
       await self.clients.claim();
     })()
   );
@@ -91,20 +101,37 @@ self.addEventListener("fetch", (event) => {
   // Cross-origin (fonts, CDNs): let the browser handle it.
   if (url.origin !== self.location.origin) return;
 
-  // Page navigations: fresh when online, cached when not.
+  // Page navigations: fresh when online, cached when not — and cached when the
+  // network is too slow. Reopening the app on a phone whose connection is still
+  // waking up can leave this request hanging with no end; without a limit the
+  // app sits on a blank or loading screen until it is force-closed.
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
+        const network = Promise.resolve(event.preloadResponse)
+          .then((preloaded) => preloaded || fetch(request))
+          .then((fresh) => {
+            // Only cache a GOOD response. `fetch` resolves for 404/503 too, and
+            // caching a deploy-window 503 would pin the error page as this
+            // route's offline copy.
+            if (fresh && fresh.ok && fresh.type === "basic") {
+              const copy = fresh.clone();
+              caches.open(PAGE_CACHE).then((cache) => cache.put(request, copy));
+            }
+            return fresh;
+          });
+        // Handled below when it matters; this only silences the case where the
+        // saved copy was already served and the network then failed.
+        network.catch(() => {});
         try {
-          const fresh = await fetch(request);
-          // Only cache a GOOD response. `fetch` resolves for 404/503 too, and
-          // caching a deploy-window 503 would pin the error page as this
-          // route's offline copy.
-          if (fresh && fresh.ok && fresh.type === "basic") {
-            const cache = await caches.open(PAGE_CACHE);
-            cache.put(request, fresh.clone());
-          }
-          return fresh;
+          const slow = new Promise((resolve) =>
+            setTimeout(() => resolve(null), NAVIGATE_TIMEOUT_MS)
+          );
+          const first = await Promise.race([network, slow]);
+          if (first) return first;
+          // Too slow: show this page's saved copy if there is one, otherwise
+          // keep waiting for the network.
+          return (await caches.match(request)) || (await network);
         } catch (e) {
           const cached =
             (await caches.match(request)) ||

@@ -15,7 +15,7 @@
  *  - Promote a waiting worker immediately (sw.js listens for SKIP_WAITING).
  *  - Reload once when the new worker takes control, so the user lands on the
  *    new build instead of a half-old page.
- *  - Poll for updates hourly and whenever the app returns to the foreground —
+ *  - Poll for updates every 10 minutes and whenever the app returns to the foreground —
  *    the only way an installed PWA learns about a deploy.
  *
  * Deliberately skipped in development: a cached shell during `next dev`
@@ -71,7 +71,7 @@ export default function RegisterSW() {
         const poll = () => { reg.update().catch(() => {}); };
         // Check immediately on load — catches deploys the user missed.
         poll();
-        const periodic = window.setInterval(poll, 10 * 60 * 1000);
+        const periodic = window.setInterval(poll, 10 * 60 * 1000); // every 10 minutes
         const onVisible = () => {
           if (document.visibilityState === "visible") poll();
         };

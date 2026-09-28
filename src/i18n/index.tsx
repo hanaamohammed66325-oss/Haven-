@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, ReactNode } from "react";
 import { en, type TranslationKey } from "./translations/en";
 import { ar } from "./translations/ar";
 import { useStore } from "@/store";
@@ -47,13 +47,18 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     if (desc) desc.setAttribute("content", dictionaries[language].metaDescription);
   }, [language, dir, hydrated]);
 
-  const t = (key: TranslationKey, params?: Params): string => {
-    const template = dictionaries[language][key] ?? en[key] ?? key;
-    return interpolate(template, params);
-  };
+  // Stable while the language stays the same: this provider re-renders on every
+  // store change, and a new `t` each time broke every memo and effect that
+  // depends on it (e.g. the reminder scheduler re-sent its whole queue).
+  const t = useCallback(
+    (key: TranslationKey, params?: Params): string =>
+      interpolate(dictionaries[language][key] ?? en[key] ?? key, params),
+    [language]
+  );
+  const value = useMemo(() => ({ t, lang: language, dir }), [t, language, dir]);
 
   return (
-    <I18nContext.Provider value={{ t, lang: language, dir }}>
+    <I18nContext.Provider value={value}>
       {children}
     </I18nContext.Provider>
   );

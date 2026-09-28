@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
 import { useT } from "@/i18n";
 import { useScheme, useStore, type MutationResult } from "@/store";
-import { normalizeArabicDigits } from "@/lib/dates";
+import { toEnglishDigits } from "@/lib/dates";
 import { DENIED, detectScheme, isSaudiUniversity } from "@/lib/gradeSchemes";
 import { courseRule, hasOwnLimit } from "@/lib/grades";
 import { fmtPct } from "@/lib/format";
@@ -108,7 +108,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
     else if (policy === "other" && !note.trim()) return t("rep_errOther");
     if (needOld) {
       if (scheme.percent) {
-        const mark = Number(normalizeArabicDigits(oldGrade.trim()).replace(",", "."));
+        const mark = Number(toEnglishDigits(oldGrade.trim()).replace(",", "."));
         if (oldGrade.trim() === "" || !(mark >= 0 && mark <= 100)) return t("rep_errMark");
         info.mark = mark;
       } else {
@@ -124,7 +124,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
     const cr = Number(credits);
     if (!name.trim() || !cr || cr <= 0) return;
     // Empty = follow the term's rule; otherwise a sane 1..100.
-    const rawLim = normalizeArabicDigits(limit.trim()).replace(",", ".");
+    const rawLim = toEnglishDigits(limit.trim()).replace(",", ".");
     const lim = rawLim === "" ? 0 : Number(rawLim);
     if (rawLim !== "" && !(lim >= 1 && lim <= 100)) return setError(t("ruleFormErrLimit"));
     const attendanceLimit = lim;
@@ -134,7 +134,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
       if (typeof built === "string") return setError(built);
       repeat = built;
       if (saudi && kind === "raise") {
-        const raw = normalizeArabicDigits(gradMin.trim()).replace(",", ".");
+        const raw = toEnglishDigits(gradMin.trim()).replace(",", ".");
         const min = raw === "" ? undefined : Number(raw);
         if (min !== undefined && !(min > 0 && min <= scheme.max)) return setError(t("rep_errGradMin", { max: scheme.max }));
         // 0 = "no minimum" (an absent key wouldn't clear a saved one).

@@ -4,7 +4,7 @@ import { useC, useTheme } from "./_lib";
 import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
-  | "dashboard" | "users" | "insights" | "retention" | "top-users" | "universities" | "grade-tables" | "gpa-checks" | "facts"
+  | "dashboard" | "users" | "insights" | "retention" | "top-users" | "universities" | "gpa-checks" | "facts"
   | "attendance" | "notifications"
   | "subscriptions" | "payments" | "support" | "coupons";
 
@@ -34,8 +34,7 @@ export function AdminSidebar({
     { id: "retention",     label: "Retention",     icon: "🔁" },
     { id: "top-users",     label: "Top users",     icon: "🏆" },
     { id: "universities",  label: "Universities",  icon: "🎓" },
-    { id: "grade-tables",  label: "Grade tables",  icon: "📐" },
-    { id: "gpa-checks",    label: "GPA checks",    icon: "✅" },
+    { id: "gpa-checks",    label: "GPA",           icon: "✅" },
     { id: "facts",         label: "University facts", icon: "📅", badge: badges?.facts },
     { id: "attendance",    label: "Attendance audit", icon: "📋" },
     { id: "notifications", label: "Notifications", icon: "🔔" },

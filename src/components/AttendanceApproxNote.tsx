@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Info, AlertTriangle, ScrollText } from "lucide-react";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
+import { logEvent } from "@/lib/db";
 import { isPlaceholderSemester, requestSetup } from "./SetupCheck";
 import { AttendanceRuleModal } from "./AttendanceRuleModal";
 import { describePolicyAr, isStudentAlternative, policyKind, type AttendancePolicy } from "@/lib/attendancePolicy";
@@ -24,6 +25,12 @@ export function AttendanceApproxNote({ className = "", compact = false }: { clas
   const { t, lang } = useT();
   const { semester, setupConfirmed, universityPolicy, policyOptions, ackAttendancePolicy } = useStore();
   const [formOpen, setFormOpen] = useState(false);
+  // "No" to the rule shown: recorded even if the student then closes the form
+  // without giving theirs, so the admin knows the rule was disputed.
+  const sayNo = () => {
+    void logEvent("attendance_rule_no", { policy: universityPolicy?.id ?? null });
+    setFormOpen(true);
+  };
   const rule = semester.attendanceRule;
   const modal = <AttendanceRuleModal open={formOpen} onClose={() => setFormOpen(false)} />;
   const link = (text: string, onClick: () => void) => (
@@ -84,7 +91,7 @@ export function AttendanceApproxNote({ className = "", compact = false }: { clas
                 {t("attRuleYes")}
               </button>
               {!others.length && (
-                <button type="button" onClick={() => setFormOpen(true)} className="rounded-lg px-3.5 py-1.5 text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
+                <button type="button" onClick={sayNo} className="rounded-lg px-3.5 py-1.5 text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
                   {t("attRuleNo")}
                 </button>
               )}
@@ -109,7 +116,7 @@ export function AttendanceApproxNote({ className = "", compact = false }: { clas
               </div>
             ))}
             {others.length > 0 && (
-              <button type="button" onClick={() => setFormOpen(true)} className="mt-3 text-xs font-semibold underline underline-offset-2" style={{ color: "var(--color-muted)" }}>
+              <button type="button" onClick={sayNo} className="mt-3 text-xs font-semibold underline underline-offset-2" style={{ color: "var(--color-muted)" }}>
                 {t("attRuleAltNeither")}
               </button>
             )}

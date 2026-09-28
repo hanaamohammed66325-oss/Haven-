@@ -18,8 +18,6 @@ import { noteBucket, noteTag } from "./plannerKind";
 export const EXAM_TYPES = ["quiz", "midterm", "final"];
 /** Component types routed to the tasks/assignments section. */
 export const TASK_TYPES = ["assignment", "project"];
-/** Planner tags routed to the exams section (إجازة is never reminder-eligible). */
-export const PLANNER_EXAM_TAGS = new Set(["tagExam", "tagQuiz"]);
 
 /** Near-term windows, inclusive of today. */
 export const UPCOMING_EXAM_DAYS = 14;

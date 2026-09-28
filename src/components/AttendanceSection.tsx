@@ -8,7 +8,7 @@ import { useUndo } from "./UndoManager";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { attendanceInfo, fmtPct, ruleMode, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
-import { normalizeArabicDigits } from "@/lib/dates";
+import { toEnglishDigits } from "@/lib/dates";
 import { AttendanceApproxNote } from "./AttendanceApproxNote";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -21,7 +21,7 @@ const DAYS = [0, 1, 2, 3, 4, 5, 6];
  *  empty box) → undefined, which means "auto" (an even split). Blocks negatives
  *  and nonsense so a bad value can never drive the حرمان math. */
 function sanitizePct(raw: string): number | undefined {
-  const s = normalizeArabicDigits(raw).replace(/[^0-9.]/g, "");
+  const s = toEnglishDigits(raw).replace(/[^0-9.]/g, "");
   if (s === "") return undefined;
   const n = parseFloat(s);
   if (!Number.isFinite(n) || n <= 0) return undefined;

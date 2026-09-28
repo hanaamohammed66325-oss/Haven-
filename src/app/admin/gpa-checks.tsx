@@ -10,8 +10,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, useC, StatCard, SectionHeader, Loading, ErrorBanner, fmtDate } from "./_lib";
-import { catalogBySlug, detectScheme, matchCatalog, type GradeScheme } from "@/lib/gradeSchemes";
+import { useDrill, type DrillUser } from "./_drill";
+import { GradeTablesPanel } from "./grade-tables";
+import { catalogBySlug, detectScheme, matchCatalog, schemeById, type GradeScheme } from "@/lib/gradeSchemes";
 import { learnCutoffs, validCutoffs, type Observation } from "@/lib/cutoffLearning";
+import { en } from "@/i18n/translations/en";
 
 interface EventRow {
   user_id: string;
@@ -59,6 +62,48 @@ function slugOf(m: Record<string, unknown> | null): string | null {
   return name ? matchCatalog(name)?.slug ?? null : null;
 }
 
+/** The GPA system a check was worked out with, in words. */
+function schemeLabel(id: string | null): string {
+  if (!id) return "—";
+  if (id === "custom") return "Their own table";
+  if (id.startsWith("cat:")) return "University's table (catalogue)";
+  const s = schemeById(id);
+  return s ? en[s.labelKey as keyof typeof en] ?? id : id;
+}
+
+/** The checks that compare a GPA with the portal (not reasons or saved grades). */
+const CHECK_EVENTS = new Set(["term_gpa_match", "term_gpa_mismatch", "past_term_checked", "term_cum_checked"]);
+
+/** One check, flattened for the table and the user lists. */
+interface Check {
+  row: EventRow;
+  kind: string;
+  uni: string;
+  scheme: string;
+  ours: number | null;
+  portal: number | null;
+  result: "match" | "mismatch" | null;
+  cumResult: string | null;
+  withdrawn: boolean;
+}
+
+function toCheck(r: EventRow): Check {
+  const m = r.meta ?? {};
+  const slug = slugOf(m);
+  const past = r.event.startsWith("past_");
+  return {
+    row: r,
+    kind: past ? `Past term${str(m.name) ? ` · ${str(m.name)}` : ""}` : r.event.startsWith("term_cum") ? "Cumulative, end of term" : "End of term",
+    uni: (slug && catalogBySlug(slug)?.ar) || str(m.university) || "—",
+    scheme: schemeLabel(str(m.scheme)),
+    ours: num(m.ours),
+    portal: num(m.portal),
+    result: r.event === "term_gpa_match" ? "match" : r.event === "term_gpa_mismatch" ? "mismatch" : m.result === "match" || m.result === "mismatch" ? m.result : null,
+    cumResult: past ? cumResultOf(m) : null,
+    withdrawn: m.withdrawn === true,
+  };
+}
+
 /** The scheme the app uses for a catalogue university (estimated cutoffs). */
 function schemeFor(slug: string): GradeScheme | null {
   const u = catalogBySlug(slug);
@@ -68,10 +113,13 @@ function schemeFor(slug: string): GradeScheme | null {
 
 export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => void }) {
   const C = useC();
+  const drill = useDrill();
   const [rows, setRows] = useState<EventRow[] | null>(null);
   const [approved, setApproved] = useState<Record<string, { cutoffs: Record<string, number>; samples: number; updated_at: string }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,17 +151,50 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
   }, [load]);
 
   const all = useMemo(() => rows ?? [], [rows]);
-  const count = (event: string, pred: (m: Record<string, unknown>) => boolean = () => true) =>
-    all.filter((r) => r.event === event && pred(r.meta ?? {})).length;
+  const checks = useMemo(() => all.filter((r) => CHECK_EVENTS.has(r.event)).map(toCheck), [all]);
+  const where = (event: string, pred: (c: Check) => boolean = () => true) => checks.filter((c) => c.row.event === event && pred(c));
+
+  /** The students behind a list of checks: one line each, showing their latest
+   *  check (the list is newest first) and how many more they did. */
+  const open = (title: string, list: Check[]) => {
+    const byUser = new Map<string, Check[]>();
+    for (const c of list) byUser.set(c.row.user_id, [...(byUser.get(c.row.user_id) ?? []), c]);
+    const users: DrillUser[] = [...byUser.values()].map(([c, ...more]) => ({
+      user_id: c.row.user_id,
+      email: c.row.email,
+      last_active_at: c.row.at,
+      detail: [
+        c.uni !== "—" ? c.uni : null,
+        c.kind,
+        c.scheme,
+        c.ours != null || c.portal != null ? `ours ${c.ours ?? "—"} · portal ${c.portal ?? "—"}` : null,
+        more.length ? `+${more.length} more` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      badge: null,
+    }));
+    drill({ title, users });
+  };
+  // A card counts students, matching the list it opens.
+  const card = (label: string, list: Check[], accent: string, sub?: string) => (
+    <StatCard
+      label={label}
+      value={new Set(list.map((c) => c.row.user_id)).size}
+      accent={accent}
+      sub={sub}
+      onClick={list.length ? () => open(label, list) : undefined}
+    />
+  );
 
   const reasons = useMemo(() => {
-    const m = new Map<string, number>();
+    const m = new Map<string, EventRow[]>();
     for (const r of all) {
       if (r.event !== "term_mismatch_reason" && r.event !== "past_term_reason" && r.event !== "term_cum_reason") continue;
       const k = str(r.meta?.reason) ?? "unknown";
-      m.set(k, (m.get(k) ?? 0) + 1);
+      m.set(k, [...(m.get(k) ?? []), r]);
     }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
   }, [all]);
 
   // Shared reports with course details. The end-of-term flow can send the same
@@ -160,13 +241,19 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
 
   if (loading && !rows) return <Loading text="Loading GPA checks…" />;
 
+  const shared = (c: Check) => c.row.meta?.consent === true || coursesOf(c.row.meta).length > 0;
+  const shown = showAll ? checks : checks.slice(0, 25);
+
   return (
     <div>
       <SectionHeader
-        title="GPA checks"
+        title="GPA"
         action={
           <button
-            onClick={() => void load()}
+            onClick={() => {
+              setReloadKey((k) => k + 1);
+              void load();
+            }}
             className="rounded-lg px-3 py-1.5 text-[12px]"
             style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
           >
@@ -174,38 +261,123 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
           </button>
         }
       />
+
+      <GradeTablesPanel reloadKey={reloadKey} onOpenUser={onOpenUser} />
+
+      <div className="mt-10 pt-8 border-t" style={{ borderColor: C.border }}>
+        <h2 className="text-[16px] font-semibold mb-1" style={{ color: C.text }}>
+          Checks against the university portal
+        </h2>
+        <p className="text-[12px] mb-4" style={{ color: C.textDim }}>
+          Students who compared our GPA with the one on their portal, at the end of the term or on a past term. Click a number to
+          see the students.
+        </p>
+      </div>
       {error && <ErrorBanner message={error} onRetry={load} />}
 
       {rows && (
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="End of term: matched" value={count("term_gpa_match")} accent={C.success} />
-            <StatCard
-              label="End of term: differed"
-              value={count("term_gpa_mismatch")}
-              accent={C.warning}
-              sub={`${count("term_gpa_mismatch", (m) => m.consent === true)} shared details`}
-            />
-            <StatCard label="Past terms: matched" value={count("past_term_checked", (m) => m.result === "match")} accent={C.success} />
-            <StatCard
-              label="Past terms: differed"
-              value={count("past_term_checked", (m) => m.result === "mismatch")}
-              accent={C.warning}
-              sub={`${count("past_term_checked", (m) => m.result === "mismatch" && coursesOf(m).length > 0)} shared details`}
-            />
-            <StatCard label="Cumulative, end of term: matched" value={count("term_cum_checked", (m) => m.result === "match")} accent={C.success} />
-            <StatCard
-              label="Cumulative, end of term: differed"
-              value={count("term_cum_checked", (m) => m.result === "mismatch")}
-              accent={C.warning}
-              sub={`${count("term_cum_checked", (m) => m.result === "mismatch" && m.consent === true)} shared details`}
-            />
-            <StatCard label="Cumulative, past terms: matched" value={count("past_term_checked", (m) => cumResultOf(m) === "match")} accent={C.success} />
-            <StatCard
-              label="Cumulative, past terms: differed"
-              value={count("past_term_checked", (m) => cumResultOf(m) === "mismatch")}
-              accent={C.warning}
-            />
+            {card("End of term: matched", where("term_gpa_match"), C.success)}
+            {card(
+              "End of term: differed",
+              where("term_gpa_mismatch"),
+              C.warning,
+              `${where("term_gpa_mismatch", shared).length} shared details`
+            )}
+            {card("Past terms: matched", where("past_term_checked", (c) => c.result === "match"), C.success)}
+            {card(
+              "Past terms: differed",
+              where("past_term_checked", (c) => c.result === "mismatch"),
+              C.warning,
+              `${where("past_term_checked", (c) => c.result === "mismatch" && shared(c)).length} shared details`
+            )}
+            {card("Cumulative, end of term: matched", where("term_cum_checked", (c) => c.result === "match"), C.success)}
+            {card(
+              "Cumulative, end of term: differed",
+              where("term_cum_checked", (c) => c.result === "mismatch"),
+              C.warning,
+              `${where("term_cum_checked", (c) => c.result === "mismatch" && shared(c)).length} shared details`
+            )}
+            {card("Cumulative, past terms: matched", where("past_term_checked", (c) => c.cumResult === "match"), C.success)}
+            {card("Cumulative, past terms: differed", where("past_term_checked", (c) => c.cumResult === "mismatch"), C.warning)}
+          </div>
+
+          <div>
+            <h3 className="text-[13px] font-semibold mb-2" style={{ color: C.text }}>
+              Every check
+            </h3>
+            <div className="rounded-xl border overflow-x-auto" style={{ borderColor: C.border, background: C.panel }}>
+              {checks.length === 0 ? (
+                <p className="p-6 text-center text-[13px]" style={{ color: C.textFaint }}>
+                  No student has checked yet.
+                </p>
+              ) : (
+                <table className="w-full text-[12px] tabular-nums" style={{ color: C.text }}>
+                  <thead>
+                    <tr style={{ color: C.textFaint, borderBottom: `1px solid ${C.border}` }}>
+                      {["Student", "University", "Check", "GPA system", "Ours", "Portal", "Result", "Date"].map((h) => (
+                        <th key={h} className="text-start font-medium px-4 py-2.5 whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((c, i) => (
+                      <tr
+                        key={`${c.row.user_id}${c.row.at}${c.row.event}`}
+                        onClick={() => onOpenUser(c.row.user_id)}
+                        className="admin-hover-row"
+                        style={{ cursor: "pointer", borderBottom: i === shown.length - 1 ? "none" : `1px solid ${C.border}` }}
+                      >
+                        <td className="px-4 py-2.5" style={{ color: C.primary }}>
+                          {c.row.email ?? "user"}
+                        </td>
+                        <td dir="auto" className="px-4 py-2.5">
+                          {c.uni}
+                        </td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">{c.kind}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: c.scheme === "Their own table" ? C.warning : C.textMuted }}>
+                          {c.scheme}
+                        </td>
+                        <td className="px-4 py-2.5">{c.ours ?? "—"}</td>
+                        <td className="px-4 py-2.5">{c.portal ?? "—"}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">
+                          {c.withdrawn ? (
+                            <span style={{ color: C.textFaint }}>consent withdrawn</span>
+                          ) : (
+                            <>
+                              <span style={{ color: c.result === "match" ? C.success : c.result ? C.warning : C.textFaint }}>
+                                {c.result === "match" ? "matched" : c.result ? "differed" : "—"}
+                              </span>
+                              {c.cumResult && (
+                                <span style={{ color: c.cumResult === "match" ? C.success : C.warning }}>
+                                  {" "}
+                                  · cumulative {c.cumResult === "match" ? "matched" : "differed"}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: C.textMuted }}>
+                          {fmtDate(c.row.at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {checks.length > 25 && (
+              <button
+                onClick={() => setShowAll((v) => !v)}
+                className="mt-2 text-[12px] underline-offset-2 hover:underline"
+                style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+              >
+                {showAll ? "Show fewer" : `Show all ${checks.length}`}
+              </button>
+            )}
           </div>
 
           {reasons.length > 0 && (
@@ -214,10 +386,15 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
                 Why students think it differed
               </h3>
               <div className="flex flex-wrap gap-2">
-                {reasons.map(([k, n]) => (
-                  <span key={k} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text }}>
-                    {REASON_LABEL[k] ?? k} · <b className="tabular-nums">{n}</b>
-                  </span>
+                {reasons.map(([k, list]) => (
+                  <button
+                    key={k}
+                    onClick={() => open(`Reason: ${REASON_LABEL[k] ?? k}`, list.map(toCheck))}
+                    className="admin-hover-row rounded-lg px-3 py-1.5 text-[12px]"
+                    style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
+                  >
+                    {REASON_LABEL[k] ?? k} · <b className="tabular-nums">{list.length}</b>
+                  </button>
                 ))}
               </div>
             </div>

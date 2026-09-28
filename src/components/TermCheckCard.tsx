@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, CalendarCheck } from "lucide-react";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
+import { logEvent } from "@/lib/db";
 import { DateField } from "./DateField";
 import { addDays, formatShortDate, toISODate } from "@/lib/dates";
 import { universityCalendar } from "@/lib/countryHolidays";
@@ -87,6 +88,11 @@ export function TermCheckCard({ className = "" }: { className?: string }) {
 
   const answer = (agrees: boolean, dates: { start: string; finals_start: string; end: string }, keptOwn = false) => {
     confirmSetup({ termAnswered: plan.id, ...(plan.status === "incomplete" ? { calendar: plan.id } : {}) });
+    void logEvent(!term ? "term_dates_set_own" : agrees ? "term_dates_confirmed" : keptOwn ? "term_dates_restored" : "term_dates_corrected", {
+      term: plan.id,
+      start: dates.start,
+      end: dates.end,
+    });
     if (!term || !plan.key) return; // no university calendar to report on
     void submitVote({
       subject: "calendar",
@@ -107,7 +113,10 @@ export function TermCheckCard({ className = "" }: { className?: string }) {
     answer(true, { start: term.start, finals_start: term.finalsStart, end: term.end });
   };
 
-  const keepMine = () => confirmSetup({ termAnswered: plan.id });
+  const keepMine = () => {
+    confirmSetup({ termAnswered: plan.id });
+    void logEvent("term_dates_kept_own", { term: plan.id, start: semester.startDate, end: semester.endDate });
+  };
 
   const restore = () => {
     if (!prev) return;

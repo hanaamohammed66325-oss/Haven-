@@ -12,9 +12,9 @@
 // was already registered during the PWA work; we only read its registration.
 // ---------------------------------------------------------------------------
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, sessionUserId } from "@/lib/supabase";
 import { useT } from "@/i18n";
 import { useInTour } from "./tour/TourContext";
 import {
@@ -58,6 +58,10 @@ function isStandalone(): boolean {
   );
 }
 
+// Who is signed in, read from this device (no network). A connection problem
+// reads as "no user", which leaves the section hidden until the next check.
+const uid = (): Promise<string | null> => sessionUserId().catch(() => null);
+
 export function NotificationsSettings() {
   const { t, lang } = useT();
   const inTour = useInTour();
@@ -68,14 +72,6 @@ export function NotificationsSettings() {
   const [testing, setTesting] = useState(false);
   const [testMsg, setTestMsg] = useState("");
   const [testErr, setTestErr] = useState("");
-  const uidRef = useRef<string | null>(null);
-
-  const uid = useCallback(async (): Promise<string | null> => {
-    if (uidRef.current) return uidRef.current;
-    const { data } = await supabase.auth.getUser();
-    uidRef.current = data.user?.id ?? null;
-    return uidRef.current;
-  }, []);
 
   /**
    * Work out which of A–E to show. Order note: the spec lists A (unsupported)
@@ -137,7 +133,7 @@ export function NotificationsSettings() {
       return KEEP;
     }
     return result.subscribed ? "on" : "enable";
-  }, [uid]);
+  }, []);
 
   // Initial detection on mount. Skipped inside the tour — it renders its own
   // illustrative preview and shouldn't probe the Push API (or log its absence).
@@ -205,7 +201,7 @@ export function NotificationsSettings() {
     } finally {
       setBusy(false);
     }
-  }, [t, uid]);
+  }, [t]);
 
   const disable = useCallback(async () => {
     setError("");
@@ -239,7 +235,7 @@ export function NotificationsSettings() {
     } finally {
       setBusy(false);
     }
-  }, [t, uid]);
+  }, [t]);
 
   // Send a real push to every device this user has enabled (via the test-push
   // Edge Function — the static site has no server to sign VAPID requests).

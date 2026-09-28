@@ -16,7 +16,7 @@
 // Reads/writes go straight to the tables under the is_admin_current() policies.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, useC, StatCard, SectionHeader, Loading, ErrorBanner } from "./_lib";
+import { supabase, sessionUserId, useC, StatCard, SectionHeader, Loading, ErrorBanner } from "./_lib";
 import { UNIVERSITIES } from "@/lib/tools/universities";
 import {
   describePolicyAr,
@@ -125,14 +125,14 @@ export function AttendancePoliciesSection() {
   }, [policies]);
 
   const decide = async (id: string, status: "verified" | "review" | "rejected") => {
-    const { data: auth } = await supabase.auth.getUser();
+    const adminId = await sessionUserId();
     const now = new Date().toISOString();
     const { error: e } = await supabase
       .from("attendance_policies")
       .update({
         status,
         last_verified: status === "verified" ? now : null,
-        verified_by: status === "verified" ? auth.user?.id ?? null : null,
+        verified_by: status === "verified" ? adminId : null,
         updated_at: now,
       })
       .eq("id", id);
@@ -757,7 +757,7 @@ function PolicyForm({
     const sources: PolicySource[] = [...(existing?.sources ?? [])];
     if (newSource) sources.push({ url: newSource, ...(title.trim() ? { title: title.trim() } : {}), ...(quote.trim() ? { quote: quote.trim() } : {}) });
     if (!sources.length) return setMsg("Add the official source link.");
-    const { data: auth } = await supabase.auth.getUser();
+    const adminId = await sessionUserId();
     const now = new Date().toISOString();
     const row = {
       university_slug: slug,
@@ -774,7 +774,7 @@ function PolicyForm({
       note: note.trim() || null,
       sources,
       updated_at: now,
-      ...(approve ? { status: "verified", last_verified: now, verified_by: auth.user?.id ?? null } : {}),
+      ...(approve ? { status: "verified", last_verified: now, verified_by: adminId } : {}),
     };
     setSaving(true);
     const { error } = existing
@@ -839,10 +839,10 @@ function ReportRow({ report: r, existing, onDone, onError }: { report: PolicyRep
   const name = r.university_slug ? uniName(r.university_slug, r.university_name) : r.university_name ?? "Unknown university";
 
   const setStatus = async (status: PolicyReport["status"]) => {
-    const { data: auth } = await supabase.auth.getUser();
+    const adminId = await sessionUserId();
     const { error } = await supabase
       .from("attendance_policy_reports")
-      .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: auth.user?.id ?? null })
+      .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: adminId })
       .eq("id", r.id);
     if (error) throw error;
   };
@@ -852,7 +852,7 @@ function ReportRow({ report: r, existing, onDone, onError }: { report: PolicyRep
     if (!r.regulation_url) return;
     setBusy(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const adminId = await sessionUserId();
       const now = new Date().toISOString();
       const slug = r.university_slug ?? `other-${r.id.slice(0, 8)}`;
       const row = {
@@ -868,7 +868,7 @@ function ReportRow({ report: r, existing, onDone, onError }: { report: PolicyRep
         note: a.note ?? null,
         status: "verified",
         last_verified: now,
-        verified_by: auth.user?.id ?? null,
+        verified_by: adminId,
         updated_at: now,
       };
       const current = existing.find((p) => p.scope === "university");

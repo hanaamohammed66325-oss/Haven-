@@ -7,7 +7,7 @@ import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Footer } from "@/components/Footer";
 import { useSubscription } from "@/lib/subscription";
-import { PLANS, FEATURES, PREMIUM_LIST, isVip, isInTrial, isActiveSubscriber, hasActiveAccess, ENFORCE_PREMIUM } from "@/lib/premium";
+import { PLANS, FEATURES, PREMIUM_LIST, isVip, isInTrial, isActiveSubscriber, ENFORCE_PREMIUM } from "@/lib/premium";
 import { RedirectHome } from "@/components/RedirectHome";
 import { changePlan, planLabelKeyFor, type PlanCycle } from "@/lib/changePlan";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -45,7 +45,6 @@ function PremiumPageInner() {
   const canSwitch = !vip && (isInTrial(sub) || isActiveSubscriber(sub));
   const currentCycle = sub?.billing_cycle ?? null;
 
-  const premium = hasActiveAccess(profile, sub);
 
   const [toast, setToast] = useState("");
   const [toastErr, setToastErr] = useState(false);

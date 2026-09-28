@@ -28,6 +28,7 @@ import { DEFAULT_SEMESTER_NAME } from "@/lib/db";
 import { WhatIfCard } from "@/components/WhatIfCard";
 import { SmartSuggestions } from "@/components/SmartSuggestions";
 import { NotifNudge } from "@/components/NotifNudge";
+import { GpaCheckNudge } from "@/components/GpaCheckNudge";
 import { CumulativeGpaModal } from "@/components/CumulativeGpaModal";
 import {
   semesterGPA,
@@ -80,7 +81,7 @@ export default function DashboardPage() {
       : tableStatus === "unknown"
       ? "gpaSchemeNudge"
       : null;
-  const { gamification, recordAppOpen, doCheckIn, awardGamificationXP, refreshGamChallenges } = store;
+  const { gamification, recordAppOpen, doCheckIn, refreshGamChallenges } = store;
   const { profile, sub } = useSubscription();
   const isPremium = hasActiveAccess(profile, sub);
 
@@ -191,6 +192,7 @@ export default function DashboardPage() {
           <AcademicBanner />
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
+          <GpaCheckNudge />
           <NotifNudge />
           <Link
             href="/courses"

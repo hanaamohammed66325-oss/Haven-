@@ -73,9 +73,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
   }, [clearRetry]);
 
+  // Read once per account, not once per auth event: INITIAL_SESSION covers the
+  // first read, and hourly token refreshes of the same account change nothing.
+  const lastUidRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    refresh();
-    const { data } = supabase.auth.onAuthStateChange(() => refresh());
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const uid = session?.user?.id ?? null;
+      if (uid === lastUidRef.current) return;
+      lastUidRef.current = uid;
+      void refresh();
+    });
     return () => {
       data.subscription.unsubscribe();
       clearRetry();

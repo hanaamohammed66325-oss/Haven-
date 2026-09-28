@@ -144,7 +144,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 export default function SettingsPage() {
-  const { t, lang } = useT();
+  const { t } = useT();
   usePageTitle("nav_settings");
   const router = useRouter();
   const store = useStore();
@@ -547,8 +547,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Contact us — same channels as the /contact page (single source in
-          @/lib/contact). Email and Instagram are live; WhatsApp is
-          temporarily disabled. */}
+          @/lib/contact, which decides which channels are live). */}
       <Section id="contact" title={t("sectionContact")}>
         <p className="text-[13px] mb-5 -mt-1" style={{ color: "var(--color-muted)" }}>
           {t("contactIntro")}

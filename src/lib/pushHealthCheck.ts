@@ -14,7 +14,7 @@
 // runPushAutoHeal() re-runs the same reconciliation on every app open instead.
 // ---------------------------------------------------------------------------
 
-import { supabase } from "@/lib/supabase";
+import { supabase, sessionUserId } from "@/lib/supabase";
 
 // Inlined at build time by Next for NEXT_PUBLIC_* vars.
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -257,8 +257,7 @@ export async function runPushAutoHeal(): Promise<void> {
     if (Date.now() - inFlight < 30_000) return;
     sessionStorage.setItem(IN_FLIGHT_KEY, String(Date.now()));
 
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
+    const userId = await sessionUserId();
     if (!userId) return;
 
     // serviceWorker.ready never resolves when no worker is active (e.g. dev,

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, useC, useS, StatCard, ClickableCard, SectionHeader, Loading, ErrorBanner, fmtNum } from "./_lib";
 import { useDrill } from "./_drill";
+import { InsightsChoices } from "./student-decisions";
 
 interface Engagement {
   total_users: number;
@@ -100,6 +101,9 @@ export function InsightsSection() {
               Install tracking was just added, so “Installed (tracked)” builds up as users open the app from the Home Screen. iOS push only works after install, so iOS push count is a reliable minimum for iPhone installs.
             </p>
           </div>
+
+          {/* What students chose or answered, and who needs following up */}
+          <InsightsChoices />
 
           {/* Page usage */}
           <div>

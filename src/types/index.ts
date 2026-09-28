@@ -1,3 +1,5 @@
+import type { SchemeId } from "@/lib/gradeSchemes";
+
 export type CalendarType = "hijri" | "gregorian";
 
 export type ThemeId =
@@ -303,18 +305,8 @@ export interface AcademicInfo {
   /** academic level: "1".."10", or any custom text the student enters. */
   level: string;
   /** GPA grading system: "auto" (or unset) detects it from the university;
-   *  the rest force a specific scheme. Mirrors SchemeId in lib/gradeSchemes. */
-  gpaSchemeId?:
-    | "auto"
-    | "saudi5"
-    | "saudi4"
-    | "percentage"
-    | "plusminus4"
-    | "qatar4"
-    | "jordan4"
-    | "jordan4new"
-    | "jordan4plus"
-    | "custom";
+   *  the rest force a specific scheme. */
+  gpaSchemeId?: "auto" | SchemeId | "custom";
   /** The student's answer to "is this your university's points table?" for a
    *  table detected from the unverified catalogue. `key` is the catalogue
    *  slug it was asked about, so picking another university asks again. */

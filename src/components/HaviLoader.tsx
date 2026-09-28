@@ -35,7 +35,6 @@ const BODY = [
 ];
 
 const W = 28;
-const H = 21;
 
 function drawHavi(canvas: HTMLCanvasElement, tick: number) {
   const ctx = canvas.getContext("2d");
@@ -87,12 +86,6 @@ export function HaviLoader() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, []);
-
-  // Read lang from document for bilingual text
-  const lang =
-    typeof document !== "undefined"
-      ? document.documentElement.getAttribute("lang") || "en"
-      : "en";
 
   return (
     <div

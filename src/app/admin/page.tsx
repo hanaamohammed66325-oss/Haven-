@@ -20,7 +20,6 @@ import { SupportSection } from "./support";
 import { CouponsSection } from "./coupons";
 import { TopUsersSection } from "./top-users";
 import { UniversitiesSection } from "./universities";
-import { GradeTablesSection } from "./grade-tables";
 import { GpaChecksSection } from "./gpa-checks";
 import { loadCalendarsReady, loadFactsCoverage } from "./university-facts";
 import { AttendanceAuditSection } from "./attendance-audit";
@@ -241,8 +240,6 @@ function AdminPage() {
             <TopUsersSection onOpenUser={openUser} />
           ) : section === "universities" ? (
             <UniversitiesSection />
-          ) : section === "grade-tables" ? (
-            <GradeTablesSection />
           ) : section === "gpa-checks" ? (
             <GpaChecksSection onOpenUser={openUser} />
           ) : section === "facts" ? (

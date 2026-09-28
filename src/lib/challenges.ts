@@ -1,8 +1,9 @@
 import type { Course, PlannerData, PlannerNote, PomodoroStats, Semester } from "@/types";
 import { POMODORO_ENABLED } from "@/lib/featureFlags";
 import { noteBucket } from "./plannerKind";
-import type { GamificationState, ChallengeItem, ChallengeState, WeeklySnapshot } from "./gamification";
+import type { GamificationState, ChallengeItem, ChallengeState } from "./gamification";
 import { defaultChallenges } from "./gamification";
+import { toISODate } from "./dates";
 
 // ── Context ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ function dateHash(date: string, salt: string): number {
 function sundayOfWeek(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() - d.getDay());
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return toISODate(d);
 }
 
 // ── Date helpers ────────────────────────────────────────────────────────────
@@ -41,13 +42,13 @@ function sundayOfWeek(dateStr: string): string {
 function noteDate(semesterStart: string, week: number, day?: number): string {
   const d = new Date(semesterStart + "T00:00:00");
   d.setDate(d.getDate() + (week - 1) * 7 + (day ?? 0));
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return toISODate(d);
 }
 
 function tomorrow(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return toISODate(d);
 }
 
 // ── Challenge definitions ────────────────────────────────────────────────────

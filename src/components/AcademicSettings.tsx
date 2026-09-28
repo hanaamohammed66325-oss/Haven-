@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { UNIVERSITIES } from "@/lib/tools/universities";
-import { normalizeArabicDigits } from "@/lib/dates";
+import { toEnglishDigits } from "@/lib/dates";
 import { detectScheme, gradeTableStatus, schemeById } from "@/lib/gradeSchemes";
 import { typedUniversityNames, universityChoices } from "@/lib/universityCountry";
 import { COUNTRY_LABEL, withCountry } from "@/lib/universityPick";
@@ -33,7 +33,7 @@ const LEVEL_TEXT_MAX = 24;
  *  is treated as free text and just length-capped. An empty string passes
  *  through so the field can be cleared while editing. */
 function sanitizeLevel(raw: string): string {
-  const s = normalizeArabicDigits(raw.trim()); // Arabic-Indic → ASCII
+  const s = toEnglishDigits(raw.trim()); // Arabic-Indic → ASCII
   // A value with any letter is a named level ("تمهيدي"، "امتياز") — leave it be.
   if (/\p{L}/u.test(s)) return raw.slice(0, LEVEL_TEXT_MAX);
   // Otherwise it's meant to be a number: keep digits only (dropping any sign,

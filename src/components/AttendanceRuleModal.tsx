@@ -5,14 +5,14 @@ import { Modal } from "./Modal";
 import { Button } from "./Button";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
-import { normalizeArabicDigits } from "@/lib/dates";
+import { toEnglishDigits } from "@/lib/dates";
 import { submitPolicyReport, submitVote } from "@/lib/attendancePolicy";
 import type { PersonalAttendanceRule } from "@/types";
 
 type Method = "lectures" | "hours" | "unspecified";
 
 const pctOf = (raw: string): number | null => {
-  const s = normalizeArabicDigits(raw).replace(/[^0-9.]/g, "");
+  const s = toEnglishDigits(raw).replace(/[^0-9.]/g, "");
   if (!s) return null;
   const n = parseFloat(s);
   return Number.isFinite(n) ? n : NaN;

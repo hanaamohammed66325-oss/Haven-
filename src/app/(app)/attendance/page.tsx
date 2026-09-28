@@ -12,8 +12,8 @@ import { attendanceInfo, courseLimit, fmtPct, STATUS_COLOR } from "@/lib/grades"
 import { formatDuration } from "@/lib/format";
 import { toISODate } from "@/lib/dates";
 import { resolveHolidaysForSemester } from "@/lib/holidays";
-import { TARDINESS_RULES, resolveTardinessRule, buildCustomRule, DEFAULT_RULE_ID } from "@/lib/tardiness";
-import { Shield, Clock, CalendarOff, ChevronDown, ChevronUp, CheckCircle, XCircle, AlertTriangle, X, Trash2 } from "lucide-react";
+import { TARDINESS_RULES, DEFAULT_RULE_ID } from "@/lib/tardiness";
+import { Shield, Clock, CalendarOff, ChevronDown, ChevronUp, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 import { holidayCalendar } from "@/lib/universityCountry";
@@ -56,7 +56,7 @@ function StatBox({
 }
 
 function CourseAttendanceCard({ course }: { course: Course }) {
-  const { t, lang } = useT();
+  const { t } = useT();
   const { semester, academic, updateMissedSession, addMissedSession, removeMissedSession } = useStore();
   const [expanded, setExpanded] = useState(false);
   const [addingAbsence, setAddingAbsence] = useState(false);
@@ -449,7 +449,6 @@ export default function AttendancePage() {
   ]);
 
   const ruleId = semester?.tardinessRuleId ?? DEFAULT_RULE_ID;
-  const tardinessRule = resolveTardinessRule(semester);
 
   const coursesWithAttendance = useMemo(
     () => courses.filter((c) => c.sessions.length > 0),

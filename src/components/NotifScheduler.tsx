@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { scheduleAll, cancelAll, type SmartAlert } from "@/lib/notifScheduler";
@@ -10,16 +10,25 @@ import { plannerItemDate } from "@/lib/reminders";
 import { holidayCalendar } from "@/lib/universityCountry";
 import { classOffDays } from "@/lib/holidays";
 import { plural } from "@/lib/format";
-
-function isoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+import { toISODate as isoDate } from "@/lib/dates";
 
 export function NotifScheduler() {
   const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic, attendanceEnabled, saveClassOff } = useStore();
   // The reminder's GPA must use the student's own system, like the dashboard.
   const scheme = useScheme();
   const { t, lang } = useT();
+  // What this session already queued on the server (dedupKey → content), and
+  // the last set of live task keys. The effect below re-runs on most store
+  // changes (XP, a typed grade…); only a reminder that actually changed is
+  // written again, instead of re-sending the whole queue each time.
+  const queued = useRef(new Map<string, string>());
+  const lastLiveKeys = useRef<string | null>(null);
+  const enqueue = (p: Parameters<typeof enqueueScheduledPush>[0]) => {
+    const content = `${p.sendAt}|${p.title}|${p.body}`;
+    if (queued.current.get(p.dedupKey) === content) return;
+    queued.current.set(p.dedupKey, content);
+    void enqueueScheduledPush(p);
+  };
 
   // The term's holidays on the student's calendar: no lecture reminder on them,
   // here or from the server (which also needs the student's time zone — a
@@ -81,7 +90,7 @@ export function NotifScheduler() {
       sendAt.setHours(notifPrefs.dailyReminderHour, 0, 0, 0);
       if (sendAt.getTime() <= Date.now()) sendAt.setDate(sendAt.getDate() + 1);
       const queuedAlert = forDay(buildAlert(sendAt), sendAt); // content as it will be at send time
-      if (queuedAlert) void enqueueScheduledPush({
+      if (queuedAlert) enqueue({
         dedupKey: `smart-${isoDate(sendAt)}`,
         sendAt: sendAt.toISOString(),
         title: queuedAlert.title,
@@ -125,7 +134,7 @@ export function NotifScheduler() {
             lang === "ar"
               ? `موعد التسليم خلال ${plural(hoursAhead, ["ساعة", "ساعتين", "# ساعات", "# ساعة"])}`
               : `Due in ${hoursAhead}h`;
-          void enqueueScheduledPush({
+          enqueue({
             dedupKey,
             sendAt: new Date(fireAt).toISOString(),
             title: `Haven — ${note.text}`,
@@ -133,11 +142,17 @@ export function NotifScheduler() {
           });
         }
       }
-      // Drop any queued-but-undelivered task push whose task is gone/checked off.
-      void reconcileScheduledPushes("task-", liveKeys);
+      // Drop any queued-but-undelivered task push whose task is gone/checked off
+      // (only when the set of live tasks changed).
+      const liveSignature = [...liveKeys].sort().join(",");
+      if (liveSignature !== lastLiveKeys.current) {
+        lastLiveKeys.current = liveSignature;
+        void reconcileScheduledPushes("task-", liveKeys);
+      }
     }
 
     return cancelAll;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- enqueue only reads refs
   }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, scheme, academic, lang, t]);
 
   return null;

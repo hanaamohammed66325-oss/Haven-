@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
-import { BADGES, badgesForTier, getBadgeThreshold, getBadgePercent, type BadgeContext } from "@/lib/gamification";
-import { semesterGPA } from "@/lib/grades";
-import { resolveScheme } from "@/lib/gradeSchemes";
+import { badgesForTier, getBadgeThreshold, getBadgePercent } from "@/lib/gamification";
 import { hasActiveAccess } from "@/lib/premium";
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
+import { callFunction } from "@/lib/supabase";
 import { PENDING_EMAIL_CHANGE_KEY } from "@/lib/auth";
-import { useStore } from "@/store";
-import { useT } from "@/i18n";
+import { badgeContext, useStore } from "@/store";
+import { useT, usePageTitle } from "@/i18n";
 import type { TranslationKey } from "@/i18n/translations/en";
 import { useSubscription } from "@/lib/subscription";
 import { Card } from "@/components/Card";
@@ -21,13 +19,10 @@ import { AcademicBanner } from "@/components/AcademicBanner";
 import { AcademicSettings } from "@/components/AcademicSettings";
 import { GpaAccuracyCard } from "@/components/TermCheck";
 import { CollapseBody, CollapseToggle, CollapsibleSection, useCardCollapse } from "@/components/Collapsible";
-import { holidayCalendar } from "@/lib/universityCountry";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 
-const CHANGE_PASSWORD_URL = `${SUPABASE_URL}/functions/v1/change-password`;
-const CHANGE_EMAIL_URL = `${SUPABASE_URL}/functions/v1/change-email`;
 
 // Downscale + compress an uploaded image so it fits comfortably in localStorage.
 function resizeImage(file: File, max = 256): Promise<string> {
@@ -57,6 +52,7 @@ function resizeImage(file: File, max = 256): Promise<string> {
 
 export default function ProfilePage() {
   const { t } = useT();
+  usePageTitle("nav_profile");
   const badgesFold = useCardCollapse("profile-badges");
   const router = useRouter();
   const { profile, sub, refresh } = useSubscription();
@@ -275,16 +271,7 @@ export default function ProfilePage() {
       {isPremium && (() => {
         const tier = gamification.badgeTier;
         const earnedCount = gamification.badges.length;
-        const badgeCtx: BadgeContext = {
-          courses,
-          planner,
-          semesterGpa: semesterGPA(courses, resolveScheme(academic)),
-          gpaMax: resolveScheme(academic).max,
-          semesterStartDate: semester.startDate,
-          semesterWeeks: semester.weeks,
-          semester,
-          holidayCalendar: holidayCalendar(academic),
-        };
+        const badgeCtx = badgeContext({ courses, planner, academic, semester });
         return (
           <Card padding="p-5 sm:p-8" className="haven-stagger mt-8">
             <div
@@ -391,18 +378,12 @@ function ChangeEmailModal({ open, onClose }: { open: boolean; onClose: () => voi
     }
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setError(t("errUnknown")); setLoading(false); return; }
-      const res = await fetch(CHANGE_EMAIL_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ current_password: pw, new_email: newEmail.trim().toLowerCase() }),
+      const res = await callFunction("change-email", {
+        current_password: pw,
+        new_email: newEmail.trim().toLowerCase(),
       });
-      const j = await res.json().catch(() => ({}));
+      if (!res) { setError(t("errUnknown")); setLoading(false); return; }
+      const j = res.json;
       if (res.ok && j?.ok) {
         // Mark this device as the initiator so /email-changed can distinguish
         // same-device vs other-device when the confirmation link is opened.
@@ -512,18 +493,9 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
     if (next !== confirm) { setError(t("errPasswordsDontMatch")); return; }
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setError(t("errUnknown")); setLoading(false); return; }
-      const res = await fetch(CHANGE_PASSWORD_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ current_password: current, new_password: next }),
-      });
-      const j = await res.json().catch(() => ({}));
+      const res = await callFunction("change-password", { current_password: current, new_password: next });
+      if (!res) { setError(t("errUnknown")); setLoading(false); return; }
+      const j = res.json;
       if (res.ok && j?.ok) {
         setSuccess(true);
       } else {

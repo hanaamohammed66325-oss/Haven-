@@ -34,3 +34,12 @@
   for = "/icons/*"
   [headers.values]
     Cache-Control = "public, max-age=86400"
+
+# Build output under /_next/static/ is named by its content hash: a new build
+# gets new file names, so a file's bytes never change and it can be cached for
+# good. Without this Netlify's default (revalidate every time) made each launch
+# after a deploy re-check or re-download all the app's scripts.
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

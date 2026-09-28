@@ -7,7 +7,7 @@ import { useT } from "@/i18n";
 import { Card } from "@/components/Card";
 import { CollapseBody, CollapseToggle, useCardCollapse } from "@/components/Collapsible";
 import { Modal } from "@/components/Modal";
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase";
+import { callFunction } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription";
 import {
   PLANS,
@@ -21,7 +21,6 @@ import { changePlan, type PlanCycle } from "@/lib/changePlan";
 import { formatLongDate } from "@/lib/dates";
 import type { TranslationKey } from "@/i18n/translations/en";
 
-const CANCEL_URL = `${SUPABASE_URL}/functions/v1/cancel-subscription`;
 
 // Plan display name from the billing-cycle slug ('4months'|'6months'|'yearly').
 function planLabelKey(cycle: string | null): TranslationKey | null {
@@ -134,23 +133,13 @@ export function SubscriptionSection() {
     setError("");
     setBusy(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
+      const res = await callFunction("cancel-subscription");
+      if (!res) {
         setError(t("checkoutErrSession"));
         setBusy(false);
         return;
       }
-      const res = await fetch(CANCEL_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-        },
-      });
-      const json = await res.json().catch(() => ({} as Record<string, unknown>));
+      const json = res.json;
       if (!res.ok || !json?.ok) {
         setError(t("subCancelError"));
         setBusy(false);
@@ -242,11 +231,7 @@ export function SubscriptionSection() {
       <>
         <Badge tone="primary">{t("subTrialBadge")}</Badge>
         <p className="mt-3 text-sm" style={{ color: "var(--color-ink)" }}>
-          {t("subTrialEnds", {
-            n,
-            unit: n === 1 ? t("subTrialDay") : t("subTrialDays"),
-            date: endDate,
-          })}
+          {t("subTrialEnds", { n, date: endDate })}
         </p>
         {planLine && (
           <p className="mt-1.5 text-sm" style={{ color: "var(--color-muted)" }}>

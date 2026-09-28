@@ -1,5 +1,6 @@
 import type { Course, PlannerData, Semester } from "@/types";
 import { attendanceInfo } from "@/lib/grades";
+import { toISODate } from "./dates";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,6 @@ export const defaultGamification: GamificationState = {
 export const MAX_TIER = 4;
 
 export const TIER_ICONS = ["🥉", "🥈", "🥇", "💎"] as const;
-export const TIER_KEYS = ["bronze", "silver", "gold", "diamond"] as const;
 
 // ── XP ─────────────────────────────────────────────────────────────────────
 
@@ -102,8 +102,7 @@ export function levelProgress(xp: number): number {
 // ── Streak ─────────────────────────────────────────────────────────────────
 
 function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return toISODate(new Date());
 }
 
 function daysBetween(a: string, b: string): number {
@@ -228,36 +227,6 @@ function countScoresAtLeast(courses: Course[], pct: number): number {
     }
   }
   return count;
-}
-
-function countQualifiedCourses(courses: Course[]): number {
-  return courses.filter(
-    (c) =>
-      c.components.some((comp) => comp.score != null && comp.score > 0) &&
-      c.sessions.length > 0
-  ).length;
-}
-
-//                              Tier 1   Tier 2   Tier 3   Tier 4 (Diamond/Finals)
-// first-checkin: check-ins       1       15       50       100
-// safe:          weeks           2        6       12       16 (full semester)
-// organized:     tasks done      5       15       30       50
-// committed:     weeks           1        4       10       14
-// outstanding:   GPA           4.0      4.5     4.75      4.9
-// level-up:      XP            100      500     2000     4000
-// perfect-score: %/count      60%/2    75%/3    85%/4   100%/5
-
-function countGradedCourses(courses: Course[]): number {
-  return courses.filter((c) =>
-    c.components.length > 0 &&
-    c.components.every((comp) => comp.score != null)
-  ).length;
-}
-
-function totalGradableComponents(courses: Course[]): number {
-  let n = 0;
-  for (const c of courses) for (const comp of c.components) if (comp.total > 0) n++;
-  return n;
 }
 
 // Badge tiers aligned to semester timeline:
@@ -459,10 +428,6 @@ export function getBadgeThreshold(id: string, tier: number, ctx?: BadgeContext):
   return def.thresholds[Math.min(tier, MAX_TIER) - 1];
 }
 
-export function getBadgeDef(id: string): BadgeDef | undefined {
-  return BADGES.find((b) => b.id === id);
-}
-
 /** For perfect-score, the minimum score % required at `tier`; null for others. */
 export function getBadgePercent(id: string, tier: number): number | null {
   if (id !== "perfect-score") return null;
@@ -472,10 +437,3 @@ export function getBadgePercent(id: string, tier: number): number | null {
 // ── Streak milestone markers ───────────────────────────────────────────────
 
 export const STREAK_MILESTONES = [7, 14, 30, 60, 100] as const;
-
-export function streakMilestone(current: number): number | null {
-  for (let i = STREAK_MILESTONES.length - 1; i >= 0; i--) {
-    if (current >= STREAK_MILESTONES[i]) return STREAK_MILESTONES[i];
-  }
-  return null;
-}

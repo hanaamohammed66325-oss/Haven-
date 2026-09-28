@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, X, RotateCcw, CalendarDays, Check } from "lucide-react";
 import { useStore } from "@/store";
+import { logEvent } from "@/lib/db";
 import { useT } from "@/i18n";
 import { DateField } from "./DateField";
 import {
@@ -64,17 +65,25 @@ export function HolidaysManager() {
       ? formatShortDate(start, lang, cal)
       : `${formatShortDate(start, lang, cal)} – ${formatShortDate(end, lang, cal)}`;
 
-  const dismiss = (id: string) =>
+  // Each change is also recorded, so the admin sees how a student's holidays
+  // differ from the calendar we show.
+  const dismiss = (id: string) => {
     setSemester({ dismissedHolidays: [...new Set([...dismissed, id])] });
-  const restore = (id: string) =>
+    void logEvent("holiday_removed", { id });
+  };
+  const restore = (id: string) => {
     setSemester({ dismissedHolidays: dismissed.filter((x) => x !== id) });
-  const deleteCustom = (id: string) =>
+    void logEvent("holiday_restored", { id });
+  };
+  const deleteCustom = (id: string) => {
+    void logEvent("holiday_deleted", { name: custom.find((c) => c.id === id)?.name });
     setSemester({
       customHolidays: custom.filter((c) => c.id !== id),
       // A custom holiday can also carry a dismiss flag; drop it on delete so a
       // recycled id can't stay hidden.
       dismissedHolidays: dismissed.filter((x) => x !== id),
     });
+  };
 
   // ── add form ──────────────────────────────────────────────────────────────
   const [adding, setAdding] = useState(false);
@@ -109,6 +118,7 @@ export function HolidaysManager() {
       endDate: end,
     };
     setSemester({ customHolidays: [...custom, entry] });
+    void logEvent("holiday_added", { name: nm, start, end });
     setName("");
     setErr("");
     setAdding(false);

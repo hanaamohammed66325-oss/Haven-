@@ -3,10 +3,8 @@
 // subscription section and the /premium plan cards so the request + error
 // mapping live in one place.
 
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase";
+import { callFunction } from "./supabase";
 import { PLANS } from "./premium";
-
-const CHANGE_PLAN_URL = `${SUPABASE_URL}/functions/v1/change-plan`;
 
 export type PlanCycle = "4months" | "6months" | "yearly";
 
@@ -30,22 +28,10 @@ export function planLabelKeyFor(cycle: string | null): string | null {
 
 /** Change plan / resubscribe. Never throws — returns a typed result. */
 export async function changePlan(plan: PlanCycle): Promise<ChangePlanResult> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return { ok: false, code: "NO_SESSION", error: "no session" };
-
   try {
-    const res = await fetch(CHANGE_PLAN_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-        apikey: SUPABASE_PUBLISHABLE_KEY,
-      },
-      body: JSON.stringify({ plan }),
-    });
-    const json = await res.json().catch(() => ({} as Record<string, unknown>));
+    const res = await callFunction("change-plan", { plan });
+    if (!res) return { ok: false, code: "NO_SESSION", error: "no session" };
+    const json = res.json;
     if (!res.ok || !json?.ok) {
       const code = json?.code === "NO_SUBSCRIPTION" ? "NO_SUBSCRIPTION" : "GENERIC";
       return { ok: false, code, error: String(json?.error ?? "request failed") };

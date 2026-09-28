@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import HaviMascot from "@/components/HaviMascot";
 import RegisterSW from "@/components/RegisterSW";
+import EnglishDigits from "@/components/EnglishDigits";
 import InstallPrompt from "@/components/InstallPrompt";
 import InstallGuideModal from "@/components/InstallGuideModal";
 import { SubscriptionProvider } from "@/lib/subscription";
@@ -124,6 +125,7 @@ export default function RootLayout({
         {/* PWA: register the worker (production only) and offer the install
             flow. Mounted once here so they exist on every route. */}
         <RegisterSW />
+        <EnglishDigits />
         <InstallPrompt />
         <InstallGuideModal />
       </body>

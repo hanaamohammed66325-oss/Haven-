@@ -6,7 +6,7 @@
 // approved it, and no percentage is shown until the student confirms it. Each
 // confirmation is a vote (crowd_votes): 5 agreeing students approve it.
 
-import { supabase } from "./supabase";
+import { supabase, sessionUserId } from "./supabase";
 import { fmtPct } from "./format";
 
 export type PolicyMethod = "hours" | "lectures" | "count" | "none" | "unspecified";
@@ -199,11 +199,11 @@ export async function submitVote(v: {
   agrees: boolean;
   answer: RuleAnswer | { start: string; finals_start: string; end?: string; kept_own?: boolean };
 }): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return;
+  const userId = await sessionUserId();
+  if (!userId) return;
   const { error } = await supabase.from("crowd_votes").upsert(
     {
-      user_id: auth.user.id,
+      user_id: userId,
       subject: v.subject,
       university_slug: v.universitySlug,
       period: v.period ?? "",

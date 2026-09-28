@@ -10,6 +10,7 @@ import { supabase } from "./supabase";
 import { SAUDI_HOLIDAYS } from "./holidays";
 import { universityBySlug } from "./tools/universities";
 import type { CustomHoliday } from "@/types";
+import { toISODate } from "./dates";
 
 export type Term = "first" | "second" | "summer";
 
@@ -78,7 +79,7 @@ const days = (a: string, b: string) => Math.round((+new Date(b) - +new Date(a)) 
 export function defaultsFromFacts(
   facts: VerifiedFact[],
   slug: string | null,
-  today = new Date().toISOString().slice(0, 10)
+  today = toISODate(new Date())
 ): UniversityDefaults {
   const byTerm = new Map<string, VerifiedFact[]>();
   for (const f of facts) {

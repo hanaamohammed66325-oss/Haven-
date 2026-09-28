@@ -66,7 +66,6 @@ export default function SignUpPage() {
     };
     const check = async () => {
       ticks += 1;
-      console.debug(`[signup] confirmation poll #${ticks}`);
       try {
         const res = await signIn(email, password);
         if (res.ok) {

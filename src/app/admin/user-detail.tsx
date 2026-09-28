@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Badge, useC, useS, callAdmin, supabase, fmtDateTime, fmtSar, fmtNum, timeAgo, Loading, StatCard } from "./_lib";
-import { AttendanceAuditView, type AuditRecord } from "./attendance-audit";
+import { Badge, useC, useS, callAdmin, fmtDateTime, fmtSar, fmtNum, timeAgo, Loading, StatCard } from "./_lib";
+import { AttendanceAuditView, loadAudit, type AuditRecord } from "./attendance-audit";
+import { StudentSummaryCard } from "./student-decisions";
 
 interface Detail {
   profile: {
@@ -21,7 +22,6 @@ interface Detail {
       finals_weeks: number | null;
       start_date: string | null;
       end_date: string | null;
-      withdrawal_limit: number | null;
       calendar_type: string | null;
       tardiness_rule: string | null;
       cumulative_gpa: number | null;
@@ -30,7 +30,6 @@ interface Detail {
     courses: Array<{
       name: string;
       credits: number | null;
-      attendance_limit: number | null;
       position: number;
       sessions: number;
       weekly_minutes: number;
@@ -133,6 +132,10 @@ export function UserDetailSection({
           </div>
         )}
       </div>
+
+      {/* Where the student stands on each question that decides their numbers,
+          and when they answered it */}
+      <StudentSummaryCard userId={userId} />
 
       {/* Engagement & retention — are we keeping this user? */}
       <RetentionCard engagement={detail.engagement} topPages={detail.top_pages} lastActiveAt={detail.last_active_at} joinedAt={p?.created_at} />
@@ -353,7 +356,6 @@ function InputsCard({ inputs }: { inputs?: Detail["inputs"] }) {
   if (sem) {
     if (!sem.teaching_weeks || sem.teaching_weeks <= 0) semFlags.push("Teaching weeks not set");
     if (sem.start_date && sem.end_date && sem.start_date >= sem.end_date) semFlags.push("Start date on/after end date");
-    if (sem.withdrawal_limit == null) semFlags.push("Withdrawal limit not set (defaults to 25%)");
   }
 
   const th = "px-3 py-2 text-start text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap";
@@ -374,7 +376,6 @@ function InputsCard({ inputs }: { inputs?: Detail["inputs"] }) {
           <KV label="Semester" value={sem.name || "—"} />
           <KV label="Teaching weeks" value={sem.teaching_weeks ?? "—"} />
           <KV label="Finals weeks" value={sem.finals_weeks ?? "—"} />
-          <KV label="Withdrawal (حرمان)" value={sem.withdrawal_limit == null ? "25% (default)" : `${sem.withdrawal_limit}%`} />
           <KV label="Start date" value={sem.start_date ?? "—"} />
           <KV label="End date" value={sem.end_date ?? "—"} />
           <KV label="Calendar" value={sem.calendar_type ?? "gregorian"} />
@@ -406,7 +407,7 @@ function InputsCard({ inputs }: { inputs?: Detail["inputs"] }) {
             <table className="w-full border-collapse">
               <thead>
                 <tr style={{ background: C.panel2 }}>
-                  {["Course", "Credits", "Limit", "Sessions", "Min/wk", "Marks", "Weights", "Absences", "Flags"].map((h) => (
+                  {["Course", "Credits", "Sessions", "Min/wk", "Marks", "Weights", "Absences", "Flags"].map((h) => (
                     <th key={h} className={th} style={{ color: C.textFaint }}>{h}</th>
                   ))}
                 </tr>
@@ -419,7 +420,6 @@ function InputsCard({ inputs }: { inputs?: Detail["inputs"] }) {
                     <tr key={i} style={{ borderTop: `1px solid ${C.border}` }}>
                       <td className={td} style={{ color: C.text, fontWeight: 500 }}>{c.name || "—"}</td>
                       <td className={td} style={{ color: C.text }}>{c.credits ?? "—"}</td>
-                      <td className={td} style={{ color: C.text }}>{c.attendance_limit ? `${c.attendance_limit}%` : "—"}</td>
                       <td className={td} style={{ color: c.sessions === 0 ? C.danger : C.text }}>{c.sessions}</td>
                       <td className={td} style={{ color: C.text }}>{c.weekly_minutes}</td>
                       <td className={td} style={{ color: C.text }}>{c.graded}/{c.components}</td>
@@ -455,11 +455,10 @@ function AttendanceCard({ userId }: { userId: string }) {
   const [error, setError] = useState("");
   useEffect(() => {
     let cancelled = false;
-    supabase.rpc("admin_attendance_audit", { p_user: userId }).then(({ data, error: e }) => {
-      if (cancelled) return;
-      if (e) setError(e.message);
-      else setRecords((data as AuditRecord[]) ?? []);
-    });
+    loadAudit(userId).then(
+      (r) => { if (!cancelled) setRecords(r); },
+      (e: Error) => { if (!cancelled) setError(e.message); }
+    );
     return () => { cancelled = true; };
   }, [userId]);
 

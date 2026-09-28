@@ -6,7 +6,7 @@ import { ClipboardList, ChevronRight, GripVertical } from "lucide-react";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
-import { formatShortDate } from "@/lib/dates";
+import { formatShortDate, toISODate } from "@/lib/dates";
 import { usePointerReorder, type PointerReorder } from "@/lib/usePointerReorder";
 import type { Course } from "@/types";
 
@@ -231,7 +231,7 @@ function ScoreCell({ row }: { row: Task }) {
       </span>
     );
   }
-  const past = row.date != null && row.date < new Date().toISOString().slice(0, 10);
+  const past = row.date != null && row.date < toISODate(new Date());
   if (!past) {
     return (
       <span

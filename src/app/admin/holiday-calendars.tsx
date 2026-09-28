@@ -20,7 +20,7 @@
 // crowd_votes (admins read every row).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner, fmtDate } from "./_lib";
+import { supabase, sessionUserId, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner, fmtDate } from "./_lib";
 import { useDrill, type DrillUser } from "./_drill";
 import { COUNTRY_NAMES, registerPublishedCalendar } from "@/lib/countryHolidays";
 import { calendarFromRow, type CalendarRow } from "@/lib/publishedCalendars";
@@ -118,10 +118,10 @@ export function HolidayCalendarsSection() {
   };
 
   const setStatus = async (key: string, status: "verified" | "suggested" | "rejected") => {
-    const { data: auth } = await supabase.auth.getUser();
+    const adminId = await sessionUserId();
     const { error: e } = await supabase
       .from("university_calendars")
-      .update({ status, updated_at: new Date().toISOString(), reviewed_at: new Date().toISOString(), reviewed_by: auth.user?.id ?? null })
+      .update({ status, updated_at: new Date().toISOString(), reviewed_at: new Date().toISOString(), reviewed_by: adminId })
       .eq("key", key);
     if (e) setError(e.message);
     else void load();

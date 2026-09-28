@@ -14,9 +14,16 @@ export function addDays(d: Date, n: number): Date {
   return x;
 }
 
-/** Convert Arabic-Indic digits (٠-٩) to ASCII (0-9); other characters pass through. */
-export function normalizeArabicDigits(raw: string): string {
-  return raw.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+
+/** Numbers in Haven are English digits only: Arabic-Indic (٠-٩) and Persian
+ *  (۰-۹) digits become 0-9 and the Arabic decimal mark (٫) becomes "."; other
+ *  characters pass through. */
+export function toEnglishDigits(raw: string): string {
+  return raw.replace(/[٠-٩۰-۹٫]/g, (c) =>
+    c === "٫" ? "." : String(ARABIC_DIGITS.includes(c) ? ARABIC_DIGITS.indexOf(c) : PERSIAN_DIGITS.indexOf(c))
+  );
 }
 
 /** Local-time ISO date (YYYY-MM-DD) without timezone drift. */
@@ -27,9 +34,23 @@ export function toISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+// Building an Intl.DateTimeFormat is far slower than using one, and the holiday
+// lookup converts hundreds of dates per course on every render, so formatters
+// are made once per locale + options and reused.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function formatter(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = locale + JSON.stringify(options);
+  let f = formatters.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, f);
+  }
+  return f;
+}
+
 /** Hijri (Umm al-Qura) day/month/year for a Gregorian date. */
 export function hijriParts(d: Date): { day: number; month: number; year: number } {
-  const parts = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", {
+  const parts = formatter("en-u-ca-islamic-umalqura", {
     day: "numeric",
     month: "numeric",
     year: "numeric",
@@ -56,7 +77,7 @@ export function formatShortDate(
 ): string {
   const d = new Date(iso);
   if (Number.isNaN(+d)) return iso;
-  return new Intl.DateTimeFormat(localeFor(lang, calendar), {
+  return formatter(localeFor(lang, calendar), {
     day: "numeric",
     month: "short",
   }).format(d);
@@ -90,7 +111,7 @@ export function formatLongDate(
 ): string {
   const d = new Date(iso);
   if (Number.isNaN(+d)) return iso;
-  return new Intl.DateTimeFormat(localeFor(lang, calendar), {
+  return formatter(localeFor(lang, calendar), {
     day: "numeric",
     month: "long",
     year: "numeric",

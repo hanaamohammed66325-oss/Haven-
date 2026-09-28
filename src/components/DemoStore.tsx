@@ -17,6 +17,7 @@ import { addMinutesToTime } from "@/lib/format";
 import { withOfficial } from "@/lib/termCheck";
 import { withRepeats } from "@/lib/repeats";
 import { NoCollapse } from "./Collapsible";
+import { toISODate } from "@/lib/dates";
 
 // A fully self-contained, interactive copy of the store used ONLY by the demo
 // modal. It renders the REAL app pages, but every mutation stays in local React
@@ -36,7 +37,7 @@ function dayOffset(days: number): string {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 }
 
 const session = (day: number, minutes: number, time: string, building: string, room: string): CourseSession => ({
@@ -255,7 +256,7 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
       courses: withRepeats(withOfficial(data.courses, data.termCheck), data.repeats),
       hydrated: true,
       loadFailed: false,
-      retryLoad: () => {},
+      authStatus: "signedIn",
 
       setPomodoroSettings: (p) => patch({ pomodoroSettings: { ...data.pomodoroSettings, ...p } }),
       recordPomodoroComplete: () => ({ xpEarned: 0, lilyPadCount: data.pomodoroStats.lilyPadCount }),
@@ -323,7 +324,6 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
       setLanguage: (language) => patch({ language }),
       setTheme: (theme) => patch({ theme }),
       setTaskOrder: (taskOrder) => patch({ taskOrder }),
-      setReminderDays: (reminderDays) => patch({ reminderDays }),
       setGpaMode: (gpaMode) => patch({ gpaMode }),
       setCumulativeGpa: (cumulativeGpa) => patch({ cumulativeGpa }),
       setCumulativeHours: (cumulativeHours) => patch({ cumulativeHours }),
@@ -394,8 +394,6 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
       restoreSession: (courseId, session) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, sessions: [...c.sessions, session] }))),
 
-      setMissedLectures: (courseId, missed) =>
-        mapCourses(inCourse(courseId, (c) => ({ ...c, missedLectures: Math.max(0, missed) }))),
       addMissedSession: (courseId, sessionId, extra) => {
         mapCourses(
           inCourse(courseId, (c) => {
@@ -436,7 +434,6 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
       },
       restoreCourse: (course) => setData((d) => ({ ...d, courses: [...d.courses, course] })),
 
-      loadDemo: () => {},
       resetData: () => {},
     };
   }, [data, patch, mapCourses]);

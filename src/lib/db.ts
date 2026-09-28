@@ -14,15 +14,13 @@
 // functions to this same file later.
 // ---------------------------------------------------------------------------
 
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./supabase";
+import { supabase, sessionUserId } from "./supabase";
 import { toISODate } from "./dates";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
 
 /** Resolve the current user's id (required on every insert by RLS). */
 async function currentUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getUser();
-  if (error) throw new Error(error.message);
-  const id = data.user?.id;
+  const id = await sessionUserId();
   if (!id) throw new Error("Not signed in.");
   return id;
 }
@@ -37,8 +35,7 @@ async function currentUserId(): Promise<string> {
  */
 export async function logEvent(event: string, meta: Record<string, unknown> = {}): Promise<void> {
   try {
-    const { data } = await supabase.auth.getSession();
-    const uid = data.session?.user?.id;
+    const uid = await sessionUserId();
     if (!uid) return;
     await supabase.from("user_events").insert({ user_id: uid, event, meta });
   } catch {
@@ -80,8 +77,7 @@ export async function enqueueScheduledPush(p: {
   body: string;
 }): Promise<void> {
   try {
-    const { data } = await supabase.auth.getSession();
-    const uid = data.session?.user?.id;
+    const uid = await sessionUserId();
     if (!uid) return;
     await supabase.from("scheduled_pushes").upsert(
       {
@@ -112,8 +108,7 @@ export async function enqueueScheduledPush(p: {
  */
 export async function reconcileScheduledPushes(prefix: string, keep: Set<string>): Promise<void> {
   try {
-    const { data } = await supabase.auth.getSession();
-    const uid = data.session?.user?.id;
+    const uid = await sessionUserId();
     if (!uid) return;
     const { data: rows } = await supabase
       .from("scheduled_pushes")
@@ -159,8 +154,7 @@ export interface DbSubscription {
  *  Unlike the academic reads, this does NOT throw when signed out — callers
  *  (e.g. the mascot gate) just treat "no session" as "not premium". */
 export async function getSubscription(): Promise<DbSubscription | null> {
-  const { data: auth } = await supabase.auth.getUser();
-  const userId = auth.user?.id;
+  const userId = await sessionUserId();
   if (!userId) return null;
   const { data, error } = await supabase
     .from("subscriptions")
@@ -191,8 +185,7 @@ export interface DbProfileFlags {
 }
 
 export async function getProfileFlags(): Promise<DbProfileFlags | null> {
-  const { data: auth } = await supabase.auth.getUser();
-  const userId = auth.user?.id;
+  const userId = await sessionUserId();
   if (!userId) return null;
   const { data, error } = await supabase
     .from("profiles")
@@ -205,47 +198,12 @@ export async function getProfileFlags(): Promise<DbProfileFlags | null> {
 
 /** Touch last_active_at on the current user's profile. Fire-and-forget. */
 export async function touchLastActive(): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
-  const userId = auth.user?.id;
+  const userId = await sessionUserId();
   if (!userId) return;
   await supabase
     .from("profiles")
     .update({ last_active_at: new Date().toISOString() })
     .eq("id", userId);
-}
-
-/** Redeem a beta code. Calls the beta-activate edge function. */
-export async function activateBetaCode(code: string): Promise<{ ok: boolean; error?: string }> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { ok: false, error: "not_signed_in" };
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/beta-activate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-    },
-    body: JSON.stringify({ code: code.trim().toUpperCase() }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (res.ok && data.ok) return { ok: true };
-  return { ok: false, error: data.error ?? "activation_failed" };
-}
-
-/**
- * Does this subscription grant ACTIVE premium access (ignoring VIP)?
- * Premium = a paid plan (not 'free') whose status is live and not past its end
- * date: an 'active' plan before expires_at, or a 'trial' before trial_ends_at.
- * Everything else (free, cancelled, expired, payment_failed) is not.
- * NOTE: premium.js is the source of truth for gating; this stays for callers
- * that only have the subscription row and want a quick active check.
- */
-export function isActivePremium(sub: DbSubscription | null): boolean {
-  if (!sub || sub.plan === "free") return false;
-  const inFuture = (d: string | null) => !d || new Date(d).getTime() > Date.now();
-  if (sub.status === "active") return inFuture(sub.expires_at);
-  if (sub.status === "trial") return inFuture(sub.trial_ends_at);
-  return false;
 }
 
 // --- app-facing shapes (already in the app's field names) -------------------
@@ -295,18 +253,22 @@ const SEMESTER_COLS = "id, name, teaching_weeks, finals_weeks, start_date, end_d
 
 /** The current user's active semester, or null if none exists yet.
  *  ALWAYS scoped to the current auth user — a semester is never resolved for
- *  anyone else, which is what keeps a course from attaching to the wrong account. */
+ *  anyone else, which is what keeps a course from attaching to the wrong account.
+ *  Two first loads racing can each create one, so a student may have two
+ *  active terms (one empty). Always pick the same one: the one holding their
+ *  courses, else the oldest — never whichever row the database returns first. */
 export async function getActiveSemester(): Promise<DbSemester | null> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("semesters")
-    .select(SEMESTER_COLS)
+    .select(`${SEMESTER_COLS}, courses(count)`)
     .eq("user_id", userId)
     .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
-  return data ? mapSemester(data) : null;
+  const rows = (data ?? []) as (Parameters<typeof mapSemester>[0] & { courses?: { count: number }[] })[];
+  const pick = rows.find((r) => (r.courses?.[0]?.count ?? 0) > 0) ?? rows[0];
+  return pick ? mapSemester(pick) : null;
 }
 
 /** Today + a total term length (weeks), as a start/end ISO pair. Used ONLY to
@@ -384,8 +346,16 @@ export async function ensureActiveSemester(settings?: {
     })
     .select(SEMESTER_COLS)
     .single();
-  if (error) throw new Error(error.message);
-  return mapSemester(data);
+  // Another first load may have created one at the same moment. The database
+  // allows one active term per student (unique index), so the second insert is
+  // refused (23505); either way, settle on the term getActiveSemester picks, so
+  // both loads use the same one.
+  if (error) {
+    const winner = error.code === "23505" ? await getActiveSemester() : null;
+    if (winner) return winner;
+    throw new Error(error.message);
+  }
+  return (await getActiveSemester()) ?? mapSemester(data);
 }
 
 export async function updateSemester(
@@ -441,16 +411,20 @@ const mapCourse = (row: {
 const COURSE_COLS =
   "id, name, credits, position, attendance_limit, attendance_mode, per_lecture_pct, instructor_name, color";
 
-export async function getCourses(semesterId: string): Promise<DbCourse[]> {
+/** The courses of the user's active semester, each with its semester id so
+ *  the caller can keep only the semester it resolved. Like
+ *  getActiveGradeComponents, it needs no semester id, so launch doesn't wait
+ *  for the semester before asking. */
+export async function getActiveCourses(): Promise<(DbCourse & { semesterId: string })[]> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("courses")
-    .select(COURSE_COLS)
+    .select(`${COURSE_COLS}, semester_id, semesters!inner(is_active)`)
     .eq("user_id", userId)
-    .eq("semester_id", semesterId)
+    .eq("semesters.is_active", true)
     .order("position", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []).map(mapCourse);
+  return (data ?? []).map((row) => ({ ...mapCourse(row), semesterId: row.semester_id }));
 }
 
 export async function addCourse(
@@ -572,16 +546,25 @@ const mapComponent = (row: {
 
 const COMPONENT_COLS = "id, name, type, percentage, unit, total, score, graded_on";
 
-export async function getGradeComponents(courseId: string): Promise<GradeComponent[]> {
+/** The grade components of every course in the user's active semester,
+ *  grouped by course id. One request instead of one per course, and it needs no
+ *  semester id, so launch sends it together with everything else. */
+export async function getActiveGradeComponents(): Promise<Map<string, GradeComponent[]>> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("grade_components")
-    .select(COMPONENT_COLS)
+    .select(`course_id, ${COMPONENT_COLS}, courses!inner(semesters!inner(is_active))`)
     .eq("user_id", userId)
-    .eq("course_id", courseId)
+    .eq("courses.semesters.is_active", true)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []).map(mapComponent);
+  const byCourse = new Map<string, GradeComponent[]>();
+  for (const row of data ?? []) {
+    const list = byCourse.get(row.course_id) ?? [];
+    list.push(mapComponent(row));
+    byCourse.set(row.course_id, list);
+  }
+  return byCourse;
 }
 
 export async function addGradeComponent(
