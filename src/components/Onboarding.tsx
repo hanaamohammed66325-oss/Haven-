@@ -47,6 +47,8 @@ const PAGES: Record<PageKey, { Comp: React.ComponentType; nav: TranslationKey; I
   profile: { Comp: ProfilePage, nav: "nav_profile", Icon: UserRound },
 };
 const NAV_ORDER: PageKey[] = ["dashboard", "profile", "courses", "assignments", "schedule", "attendance", "pomodoro", "settings"];
+// Pages that are a full-screen scene, shown edge to edge like AppShell's SCENE_PAGES.
+const SCENE_PAGES: PageKey[] = ["pomodoro"];
 
 type Action =
   | { kind: "click" }
@@ -68,6 +70,8 @@ interface Beat {
   /** after a save click, click item-cancel if the modal is still open (defensive). */
   closeIfStuck?: boolean;
   hold?: number;
+  /** how long to wait for the target to appear (default 2500 ms) */
+  wait?: number;
 }
 
 const BEATS: Beat[] = [
@@ -141,12 +145,14 @@ const BEATS: Beat[] = [
   { page: "attendance", title: "ob_att_t", line: "tour_attDone", hold: 2400 },
 
   // ── Pomodoro ─────────────────────────────────────────────────────────
-  { page: "pomodoro", title: "ob_pom_t", line: "ob_pom_p1", hold: 2600 },
-  { page: "pomodoro", target: "pom-pond", callout: "tour_pomPond", hold: 3000 },
-  { page: "pomodoro", target: "pom-focus-course", callout: "tour_pomFocus", hold: 2600 },
+  // The page is the lake itself, so the intro introduces it (a note pointing at
+  // the whole scene has nowhere to sit but over the tour's own controls).
+  { page: "pomodoro", title: "ob_pom_t", line: "ob_pom_p1", hold: 3200 },
+  { page: "pomodoro", target: "pom-focus-course", callout: "tour_pomFocus", hold: 3200 },
   { page: "pomodoro", target: "pom-start", callout: "tour_pomStart", hold: 3000 },
   { page: "pomodoro", target: "pom-grove", callout: "tour_pomGrove", action: { kind: "click" }, hold: 1000 },
-  { page: "pomodoro", target: "pom-lake", scope: "modal", callout: "tour_pomLake", hold: 3600 },
+  // the camera rises into the clouds first, then the lake map opens
+  { page: "pomodoro", target: "pom-lake", scope: "modal", callout: "tour_pomLake", hold: 4400, wait: 6000 },
 
   // ── Settings: explain every section, end on notifications ────────────
   { page: "settings", title: "ob_settings_intro_t", line: "ob_settings_intro_p", hold: 2600 },
@@ -226,6 +232,7 @@ export function Onboarding() {
   const [mounted, setMounted] = useState(false);
   const [page, setPage] = useState<PageKey>("dashboard");
   const [idx, setIdx] = useState(0);
+  const [run, setRun] = useState(0);
   const [paused, setPaused] = useState(false);
   const [guide, setGuide] = useState<Guide>({ x: 0, y: 0, noteFirst: false, pose: "books", text: "", visible: false, noteW: NOTE_W, haviSize: HAVI_SIZE });
   const [reduced, setReduced] = useState(false);
@@ -294,7 +301,10 @@ export function Onboarding() {
       const box = boxRef.current?.getBoundingClientRect();
       const cx = box ? box.left + box.width / 2 : vw / 2;
       const top = box ? box.top : 0;
-      const y = clamp(top + 76, 12, vh - UH - 12);
+      // A scene page's top is its sky, where the timer is: sit over the water.
+      const area = scrollRef.current?.getBoundingClientRect();
+      const scene = !!area && !!currentPage.current && SCENE_PAGES.includes(currentPage.current);
+      const y = clamp(scene ? area.top + area.height * 0.42 : top + 76, 12, vh - UH - 12);
       const x = clamp(cx - UW / 2, 12, vw - UW - 12);
       setGuide({ x, y, noteFirst: false, pose, text, title, visible: true, arrow: null, noteW: NW, haviSize });
       return;
@@ -313,8 +323,11 @@ export function Onboarding() {
       x = r.left - GAP - (NW + GAP + HW); y = clamp(cy - HH / 2, 12, vh - UH - 12); noteFirst = true;
     } else {
       // No side room → below the element (or above if it's near the bottom).
+      // On the page, "below" must fit above the tour's own controls too.
+      const area = scrollRef.current;
+      const floor = area?.contains(el) ? Math.min(vh, area.getBoundingClientRect().bottom) : vh;
       const belowY = r.bottom + GAP;
-      y = belowY + UH <= vh - 12 ? belowY : Math.max(12, r.top - GAP - UH);
+      y = belowY + UH <= floor - 12 ? belowY : Math.max(12, r.top - GAP - UH);
       y = clamp(y, 12, vh - UH - 12);
       x = clamp(ecx - UW / 2, 12, vw - UW - 12); noteFirst = false;
     }
@@ -442,6 +455,9 @@ export function Onboarding() {
     const token = ++runToken.current;
     const alive = () => token === runToken.current && openRef.current;
     setPaused(false);
+    // a fresh copy of the page for every run, so a jump never lands on a
+    // modal or a lifted lake left open by the steps it skipped
+    setRun(token);
 
     (async () => {
       currentPage.current = null;
@@ -458,7 +474,7 @@ export function Onboarding() {
         if (!alive()) return;
 
         const scope = beat.scope ?? "page";
-        const el = beat.target ? await waitFor(beat.target, scope) : null;
+        const el = beat.target ? await waitFor(beat.target, scope, beat.wait) : null;
         if (beat.target && !el) { anchorRef.current = null; setGuide((g) => ({ ...g, visible: false })); continue; }
         if (!alive()) return;
 
@@ -630,7 +646,11 @@ export function Onboarding() {
                   </aside>
 
                   <div ref={scrollRef} className="flex-1 min-w-0 relative overflow-y-auto">
-                    <div key={page} className="haven-fade-in p-4 sm:p-8 min-h-full" style={{ pointerEvents: "none" }}>
+                    <div
+                      key={`${page}:${run}`}
+                      className={`haven-fade-in min-h-full ${SCENE_PAGES.includes(page) ? "flex flex-col" : "p-4 sm:p-8"}`}
+                      style={{ pointerEvents: "none" }}
+                    >
                       <Current />
                     </div>
                   </div>

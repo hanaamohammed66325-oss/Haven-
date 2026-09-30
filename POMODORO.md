@@ -170,6 +170,32 @@ Store is React Context + `useState` (not Zustand). Pomodoro data lives in
 
 ## Change log
 
+### 2026-09-30 (27) — the tour's Pomodoro stops, and the update card
+- Hanaa: the first-run tour was "a bit broken" on the new page. In the tour the
+  pond canvas only drew ~200 px of its 520 px box (its `height: 100%` has no
+  definite height to resolve against there), so the start button and the session
+  pill floated on the bare page under the water. The canvas is now absolutely
+  positioned (`inset: 0`) and fills its box however the box gets its height; the
+  app itself looks the same.
+- The tour shows scene pages edge to edge, like the app (`SCENE_PAGES` in
+  Onboarding), so the lake fills the tour's panel.
+- The "this is your lake" stop pointed at the whole scene, and its note landed on
+  the tour's own controls; it is folded into the page intro, which now sits over
+  the water instead of over the timer. The notes say what the page is now: the
+  timer in the sky, time counted per task, the lake map from above with a tree
+  every 5 sessions in a course.
+- Jumping back to an earlier stop left the lake map open over everything: every
+  run of the tour (a jump, a replay) now mounts a fresh copy of the page. The
+  lake stop waits up to 6 s for the map (the camera rises first).
+- A note placed under an item near the bottom now moves above it rather than
+  covering the tour's controls.
+- What's New v4: students who saw the university-system card (v3) get a card with
+  only the Pomodoro news; the rest get that card with Pomodoro added on top.
+- Havi is written "Havi" in the Arabic copy too (the back-to-Havi button, the
+  locked-Havi line, the coming-soon line, the name field's placeholder).
+- Checked on demo data in a throwaway page: every Pomodoro stop at phone and
+  desktop sizes, the jump back, and both cards.
+
 ### 2026-09-30 (26) — the scene fills the page, a calmer button, a moon without outline
 - Hanaa saw the white strip above the pond (the early-access banner, half covered)
   and the policy links under it: gone from this page. The app shell now knows

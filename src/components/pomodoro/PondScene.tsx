@@ -340,5 +340,13 @@ export function PondScene(props: Props) {
     };
   }, []);
 
-  return <canvas ref={canvasRef} aria-hidden style={{ display: "block", width: "100%", height: "100%", background: "transparent" }} />;
+  // Absolute, so it fills its box however that box gets its height (a flex
+  // share, a min-height or the tour's panel), not only a definite height.
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden
+      style={{ position: "absolute", inset: 0, display: "block", width: "100%", height: "100%", background: "transparent" }}
+    />
+  );
 }

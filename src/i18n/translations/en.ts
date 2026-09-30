@@ -499,12 +499,11 @@ export const en = {
   tour_attSave: "Pick the session and save, and it counts toward your rate automatically.",
   tour_attDone: "Your attendance is updated, and we warned you before you hit the limit.",
   ob_pom_t: "Pomodoro",
-  ob_pom_p1: "A timer for your sessions — every session you finish grows a new lily pad in your lake.",
-  tour_pomFocus: "Pick the course or task you're working on, and its pad grows in that course's colour.",
+  ob_pom_p1: "This is your lake, with your session's timer written in its sky. Every session you finish grows a lily pad in its course's colour.",
+  tour_pomFocus: "Pick a course, an assignment, an exam or a planner task. We count your time on it, and its pad grows in the course's colour.",
   tour_pomStart: "Tap \"Start session\". End it early and its pad withers, so see it through.",
-  tour_pomPond: "This is your lake — every session you finish grows a lily pad in its subject's colour.",
-  tour_pomLake: "Here's your whole lake — each pad in its subject's colour; the more sessions you finish, the fuller and more colourful it grows.",
-  tour_pomGrove: "\"View your lake\" collects every pad by subject — a map of everything you've worked on.",
+  tour_pomLake: "Your lake from above: each pad in its course's colour, and every 5 sessions in a course grow it a tree on the shore. Zoom in and out and look around.",
+  tour_pomGrove: "\"View your lake\" lifts you above the water to see all of it from the sky.",
   ob_settings_intro_t: "Settings",
   ob_settings_intro_p: "Tune Haven to fit you — let's go through each section.",
   tour_setHaviName: "Name Havi (your buddy) whatever you like, and switch the app language.",
@@ -886,7 +885,6 @@ export const en = {
 
   // "What's new" — a one-time popup shown only inside the installed app.
   whatsnew_title: "What's new in Haven",
-  whatsnew_subtitle: "Updates that make Haven follow your university's own system.",
   whatsnew_term_title: "Your term dates, from your university's calendar",
   whatsnew_term_body:
     "Your term's start, exams and end are set from your university's calendar — confirm them in one tap or edit them. If your university's dates differ, we'll remind you to add them.",
@@ -906,6 +904,20 @@ export const en = {
     "Term dates, holidays and the grade table follow your university and its country. If yours differ, adjust them in Settings, since your absence percentage and GPA are counted on them.",
   whatsnew_general_fixes:
     "Plus general improvements and fixes across performance, notifications, and the interface.",
+  whatsnew_pomSubtitle: "A new update to the Pomodoro page.",
+  whatsnew_sinceSubtitle: "What's changed in Haven since your last visit.",
+  whatsnew_lakemap_title: "Your lake is now a map",
+  whatsnew_lakemap_body:
+    "See your lake from above. It grows with every session, and each course grows trees in its colour on the shore. Zoom in and out, look around, and see it by day or by night.",
+  whatsnew_scene_title: "The lake fills the page",
+  whatsnew_scene_body:
+    "The Pomodoro page is now the lake itself. The buttons fade away during a session, and you can open it full screen.",
+  whatsnew_tasks_title: "Sessions for your tasks",
+  whatsnew_tasks_body:
+    "Start a Pomodoro session for an assignment, an exam or a planner task, and we count your time on it. Note how long you expect it to take, and when you're done we compare the two. On the Tasks page you'll see the time on each assignment and exam, and can start a session for it in one tap.",
+  whatsnew_pomodoro_title: "Pomodoro got bigger",
+  whatsnew_pomodoro_body:
+    "Your lake is now a map that grows with every session, with trees for each course. The lake fills the page, and you can start a session for an assignment, an exam or a task and we count your time on it.",
   whatsnew_cta: "Got it",
 
   sectionData: "Data",

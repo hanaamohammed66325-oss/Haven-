@@ -500,12 +500,11 @@ export const ar: Record<TranslationKey, string> = {
   tour_attSave: "اختر الحصة واحفظ، ويُحسب على نسبتك تلقائياً.",
   tour_attDone: "كذا غيابك محدّث، وننبهك قبل لا توصل الحد.",
   ob_pom_t: "بومودورو",
-  ob_pom_p1: "مؤقّت لجلساتك — كل جلسة تخلّصها تطلع لك ورقة لوتس جديدة في بحيرتك.",
-  tour_pomFocus: "اختر المادة أو المهمة اللي بتشتغل عليها، وتطلع ورقتها بلون مادتها.",
+  ob_pom_p1: "هذي بحيرتك، ومؤقت جلستك مكتوب في سماها. كل جلسة تخلّصها تطلع لك ورقة لوتس بلون مادتها.",
+  tour_pomFocus: "اختر مادة أو واجب أو اختبار أو مهمة من المخطط. نحسب لك وقتك فيها، وورقتها تطلع بلون مادتها.",
   tour_pomStart: "اضغط «ابدأ الجلسة». لو أنهيتها قبل وقتها تذبل ورقتها، فكمّلها للنهاية.",
-  tour_pomPond: "هذي بحيرتك — كل جلسة تخلّصها تطلع لك ورقة لوتس بلون مادتها.",
-  tour_pomLake: "هذي بحيرتك كاملة — كل ورقة بلون مادتها، وكل ما زادت جلساتك زادت أوراقك وألوانها.",
-  tour_pomGrove: "«شوف بحيرتك» تجمع كل أوراقك حسب المواد — خريطة لكل شي اشتغلت عليه.",
+  tour_pomLake: "هذي بحيرتك من فوق: كل ورقة بلون مادتها، وكل 5 جلسات في مادة تنبت لها شجرة على الشاطئ. تقدر تكبّر وتصغّر وتتنقل فيها.",
+  tour_pomGrove: "«شوف بحيرتك» ترفعك فوق البحيرة وتشوفها كاملة من السماء.",
   ob_settings_intro_t: "الإعدادات",
   ob_settings_intro_p: "من هنا تظبط Haven زي ما تحب — نمرّ على كل قسم.",
   tour_setHaviName: "سمّي Havi (رفيقك) بأي اسم تحبه، وبدّل لغة التطبيق.",
@@ -729,7 +728,7 @@ export const ar: Record<TranslationKey, string> = {
   undo: "تراجع",
   haviNameLabel: "سمّ رفيقك",
   haviOutfitLabel: "زِيّ رفيقك",
-  haviNamePlaceholder: "هافي",
+  haviNamePlaceholder: "Havi",
   gradesRecorded: "الدرجات المرصودة",
   currentTotal: "المجموع الحالي",
   tasksThisWeek: "مهام الأسبوع",
@@ -887,7 +886,6 @@ export const ar: Record<TranslationKey, string> = {
 
   // "What's new" — a one-time popup shown only inside the installed app.
   whatsnew_title: "وش الجديد في Haven",
-  whatsnew_subtitle: "تحديثات تخلي Haven يمشي على نظام جامعتك.",
   whatsnew_term_title: "تواريخ فصلك من تقويم جامعتك",
   whatsnew_term_body:
     "نضبط بداية فصلك واختباراته ونهايته حسب تقويم جامعتك، وتأكدها بضغطة أو تعدّلها. وإذا اختلفت تواريخ جامعتك ننبّهك تضيفها بنفسك.",
@@ -907,6 +905,20 @@ export const ar: Record<TranslationKey, string> = {
     "تواريخ الفصل والإجازات وجدول التقديرات تنطبق حسب جامعتك ودولتها. وإذا كانت عندك مختلفة عدّلها من الإعدادات، لأن نسبة غيابك ومعدلك يُحسبان عليها.",
   whatsnew_general_fixes:
     "بالإضافة إلى تحسينات وإصلاحات عامة في الأداء والإشعارات والواجهة.",
+  whatsnew_pomSubtitle: "تحديث جديد لصفحة البومودورو.",
+  whatsnew_sinceSubtitle: "اللي تغيّر في Haven من آخر زيارة لك.",
+  whatsnew_lakemap_title: "بحيرتك صارت خريطة",
+  whatsnew_lakemap_body:
+    "تشوف بحيرتك من فوق، وتكبر مع كل جلسة، وكل مادة تنبت لها أشجار بلونها على الشاطئ. تقدر تكبّر وتصغّر وتتنقل فيها، وتشوفها بالنهار أو بالليل.",
+  whatsnew_scene_title: "البحيرة تملأ الصفحة",
+  whatsnew_scene_body:
+    "صفحة البومودورو صارت البحيرة نفسها، والأزرار تختفي وقت الجلسة، وتقدر تفتحها بملء الشاشة.",
+  whatsnew_tasks_title: "جلسات لمهامك",
+  whatsnew_tasks_body:
+    "ابدأ جلسة بومودورو لواجب أو اختبار أو مهمة من المخطط، ونحسب لك وقتك فيها. تقدر تكتب الوقت اللي تتوقعه، ولما تخلّص نقارن بينهم. وفي صفحة المهام تشوف وقت كل واجب واختبار وتبدأ له جلسة بضغطة.",
+  whatsnew_pomodoro_title: "بومودورو صار أكبر",
+  whatsnew_pomodoro_body:
+    "بحيرتك صارت خريطة تكبر مع كل جلسة ولكل مادة أشجارها، والبحيرة تملأ الصفحة، وتقدر تبدأ جلسة لواجب أو اختبار أو مهمة ونحسب لك وقتك فيها.",
   whatsnew_cta: "تمام",
 
   sectionData: "البيانات",
@@ -1163,7 +1175,7 @@ export const ar: Record<TranslationKey, string> = {
   // Pomodoro page
   pom_title: "بومودورو",
   pom_soonTag: "قريباً",
-  pom_soonBody: "جلسات بومودورو مع هافي شبه جاهزة — نحطّ عليها اللمسات الأخيرة.",
+  pom_soonBody: "جلسات بومودورو مع Havi شبه جاهزة — نحطّ عليها اللمسات الأخيرة.",
   pom_shortBreak: "استراحة قصيرة",
   pom_longBreak: "استراحة طويلة",
   pom_paused: "الجلسة متوقفة",
@@ -1205,7 +1217,7 @@ export const ar: Record<TranslationKey, string> = {
   pom_notifBreakDone: "خلصت الاستراحة. جاهز للجلسة الجاية؟",
   pom_notifLongBreakDone: "خلصت الاستراحة الطويلة. أحسنت على هالمجموعة!",
   pom_notifEnable: "فعّل التنبيهات عشان نعلمك لما تخلص الجلسة.",
-  pom_haviPremium: "افتح هافي عشان يرافقك في البحيرة.",
+  pom_haviPremium: "افتح Havi عشان يرافقك في البحيرة.",
   pom_grove: "شوف بحيرتك",
   pom_fullscreen: "ملء الشاشة",
   pom_fullscreenExit: "خروج من ملء الشاشة",
@@ -1226,7 +1238,7 @@ export const ar: Record<TranslationKey, string> = {
   pom_treeRule: "كل 5 جلسات في مادة تنبت لها شجرة بلونها.",
   pom_zoomIn: "تكبير",
   pom_zoomOut: "تصغير",
-  pom_backToHavi: "ارجع لهافي",
+  pom_backToHavi: "ارجع لـ Havi",
   pom_hideHud: "إخفاء الأشرطة",
   pom_showHud: "إظهار الأشرطة",
   pom_groupCourses: "المواد",

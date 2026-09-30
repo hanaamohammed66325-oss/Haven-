@@ -4,32 +4,38 @@
 // of changes once per device (in the browser and the installed app alike), then
 // never nags again.
 //
-// The "seen" flag is versioned (…_v3 now) so a future update can bump the key
-// and resurface a fresh set without disturbing this one.
+// The "seen" flag is versioned (…_v4 now) so a future update can bump the key
+// and resurface a fresh set without disturbing this one. A student who saw the
+// round before (…_v3 on this device) gets only what's new since; one who didn't
+// gets that round too, with the new one on top, since all of it is new to them.
 //
 // Self-contained and portals to <body> so the dashboard's fade-in transform
 // can't break its fixed positioning (see the modal-portal note in memory).
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { BellRing, Calculator, CalendarDays, ClipboardCheck, Globe, Sparkles } from "lucide-react";
+import { BellRing, Calculator, CalendarDays, ClipboardCheck, Globe, ListChecks, Map as MapIcon, Maximize2, Sparkles, Timer } from "lucide-react";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 
 /** Set once the student has seen this round (SetupCheck and TermCheck wait for it). */
-export const WHATSNEW_SEEN_KEY = "haven_whatsnew_seen_v3";
+export const WHATSNEW_SEEN_KEY = "haven_whatsnew_seen_v4";
 const SEEN_KEY = WHATSNEW_SEEN_KEY;
+/** The round before this one: the university-system update. */
+const PREV_SEEN_KEY = "haven_whatsnew_seen_v3";
 
 export function WhatsNewModal() {
   const { t } = useT();
   const { hydrated, onboardingSeen } = useStore();
   const [open, setOpen] = useState(false);
+  const [sawPrev, setSawPrev] = useState(false);
 
   useEffect(() => {
     if (!hydrated) return;
     let seen = false;
     try {
       seen = localStorage.getItem(SEEN_KEY) === "1";
+      setSawPrev(localStorage.getItem(PREV_SEEN_KEY) === "1");
       // A brand-new student gets the onboarding tour instead — everything is
       // new to them, so "what's new" would only stack on top of it.
       if (!seen && !onboardingSeen) {
@@ -61,13 +67,20 @@ export function WhatsNewModal() {
 
   if (!open || typeof document === "undefined") return null;
 
-  const items = [
-    { icon: <CalendarDays size={20} />, title: t("whatsnew_term_title"), body: t("whatsnew_term_body") },
-    { icon: <Globe size={20} />, title: t("whatsnew_abroad_title"), body: t("whatsnew_abroad_body") },
-    { icon: <ClipboardCheck size={20} />, title: t("whatsnew_rule_title"), body: t("whatsnew_rule_body") },
-    { icon: <Calculator size={20} />, title: t("whatsnew_gpa_title"), body: t("whatsnew_gpa_body") },
-    { icon: <BellRing size={20} />, title: t("whatsnew_reminders_title"), body: t("whatsnew_reminders_body") },
-  ];
+  const items = sawPrev
+    ? [
+        { icon: <MapIcon size={20} />, title: t("whatsnew_lakemap_title"), body: t("whatsnew_lakemap_body") },
+        { icon: <Maximize2 size={20} />, title: t("whatsnew_scene_title"), body: t("whatsnew_scene_body") },
+        { icon: <ListChecks size={20} />, title: t("whatsnew_tasks_title"), body: t("whatsnew_tasks_body") },
+      ]
+    : [
+        { icon: <Timer size={20} />, title: t("whatsnew_pomodoro_title"), body: t("whatsnew_pomodoro_body") },
+        { icon: <CalendarDays size={20} />, title: t("whatsnew_term_title"), body: t("whatsnew_term_body") },
+        { icon: <Globe size={20} />, title: t("whatsnew_abroad_title"), body: t("whatsnew_abroad_body") },
+        { icon: <ClipboardCheck size={20} />, title: t("whatsnew_rule_title"), body: t("whatsnew_rule_body") },
+        { icon: <Calculator size={20} />, title: t("whatsnew_gpa_title"), body: t("whatsnew_gpa_body") },
+        { icon: <BellRing size={20} />, title: t("whatsnew_reminders_title"), body: t("whatsnew_reminders_body") },
+      ];
 
   return createPortal(
     <div
@@ -122,7 +135,7 @@ export function WhatsNewModal() {
           </h2>
         </div>
         <p className="text-sm mb-5" style={{ color: "var(--color-muted)" }}>
-          {t("whatsnew_subtitle")}
+          {t(sawPrev ? "whatsnew_pomSubtitle" : "whatsnew_sinceSubtitle")}
         </p>
 
         {/* Items */}
@@ -152,17 +165,20 @@ export function WhatsNewModal() {
           ))}
         </div>
 
-        {/* Scope note — dates, holidays and the grade table follow the university; the student corrects what differs. */}
-        <div
-          className="mt-5 rounded-xl px-3.5 py-3 text-[12px] leading-relaxed"
-          style={{
-            background: "var(--color-brass-soft, var(--color-primary-soft))",
-            color: "var(--color-ink)",
-            border: "1px solid var(--color-border)",
-          }}
-        >
-          {t("whatsnew_scope_note")}
-        </div>
+        {/* Scope note — dates, holidays and the grade table follow the university;
+            the student corrects what differs. Only with the university round. */}
+        {!sawPrev && (
+          <div
+            className="mt-5 rounded-xl px-3.5 py-3 text-[12px] leading-relaxed"
+            style={{
+              background: "var(--color-brass-soft, var(--color-primary-soft))",
+              color: "var(--color-ink)",
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            {t("whatsnew_scope_note")}
+          </div>
+        )}
 
         <p className="text-[12px] mt-4 leading-relaxed" style={{ color: "var(--color-muted)" }}>
           {t("whatsnew_general_fixes")}
