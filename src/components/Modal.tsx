@@ -12,19 +12,26 @@ interface ModalProps {
   children: React.ReactNode;
   /** optional pinned footer (e.g. Save / Cancel) that stays visible while the body scrolls */
   footer?: React.ReactNode;
+  /** "sheet": rises from the bottom edge on phones (a centered dialog from sm up) */
+  variant?: "dialog" | "sheet";
 }
 
-export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, variant = "dialog" }: ModalProps) {
+  const sheet = variant === "sheet";
   const overlayRef = useRef<HTMLDivElement>(null);
   const { t } = useT();
   const [mounted, setMounted] = useState(false);
+  // the latest onClose, so a parent re-rendering (a ticking timer) with a new
+  // function doesn't re-bind the keys and scroll lock each time
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeRef.current();
     };
     document.addEventListener("keydown", handleKey);
     document.body.style.overflow = "hidden";
@@ -32,17 +39,17 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
       document.removeEventListener("keydown", handleKey);
       document.body.style.overflow = "";
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open || !mounted) return null;
 
   // Portal to <body> so the overlay's `fixed` positioning is relative to the
-  // viewport — not a page ancestor that keeps a transform from its entrance
-  // animation (which would otherwise push the modal off-screen on tall pages).
+  // viewport — not a page ancestor with a transform (an entrance animation
+  // still running would otherwise push the modal off-screen on tall pages).
   return createPortal(
     <div
       ref={overlayRef}
-      className="haven-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+      className={`haven-overlay fixed inset-0 z-50 flex justify-center ${sheet ? "items-end sm:items-center sm:p-4" : "items-center p-4"}`}
       style={{
         background: "rgba(36, 54, 64, 0.32)",
         backdropFilter: "blur(6px)",
@@ -56,8 +63,13 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
       aria-label={title}
     >
       <div
-        className="haven-modal w-full max-w-md rounded-2xl overflow-hidden flex flex-col"
-        style={{ maxHeight: "90dvh", background: "var(--color-surface)", boxShadow: "0 20px 60px rgba(36,54,64,0.22)" }}
+        className={`haven-modal w-full max-w-md overflow-hidden flex flex-col ${sheet ? "rounded-t-3xl sm:rounded-2xl" : "rounded-2xl"}`}
+        style={{
+          maxHeight: sheet ? "85dvh" : "90dvh",
+          background: "var(--color-surface)",
+          boxShadow: "0 20px 60px rgba(36,54,64,0.22)",
+          paddingBottom: sheet ? "env(safe-area-inset-bottom)" : undefined,
+        }}
       >
         <div
           className="flex items-center justify-between px-5 py-4 border-b shrink-0"

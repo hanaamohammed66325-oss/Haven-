@@ -236,6 +236,7 @@ function buildInitialData(): AppData {
     pastTerms: [],
     repeats: {},
     pomodoroStats: { totalSessions: pads.length, totalFocusMinutes: pads.length * 25, longestDailyStreak: 4, currentDailyStreak: 2, lastSessionDate: dayOffset(0), recentDays: [], lilyPadCount: pads.length, pads },
+    taskFocus: {},
   };
 }
 
@@ -261,6 +262,7 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
       setPomodoroSettings: (p) => patch({ pomodoroSettings: { ...data.pomodoroSettings, ...p } }),
       recordPomodoroComplete: () => ({ xpEarned: 0, lilyPadCount: data.pomodoroStats.lilyPadCount }),
       recordPomodoroAbandon: () => {},
+      setTaskFocus: () => {},
 
       setProfileName: (name) => patch({ profileName: name }),
       setEmail: (email) => patch({ email }),

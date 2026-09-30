@@ -27,6 +27,9 @@ export interface SkyPalette {
   /** hill tints (near, far) */
   hillNear: string;
   hillFar: string;
+  /** the timer written into the sky: its ink, and the halo that lifts it off the sky */
+  hudInk: string;
+  hudGlow: string;
 }
 
 // Palettes lean into the cozy reference art: warm cream-and-sage days and a
@@ -42,6 +45,8 @@ export const SKY_PALETTES: Record<TimeOfDay, SkyPalette> = {
     night: false,
     hillNear: "#749f74",
     hillFar: "#94b892",
+    hudInk: "#23443b",
+    hudGlow: "rgba(255,252,240,0.7)",
   },
   afternoon: {
     top: "#92bcc6",
@@ -53,6 +58,8 @@ export const SKY_PALETTES: Record<TimeOfDay, SkyPalette> = {
     night: false,
     hillNear: "#639a68",
     hillFar: "#84b085",
+    hudInk: "#1f4038",
+    hudGlow: "rgba(255,252,240,0.66)",
   },
   evening: {
     top: "#f2a25a",
@@ -64,6 +71,8 @@ export const SKY_PALETTES: Record<TimeOfDay, SkyPalette> = {
     night: false,
     hillNear: "#5f5566",
     hillFar: "#7d6a72",
+    hudInk: "#3a2231",
+    hudGlow: "rgba(255,228,196,0.62)",
   },
   night: {
     top: "#243b2e",
@@ -75,43 +84,7 @@ export const SKY_PALETTES: Record<TimeOfDay, SkyPalette> = {
     night: true,
     hillNear: "#1a2e22",
     hillFar: "#24402f",
+    hudInk: "#f8f0d8",
+    hudGlow: "rgba(244,199,78,0.34)",
   },
 };
-
-/** Linear-interpolate between two hex colours (#rrggbb). */
-export function lerpColor(a: string, b: string, t: number): string {
-  const pa = parseHex(a);
-  const pb = parseHex(b);
-  const r = Math.round(pa[0] + (pb[0] - pa[0]) * t);
-  const g = Math.round(pa[1] + (pb[1] - pa[1]) * t);
-  const bl = Math.round(pa[2] + (pb[2] - pa[2]) * t);
-  return `#${to2(r)}${to2(g)}${to2(bl)}`;
-}
-
-function parseHex(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-
-function to2(n: number): string {
-  return Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
-}
-
-/** Blend two sky palettes for a smooth transition when the period changes. */
-export function lerpPalette(a: SkyPalette, b: SkyPalette, t: number): SkyPalette {
-  return {
-    top: lerpColor(a.top, b.top, t),
-    bottom: lerpColor(a.bottom, b.bottom, t),
-    waterTop: lerpColor(a.waterTop, b.waterTop, t),
-    waterBottom: lerpColor(a.waterBottom, b.waterBottom, t),
-    celestial: lerpColor(a.celestial, b.celestial, t),
-    celestialGlow: t < 0.5 ? a.celestialGlow : b.celestialGlow,
-    night: t < 0.5 ? a.night : b.night,
-    hillNear: lerpColor(a.hillNear, b.hillNear, t),
-    hillFar: lerpColor(a.hillFar, b.hillFar, t),
-  };
-}

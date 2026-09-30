@@ -294,7 +294,10 @@ html[dir="rtl"] .haven-nav-active {
   z-index: 41;
 }
 
-/* ---- Entrance animations ---- */
+/* ---- Entrance animations ----
+   `backwards`, not `both`: the start is held through any delay, and nothing is
+   kept once they end (a lingering transform would pin a `fixed` child, such as
+   the Pomodoro scene in full screen, to the faded element). */
 @keyframes haven-fade-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -304,10 +307,10 @@ html[dir="rtl"] .haven-nav-active {
   to { opacity: 1; transform: translateY(0); }
 }
 .haven-fade-in {
-  animation: haven-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: haven-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 .haven-fade-up {
-  animation: haven-fade-up 0.45s ease-out both;
+  animation: haven-fade-up 0.45s ease-out backwards;
 }
 
 /* Undo toast: depleting countdown bar (duration set inline to match UNDO_MS) */
@@ -323,7 +326,7 @@ html[dir="rtl"] .haven-nav-active {
 
 /* Staggered entrance: direct children fade up ~70ms apart */
 .haven-stagger > * {
-  animation: haven-fade-up 0.45s ease-out both;
+  animation: haven-fade-up 0.45s ease-out backwards;
 }
 .haven-stagger > *:nth-child(1) { animation-delay: 0.04s; }
 .haven-stagger > *:nth-child(2) { animation-delay: 0.11s; }

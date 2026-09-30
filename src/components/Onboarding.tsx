@@ -143,7 +143,7 @@ const BEATS: Beat[] = [
   // ── Pomodoro ─────────────────────────────────────────────────────────
   { page: "pomodoro", title: "ob_pom_t", line: "ob_pom_p1", hold: 2600 },
   { page: "pomodoro", target: "pom-pond", callout: "tour_pomPond", hold: 3000 },
-  { page: "pomodoro", target: "pom-focus-course", callout: "tour_pomFocus", action: { kind: "selectFirst" }, hold: 1600 },
+  { page: "pomodoro", target: "pom-focus-course", callout: "tour_pomFocus", hold: 2600 },
   { page: "pomodoro", target: "pom-start", callout: "tour_pomStart", hold: 3000 },
   { page: "pomodoro", target: "pom-grove", callout: "tour_pomGrove", action: { kind: "click" }, hold: 1000 },
   { page: "pomodoro", target: "pom-lake", scope: "modal", callout: "tour_pomLake", hold: 3600 },

@@ -4,98 +4,98 @@ import { Flame, Target, Clock, Leaf } from "lucide-react";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n/translations/en";
 import type { PomodoroStats as Stats } from "@/types";
-import { toISODate } from "@/lib/dates";
+import { addDays, toISODate } from "@/lib/dates";
+import { spokenDuration } from "@/lib/format";
 
 interface Props {
   stats: Stats;
 }
 
-/** Last 7 calendar days of focus minutes, oldest → newest. */
+/** Last 7 calendar days of session minutes, oldest → newest. */
 function last7(stats: Stats): { date: string; minutes: number }[] {
   const out: { date: string; minutes: number }[] = [];
   const now = new Date();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    const iso = toISODate(d);
+    const iso = toISODate(addDays(now, -i));
     const rec = stats.recentDays.find((r) => r.date === iso);
     out.push({ date: iso, minutes: rec ? rec.totalFocusMinutes : 0 });
   }
   return out;
 }
 
+// "Your progress" (a sheet over the pond): today in one line, four totals, and
+// the last seven days.
 export function PomodoroStats({ stats }: Props) {
   const { t } = useT();
+  const dur = (m: number) => (m > 0 ? spokenDuration(m, t) : "0");
   const today = stats.recentDays.find((r) => r.date === toISODate(new Date()));
-  const todayCount = today ? today.completedSessions : 0;
-  const hours = Math.floor(stats.totalFocusMinutes / 60);
-  const mins = stats.totalFocusMinutes % 60;
-  const focusText = hours > 0 ? `${hours}${t("pom_hours")} ${mins}${t("pom_minutes")}` : `${mins} ${t("pom_minutes")}`;
+  const todayLine = today?.completedSessions
+    ? t("pom_todayLine", { sessions: t("pom_sessionsCount", { n: today.completedSessions }), time: dur(today.totalFocusMinutes) })
+    : t("pom_todayNone");
   const bars = last7(stats);
   const maxMin = Math.max(30, ...bars.map((b) => b.minutes));
 
   // Use the app's canonical short day names (never truncated).
   const dayLabel = (dayIdx: number) => t(`day${dayIdx}Short` as TranslationKey);
 
-  const tile = (icon: React.ReactNode, value: string, label: string) => (
-    <div className="flex flex-col items-center gap-1 flex-1 py-3">
-      <span style={{ color: "var(--color-primary)" }}>{icon}</span>
-      <span className="text-lg font-semibold" style={{ color: "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}>
-        {value}
-      </span>
-      <span className="text-[11px] text-center" style={{ color: "var(--color-muted)" }}>
+  const tile = (icon: React.ReactNode, label: string, value: string) => (
+    <div className="rounded-2xl px-3 py-3 sm:px-3.5" style={{ background: "color-mix(in srgb, var(--color-ink) 4%, transparent)" }}>
+      <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
+        <span style={{ color: "var(--color-primary)" }}>{icon}</span>
         {label}
+      </span>
+      <span className="mt-1 block text-[15px] font-semibold leading-snug tabular-nums text-balance" style={{ color: "var(--color-ink)" }}>
+        {value}
       </span>
     </div>
   );
 
   return (
-    <div className="haven-card p-4">
-      <span className="haven-label block mb-2" style={{ color: "var(--color-muted)" }}>
-        {t("pom_stats")}
-      </span>
+    <div>
+      <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+        {todayLine}
+      </p>
 
-      <div className="flex divide-x" style={{ borderColor: "var(--color-border)" }}>
-        {tile(<Target size={18} />, String(stats.totalSessions), t("pom_sessionsCompleted"))}
-        {tile(<Clock size={18} />, focusText, t("pom_totalFocusTime"))}
-        {tile(<Flame size={18} />, `${stats.currentDailyStreak}${t("pom_days")}`, t("pom_currentStreak"))}
-        {tile(<Leaf size={18} />, String(stats.lilyPadCount), t("pom_lilyPads"))}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {tile(<Target size={14} />, t("pom_sessionsCompleted"), String(stats.totalSessions))}
+        {tile(<Clock size={14} />, t("pom_totalFocusTime"), dur(stats.totalFocusMinutes))}
+        {tile(
+          <Flame size={14} />,
+          t("pom_currentStreak"),
+          stats.currentDailyStreak ? t("pom_daysCount", { n: stats.currentDailyStreak }) : "0",
+        )}
+        {tile(<Leaf size={14} />, t("pom_lilyPads"), String(stats.lilyPadCount))}
       </div>
 
-      <div className="mt-4">
-        <div className="flex items-end justify-between gap-1.5" style={{ height: 64 }}>
-          {bars.map((b, i) => {
-            const h = Math.round((b.minutes / maxMin) * 56);
-            const isToday = i === 6;
-            return (
-              <div key={b.date} className="flex flex-col items-center gap-1 flex-1">
-                <div className="w-full flex items-end justify-center" style={{ height: 56 }}>
-                  <div
-                    className="w-full rounded-t-md"
-                    style={{
-                      height: Math.max(3, h),
-                      maxWidth: 22,
-                      background: isToday ? "var(--color-primary)" : "var(--color-primary-soft)",
-                      transition: "height 0.4s ease",
-                    }}
-                    title={`${b.minutes} ${t("pom_minutes")}`}
-                  />
-                </div>
-                <span className="text-[10px] whitespace-nowrap" style={{ color: "var(--color-muted)" }}>
-                  {dayLabel(new Date(b.date + "T00:00:00").getDay())}
-                </span>
+      <p className="mt-6 text-xs" style={{ color: "var(--color-muted)" }}>
+        {t("pom_last7Days")}
+      </p>
+      <div className="mt-2 flex items-end justify-between gap-2">
+        {bars.map((b, i) => {
+          const isToday = i === 6;
+          return (
+            <div key={b.date} className="flex flex-1 flex-col items-center gap-1.5">
+              <div className="flex w-full items-end justify-center" style={{ height: 64 }}>
+                <div
+                  className="w-full rounded-full"
+                  style={{
+                    height: Math.max(6, Math.round((b.minutes / maxMin) * 64)),
+                    maxWidth: 18,
+                    background: isToday ? "var(--color-primary)" : "color-mix(in srgb, var(--color-primary) 28%, transparent)",
+                    transition: "height 0.4s ease",
+                  }}
+                  title={dur(b.minutes)}
+                />
               </div>
-            );
-          })}
-        </div>
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>
-            {t("pom_last7Days")}
-          </span>
-          <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>
-            {t("pom_todaySessions")}: {todayCount}
-          </span>
-        </div>
+              <span
+                className={`whitespace-nowrap text-[11px] ${isToday ? "font-semibold" : ""}`}
+                style={{ color: isToday ? "var(--color-ink)" : "var(--color-muted)" }}
+              >
+                {dayLabel(new Date(b.date + "T00:00:00").getDay())}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

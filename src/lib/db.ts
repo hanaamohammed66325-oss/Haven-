@@ -623,7 +623,10 @@ export async function deleteGradeComponent(id: string): Promise<void> {
 
 export type Preferences = Record<string, unknown>;
 
-/** The current user's stored preferences, or {} if the column is null/empty. */
+/** The current user's stored preferences, or {} if the column is null/empty.
+ *  Throws when the account's row doesn't come back: every account has one, so
+ *  that means the request wasn't made as this user, and loading an empty
+ *  account in its place would later save the defaults over the real one. */
 export async function getPreferences(): Promise<Preferences> {
   const userId = await currentUserId();
   const { data, error } = await supabase
@@ -632,7 +635,8 @@ export async function getPreferences(): Promise<Preferences> {
     .eq("id", userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  const prefs = data?.preferences;
+  if (!data) throw new Error("The account's settings didn't load.");
+  const prefs = data.preferences;
   return prefs && typeof prefs === "object" ? (prefs as Preferences) : {};
 }
 

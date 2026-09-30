@@ -30,6 +30,7 @@ import type {
   GpaMode,
   PomodoroSettings,
   PomodoroStats,
+  TaskFocus,
   TermCheck,
   PastTerm,
   RepeatInfo,
@@ -52,12 +53,14 @@ import {
   type GamificationState,
   type BadgeContext,
   XP_REWARDS,
+  MAX_TIER,
 } from "@/lib/gamification";
 import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
 import { ruleMode, semesterGPA } from "@/lib/grades";
 import { resolveScheme, setLearnedCutoffs, SCHEMES, type LearnedCutoffs } from "@/lib/gradeSchemes";
 import { readPastTerms, readTermCheck, withOfficial } from "@/lib/termCheck";
 import { readRepeats, withRepeats } from "@/lib/repeats";
+import { readTaskFocus } from "@/lib/pomodoro/focusTasks";
 import type { Session } from "@supabase/supabase-js";
 import { holidayCalendar } from "@/lib/universityCountry";
 import { releaseUniversityHolidays } from "@/lib/universityFacts";
@@ -341,6 +344,38 @@ const POMODORO_HISTORY_LIMIT = 30;
 // lilyPadCount but render as plain (unassigned) pads. Bounds the JSONB size.
 const POMODORO_PAD_LIMIT = 200;
 
+// The saved progress objects, as the app holds them (missing fields → defaults).
+function readGamification(raw: unknown): GamificationState {
+  const g = (raw && typeof raw === "object" ? raw : {}) as Partial<GamificationState>;
+  return {
+    ...defaultGamification,
+    ...g,
+    streak: { ...defaultGamification.streak, ...(g.streak ?? {}) },
+    challenges: { ...defaultGamification.challenges, ...(g.challenges ?? {}) },
+  };
+}
+
+function readPomodoroStats(raw: unknown): PomodoroStats {
+  const p = (raw && typeof raw === "object" ? raw : {}) as Partial<PomodoroStats>;
+  return {
+    ...defaultPomodoroStats,
+    ...p,
+    recentDays: Array.isArray(p.recentDays) ? p.recentDays.slice(-POMODORO_HISTORY_LIMIT) : [],
+    pads: Array.isArray(p.pads) ? p.pads.slice(-POMODORO_PAD_LIMIT) : [],
+  };
+}
+
+// The server's progress has moved on from what this screen holds (another
+// device counted a day, a check-in, a badge…).
+function gamificationAhead(server: GamificationState, local: GamificationState): boolean {
+  return (
+    server.xp > local.xp ||
+    server.totalCheckIns > local.totalCheckIns ||
+    server.badgeTier > local.badgeTier ||
+    (server.streak.lastActiveDate ?? "") > (local.streak.lastActiveDate ?? "")
+  );
+}
+
 // Fire the achievement toast when new badges are earned or the tier advances.
 // `newTier` is passed in so each caller keeps its own tier-base semantics.
 function emitAchievement(newBadges: string[], tierAdvanced: boolean, newTier: number) {
@@ -380,6 +415,7 @@ const initialData: AppData = {
   gamification: defaultGamification,
   pomodoroSettings: defaultPomodoroSettings,
   pomodoroStats: defaultPomodoroStats,
+  taskFocus: {},
   termCheck: null,
   pastTerms: [],
   repeats: {},
@@ -628,8 +664,11 @@ export interface StoreValue extends AppData {
   refreshGamChallenges: () => { xpEarned: number; newlyCompleted: string[] };
   /** Update Pomodoro timer settings; persisted to preferences.pomodoroSettings. */
   setPomodoroSettings: (patch: Partial<PomodoroSettings>) => void;
-  /** Record a completed focus session (stats + XP + challenges + a new lily pad). */
-  recordPomodoroComplete: (courseId?: string | null) => { xpEarned: number; lilyPadCount: number };
+  /** Record a completed focus session (stats + XP + challenges + a new lily pad),
+   *  and the focus on its task when it was spent on one. */
+  recordPomodoroComplete: (courseId?: string | null, task?: string | null) => { xpEarned: number; lilyPadCount: number };
+  /** Set a task's estimate / done (preferences.taskFocus). */
+  setTaskFocus: (key: string, patch: Partial<Pick<TaskFocus, "estimate" | "done" | "doneAt">>) => void;
   /** Record an abandoned focus session (withers a lily pad). */
   recordPomodoroAbandon: () => void;
 }
@@ -686,6 +725,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const currentUidRef = useRef<string | null>(null);
   const loadedOnceRef = useRef(false);
   const loadingRef = useRef(false);
+  // The account whose data the store holds, once it has fully loaded. Nothing
+  // is saved to an account before then: an effect running on the empty
+  // start-up state (the dashboard counting today's visit) would save it over
+  // the real data. That is how signing in wiped streaks, XP and check-ins.
+  const readyUidRef = useRef<string | null>(null);
+  // Set when we restored the account's progress (preferences.gamificationRecheck):
+  // work its badge tier out again once, from its own data.
+  const recheckTierRef = useRef(false);
   const retryCountRef = useRef(0);
   const MAX_RETRIES = 3;
 
@@ -794,7 +841,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ]),
             "cloud data"
           );
-        if (cancelled) return;
+        if (cancelled || currentUidRef.current !== user.id) return;
         semesterIdRef.current = sem.id;
         // Only the semester that was resolved (a brand-new one has no courses).
         const cloudCourses = activeCourses.filter((c) => c.semesterId === sem.id);
@@ -877,7 +924,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setLearnedCutoffs(
           await Promise.race([cutoffs, new Promise<LearnedCutoffs>((r) => setTimeout(() => r({}), 4000))])
         );
-        if (cancelled) return;
+        if (cancelled || currentUidRef.current !== user.id) return;
 
         const num = (v: unknown, fb: number) => (typeof v === "number" ? v : fb);
         const str = (v: unknown, fb: string) => (typeof v === "string" ? v : fb);
@@ -932,28 +979,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...defaultPomodoroSettings,
             ...((prefs.pomodoroSettings as Partial<PomodoroSettings>) ?? {}),
           },
-          pomodoroStats: {
-            ...defaultPomodoroStats,
-            ...((prefs.pomodoroStats as Partial<PomodoroStats>) ?? {}),
-            recentDays: Array.isArray((prefs.pomodoroStats as PomodoroStats | undefined)?.recentDays)
-              ? (prefs.pomodoroStats as PomodoroStats).recentDays.slice(-POMODORO_HISTORY_LIMIT)
-              : [],
-            pads: Array.isArray((prefs.pomodoroStats as PomodoroStats | undefined)?.pads)
-              ? (prefs.pomodoroStats as PomodoroStats).pads.slice(-POMODORO_PAD_LIMIT)
-              : [],
-          },
-          gamification: {
-            ...defaultGamification,
-            ...((prefs.gamification as Partial<GamificationState>) ?? {}),
-            streak: {
-              ...defaultGamification.streak,
-              ...((prefs.gamification as Record<string, unknown>)?.streak as Record<string, unknown> ?? {}),
-            },
-            challenges: {
-              ...defaultGamification.challenges,
-              ...((prefs.gamification as Record<string, unknown>)?.challenges as Record<string, unknown> ?? {}),
-            },
-          },
+          pomodoroStats: readPomodoroStats(prefs.pomodoroStats),
+          taskFocus: readTaskFocus(prefs.taskFocus),
+          gamification: readGamification(prefs.gamification),
           semester: {
             ...defaultSemester,
             name: sem.name,
@@ -996,6 +1024,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loadedOnceRef.current = true;
         loadingRef.current = false;
         retryCountRef.current = 0;
+        readyUidRef.current = user.id;
+        recheckTierRef.current = prefs.gamificationRecheck === true;
         setHydrated(true);
 
         // One-time migration: backfill the canonical `calendar` pref for existing
@@ -1039,6 +1069,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (event === "SIGNED_OUT") {
         setAuthStatus("signedOut");
         currentUidRef.current = null;
+        readyUidRef.current = null;
         loggedInRef.current = false;
         semesterIdRef.current = null;
         loadedOnceRef.current = true;
@@ -1060,15 +1091,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const uid = session?.user?.id ?? null;
       const prev = currentUidRef.current;
       if ((loadedOnceRef.current || loadingRef.current) && uid === prev) return;
-      if (prev !== null && prev !== uid) {
-        clearHavenLocalStorage();
+      if (prev !== uid) {
+        // A different account, or signing in after being signed out: drop what
+        // the store holds and show the loader until this account's own data has
+        // loaded. `hydrated` used to stay true over the empty signed-out state
+        // on a sign-in, so the dashboard counted the day's visit on it and
+        // saved that over the account (streak, XP and check-ins back to the
+        // start, 2026-09). applyForUser sets it again once the data is in.
+        if (prev !== null) clearHavenLocalStorage();
+        readyUidRef.current = null;
         setData(initialData);
-        // CRITICAL: mark unhydrated until the switched-in account's real data
-        // loads. Otherwise consumers keep seeing `hydrated === true` over the
-        // zeroed `initialData`, and a gamification effect (e.g. the dashboard's
-        // recordAppOpen) can run against the zeros and PERSIST them to the new
-        // account — wiping its streak / XP / check-ins. applyForUser flips this
-        // back to true once the real gamification is in state.
         setHydrated(false);
       }
       currentUidRef.current = uid;
@@ -1136,6 +1168,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // (anonymous prefs are written to localStorage by the persist effect above).
   const persistPref = useCallback((patch: db.Preferences) => {
     if (!loggedInRef.current) return;
+    // Never before the account's own data has loaded (see readyUidRef).
+    if (readyUidRef.current === null || readyUidRef.current !== currentUidRef.current) {
+      console.warn("Haven: not saved, the account hasn't loaded yet", Object.keys(patch));
+      return;
+    }
     db.savePreferences(patch).catch((e) =>
       console.error("Haven: failed to save preferences", e)
     );
@@ -1225,6 +1262,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { xpEarned: r.xpEarned, newlyCompleted: r.newlyCompleted };
   }, [commit, persistGamification]);
 
+  // Progress we restored (preferences.gamificationRecheck): work the badge tier
+  // out again from the account's own data, the way the app would have over the
+  // days the wipe erased. Once, quietly, then the request is cleared.
+  useEffect(() => {
+    if (!hydrated || !recheckTierRef.current) return;
+    recheckTierRef.current = false;
+    const d = dataRef.current;
+    const ctx = badgeContext({ ...d, ...viewRef.current });
+    let g = d.gamification;
+    for (let i = 0; i < MAX_TIER; i++) {
+      const r = checkBadges(g, ctx);
+      g = r.state;
+      if (!r.tierAdvanced) break;
+    }
+    if (g !== d.gamification) {
+      commit({ gamification: g });
+      persistGamification(g);
+    }
+    persistPref({ gamificationRecheck: false });
+  }, [hydrated, commit, persistGamification, persistPref]);
+
+  // Back on the app after a minute or more away: another device may have moved
+  // the account's progress on. Take the server's when it's ahead, so what this
+  // screen saves next builds on it (the database refuses a save that would
+  // take a counter back).
+  useEffect(() => {
+    if (!hydrated) return;
+    let hiddenAt = 0;
+    const onChange = async () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      const uid = readyUidRef.current;
+      if (!hiddenAt || Date.now() - hiddenAt < 60_000 || !loggedInRef.current || !uid) return;
+      hiddenAt = 0;
+      let prefs: db.Preferences;
+      try {
+        prefs = await db.getPreferences();
+      } catch {
+        return;
+      }
+      if (readyUidRef.current !== uid) return;
+      const d = dataRef.current;
+      const patch: Partial<AppData> = {};
+      const g = readGamification(prefs.gamification);
+      if (gamificationAhead(g, d.gamification)) patch.gamification = g;
+      const p = readPomodoroStats(prefs.pomodoroStats);
+      if (p.totalSessions > d.pomodoroStats.totalSessions) patch.pomodoroStats = p;
+      if (Object.keys(patch).length) commit(patch);
+    };
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, [hydrated, commit]);
+
   // --- Pomodoro ------------------------------------------------------------
 
   const setPomodoroSettings = useCallback(
@@ -1237,8 +1329,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   // A focus session finished. Bump lifetime + today's counters, roll the daily
-  // streak, add a lily pad, then hand off to the XP/challenge systems.
-  const recordPomodoroComplete = useCallback((courseId: string | null = null) => {
+  // streak, add a lily pad, add the session to its task's focus, then hand off
+  // to the XP/challenge systems.
+  const recordPomodoroComplete = useCallback((courseId: string | null = null, task: string | null = null) => {
     {
       const d = dataRef.current;
       const today = toISODate(new Date());
@@ -1272,7 +1365,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         current = 1;
       }
 
-      const pads = [...prev.pads, { date: today, courseId, minutes: focusMin }];
+      const pads = [...prev.pads, { date: today, courseId, minutes: focusMin, ...(task ? { task } : {}) }];
       while (pads.length > POMODORO_PAD_LIMIT) pads.shift();
 
       const stats: PomodoroStats = {
@@ -1285,14 +1378,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         lilyPadCount: prev.lilyPadCount + 1,
         pads,
       };
-      commit({ pomodoroStats: stats });
-      persistPref({ pomodoroStats: stats as unknown as Record<string, unknown> });
+      const patch: Partial<AppData> = { pomodoroStats: stats };
+      if (task) {
+        const was = d.taskFocus[task] ?? { minutes: 0, sessions: 0 };
+        patch.taskFocus = { ...d.taskFocus, [task]: { ...was, minutes: was.minutes + focusMin, sessions: was.sessions + 1 } };
+      }
+      commit(patch);
+      persistPref(patch);
     }
     // Both read the stats just committed above.
     awardGamificationXP(XP_REWARDS.COMPLETE_POMODORO, "complete_pomodoro");
     refreshGamChallenges();
     return { xpEarned: XP_REWARDS.COMPLETE_POMODORO, lilyPadCount: dataRef.current.pomodoroStats.lilyPadCount };
   }, [commit, persistPref, awardGamificationXP, refreshGamChallenges]);
+
+  const setTaskFocus = useCallback(
+    (key: string, patch: Partial<Pick<TaskFocus, "estimate" | "done" | "doneAt">>) => {
+      const was = dataRef.current.taskFocus[key] ?? { minutes: 0, sessions: 0 };
+      const next: TaskFocus = { ...was, ...patch };
+      if (!next.estimate) delete next.estimate;
+      if (!next.done) {
+        delete next.done;
+        delete next.doneAt;
+      }
+      setPref("taskFocus", { ...dataRef.current.taskFocus, [key]: next });
+    },
+    [setPref]
+  );
 
   // A focus session was given up. Record the abandon; the pond stays alive —
   // the withered pad regrows rather than permanently shrinking the pond, so
@@ -2296,22 +2408,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("Haven: failed to reset cloud data", e);
       }
     }
-    setData((d) => ({
-      ...initialData,
-      language: d.language,
-      theme: d.theme,
-      profileName: d.profileName,
-      email: d.email,
-      profilePhoto: d.profilePhoto,
-      gpaGoal: d.gpaGoal,
-      semester: d.semester,
-      // Reminders are a setting, not academic data — keep them across a reset.
-      notifPrefs: d.notifPrefs,
-      // Reset removes courses/grades only — planner items aren't deleted in the
-      // cloud, so keep them in memory too (they'd otherwise reappear on reload).
-      planner: d.planner,
-    }));
-  }, []);
+    // Only the courses and their grades go, as the button says. It used to
+    // reset everything else in memory too (progress, focus stats, university…)
+    // without deleting it, so the next save of any of them wrote the defaults
+    // over the account.
+    commit({ courses: [] });
+  }, [commit]);
 
   // Official end-of-term results replace the estimates everywhere courses are read.
   const coursesView = useMemo(() => {
@@ -2418,6 +2520,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setPomodoroSettings,
     recordPomodoroComplete,
     recordPomodoroAbandon,
+    setTaskFocus,
     setSemester,
     saveClassOff,
     addCourse,

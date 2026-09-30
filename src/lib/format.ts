@@ -37,6 +37,21 @@ export function formatDuration(minutes: number, hUnit: string, mUnit: string): s
   return `${m}${mUnit}`;
 }
 
+/** A duration the way it's said (90 → "ساعة ونص" / "1.5 hours", 135 →
+ *  "ساعتين و15 دقيقة" / "2 hours 15 min"), from the dur_* strings. */
+export function spokenDuration(
+  minutes: number,
+  t: (key: "dur_minutes" | "dur_halfHour" | "dur_hours" | "dur_hoursHalf" | "dur_hoursMinutes", params?: Record<string, string | number>) => string,
+): string {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (!h) return m === 30 ? t("dur_halfHour") : t("dur_minutes", { n: m });
+  if (m === 30) return t("dur_hoursHalf", { n: h });
+  const hours = t("dur_hours", { n: h });
+  return m ? t("dur_hoursMinutes", { hours, minutes: t("dur_minutes", { n: m }) }) : hours;
+}
+
 // Add whole minutes to an "HH:MM" (24h) time string, wrapping past midnight.
 // Used to backfill a lecture's end time from its stored duration.
 export function addMinutesToTime(hhmm: string, minutes: number): string {

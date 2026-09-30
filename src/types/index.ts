@@ -431,6 +431,8 @@ export interface AppData {
   pomodoroSettings: PomodoroSettings;
   /** Pomodoro session history + stats (per account, in preferences.pomodoroStats). */
   pomodoroStats: PomodoroStats;
+  /** focus per task, by task key (per account, in preferences.taskFocus). */
+  taskFocus: Record<string, TaskFocus>;
   /** end-of-term GPA check answers for the current semester, or null. */
   termCheck: TermCheck | null;
   /** past terms checked against the portal (optional, from the Profile page). */
@@ -468,6 +470,20 @@ export interface PomodoroPad {
   date: string; // ISO YYYY-MM-DD
   courseId: string | null; // null = "General" (no specific course)
   minutes: number;
+  /** the task the session was spent on ("component:<id>" | "planner:<id>") */
+  task?: string;
+}
+
+/** Focus spent on one task — an assessment ("component:<id>") or a planner task
+ *  ("planner:<id>") — per account, in preferences.taskFocus. */
+export interface TaskFocus {
+  minutes: number;
+  sessions: number;
+  /** the student's own guess of how long it takes, in minutes (optional) */
+  estimate?: number;
+  /** the student said it's done: submitted, ready for the exam, or the task done */
+  done?: boolean;
+  doneAt?: string; // ISO YYYY-MM-DD
 }
 
 export interface PomodoroStats {

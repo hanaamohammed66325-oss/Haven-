@@ -26,6 +26,11 @@ import { logEvent } from "@/lib/db";
 
 const STORAGE_KEY = "haven-sidebar-collapsed";
 
+// Pages that are a full-screen scene (the Pomodoro pond): they fill the space
+// under the phone's top bar edge to edge, with no padding, banners or footer.
+const SCENE_PAGES = ["/pomodoro"];
+const isScenePage = (path: string | null) => !!path && SCENE_PAGES.some((p) => path === p || path.startsWith(p + "/"));
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { t } = useT();
   const { hydrated, loadFailed } = useStore();
@@ -144,6 +149,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!hydrated) return <HaviLoader />;
 
+  const scene = isScenePage(pathname);
   return (
     <div className="flex min-h-dvh">
       {/* Desktop sidebar rail — hides itself below lg via its own classes */}
@@ -171,7 +177,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <main className="haven-main flex-1 min-w-0">
+      <main className={`haven-main flex-1 min-w-0 ${scene ? "flex flex-col" : ""}`}>
         {/* Mobile top bar (< lg) — hamburger + brand */}
         <div className="haven-topbar lg:hidden sticky top-0 z-30 flex items-center gap-2 px-3">
           <button
@@ -194,12 +200,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Generous bottom padding (+ safe-area inset) so content never touches
             the viewport edge / hides under the phone home indicator in the PWA.
             Top/side padding is unchanged from before; only the bottom grew. */}
-        <div className="mx-auto w-full max-w-[1600px] px-5 pt-6 sm:px-6 sm:pt-8 md:px-10 md:pt-12 pb-12">
-          <EarlyAccessBanner />
-          <TrialBanner />
-          {children}
-        </div>
-        <Footer />
+        {scene ? (
+          <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        ) : (
+          <>
+            <div className="mx-auto w-full max-w-[1600px] px-5 pt-6 sm:px-6 sm:pt-8 md:px-10 md:pt-12 pb-12">
+              <EarlyAccessBanner />
+              <TrialBanner />
+              {children}
+            </div>
+            <Footer />
+          </>
+        )}
       </main>
       <ReminderToast />
       <AchievementToast />

@@ -31,7 +31,7 @@ const RANKS: { key: RankKey; label: string; hint: string }[] = [
   { key: "opens",        label: "Opens",        hint: "every app launch" },
   { key: "content",      label: "Content",      hint: "courses + planner items they created" },
   { key: "planner_done", label: "Tasks done",   hint: "planner items checked off" },
-  { key: "pomodoros",    label: "Pomodoro",     hint: "completed focus sessions" },
+  { key: "pomodoros",    label: "Pomodoro",     hint: "completed Pomodoro sessions" },
 ];
 
 const score = (u: TopUser, k: RankKey) =>

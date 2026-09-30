@@ -70,17 +70,19 @@ export function useT() {
 
 // Sets the browser tab <title> for a page, in the active locale. By default the
 // label is branded with the "· Haven" suffix (matching the metadata template);
-// pass { absolute: true } for the homepage brand title, which stands alone.
-export function usePageTitle(key: TranslationKey, opts?: { absolute?: boolean }) {
+// pass { absolute: true } for the homepage brand title, which stands alone, or a
+// `prefix` that takes the brand's place (the Pomodoro clock while it runs).
+export function usePageTitle(key: TranslationKey, opts?: { absolute?: boolean; prefix?: string | null }) {
   const { t, lang } = useT();
   const { hydrated } = useStore();
   const absolute = opts?.absolute ?? false;
+  const prefix = opts?.prefix ?? null;
   useEffect(() => {
     // The boot script set a correct pre-paint tab title (brand, in the real
     // locale). Don't override it until real data loads, or we'd briefly show the
     // per-page title in the DEFAULT locale before correcting.
     if (!hydrated) return;
     const label = t(key);
-    document.title = absolute ? label : `${label} · Haven`;
-  }, [t, lang, key, absolute, hydrated]);
+    document.title = absolute ? label : prefix ? `${prefix} · ${label}` : `${label} · Haven`;
+  }, [t, lang, key, absolute, prefix, hydrated]);
 }

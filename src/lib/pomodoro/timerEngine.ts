@@ -84,3 +84,20 @@ export function progress(state: TimerState): number {
   if (state.totalSeconds <= 0) return 0;
   return 1 - state.secondsRemaining / state.totalSeconds;
 }
+
+/** The states the page and its controls tell apart. */
+export function phaseOf(state: TimerState) {
+  const onBreak = state.phase === "shortBreak" || state.phase === "longBreak";
+  const pausedFocus = state.phase === "paused" && state.pausedPhase === "focus";
+  return {
+    idle: state.phase === "idle",
+    onBreak,
+    /** the clock is counting down */
+    running: state.phase === "focus" || onBreak,
+    pausedFocus,
+    /** a break is due but not started */
+    breakWaiting: state.phase === "paused" && state.pausedPhase !== "focus",
+    /** a focus session, running or paused */
+    inSession: state.phase === "focus" || pausedFocus,
+  };
+}
