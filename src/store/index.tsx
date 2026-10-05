@@ -518,7 +518,11 @@ function withTimeout<T>(p: Promise<T>, label: string, ms = LOAD_TIMEOUT_MS): Pro
   });
 }
 
-export type GradeTableEvent = "grade_table_confirmed" | "grade_table_rejected" | "grade_table_submitted";
+export type GradeTableEvent =
+  | "grade_table_confirmed"
+  | "grade_table_rejected"
+  | "grade_table_submitted"
+  | "scheme_update_answered";
 export type TermCheckEvent =
   | "term_gpa_match"
   | "term_gpa_mismatch"

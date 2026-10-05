@@ -311,6 +311,9 @@ export interface AcademicInfo {
    *  table detected from the unverified catalogue. `key` is the catalogue
    *  slug it was asked about, so picking another university asks again. */
   gradeCheck?: GradeCheck;
+  /** The student's answer to the pop-up about a corrected GPA system for his
+   *  university (lib/schemeUpdates). `id` is the change he was asked about. */
+  schemeUpdate?: { id: string; answer: "yes" | "no" | "custom"; at: string };
   /** Confirmed their university's holidays (outside Saudi Arabia). */
   holidayCheck?: HolidayCheck;
   /** A points table the student entered themselves (used when gpaSchemeId is

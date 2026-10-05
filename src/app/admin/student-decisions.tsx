@@ -288,6 +288,7 @@ const EVENT_LABEL: Record<string, string> = {
   grade_table_confirmed: "Confirmed the GPA table",
   grade_table_rejected: "Said the GPA table is wrong",
   grade_table_submitted: "Entered their own GPA table",
+  scheme_update_answered: "Answered the GPA system update",
   attendance_rule_confirmed: "Confirmed the absence rule",
   attendance_rule_own: "Gave their own absence rule",
   attendance_rule_no: "Said no to the absence rule",

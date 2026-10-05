@@ -28,6 +28,7 @@ export interface GradeBand {
 export type SchemeId =
   | "saudi5"
   | "saudi4"
+  | "aou4"
   | "percentage"
   | "plusminus4"
   | "qatar4"
@@ -104,6 +105,26 @@ export const SAUDI4: BuiltinScheme = {
     { min: 70, letter: "C", points: 2.0 },
     { min: 65, letter: "D+", points: 1.5 },
     { min: 60, letter: "D", points: 1.0 },
+    { min: 0, letter: "F", points: 0.0 },
+  ],
+};
+
+// Arab Open University, Saudi branch (its Academic Advising Unit GPA guide,
+// Sept 2024): its own seven-band scale with no A+ — A 90 = 4.0, B+ 82 = 3.5,
+// B 74 = 3.0, C+ 66 = 2.5, C 58 = 2.0, D 50 = 1.5, F below 50. Not the unified
+// Saudi table: the cutoffs and points differ from SAUDI4 at every band.
+export const AOU4: BuiltinScheme = {
+  id: "aou4",
+  labelKey: "gradeSchemeArabOpen",
+  family: "4",
+  max: 4,
+  bands: [
+    { min: 90, letter: "A", points: 4.0 },
+    { min: 82, letter: "B+", points: 3.5 },
+    { min: 74, letter: "B", points: 3.0 },
+    { min: 66, letter: "C+", points: 2.5 },
+    { min: 58, letter: "C", points: 2.0 },
+    { min: 50, letter: "D", points: 1.5 },
     { min: 0, letter: "F", points: 0.0 },
   ],
 };
@@ -231,6 +252,7 @@ export const JORDAN4_PLUS: BuiltinScheme = {
 export const SCHEMES: BuiltinScheme[] = [
   SAUDI5,
   SAUDI4,
+  AOU4,
   QATAR4,
   JORDAN4,
   JORDAN4_NEW,
@@ -257,7 +279,7 @@ export const schemeById = (id: string | null | undefined): BuiltinScheme | undef
 
 /** The scheme a university's `scale` maps to. */
 export const schemeForUniversity = (u: University | undefined): GradeScheme =>
-  u?.scale === "4" ? SAUDI4 : SAUDI5;
+  u?.slug === "arab-open" ? AOU4 : u?.scale === "4" ? SAUDI4 : SAUDI5;
 
 // ── Smart detection ────────────────────────────────────────────────────────
 

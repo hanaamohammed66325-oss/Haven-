@@ -21,6 +21,8 @@ import { useT } from "@/i18n";
 import { Modal } from "./Modal";
 import { AcademicSettings, SchemePicker } from "./AcademicSettings";
 import { GradeTableSection } from "./GradeTableCheck";
+import { SchemeUpdateBody } from "./SchemeUpdateCheck";
+import { pendingSchemeUpdate } from "@/lib/schemeUpdates";
 import { gradeTableStatus } from "@/lib/gradeSchemes";
 import { DateField } from "./DateField";
 import { universityBySlug } from "@/lib/tools/universities";
@@ -35,7 +37,7 @@ import { useTermPlan } from "./TermCheckCard";
 import { WHATSNEW_SEEN_KEY } from "./WhatsNewModal";
 import type { AcademicInfo, Semester, SetupConfirmed } from "@/types";
 
-export type SetupStep = "profile" | "grades" | "basics";
+export type SetupStep = "profile" | "grades" | "scheme" | "basics";
 
 /** Set for the rest of the app session when the student picks "Later". */
 const SESSION_SKIP_KEY = "haven-setup-session-skip";
@@ -74,6 +76,7 @@ export function pendingSetupSteps(s: {
   if (!profileComplete(s.academic)) steps.push("profile");
   const table = gradeTableStatus(s.academic);
   if (table === "confirm" || table === "unknown") steps.push("grades");
+  if (pendingSchemeUpdate(s.academic)) steps.push("scheme");
   if (!s.setupConfirmed.semester && isPlaceholderSemester(s.semester)) steps.push("basics");
   return steps;
 }
@@ -207,7 +210,15 @@ export function SetupCheck() {
     <Modal
       open
       onClose={later}
-      title={t(step === "profile" ? "setup_profileTitle" : step === "grades" ? "setup_gradesTitle" : "setup_basicsTitle")}
+      title={t(
+        step === "profile"
+          ? "setup_profileTitle"
+          : step === "grades"
+          ? "setup_gradesTitle"
+          : step === "scheme"
+          ? "su_title"
+          : "setup_basicsTitle"
+      )}
     >
       {steps.length > 1 && (
         <p className="text-xs font-medium mb-3" style={{ color: "var(--color-muted)" }}>
@@ -216,6 +227,7 @@ export function SetupCheck() {
       )}
       {step === "profile" && <ProfileStep onNext={next} onLater={later} isLast={isLast} />}
       {step === "grades" && <GradesStep onNext={next} onLater={later} isLast={isLast} />}
+      {step === "scheme" && <SchemeStep onNext={next} />}
       {step === "basics" && <BasicsStep onNext={next} onLater={later} />}
     </Modal>
   );
@@ -292,6 +304,14 @@ function ProfileStep({ onNext, onLater, isLast }: { onNext: () => void; onLater:
       />
     </>
   );
+}
+
+/** The corrected-GPA-system pop-up as a setup step. The change is read once when
+ *  the step opens, so answering it doesn't blank the window before it moves on. */
+function SchemeStep({ onNext }: { onNext: () => void }) {
+  const { academic } = useStore();
+  const [update] = useState(() => pendingSchemeUpdate(academic));
+  return update ? <SchemeUpdateBody update={update} onDone={onNext} /> : null;
 }
 
 export function GradesStep({ onNext, onLater, isLast }: { onNext: () => void; onLater: () => void; isLast: boolean }) {

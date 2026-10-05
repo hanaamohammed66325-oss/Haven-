@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
-import { UNIVERSITIES } from "@/lib/tools/universities";
+import { UNIVERSITIES, universityBySlug } from "@/lib/tools/universities";
 import { toEnglishDigits } from "@/lib/dates";
 import { detectScheme, gradeTableStatus, schemeById } from "@/lib/gradeSchemes";
 import { typedUniversityNames, universityChoices } from "@/lib/universityCountry";
@@ -285,7 +285,12 @@ export function SchemePicker({ onCustom }: { onCustom: () => void }) {
               // has 91 of them), so keep the detected one when it is a 4.0
               // system and otherwise start on the most common; the chips below
               // show it and "edit the table" fixes whatever differs.
-              else setAcademic({ gpaSchemeId: schemeById(detected.id)?.family === "4" ? schemeById(detected.id)!.id : "plusminus4" });
+              // A Saudi university in the list has the Saudi 4.0 table (its regulation
+              // prints it next to the 5.0 one), not the international plus/minus one.
+              else {
+                const saudi = !!academic.universitySlug && !!universityBySlug(academic.universitySlug);
+                setAcademic({ gpaSchemeId: schemeById(detected.id)?.family === "4" ? schemeById(detected.id)!.id : saudi ? "saudi4" : "plusminus4" });
+              }
             }}
           >
             <option value="auto">{t("gpaSchemeAuto")}</option>
@@ -306,6 +311,14 @@ export function SchemePicker({ onCustom }: { onCustom: () => void }) {
               status card above. */}
           {!unknown && status !== "confirm" && (
             <div>
+              {academic.universitySlug && universityBySlug(academic.universitySlug)?.dualScale && schemeValue === "auto" && (
+                <p className="mb-1.5 text-xs leading-relaxed" style={{ color: "var(--color-primary)" }}>
+                  {t("su_dualHint")}
+                </p>
+              )}
+              <p className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>
+                {t("gpaOptionsTitle")}
+              </p>
               <SchemeChips scheme={detected} />
               {source !== "custom" && (
                 <p className="mt-1.5 text-xs flex flex-wrap items-center gap-x-2" style={{ color: "var(--color-muted)" }}>
