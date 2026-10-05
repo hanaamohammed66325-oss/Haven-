@@ -120,6 +120,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [showAll, setShowAll] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,7 +135,10 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
           ? `${events.error.message} — admin_gpa_checks() isn't in the database yet (migration 20260926_gpa_checks.sql).`
           : events.error.message
       );
-    } else setRows(events.data as EventRow[]);
+    } else {
+      setRows(events.data as EventRow[]);
+      setUpdatedAt(new Date().toISOString());
+    }
     if (!cutoffs.error && cutoffs.data) {
       setApproved(
         Object.fromEntries(
@@ -148,11 +152,32 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
   }, []);
   useEffect(() => {
     void load();
+    const onFocus = () => { void load(); };
+    const onVisible = () => { if (document.visibilityState === "visible") void load(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [load]);
 
   const all = useMemo(() => rows ?? [], [rows]);
   const checks = useMemo(() => all.filter((r) => CHECK_EVENTS.has(r.event)).map(toCheck), [all]);
-  const where = (event: string, pred: (c: Check) => boolean = () => true) => checks.filter((c) => c.row.event === event && pred(c));
+  // Cards summarize the latest reported result per student and check category.
+  // History remains below; older events cannot reliably identify the same term.
+  const latest = useMemo(() => {
+    const seen = new Set<string>();
+    return [...checks].sort((a, b) => b.row.at.localeCompare(a.row.at)).filter((c) => {
+      const category = c.row.event === "term_gpa_match" || c.row.event === "term_gpa_mismatch"
+        ? "term_gpa" : c.row.event;
+      const key = `${c.row.user_id}|${category}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [checks]);
+  const where = (event: string, pred: (c: Check) => boolean = () => true) => latest.filter((c) => c.row.event === event && pred(c));
 
   /** The students behind a list of checks: one line each, showing their latest
    *  check (the list is newest first) and how many more they did. */
@@ -266,13 +291,15 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
 
       <div className="mt-10 pt-8 border-t" style={{ borderColor: C.border }}>
         <h2 className="text-[16px] font-semibold mb-1" style={{ color: C.text }}>
-          Checks against the university portal
+          Latest reported checks against the university portal
         </h2>
         <p className="text-[12px] mb-4" style={{ color: C.textDim }}>
-          Students who compared our GPA with the one on their portal, at the end of the term or on a past term. Click a number to
-          see the students.
+          Cards show each student's latest reported check in each category. A later check may concern a different term;
+          it does not prove every earlier discrepancy was resolved. All attempts remain in the history below. Click a number
+          to see the students.
         </p>
       </div>
+      {updatedAt && <p className="text-[12px] mb-4" style={{ color: C.textDim }}>Last refreshed: {fmtDate(updatedAt)}</p>}
       {error && <ErrorBanner message={error} onRetry={load} />}
 
       {rows && (
@@ -305,7 +332,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
 
           <div>
             <h3 className="text-[13px] font-semibold mb-2" style={{ color: C.text }}>
-              Every check
+              Check history — all attempts
             </h3>
             <div className="rounded-xl border overflow-x-auto" style={{ borderColor: C.border, background: C.panel }}>
               {checks.length === 0 ? (
