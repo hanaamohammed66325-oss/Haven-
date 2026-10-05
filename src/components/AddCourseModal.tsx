@@ -7,7 +7,7 @@ import { useScheme, useStore, type MutationResult } from "@/store";
 import { toEnglishDigits } from "@/lib/dates";
 import { DENIED, detectScheme, isSaudiUniversity } from "@/lib/gradeSchemes";
 import { courseRule, hasOwnLimit } from "@/lib/grades";
-import { fmtPct } from "@/lib/format";
+import { fmtPct, isolateOption } from "@/lib/format";
 import type { Course, RepeatInfo, RepeatPolicy } from "@/types";
 
 const field =
@@ -244,7 +244,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
 }
 
 /** One radio card: a title and a line under it. */
-function Choice({ on, onClick, label, desc }: { on: boolean; onClick: () => void; label: string; desc: string }) {
+export function Choice({ on, onClick, label, desc }: { on: boolean; onClick: () => void; label: string; desc: string }) {
   return (
     <button
       type="button"
@@ -397,7 +397,7 @@ function RepeatFields({
                       no failing letter, no DN. */}
                   {(saudi && kind === "raise" ? letters.slice(0, -1) : letters).map((l) => (
                     <option key={l} value={l}>
-                      {l}
+                      {isolateOption(l)}
                     </option>
                   ))}
                   {!(saudi && kind === "raise") && <option value={DENIED}>{t("grade_DN")}</option>}

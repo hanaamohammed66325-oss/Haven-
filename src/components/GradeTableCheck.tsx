@@ -14,6 +14,7 @@ import { Plus, X } from "lucide-react";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { universityBySlug } from "@/lib/tools/universities";
+import { isolate } from "@/lib/format";
 import {
   detectScheme,
   gradeTableStatus,
@@ -69,7 +70,7 @@ export function SchemeChips({ scheme, onSurface = false }: { scheme: GradeScheme
             color: b.min >= pass ? "var(--color-ink)" : "var(--color-muted)",
           }}
         >
-          {scheme.percent ? `${b.letter} ${b.min}–${i === 0 ? 100 : scheme.bands[i - 1].min}` : `${b.letter} ${b.points}`}
+          {scheme.percent ? `${isolate(b.letter)} ${b.min}–${i === 0 ? 100 : scheme.bands[i - 1].min}` : `${isolate(b.letter)} ${b.points}`}
         </span>
       ))}
     </div>

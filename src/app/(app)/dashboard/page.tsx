@@ -34,12 +34,14 @@ import {
   semesterGPA,
   semesterProgress,
   courseCurrentPct,
+  gpaIsApprox,
   attendanceInfo,
   fmtPct,
   projectedCumulativeGpa,
   STATUS_COLOR,
 } from "@/lib/grades";
 import { creditHoursLabel } from "@/lib/format";
+import { courseCutoffs, courseScheme } from "@/lib/curves";
 import { toISODate } from "@/lib/dates";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -124,6 +126,8 @@ export default function DashboardPage() {
     [courses, cumulativeGpa, cumulativeHours, gradeScheme, store.academic]
   );
   const shownGpa = gpaMode === "cumulative" ? projected : gpa;
+  // A course graded on the cohort average still waiting for (some of) its cutoffs.
+  const gpaApprox = useMemo(() => gpaIsApprox(courses, gradeScheme), [courses, gradeScheme]);
 
   // Time-of-day greeting + the profile name (gender-neutral Arabic). Falls back
   // to a name-less greeting when the profile has no name set.
@@ -498,6 +502,11 @@ export default function DashboardPage() {
                           {t("gpaProvisional")}
                         </div>
                       )}
+                      {gpaApprox && (
+                        <div className="text-[10px] leading-snug max-w-[14rem]" style={{ color: "var(--color-warning)" }}>
+                          {t("curve_gpaApprox")}
+                        </div>
+                      )}
                       <div className="inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
                         {revealGpa ? <EyeOff size={12} /> : <Eye size={12} />}
                         {revealGpa ? t("clickHide") : t("clickReveal")}
@@ -658,7 +667,10 @@ function gradeColor(pct: number | null): string {
 function DashboardCourseCard({ course, index }: { course: Course; index: number }) {
   const { t, lang } = useT();
   const { semester, planner, academic, updateCourse, attendanceEnabled } = useStore();
-  const scheme = useScheme();
+  const baseScheme = useScheme();
+  // The course's own cutoffs when it's graded on the cohort average.
+  const scheme = courseScheme(course, baseScheme);
+  const curve = course.official ? null : courseCutoffs(course, baseScheme);
   const [revealed, setRevealed] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState(false);
   const [instrDraft, setInstrDraft] = useState(course.instructorName ?? "");
@@ -798,7 +810,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             className="relative z-[2] shrink-0 flex flex-col items-end gap-1.5 cursor-pointer select-none"
           >
             <span className={revealed ? "haven-clear" : "haven-blur"}>
-              <GradeBadge scheme={scheme} pct={pct} size="md" official={course.official} />
+              <GradeBadge scheme={scheme} pct={pct} size="md" official={course.official} curve={curve?.status} />
             </span>
             {revealed ? <EyeOff size={14} color="var(--color-muted)" /> : <Eye size={14} color="var(--color-muted)" />}
           </span>

@@ -34,6 +34,7 @@ import type {
   TermCheck,
   PastTerm,
   RepeatInfo,
+  CourseCurve,
   AttendanceRule,
   PersonalAttendanceRule,
 } from "@/types";
@@ -60,6 +61,7 @@ import { ruleMode, semesterGPA } from "@/lib/grades";
 import { resolveScheme, setLearnedCutoffs, SCHEMES, type LearnedCutoffs } from "@/lib/gradeSchemes";
 import { readPastTerms, readTermCheck, withOfficial } from "@/lib/termCheck";
 import { readRepeats, withRepeats } from "@/lib/repeats";
+import { curveSaver, curvesPref, curveUniversity, nextCurves, readCurves, withCurves } from "@/lib/curves";
 import { readTaskFocus } from "@/lib/pomodoro/focusTasks";
 import type { Session } from "@supabase/supabase-js";
 import { holidayCalendar } from "@/lib/universityCountry";
@@ -419,6 +421,7 @@ const initialData: AppData = {
   termCheck: null,
   pastTerms: [],
   repeats: {},
+  curves: {},
 };
 
 // Planner note colours are derived from the tag (mirror of Planner.tsx TAGS).
@@ -565,6 +568,10 @@ export interface StoreValue extends AppData {
   /** Mark a course as repeated with its earlier attempt's grade, or clear it
    *  (null); persisted to preferences.repeats for the current semester. */
   setCourseRepeat: (courseId: string, earlier: RepeatInfo | null) => void;
+  /** Mark a course as graded on the cohort average with the cutoffs the
+   *  student entered, or clear it (null); persisted to preferences.curves for
+   *  the current semester. Resolves with whether the account saved it. */
+  setCourseCurve: (courseId: string, curve: CourseCurve | null) => Promise<MutationResult>;
   setProfilePhoto: (photo: string | null) => void;
   setGpaGoal: (goal: number) => void;
   // Planner notes are cloud-backed (planner_items); autoEdits ride in
@@ -734,6 +741,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // start-up state (the dashboard counting today's visit) would save it over
   // the real data. That is how signing in wiped streaks, XP and check-ins.
   const readyUidRef = useRef<string | null>(null);
+  // Course cutoffs (preferences.curves) are saved one request at a time, in
+  // order, and a failed save puts back what the account holds (lib/curves).
+  const [curveSaves] = useState(() =>
+    curveSaver({
+      send: (curves) => {
+        if (readyUidRef.current === null || readyUidRef.current !== currentUidRef.current) {
+          return Promise.reject(new Error("the account hasn't loaded yet"));
+        }
+        return db.savePreferences({ curves: curvesPref(semesterIdRef.current ?? "", curves) }).catch((e) => {
+          console.error("Haven: failed to save course cutoffs", e);
+          throw e;
+        });
+      },
+      show: (curves) => {
+        dataRef.current = { ...dataRef.current, curves };
+        setData((d) => ({ ...d, curves }));
+      },
+    })
+  );
   // Set when we restored the account's progress (preferences.gamificationRecheck):
   // work its badge tier out again once, from its own data.
   const recheckTierRef = useRef(false);
@@ -942,6 +968,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const legacyCal = asCal(prefs.calendarType);
         const resolvedCalendar: "hijri" | "gregorian" =
           canonicalCal ?? legacyCal ?? localCal ?? "gregorian";
+        const loadedCurves = readCurves(prefs.curves, sem.id);
         setData({
           ...initialData,
           profileName:
@@ -979,6 +1006,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           termCheck: readTermCheck(prefs.termCheck, sem.id),
           pastTerms: readPastTerms(prefs.pastTerms),
           repeats: readRepeats(prefs.repeats, sem.id),
+          curves: loadedCurves,
           pomodoroSettings: {
             ...defaultPomodoroSettings,
             ...((prefs.pomodoroSettings as Partial<PomodoroSettings>) ?? {}),
@@ -1029,6 +1057,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loadingRef.current = false;
         retryCountRef.current = 0;
         readyUidRef.current = user.id;
+        curveSaves.reset(loadedCurves);
         recheckTierRef.current = prefs.gamificationRecheck === true;
         setHydrated(true);
 
@@ -1074,6 +1103,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setAuthStatus("signedOut");
         currentUidRef.current = null;
         readyUidRef.current = null;
+        curveSaves.reset({});
         loggedInRef.current = false;
         semesterIdRef.current = null;
         loadedOnceRef.current = true;
@@ -1104,6 +1134,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // start, 2026-09). applyForUser sets it again once the data is in.
         if (prev !== null) clearHavenLocalStorage();
         readyUidRef.current = null;
+        curveSaves.reset({});
         setData(initialData);
         setHydrated(false);
       }
@@ -1893,6 +1924,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [commit, persistPref]
   );
 
+  const setCourseCurve = useCallback(
+    async (courseId: string, curve: CourseCurve | null): Promise<MutationResult> => {
+      // Refused before anything changes on screen, so a change that can't be
+      // saved never looks applied.
+      if (!loggedInRef.current) return NOT_SIGNED_IN;
+      if (readyUidRef.current === null || readyUidRef.current !== currentUidRef.current) {
+        return { ok: false, error: "the account hasn't loaded yet" };
+      }
+      const d = dataRef.current;
+      // Shown at once, saved after any earlier save (not through persistPref, so
+      // the caller can tell the student when it didn't reach the account).
+      return curveSaves.write(nextCurves(d.curves, d.courses.map((c) => c.id), courseId, curve));
+    },
+    [curveSaves]
+  );
+
   // Mark (or unmark) a course's limit as the student's own choice, dropping
   // ids of deleted courses on the way.
   const markOwnLimit = useCallback(
@@ -2421,11 +2468,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Official end-of-term results replace the estimates everywhere courses are read.
   const coursesView = useMemo(() => {
-    const out = withRepeats(withOfficial(data.courses, data.termCheck), data.repeats);
+    // Course cutoffs entered at another university are kept but not applied.
+    const out = withCurves(
+      withRepeats(withOfficial(data.courses, data.termCheck), data.repeats),
+      data.curves,
+      curveUniversity(data.academic)
+    );
     if (!data.ownLimits.length) return out;
     const own = new Set(data.ownLimits);
     return out.map((c) => (own.has(c.id) ? { ...c, ownLimit: true } : c));
-  }, [data.courses, data.termCheck, data.repeats, data.ownLimits]);
+  }, [data.courses, data.termCheck, data.repeats, data.curves, data.academic, data.ownLimits]);
 
   // The university's absence rule (approved, or a suggestion waiting for
   // approval), fetched whenever the university changes. Until the student
@@ -2492,6 +2544,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     reportTermCheck,
     setPastTerms,
     setCourseRepeat,
+    setCourseCurve,
     hydrated,
     loadFailed,
     authStatus,

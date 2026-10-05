@@ -6,9 +6,8 @@ import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { CountUp } from "./CountUp";
-import { courseCurrentPct, projectedCumulativeFromParts } from "@/lib/grades";
+import { courseCurrentPct, gpaIsApprox, gradeCourse, projectedCumulativeFromParts, simulatedSemester } from "@/lib/grades";
 import { repeatAdjust } from "@/lib/repeats";
-import { bandForPct, isWithdrawn, pointsForOfficial, pointsForPct } from "@/lib/gradeSchemes";
 
 export function WhatIfCard() {
   const { t } = useT();
@@ -37,23 +36,17 @@ export function WhatIfCard() {
   //   • cumulative → blend the stored current cumulative GPA + completed hours
   //     with the hypothetical semester results (same math as the GPA card).
   const gpa = useMemo(() => {
-    let points = 0;
-    let credits = 0;
-    courses.forEach((c) => {
-      // A course with its official result is settled — it doesn't move; a
-      // withdrawn one is out of the GPA.
-      if (isWithdrawn(c.official)) return;
-      const fixed = c.official ? pointsForOfficial(scheme, c.official) : null;
-      const p = sim[c.id] ?? 75;
-      points += (fixed ?? pointsForPct(scheme, p)) * c.creditHours;
-      credits += c.creditHours;
-    });
+    // A course with its official result is settled — it doesn't move; a
+    // withdrawn one is out of the GPA.
+    const { points, credits } = simulatedSemester(courses, scheme, (c) => sim[c.id] ?? 75);
     if (gpaMode === "cumulative") {
       const repeats = repeatAdjust(courses, scheme, academic);
       return projectedCumulativeFromParts(points, credits, cumulativeGpa, cumulativeHours, scheme, repeats);
     }
     return credits ? points / credits : null;
   }, [sim, courses, gpaMode, cumulativeGpa, cumulativeHours, scheme, academic]);
+  // A course graded on the cohort average still waiting for (some of) its cutoffs.
+  const approx = useMemo(() => gpaIsApprox(courses, scheme, (c) => sim[c.id] ?? 75), [courses, scheme, sim]);
 
   if (!courses.length) return null;
 
@@ -82,9 +75,11 @@ export function WhatIfCard() {
 
       <div className="flex flex-col gap-5">
         {courses.map((c) => {
-          const fixed = c.official ? pointsForOfficial(scheme, c.official) : null;
-          if (fixed != null || isWithdrawn(c.official)) {
-            const letter = fixed != null && scheme.percent ? bandForPct(scheme, fixed).letter : c.official!.letter;
+          const v = sim[c.id] ?? 75;
+          const g = gradeCourse(c, scheme, { pct: v });
+          if (g.source === "official" || g.source === "withdrawn") {
+            const fixed = g.source === "official" ? g.points : null;
+            const letter = g.letter;
             return (
               <div key={c.id} className="flex items-center gap-3 sm:gap-4">
                 <span
@@ -105,13 +100,12 @@ export function WhatIfCard() {
                   className="w-9 shrink-0 text-end text-sm font-semibold"
                   style={{ color: "var(--color-ink)" }}
                 >
-                  {letter}
+                  {/* "A+" stays "A+" in Arabic */}
+                  <bdi>{letter}</bdi>
                 </span>
               </div>
             );
           }
-          const v = sim[c.id] ?? 75;
-          const g = bandForPct(scheme, v);
           return (
             <div key={c.id} className="flex items-center gap-3 sm:gap-4">
               <span
@@ -139,7 +133,7 @@ export function WhatIfCard() {
                 className="w-9 shrink-0 text-end text-sm font-semibold"
                 style={{ color: "var(--color-ink)" }}
               >
-                {g.letter}
+                <bdi>{g.letter}</bdi>
               </span>
             </div>
           );
@@ -156,6 +150,11 @@ export function WhatIfCard() {
           <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ {scheme.max}</span>
         </span>
       </div>
+      {approx && (
+        <p className="mt-2 text-[11px] leading-snug" style={{ color: "var(--color-warning)" }}>
+          {t("curve_gpaApprox")}
+        </p>
+      )}
     </Card>
   );
 }

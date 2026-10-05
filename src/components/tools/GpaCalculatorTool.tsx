@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Trash2, GraduationCap, ArrowLeft } from "lucide-react";
-import { plural } from "@/lib/format";
+import { isolateOption, plural } from "@/lib/format";
 
 // Standalone, no-login GPA calculator for the public /tools/gpa-calculator page.
 // Deliberately self-contained (no store, no i18n) so it renders instantly for a
@@ -155,7 +155,7 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
             >
               {GRADES.map((g) => (
                 <option key={g.letter} value={g.letter}>
-                  {g.letter} ({scale === "5" ? g.p5.toFixed(2) : g.p4.toFixed(2)})
+                  {isolateOption(g.letter, true)} ({scale === "5" ? g.p5.toFixed(2) : g.p4.toFixed(2)})
                 </option>
               ))}
             </select>

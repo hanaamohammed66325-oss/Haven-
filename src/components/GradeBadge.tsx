@@ -1,7 +1,9 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { bandForPct, DENIED, pointsForOfficial, WITHDRAWN, type GradeScheme } from "@/lib/gradeSchemes";
+import { badgeGrade } from "@/lib/grades";
+import type { GradeScheme } from "@/lib/gradeSchemes";
+import type { CurveStatus } from "@/lib/curves";
 import type { OfficialGrade } from "@/types";
 import { useT } from "@/i18n";
 import { InfoPopover } from "./InfoPopover";
@@ -22,7 +24,16 @@ interface GradeBadgeProps {
   /** The course's official portal result (end-of-term check). When set it is
    *  shown instead of the estimate, captioned "from the portal". */
   official?: OfficialGrade;
+  /** A course graded on the cohort average: how sure its cutoffs are, shown
+   *  as a caption (approximate while waiting / partial). */
+  curve?: CurveStatus | null;
 }
+
+const CURVE_TAG = {
+  waiting: "curve_tagWaiting",
+  partial: "curve_tagPartial",
+  entered: "curve_tagEntered",
+} as const;
 
 // Colour by how close the grade is to the top of ITS OWN scale, so a 4.0 or a
 // plus/minus scheme colours the same way a 5.0 does (a top grade is green, a
@@ -45,25 +56,12 @@ export function GradeBadge({
   gradedPct,
   showProvisional = false,
   official,
+  curve,
 }: GradeBadgeProps) {
   const { t } = useT();
-  const officialPoints = official ? pointsForOfficial(scheme, official) : null;
-  // W / DN come from the portal but aren't band letters: shown as-is.
-  const special =
-    !scheme.percent && (official?.letter === WITHDRAWN || official?.letter === DENIED) ? official.letter : null;
-  const hasOfficial = officialPoints != null || special != null;
-  const isDefault = pct == null && !hasOfficial;
-  const displayPct = officialPoints != null && scheme.percent ? officialPoints : pct ?? 100;
-
-  const estimated = bandForPct(scheme, displayPct);
-  const grade =
-    hasOfficial && !scheme.percent
-      ? scheme.bands.find((b) => b.letter === official!.letter) ?? estimated
-      : estimated;
-  const color =
-    special === WITHDRAWN
-      ? "#8A8F98"
-      : gradeColor(special === DENIED ? scheme.bands[scheme.bands.length - 1].points : grade.points, scheme.bands[0].points);
+  const { letter, colorPoints, official: hasOfficial, isDefault } = badgeGrade(scheme, pct, official);
+  // Withdrawn (W) is grey; everything else by its points.
+  const color = colorPoints == null ? "#8A8F98" : gradeColor(colorPoints, scheme.bands[0].points);
   const sizeClass = {
     sm: "text-xs px-1.5 py-0.5",
     md: "text-sm px-2 py-1",
@@ -77,10 +75,13 @@ export function GradeBadge({
   const badge = (
     <span className="inline-flex items-center gap-1">
       <span
+        // "A+" stays "A+" in Arabic (not "+A"); an Arabic letter from the
+        // student's own table still reads right to left.
+        dir="auto"
         className={`inline-flex items-center font-semibold rounded-lg ${sizeClass}`}
         style={{ background: `${color}1A`, color, opacity: isDefault ? 0.6 : 1 }}
       >
-        {special ?? grade.letter}
+        {letter}
       </span>
       {isDefault && showDefaultNote && (
         <InfoPopover
@@ -106,13 +107,18 @@ export function GradeBadge({
     );
   }
 
-  if (isProvisional && showProvisional) {
+  const captions: string[] = [];
+  if (isProvisional && showProvisional) captions.push(t("gradeProvisional", { pct: Math.round(gradedPct!) }));
+  if (curve && !isDefault) captions.push(t(CURVE_TAG[curve]));
+  if (captions.length) {
     return (
       <span className="inline-flex flex-col items-end gap-0.5">
         {badge}
-        <span className="text-[10px] leading-none" style={{ color: "var(--color-muted)" }}>
-          {t("gradeProvisional", { pct: Math.round(gradedPct!) })}
-        </span>
+        {captions.map((c) => (
+          <span key={c} className="text-[10px] leading-none" style={{ color: "var(--color-muted)" }}>
+            {c}
+          </span>
+        ))}
       </span>
     );
   }

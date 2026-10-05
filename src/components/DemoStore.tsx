@@ -16,6 +16,7 @@ import { DEFAULT_NOTIF_PREFS } from "@/lib/notifPrefs";
 import { addMinutesToTime } from "@/lib/format";
 import { withOfficial } from "@/lib/termCheck";
 import { withRepeats } from "@/lib/repeats";
+import { curveUniversity, nextCurves, withCurves } from "@/lib/curves";
 import { NoCollapse } from "./Collapsible";
 import { toISODate } from "@/lib/dates";
 
@@ -235,6 +236,7 @@ function buildInitialData(): AppData {
     termCheck: null,
     pastTerms: [],
     repeats: {},
+    curves: {},
     pomodoroStats: { totalSessions: pads.length, totalFocusMinutes: pads.length * 25, longestDailyStreak: 4, currentDailyStreak: 2, lastSessionDate: dayOffset(0), recentDays: [], lilyPadCount: pads.length, pads },
     taskFocus: {},
   };
@@ -254,7 +256,11 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
 
     return {
       ...data,
-      courses: withRepeats(withOfficial(data.courses, data.termCheck), data.repeats),
+      courses: withCurves(
+        withRepeats(withOfficial(data.courses, data.termCheck), data.repeats),
+        data.curves,
+        curveUniversity(data.academic)
+      ),
       hydrated: true,
       loadFailed: false,
       authStatus: "signedIn",
@@ -277,6 +283,10 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
         if (earlier) repeats[id] = earlier;
         else delete repeats[id];
         patch({ repeats });
+      },
+      setCourseCurve: (id, curve) => {
+        patch({ curves: nextCurves(data.curves, data.courses.map((c) => c.id), id, curve) });
+        return Promise.resolve({ ok: true as const });
       },
       setProfilePhoto: (profilePhoto) => patch({ profilePhoto }),
       setGpaGoal: (gpaGoal) => patch({ gpaGoal }),

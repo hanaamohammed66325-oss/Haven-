@@ -1,9 +1,21 @@
-import type { AcademicInfo, Course, Semester } from "@/types";
+import type { AcademicInfo, Course, OfficialGrade, Semester } from "@/types";
 import { resolveHolidaysForSemester, holidayMinutes, holidayLectureCount, clipHolidays } from "./holidays";
 import { addDays, toISODate } from "./dates";
 import { resolveTardinessRule, tardinessToAbsenceMinutes } from "./tardiness";
 import { NO_ADJUST, repeatAdjust, type RepeatAdjust } from "./repeats";
-import { SAUDI5, bandForPct, isWithdrawn, passMark, pointsForOfficial, pointsForPct, type GradeScheme } from "./gradeSchemes";
+import { courseCutoffs, courseScheme } from "./curves";
+import {
+  SAUDI5,
+  DENIED,
+  WITHDRAWN,
+  bandForPct,
+  interpretPct,
+  isWithdrawn,
+  passMark,
+  pointsForLetter,
+  pointsForOfficial,
+  type GradeScheme,
+} from "./gradeSchemes";
 
 /** Status thresholds scale with each course's own limit: "approaching" starts at
  *  70% of the limit, "withdrawal risk" at the limit itself. */
@@ -94,6 +106,10 @@ export function courseLimit(c: Course, sem?: Semester): number {
 // so older callers keep working.
 export const SCALE = SAUDI5.bands;
 
+// Floating-point noise (0.55 × 100 = 55.00000000000001) must not push a value
+// over a boundary: snapped to 9 decimals before it's compared or rounded up.
+const snap = (x: number) => Math.round(x * 1e9) / 1e9;
+
 /**
  * Course grade as it currently stands, out of the FULL 100 — descending from
  * A+ downward.
@@ -113,15 +129,19 @@ export const SCALE = SAUDI5.bands;
  *
  * (The "if you got 0 on everything remaining" floor is computed where it's
  * actually needed — see `finalAdvice`'s secured letter.)
+ *
+ * Floating-point noise must not cross a cutoff: (1 − 1/3) × 60 used to give
+ * 59.99999999999999 for an exact 60, an F instead of a D. Each loss is worked
+ * out as (total − score) × weight / total, and the result is snapped.
  */
 export function courseCurrentPct(course: Course): number | null {
   const g = course.components.filter((c) => c.score != null && c.total > 0);
   if (!g.length) return null;
   let lost = 0;
   g.forEach((c) => {
-    lost += (1 - c.score! / c.total) * c.weight;
+    lost += ((c.total - c.score!) * c.weight) / c.total;
   });
-  return Math.max(0, 100 - lost);
+  return Math.max(0, snap(100 - lost));
 }
 
 // Semester GPA broken into its parts, so callers can reuse the graded credit
@@ -135,12 +155,159 @@ export interface SemesterGpaDetail {
  *  the student entered one (end-of-term check), else the estimate from its
  *  current %. null when neither exists yet. */
 export function coursePoints(course: Course, scheme: GradeScheme = SAUDI5): number | null {
+  return gradeCourse(course, scheme).points;
+}
+
+// ── One course's grade, for every screen ────────────────────────────────────
+//
+// Every screen that shows a course's letter or counts its points reads it from
+// here, so how a course's % turns into a letter and points is decided in one
+// place. Reading a grade never changes the course's marks.
+
+/** Where a course's grade comes from:
+ *    none      — nothing graded and no portal result;
+ *    estimate  — read from the course % through the scheme;
+ *    official  — the portal result from the end-of-term check;
+ *    override  — a letter the student picked to try out (cumulative modal);
+ *    withdrawn — W: out of the GPA. */
+export type CourseGradeSource = "none" | "estimate" | "official" | "override" | "withdrawn";
+
+export interface CourseGrade {
+  /** the course % the grade is read from (the current one, or the
+   *  hypothetical `pct` it was asked about); null when nothing is graded */
+  pct: number | null;
+  /** the band letter, the portal letter (incl. DN / W), or null when none */
+  letter: string | null;
+  /** what the course adds to the GPA (the mark itself in percentage mode);
+   *  null = out of the GPA */
+  points: number | null;
+  source: CourseGradeSource;
+}
+
+export interface GradeCourseOptions {
+  /** a hypothetical course % (what-if slider) in place of the current one; the
+   *  portal result still wins over it */
+  pct?: number;
+  /** a letter the student picked to try out (cumulative modal): wins even over
+   *  the portal result; a withdrawn course stays out */
+  letter?: string;
+}
+
+/** A course's letter and GPA points. Order: withdrawn → a picked letter → the
+ *  portal result → the course % (current or hypothetical) → none. The % is
+ *  read through the course's own cutoffs when it's graded on the cohort
+ *  average (lib/curves); letters and points are the student's table's. */
+export function gradeCourse(
+  course: Course,
+  scheme: GradeScheme = SAUDI5,
+  opts: GradeCourseOptions = {}
+): CourseGrade {
+  const pct = opts.pct ?? courseCurrentPct(course);
   // Withdrawn (W): out of the GPA, even if marks were entered before withdrawing.
-  if (isWithdrawn(course.official)) return null;
+  if (isWithdrawn(course.official)) return { pct, letter: WITHDRAWN, points: null, source: "withdrawn" };
+  if (opts.letter != null) {
+    return { pct, letter: opts.letter, points: pointsForLetter(scheme, opts.letter), source: "override" };
+  }
   const official = course.official ? pointsForOfficial(scheme, course.official) : null;
-  if (official != null) return official;
-  const p = courseCurrentPct(course);
-  return p == null ? null : pointsForPct(scheme, p);
+  if (official != null) {
+    // Percentage schemes store the final mark, so its letter is the mark's band.
+    const letter = scheme.percent ? bandForPct(scheme, official).letter : course.official!.letter!;
+    return { pct, letter, points: official, source: "official" };
+  }
+  if (pct == null) return { pct, letter: null, points: null, source: "none" };
+  return { pct, ...interpretPct(courseScheme(course, scheme), pct), source: "estimate" };
+}
+
+/** The semester GPA is only approximate: it counts a course graded on the
+ *  cohort average whose cutoffs aren't all in yet (waiting or partial). Only
+ *  courses that add to the GPA count: an estimate (not a portal result or W)
+ *  with credit hours. `pctFor` gives each course a hypothetical % (the what-if
+ *  sliders), so an ungraded course counts there too. */
+export function gpaIsApprox(courses: Course[], scheme: GradeScheme, pctFor?: (course: Course) => number): boolean {
+  return courses.some((c) => {
+    if (!((Number(c.creditHours) || 0) > 0)) return false;
+    if (gradeCourse(c, scheme, pctFor ? { pct: pctFor(c) } : {}).source !== "estimate") return false;
+    const cut = courseCutoffs(c, scheme);
+    return cut != null && cut.status !== "entered";
+  });
+}
+
+/** Semester quality points and credit hours with a hypothetical % per course
+ *  (the what-if simulator): a course with its portal result keeps it, a
+ *  withdrawn one is left out. */
+export function simulatedSemester(
+  courses: Course[],
+  scheme: GradeScheme,
+  pctFor: (course: Course) => number
+): { points: number; credits: number } {
+  let points = 0;
+  let credits = 0;
+  for (const c of courses) {
+    const g = gradeCourse(c, scheme, { pct: pctFor(c) });
+    if (g.points == null) continue;
+    points += g.points * c.creditHours;
+    credits += c.creditHours;
+  }
+  return { points, credits };
+}
+
+/** One course row in the cumulative-GPA modal. */
+export interface CourseRow {
+  id: string;
+  name: string;
+  credits: number;
+  /** has a % or a portal result (a picked letter doesn't make it graded) */
+  graded: boolean;
+  letter: string | null;
+  points: number | null;
+}
+
+/** The modal's rows for this term's courses, with the letters the student
+ *  picked to try out (`overrides`, by course id). */
+export function courseRows(courses: Course[], scheme: GradeScheme, overrides: Record<string, string>): CourseRow[] {
+  return courses.map((c) => {
+    const credits = Number(c.creditHours) || 0;
+    const base = gradeCourse(c, scheme);
+    // Withdrawn (W): listed, but out of the GPA.
+    if (base.source === "withdrawn") {
+      return { id: c.id, name: c.name, credits, graded: false, letter: base.letter, points: null };
+    }
+    const override = overrides[c.id];
+    const g = override != null ? gradeCourse(c, scheme, { letter: override }) : base;
+    return { id: c.id, name: c.name, credits, graded: base.points != null, letter: g.letter, points: g.points };
+  });
+}
+
+/** What a grade badge shows for a course %, or its portal result. */
+export interface BadgeGrade {
+  /** the letter shown (W / DN as-is) */
+  letter: string;
+  /** the points the colour is judged on; null = withdrawn (grey) */
+  colorPoints: number | null;
+  /** shown from the portal result */
+  official: boolean;
+  /** nothing graded yet: the full-marks letter, shown faded */
+  isDefault: boolean;
+}
+
+export function badgeGrade(scheme: GradeScheme, pct: number | null, official?: OfficialGrade): BadgeGrade {
+  const officialPoints = official ? pointsForOfficial(scheme, official) : null;
+  // W / DN come from the portal but aren't band letters: shown as-is.
+  const special =
+    !scheme.percent && (official?.letter === WITHDRAWN || official?.letter === DENIED) ? official.letter : null;
+  const hasOfficial = officialPoints != null || special != null;
+  const isDefault = pct == null && !hasOfficial;
+  const displayPct = officialPoints != null && scheme.percent ? officialPoints : pct ?? 100;
+  const estimated = bandForPct(scheme, displayPct);
+  const grade =
+    hasOfficial && !scheme.percent ? scheme.bands.find((b) => b.letter === official!.letter) ?? estimated : estimated;
+  return {
+    letter: special ?? grade.letter,
+    colorPoints:
+      special === WITHDRAWN ? null : special === DENIED ? scheme.bands[scheme.bands.length - 1].points : grade.points,
+    official: hasOfficial,
+    isDefault,
+  };
 }
 
 export function semesterGpaDetail(
@@ -566,8 +733,10 @@ export function semesterProgress(sem: Semester) {
 
 // "What you need on the final" — only when the final is the single remaining
 // ungraded item. Letters follow the student's scheme so a plus/minus student
-// sees A-/B-, not the 5.0 letters.
-export function finalAdvice(course: Course, scheme: GradeScheme = SAUDI5) {
+// sees A-/B-, not the 5.0 letters; a course graded on the cohort average uses
+// its own cutoffs and pass mark.
+export function finalAdvice(course: Course, baseScheme: GradeScheme = SAUDI5) {
+  const scheme = courseScheme(course, baseScheme);
   const final = course.components.find((c) => c.type === "final");
   if (!final || final.score != null) return null;
   const others = course.components.filter((c) => c.type !== "final");
@@ -579,6 +748,9 @@ export function finalAdvice(course: Course, scheme: GradeScheme = SAUDI5) {
     0
   );
   const need = (T: number) => ((T / 100) * totalW - earned) / final.weight; // fraction 0..1
+  // Marks needed on the final to reach T, rounded up (an exact 50 stays 50).
+  // Only the end result is snapped: snapping `need` first would add an error.
+  const marksFor = (T: number) => Math.max(0, Math.ceil(snap(need(T) * final.total)));
   // The scheme's own pass mark (60 in KSA, 54 for the Jordan estimates…), not
   // a hardcoded 60 — and failing bands that still carry points (Jordan's D-)
   // are never offered as a goal.
@@ -586,19 +758,16 @@ export function finalAdvice(course: Course, scheme: GradeScheme = SAUDI5) {
   let ceiling: { letter: string; raw: number } | null = null;
   for (const s of scheme.bands) {
     if (s.min < pass) continue;
-    if (need(s.min) <= 1) {
-      ceiling = {
-        letter: s.letter,
-        raw: Math.max(0, Math.ceil(need(s.min) * final.total)),
-      };
+    if (snap(need(s.min)) <= 1) {
+      ceiling = { letter: s.letter, raw: marksFor(s.min) };
       break;
     }
   }
-  const pctIfZero = (earned / totalW) * 100;
+  const pctIfZero = snap((earned / totalW) * 100);
   return {
     ceiling,
     finalTotal: final.total,
-    avoidFraw: Math.max(0, Math.ceil(need(pass) * final.total)),
+    avoidFraw: marksFor(pass),
     passesAtZero: pctIfZero >= pass,
     securedLetter: bandForPct(scheme, pctIfZero).letter,
   };

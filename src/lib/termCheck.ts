@@ -10,6 +10,7 @@
 import type { Course, CumulativeCheck, OfficialGrade, PastTerm, PastTermCourse, Semester, TermCheck } from "@/types";
 import { bandForPct, pointsForOfficial, type GradeScheme } from "./gradeSchemes";
 import { courseCurrentPct, projectedCumulativeFromParts, semesterGPA } from "./grades";
+import { courseScheme } from "./curves";
 
 const DAY_MS = 864e5;
 /** How long "not out yet" waits before asking again. */
@@ -106,10 +107,29 @@ export function termCheckDue(
 
 export const snoozeDate = (now = new Date()) => new Date(+now + SNOOZE_DAYS * DAY_MS).toISOString();
 
-/** Our estimated letter for a course (null when nothing is graded). */
+/** Our estimated letter for a course (null when nothing is graded), through
+ *  its own cutoffs when it's graded on the cohort average. Always the
+ *  estimate, even when the portal result is in. */
 export function estimatedLetter(course: Course, scheme: GradeScheme): string | null {
   const p = courseCurrentPct(course);
-  return p == null ? null : bandForPct(scheme, p).letter;
+  return p == null ? null : bandForPct(courseScheme(course, scheme), p).letter;
+}
+
+/** One course as the end-of-term check shares it with the admin (only with the
+ *  student's consent). A course graded on the cohort average got its letter
+ *  from its own cutoffs, not the university's, so its % is left out: it can
+ *  never count toward the university's learned cutoffs (admin → GPA checks). */
+export function sharedCourse(course: Course, scheme: GradeScheme, official?: OfficialGrade) {
+  const average = course.curve != null;
+  const pct = average ? null : courseCurrentPct(course);
+  return {
+    name: course.name,
+    hours: course.creditHours,
+    ...(average ? { average: true } : {}),
+    pct: pct != null ? Math.round(pct * 100) / 100 : null,
+    estimated: estimatedLetter(course, scheme),
+    official: official?.letter ?? official?.mark ?? null,
+  };
 }
 
 export interface GapGuess {
@@ -133,14 +153,16 @@ export function explainGap(courses: Course[], scheme: GradeScheme, portalGpa: nu
   for (const c of courses) {
     const pct = courseCurrentPct(c);
     if (pct == null || c.official) continue;
-    const current = bandForPct(scheme, pct);
-    scheme.bands.forEach((band, i) => {
+    // The course's own cutoffs when it's graded on the cohort average.
+    const own = courseScheme(c, scheme);
+    const current = bandForPct(own, pct);
+    own.bands.forEach((band, i) => {
       if (band.letter === current.letter) return;
       const trial = courses.map((x) => (x.id === c.id ? { ...x, official: { letter: band.letter } } : x));
       const gpa = semesterGPA(trial, scheme);
       if (gpa == null || !sameGpa(gpa, portalGpa, scheme)) return;
       // Band i covers [band.min, upper): upper is the next band up's min.
-      const upper = i > 0 ? scheme.bands[i - 1].min : Infinity;
+      const upper = i > 0 ? own.bands[i - 1].min : Infinity;
       const distance = pct >= upper ? pct - upper : pct < band.min ? band.min - pct : 0;
       out.push({ courseId: c.id, letter: band.letter, gpa, distance });
     });

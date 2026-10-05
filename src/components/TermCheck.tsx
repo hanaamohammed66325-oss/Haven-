@@ -21,12 +21,14 @@ import { useGpaChecked } from "./GpaCheckNudge";
 import { courseCurrentPct, projectedCumulativeGpa, semesterGPA } from "@/lib/grades";
 import { DENIED, SPECIAL_RESULTS, detectScheme } from "@/lib/gradeSchemes";
 import { toEnglishDigits } from "@/lib/dates";
+import { isolate, isolateOption } from "@/lib/format";
 import {
   estimatedLetter,
   explainGap,
   pastTermCumulative,
   pastTermGpa,
   sameGpa,
+  sharedCourse,
   snoozeDate,
   termCheckDue,
   termEnded,
@@ -193,16 +195,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   const catalog = detectScheme(academic).catalog?.slug ?? null;
   const baseMeta = () => ({ university, catalog, scheme: scheme.id, ours: ours != null ? Number(fmt(ours)) : null, portal });
   const courseMeta = (grades: Record<string, OfficialGrade>) =>
-    estCourses.map((c) => {
-      const pct = courseCurrentPct(c);
-      return {
-        name: c.name,
-        hours: c.creditHours,
-        pct: pct != null ? Math.round(pct * 100) / 100 : null,
-        estimated: estimatedLetter(c, scheme),
-        official: grades[c.id]?.letter ?? grades[c.id]?.mark ?? null,
-      };
-    });
+    estCourses.map((c) => sharedCourse(c, scheme, grades[c.id]));
 
   const save = (patch: Partial<Omit<TermCheckData, "term">>) => {
     const prev = termCheck ? { ...termCheck } : { grades: {}, at: "" };
@@ -596,7 +589,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           {t("tc_guessTitle")}
         </p>
         <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
-          {t("tc_guessBody", { course: course.name, letter: g.letter, gpa: fmt(g.gpa) })}
+          {t("tc_guessBody", { course: course.name, letter: isolate(g.letter), gpa: fmt(g.gpa) })}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Primary onClick={yes}>{t("tc_guessYes")}</Primary>
@@ -682,7 +675,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                   <option value="">—</option>
                   {scheme.bands.map((b) => (
                     <option key={b.letter} value={b.letter}>
-                      {b.letter}
+                      {isolateOption(b.letter)}
                     </option>
                   ))}
                   {SPECIAL_RESULTS.map((l) => (
@@ -1341,7 +1334,7 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
                 <option value="">—</option>
                 {scheme.bands.map((b) => (
                   <option key={b.letter} value={b.letter}>
-                    {b.letter}
+                    {isolateOption(b.letter)}
                   </option>
                 ))}
                 {SPECIAL_RESULTS.map((l) => (

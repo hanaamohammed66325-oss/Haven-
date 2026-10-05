@@ -662,15 +662,24 @@ export function setLearnedCutoffs(map: LearnedCutoffs): void {
   learnedCache.clear();
 }
 
+/** Whether a table's band minimums work: each a number from 0 to 100, strictly
+ *  descending, and the band above the last (failing) one above 0. Shared by
+ *  the admin-approved university cutoffs and a course's own cutoffs (lib/curves). */
+export function validCutoffMins(mins: readonly (number | undefined)[]): mins is number[] {
+  const last = mins.length - 1;
+  if (last < 1) return false;
+  const ok = mins.every(
+    (m, i) => typeof m === "number" && m >= 0 && m <= 100 && (i === 0 || i === last || m < mins[i - 1]!)
+  );
+  return ok && mins[last - 1]! > 0;
+}
+
 /** The scheme with approved cutoffs applied, or null when they don't fit it
  *  (a letter missing, or not strictly descending) — then the estimate stays. */
 export function applyCutoffs(scheme: GradeScheme, cutoffs: Record<string, number>): GradeScheme | null {
   const last = scheme.bands.length - 1;
   const mins = scheme.bands.map((b, i) => (i === last ? 0 : cutoffs[b.letter]));
-  const ok = mins.every(
-    (m, i) => typeof m === "number" && m >= 0 && m <= 100 && (i === 0 || i === last || m < mins[i - 1])
-  );
-  if (!ok || !(mins[last - 1] > 0)) return null;
+  if (!validCutoffMins(mins)) return null;
   return {
     ...scheme,
     bands: scheme.bands.map((b, i) => ({ ...b, min: mins[i] })),
@@ -741,6 +750,21 @@ export const bandForPct = (scheme: GradeScheme, pct: number): GradeBand =>
  *  itself in percentage mode. */
 export const pointsForPct = (scheme: GradeScheme, pct: number): number =>
   scheme.percent ? pct : bandForPct(scheme, pct).points;
+
+/** A percentage read through the scheme: its letter and the points it earns
+ *  (the percentage itself in percentage mode). */
+export function interpretPct(scheme: GradeScheme, pct: number): { letter: string; points: number } {
+  const band = bandForPct(scheme, pct);
+  return { letter: band.letter, points: scheme.percent ? pct : band.points };
+}
+
+/** The points a letter the student picks by hand is worth: its floor % in
+ *  percentage mode (letters carry no points there), 0 when the letter isn't
+ *  one of the scheme's. */
+export function pointsForLetter(scheme: GradeScheme, letter: string): number {
+  const band = scheme.bands.find((b) => b.letter === letter);
+  return band ? (scheme.percent ? band.min : band.points) : 0;
+}
 
 /** Portal results that aren't one of the scheme's letters:
  *    W  (منسحب) — withdrawn: the course leaves the GPA entirely;

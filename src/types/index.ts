@@ -102,6 +102,10 @@ export interface Course {
    *  GPA. Derived from `AppData.repeats` by the store (never a courses-table
    *  column). */
   repeat?: RepeatInfo;
+  /** Set when the course is graded on the cohort average: the cutoffs the
+   *  student entered for it. Derived from `AppData.curves` by the store (never
+   *  a courses-table column). */
+  curve?: CourseCurve;
 }
 
 /** A repeated course's earlier attempt. `kind` is asked at Saudi universities,
@@ -110,6 +114,36 @@ export interface Course {
  *  higher grade. Elsewhere AcademicInfo.repeatPolicy decides. */
 export interface RepeatInfo extends OfficialGrade {
   kind?: "failed" | "raise";
+}
+
+/** A course graded on the cohort average («متوسط», lib/curves): the instructor
+ *  sets its cutoffs from how the cohort did. Always the student's own entry,
+ *  never official; the portal result still wins. */
+export interface CourseCurve {
+  /** how the cutoffs are given; only "cutoffs" for now */
+  method: "cutoffs";
+  /** letter → lowest %, only the letters the student entered; the others keep
+   *  the university table's cutoff. Empty = still waiting for them. */
+  cutoffs: Record<string, number>;
+  /** the student said they entered every cutoff; ticking it saves every band's
+   *  value except the last (catch-all) band into `cutoffs`. */
+  complete: boolean;
+  /** what the cutoffs were entered against, to notice a later change of
+   *  university or grade table */
+  basis: CurveBasis;
+  /** the basis no longer matches: kept for the student to review, not applied */
+  stale?: boolean;
+  /** when it was saved (ISO) */
+  at: string;
+}
+
+export interface CurveBasis {
+  /** the university slug, or "typed:<name>" for a typed university */
+  university: string;
+  /** the grade table's shape: scale, letters with points, passing letter */
+  fingerprint: string;
+  /** the university's cutoffs when the entry was made */
+  baseCutoffs: Record<string, number>;
 }
 
 /** An official course result: the portal letter (points schemes) or the final
@@ -442,6 +476,8 @@ export interface AppData {
   pastTerms: PastTerm[];
   /** repeated courses this semester: course id → the earlier attempt's grade. */
   repeats: Record<string, RepeatInfo>;
+  /** courses graded on the cohort average this semester: course id → cutoffs. */
+  curves: Record<string, CourseCurve>;
 }
 
 export interface PomodoroSettings {

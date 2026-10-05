@@ -6,22 +6,16 @@ import { Modal } from "./Modal";
 import { InfoPopover } from "./InfoPopover";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
-import { courseCurrentPct, projectedCumulativeFromParts } from "@/lib/grades";
+import { courseRows, projectedCumulativeFromParts } from "@/lib/grades";
 import { repeatAdjust } from "@/lib/repeats";
-import { bandForPct, isWithdrawn, pointsForOfficial, pointsForPct, type GradeScheme } from "@/lib/gradeSchemes";
+import { pointsForLetter } from "@/lib/gradeSchemes";
+import { isolateOption } from "@/lib/format";
 
 const field =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 const cellInput =
   "rounded-lg border px-2.5 py-1.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
 
-// Points a hand-picked letter contributes under the active scheme. In percentage
-// mode letters have no points, so the grade's floor % stands in as a representative
-// value (an approximation the exact 5.0/4.0 schemes never need).
-const letterPoints = (scheme: GradeScheme, letter: string) => {
-  const b = scheme.bands.find((x) => x.letter === letter);
-  return b ? (scheme.percent ? b.min : b.points) : 0;
-};
 const rid = () => Math.random().toString(36).slice(2);
 
 type Mode = "current" | "manual";
@@ -39,7 +33,7 @@ interface CumulativeGpaModalProps {
 }
 
 export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { courses, academic } = useStore();
   const scheme = useScheme();
 
@@ -61,46 +55,8 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
   const border = { borderColor: "var(--color-border)" };
 
   // ---- Tab 1: auto-pulled courses ----
-  const currentRows = useMemo(
-    () =>
-      courses.map((c) => {
-        // Withdrawn (W): listed, but out of the GPA.
-        if (isWithdrawn(c.official)) {
-          return { id: c.id, name: c.name, credits: Number(c.creditHours) || 0, graded: false, letter: c.official!.letter!, points: null };
-        }
-        const pct = courseCurrentPct(c);
-        // The official portal result (end-of-term check) beats the estimate.
-        const officialPts = c.official ? pointsForOfficial(scheme, c.official) : null;
-        const officialLetter =
-          officialPts == null
-            ? null
-            : scheme.percent
-            ? bandForPct(scheme, officialPts).letter
-            : c.official!.letter!;
-        const graded = pct != null || officialPts != null;
-        const projected = officialLetter ?? (pct != null ? bandForPct(scheme, pct).letter : null);
-        const override = overrides[c.id];
-        const letter = override ?? projected;
-        // Default row stays exact (official, else from the %); an override falls back to the letter.
-        const points =
-          override != null
-            ? letterPoints(scheme, override)
-            : officialPts != null
-            ? officialPts
-            : pct != null
-            ? pointsForPct(scheme, pct)
-            : null;
-        return {
-          id: c.id,
-          name: c.name,
-          credits: Number(c.creditHours) || 0,
-          graded,
-          letter,
-          points,
-        };
-      }),
-    [courses, overrides, scheme]
-  );
+  // The official portal result beats the estimate; a picked letter beats both.
+  const currentRows = useMemo(() => courseRows(courses, scheme, overrides), [courses, overrides, scheme]);
 
   // ---- semester totals for the active tab ----
   const { semesterCredits, semesterPoints } = useMemo(() => {
@@ -114,7 +70,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
     const g = manual.filter((r) => (Number(r.credits) || 0) > 0);
     return {
       semesterCredits: g.reduce((s, r) => s + (Number(r.credits) || 0), 0),
-      semesterPoints: g.reduce((s, r) => s + letterPoints(scheme, r.letter) * (Number(r.credits) || 0), 0),
+      semesterPoints: g.reduce((s, r) => s + pointsForLetter(scheme, r.letter) * (Number(r.credits) || 0), 0),
     };
   }, [mode, currentRows, manual, scheme]);
 
@@ -147,7 +103,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
 
   const gradeOptions = scheme.bands.map((s) => (
     <option key={s.letter} value={s.letter}>
-      {scheme.percent ? s.letter : `${s.letter} · ${s.points.toFixed(2)}`}
+      {scheme.percent ? isolateOption(s.letter) : `${isolateOption(s.letter, lang === "ar")} · ${s.points.toFixed(2)}`}
     </option>
   ));
 

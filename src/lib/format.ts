@@ -68,3 +68,24 @@ export function addMinutesToTime(hhmm: string, minutes: number): string {
 export function fmtPct(n: number): string {
   return String(Number((Number.isFinite(n) ? n : 0).toFixed(2)));
 }
+
+/** A grade letter kept in its own reading order inside any text: "A+" stays
+ *  "A+" in an Arabic sentence or list (not "+A"), and an Arabic letter from a
+ *  student's own table still reads right to left (Unicode first-strong isolate). */
+export function isolate(text: string): string {
+  return `⁨${text}⁩`;
+}
+
+const RTL_CHAR = /[֐-ࣿיִ-﷿ﹰ-﻿]/;
+const STRONG_CHAR = /[A-Za-zÀ-ɏͰ-ϿЀ-ӿ֐-ࣿיִ-﷿ﹰ-﻿]/;
+
+/** isolate() for drop-down (<option>) text, where a mark BEFORE the letter
+ *  stops typing that letter from jumping to its option. Marks after it
+ *  instead: one in the letter's own direction keeps "A+" as "A+" (and an
+ *  Arabic letter right to left); when more text follows in the option, pass the
+ *  list's direction (`rtl`) to hand that text back to it. */
+export function isolateOption(text: string, rtl?: boolean): string {
+  const first = text.match(STRONG_CHAR)?.[0];
+  const own = first && RTL_CHAR.test(first) ? "‏" : "‎";
+  return text + own + (rtl == null ? "" : rtl ? "‏" : "‎");
+}

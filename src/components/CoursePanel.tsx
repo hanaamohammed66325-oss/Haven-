@@ -7,6 +7,7 @@ import { GradeBadge } from "./GradeBadge";
 import { AttendanceSection } from "./AttendanceSection";
 import { AddItemModal } from "./AddItemModal";
 import { AddCourseModal } from "./AddCourseModal";
+import { CourseCurveSection } from "./CourseCurveSection";
 import { BoundedNumberInput } from "./BoundedNumberInput";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
@@ -16,13 +17,17 @@ import {
   weightsTotal,
   finalAdvice,
 } from "@/lib/grades";
-import { creditHoursLabel } from "@/lib/format";
+import { creditHoursLabel, isolate } from "@/lib/format";
+import { courseCutoffs, courseScheme } from "@/lib/curves";
 import type { Course, GradeComponent } from "@/types";
 
 export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDeleteCourse?: (id: string) => void }) {
   const { t, lang } = useT();
   const { attendanceEnabled, addComponent, updateComponent, deleteComponent, softDeleteComponent, restoreComponent, deleteCourse, updateCourse, setCourseRepeat } = useStore();
-  const scheme = useScheme();
+  const baseScheme = useScheme();
+  // The course's own cutoffs when it's graded on the cohort average.
+  const scheme = courseScheme(course, baseScheme);
+  const curve = course.official ? null : courseCutoffs(course, baseScheme);
   const { undoableDelete } = useUndo();
   const [addingItem, setAddingItem] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -111,7 +116,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <GradeBadge scheme={scheme} pct={pct} size="lg" showDefaultNote gradedPct={gradedPct} showProvisional official={course.official} />
+          <GradeBadge scheme={scheme} pct={pct} size="lg" showDefaultNote gradedPct={gradedPct} showProvisional official={course.official} curve={curve?.status} />
           <button
             onClick={() => setEditing(true)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"
@@ -183,6 +188,8 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           </div>
         )}
 
+        <CourseCurveSection course={course} scheme={baseScheme} />
+
         {/* Final advice */}
         {advice && (
           <div
@@ -194,15 +201,16 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
               <div className="font-semibold mb-1">{t("finalTitle")}</div>
               <ul className="space-y-1" style={{ color: "var(--color-muted)" }}>
                 {advice.ceiling ? (
-                  <li>{t("finalCeiling", { letter: advice.ceiling.letter, raw: advice.ceiling.raw, total: advice.finalTotal })}</li>
+                  <li>{t("finalCeiling", { letter: isolate(advice.ceiling.letter), raw: advice.ceiling.raw, total: advice.finalTotal })}</li>
                 ) : (
                   <li>{t("finalCeilingNone")}</li>
                 )}
                 {advice.passesAtZero ? (
-                  <li>{t("finalSecured", { letter: advice.securedLetter })}</li>
+                  <li>{t("finalSecured", { letter: isolate(advice.securedLetter) })}</li>
                 ) : (
                   <li>{t("finalAvoidF", { raw: advice.avoidFraw, total: advice.finalTotal })}</li>
                 )}
+                {curve && curve.status !== "entered" && <li>{t("curve_finalApprox")}</li>}
               </ul>
             </div>
           </div>
