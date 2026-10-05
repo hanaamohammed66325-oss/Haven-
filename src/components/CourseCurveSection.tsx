@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { Choice } from "./AddCourseModal";
 import { CourseCutoffsModal } from "./CourseCutoffsModal";
+import { CollapseBody, CollapseToggle, useCardCollapse } from "./Collapsible";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { useUndo } from "./UndoManager";
@@ -20,6 +21,7 @@ export function CourseCurveSection({ course, scheme }: { course: Course; scheme:
   const { undoableDelete } = useUndo();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
+  const { open, toggle } = useCardCollapse(`course-curve-${course.id}`);
 
   if (!curveFits(scheme)) return null;
   const average = course.curve != null;
@@ -65,7 +67,12 @@ export function CourseCurveSection({ course, scheme }: { course: Course; scheme:
 
   return (
     <div className="mt-6 flex flex-col gap-3">
-      <h4 className="haven-label" style={{ color: "var(--color-ink)" }}>{t("curve_title")}</h4>
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="haven-label" style={{ color: "var(--color-ink)" }}>{t("curve_title")}</h4>
+        <CollapseToggle open={open} onToggle={toggle} label={t("curve_title")} />
+      </div>
+      <CollapseBody open={open}>
+      <div className="flex flex-col gap-3">
       <div role="radiogroup" aria-label={t("curve_title")} className="grid grid-cols-2 gap-2">
         <Choice on={!average} onClick={() => void chooseFixed()} label={t("curve_fixed")} desc={t("curve_fixedDesc")} />
         <Choice on={average} onClick={chooseAverage} label={t("curve_avg")} desc={t("curve_avgDesc")} />
@@ -96,6 +103,8 @@ export function CourseCurveSection({ course, scheme }: { course: Course; scheme:
       {error && (
         <span className="text-xs" style={{ color: "var(--color-danger)" }}>{error}</span>
       )}
+      </div>
+      </CollapseBody>
 
       <CourseCutoffsModal open={editing} onClose={() => setEditing(false)} course={course} scheme={scheme} onSave={save} />
     </div>

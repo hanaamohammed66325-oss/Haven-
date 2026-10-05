@@ -885,6 +885,8 @@ export const en = {
 
   // "What's new" — a one-time popup shown only inside the installed app.
   whatsnew_title: "What's new in Haven",
+  whatsnew_curve_title: "A grading method for each course",
+  whatsnew_curve_body: "If your course is graded on the cohort average, choose Average and enter the cutoffs announced by your instructor. Your estimated grades and GPA follow those cutoffs and remain approximate until the table is complete. Use the arrow on the course card to hide or show the Grading method section.",
   whatsnew_term_title: "Your term dates, from your university's calendar",
   whatsnew_term_body:
     "Your term's start, exams and end are set from your university's calendar — confirm them in one tap or edit them. If your university's dates differ, we'll remind you to add them.",

@@ -4,7 +4,7 @@
 // of changes once per device (in the browser and the installed app alike), then
 // never nags again.
 //
-// The "seen" flag is versioned (…_v4 now) so a future update can bump the key
+// The "seen" flag is versioned (…_v5 now) so a future update can bump the key
 // and resurface a fresh set without disturbing this one. A student who saw the
 // round before (…_v3 on this device) gets only what's new since; one who didn't
 // gets that round too, with the new one on top, since all of it is new to them.
@@ -19,23 +19,32 @@ import { useT } from "@/i18n";
 import { useStore } from "@/store";
 
 /** Set once the student has seen this round (SetupCheck and TermCheck wait for it). */
-export const WHATSNEW_SEEN_KEY = "haven_whatsnew_seen_v4";
+export const WHATSNEW_SEEN_KEY = "haven_whatsnew_seen_v5";
 const SEEN_KEY = WHATSNEW_SEEN_KEY;
+const LAST_SEEN_KEY = "haven_whatsnew_seen_v4";
 /** The round before this one: the university-system update. */
 const PREV_SEEN_KEY = "haven_whatsnew_seen_v3";
 
-export function WhatsNewModal() {
+export function WhatsNewModal({ preview = false }: { preview?: boolean } = {}) {
   const { t } = useT();
   const { hydrated, onboardingSeen } = useStore();
   const [open, setOpen] = useState(false);
   const [sawPrev, setSawPrev] = useState(false);
+  const [sawLast, setSawLast] = useState(false);
 
   useEffect(() => {
     if (!hydrated) return;
+    // Local demo only: no account changes or seen flags.
+    if (preview) {
+      setSawLast(true);
+      setOpen(true);
+      return;
+    }
     let seen = false;
     try {
       seen = localStorage.getItem(SEEN_KEY) === "1";
       setSawPrev(localStorage.getItem(PREV_SEEN_KEY) === "1");
+      setSawLast(localStorage.getItem(LAST_SEEN_KEY) === "1");
       // A brand-new student gets the onboarding tour instead — everything is
       // new to them, so "what's new" would only stack on top of it.
       if (!seen && !onboardingSeen) {
@@ -52,10 +61,11 @@ export function WhatsNewModal() {
     return () => window.clearTimeout(id);
     // Decided once, when the account has loaded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  }, [hydrated, preview]);
 
   const close = () => {
     setOpen(false);
+    if (preview) return;
     try {
       localStorage.setItem(SEEN_KEY, "1");
     } catch {
@@ -67,7 +77,7 @@ export function WhatsNewModal() {
 
   if (!open || typeof document === "undefined") return null;
 
-  const items = sawPrev
+  const previousItems = sawLast ? [] : sawPrev
     ? [
         { icon: <MapIcon size={20} />, title: t("whatsnew_lakemap_title"), body: t("whatsnew_lakemap_body") },
         { icon: <Maximize2 size={20} />, title: t("whatsnew_scene_title"), body: t("whatsnew_scene_body") },
@@ -81,6 +91,10 @@ export function WhatsNewModal() {
         { icon: <Calculator size={20} />, title: t("whatsnew_gpa_title"), body: t("whatsnew_gpa_body") },
         { icon: <BellRing size={20} />, title: t("whatsnew_reminders_title"), body: t("whatsnew_reminders_body") },
       ];
+  const items = [
+    { icon: <Calculator size={20} />, title: t("whatsnew_curve_title"), body: t("whatsnew_curve_body") },
+    ...previousItems,
+  ];
 
   return createPortal(
     <div
@@ -135,7 +149,7 @@ export function WhatsNewModal() {
           </h2>
         </div>
         <p className="text-sm mb-5" style={{ color: "var(--color-muted)" }}>
-          {t(sawPrev ? "whatsnew_pomSubtitle" : "whatsnew_sinceSubtitle")}
+          {t("whatsnew_sinceSubtitle")}
         </p>
 
         {/* Items */}
@@ -167,7 +181,7 @@ export function WhatsNewModal() {
 
         {/* Scope note — dates, holidays and the grade table follow the university;
             the student corrects what differs. Only with the university round. */}
-        {!sawPrev && (
+        {!sawLast && !sawPrev && (
           <div
             className="mt-5 rounded-xl px-3.5 py-3 text-[12px] leading-relaxed"
             style={{
