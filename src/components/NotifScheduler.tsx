@@ -5,15 +5,16 @@ import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { scheduleAll, cancelAll, type SmartAlert } from "@/lib/notifScheduler";
 import { buildSmartSuggestions } from "@/lib/smartSuggestions";
-import { enqueueScheduledPush, reconcileScheduledPushes } from "@/lib/db";
+import { absenceLevel } from "@/lib/absenceAlerts";
+import { enqueueScheduledPush, reconcileScheduledPushes, syncAbsenceAlerts, type AbsenceAlertRow } from "@/lib/db";
 import { plannerItemDate } from "@/lib/reminders";
 import { holidayCalendar } from "@/lib/universityCountry";
 import { classOffDays } from "@/lib/holidays";
-import { plural } from "@/lib/format";
+import { fmtPct, plural } from "@/lib/format";
 import { toISODate as isoDate } from "@/lib/dates";
 
 export function NotifScheduler() {
-  const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic, attendanceEnabled, saveClassOff } = useStore();
+  const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic, attendanceEnabled, saveClassOff, accountId } = useStore();
   // The reminder's GPA must use the student's own system, like the dashboard.
   const scheme = useScheme();
   const { t, lang } = useT();
@@ -60,9 +61,12 @@ export function NotifScheduler() {
     // given moment: the in-tab timer uses "now", but the queued server push is
     // built as of its SEND time so a deadline that will already be past when it
     // fires is never named (a quiz due today isn't announced in tomorrow's push).
+    // Absence is left out (attendanceEnabled: false): it always ranked first, so
+    // it took the daily reminder every day. It has its own alerts below, once
+    // per level.
     const buildAlert = (asOf: Date): SmartAlert => {
       const top = buildSmartSuggestions(
-        { courses, planner, semester, gamification, gpaGoal, scheme, holidayCalendar: holidayCalendar(academic), attendanceEnabled, now: asOf },
+        { courses, planner, semester, gamification, gpaGoal, scheme, holidayCalendar: holidayCalendar(academic), attendanceEnabled: false, now: asOf },
         t
       )[0];
       const body = top && top.kind !== "all-good" ? top.text : t("smart_studyNudge");
@@ -73,22 +77,52 @@ export function NotifScheduler() {
       };
     };
 
+    // The next occurrence of the daily reminder hour — today if it's still
+    // ahead, otherwise tomorrow — so opening the app at any time of day always
+    // leaves a push queued.
+    const sendAt = new Date();
+    sendAt.setHours(notifPrefs.dailyReminderHour, 0, 0, 0);
+    if (sendAt.getTime() <= Date.now()) sendAt.setDate(sendAt.getDate() + 1);
+
+    // Absence alerts: ONE notification per level (the university's warning
+    // levels, or 40/60/80% of the student's limit, then denial — see
+    // lib/absenceAlerts), at the daily reminder hour. Only the highest level
+    // reached is queued, so a student already at 18% gets one alert, not three.
+    // Off when the student turned absence alerts or absence tracking off. Sent
+    // by the server only (no in-tab copy), which records each level once:
+    // syncAbsenceAlerts queues the current levels and cancels a pending one
+    // that's no longer current (a newer level, an absence removed, alerts off)
+    // without using it up.
+    const absenceAlerts: AbsenceAlertRow[] = [];
+    if (notifPrefs.attendance.enabled && attendanceEnabled !== false) {
+      for (const c of courses) {
+        const lv = absenceLevel(c, semester, calendar);
+        if (!lv) continue;
+        const n = fmtPct(lv.absence);
+        absenceAlerts.push({
+          key: lv.key,
+          sendAt: sendAt.toISOString(),
+          title: lang === "ar" ? "Haven — تذكير" : "Haven — Reminder",
+          body: lv.denied
+            ? t("smart_attDanger", { course: c.name, n })
+            : t(lv.unexcused ? "smart_attLevelUnexcused" : "smart_attLevel", { course: c.name, n, limit: fmtPct(lv.limit) }),
+        });
+      }
+    }
+    // Bound to the account these courses belong to: never written to another.
+    syncAbsenceAlerts(accountId, absenceAlerts);
+
     // In-tab timers (fires while the app is open, and catches up on open).
     // On a holiday the daily reminder goes out only with something that matters
-    // (an exam, a task due, attendance) — never the general study nudge.
+    // (an exam, a task due) — never the general study nudge.
     const off = new Set(offDays);
     const forDay = (alert: SmartAlert, day: Date) => (alert.id === "study-nudge" && off.has(isoDate(day)) ? null : alert);
     scheduleAll(courses, planner, semester, notifPrefs, lang, forDay(buildAlert(new Date()), new Date()), off);
 
     // Outbox: queue the reminder for SERVER delivery so it arrives even when the
-    // app is CLOSED. Schedule the next occurrence of the daily reminder hour —
-    // today if it's still ahead, otherwise tomorrow — so opening the app at any
-    // time of day always leaves a push queued. dedupKey is per send-date, so the
-    // server sends it exactly once and re-opening the app just refreshes content.
+    // app is CLOSED. dedupKey is per send-date, so the server sends it exactly
+    // once and re-opening the app just refreshes content.
     if (notifPrefs.exams.enabled) {
-      const sendAt = new Date();
-      sendAt.setHours(notifPrefs.dailyReminderHour, 0, 0, 0);
-      if (sendAt.getTime() <= Date.now()) sendAt.setDate(sendAt.getDate() + 1);
       const queuedAlert = forDay(buildAlert(sendAt), sendAt); // content as it will be at send time
       if (queuedAlert) enqueue({
         dedupKey: `smart-${isoDate(sendAt)}`,
@@ -153,7 +187,7 @@ export function NotifScheduler() {
 
     return cancelAll;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- enqueue only reads refs
-  }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, scheme, academic, lang, t]);
+  }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, scheme, academic, attendanceEnabled, accountId, lang, t]);
 
   return null;
 }

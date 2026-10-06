@@ -547,6 +547,9 @@ export interface StoreValue extends AppData {
    *  auth answers (or while a signed-in device waits out a network failure),
    *  then "signedIn" / "signedOut". AuthGuard reads it. */
   authStatus: AuthStatus;
+  /** The account whose data the store holds, once it has fully loaded; null
+   *  before that, signed out, or in the demo. */
+  accountId?: string | null;
   setProfileName: (name: string) => void;
   setEmail: (email: string) => void;
   /** Update the student's academic info (university/major/level); persisted per
@@ -741,6 +744,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // start-up state (the dashboard counting today's visit) would save it over
   // the real data. That is how signing in wiped streaks, XP and check-ins.
   const readyUidRef = useRef<string | null>(null);
+  // The same account as state, for the context: whose data is on screen (null
+  // until it has loaded). Server writes that must never land on another
+  // account carry it (NotifScheduler's absence alerts).
+  const [accountId, setAccountId] = useState<string | null>(null);
   // Course cutoffs (preferences.curves) are saved one request at a time, in
   // order, and a failed save puts back what the account holds (lib/curves).
   const [curveSaves] = useState(() =>
@@ -1057,6 +1064,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loadingRef.current = false;
         retryCountRef.current = 0;
         readyUidRef.current = user.id;
+        setAccountId(user.id);
         curveSaves.reset(loadedCurves);
         recheckTierRef.current = prefs.gamificationRecheck === true;
         setHydrated(true);
@@ -1103,6 +1111,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setAuthStatus("signedOut");
         currentUidRef.current = null;
         readyUidRef.current = null;
+        setAccountId(null);
         curveSaves.reset({});
         loggedInRef.current = false;
         semesterIdRef.current = null;
@@ -1134,6 +1143,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // start, 2026-09). applyForUser sets it again once the data is in.
         if (prev !== null) clearHavenLocalStorage();
         readyUidRef.current = null;
+        setAccountId(null);
         curveSaves.reset({});
         setData(initialData);
         setHydrated(false);
@@ -2548,6 +2558,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     hydrated,
     loadFailed,
     authStatus,
+    accountId,
     setProfileName,
     setEmail,
     setAcademic,

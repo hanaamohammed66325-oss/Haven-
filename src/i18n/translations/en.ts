@@ -367,6 +367,8 @@ export const en = {
   // Smart suggestions
   smart_attDanger: "{course}: {n}% absence — withdrawal risk!",
   smart_attWarn: "{course}: {n}% absence, approaching limit",
+  smart_attLevel: "{course}: your absence reached {n}% (limit {limit}%)",
+  smart_attLevelUnexcused: "{course}: your unexcused absence reached {n}% (limit {limit}%)",
   smart_lowGrade: "{course}: grade is {letter}, needs improvement",
   smart_examSoon: "{name} ({course}) {when}",
   smart_today: "today",

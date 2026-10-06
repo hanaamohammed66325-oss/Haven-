@@ -16,7 +16,10 @@
 
 import { supabase, sessionUserId } from "./supabase";
 import { toISODate } from "./dates";
+import { createAbsenceSync, type AbsenceAlertRow } from "./absenceSync";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
+
+export type { AbsenceAlertRow };
 
 /** Resolve the current user's id (required on every insert by RLS). */
 async function currentUserId(): Promise<string> {
@@ -129,6 +132,33 @@ export async function reconcileScheduledPushes(prefix: string, keep: Set<string>
   } catch {
     // best-effort — ignore failures
   }
+}
+
+// Absence alerts (lib/absenceSync): bound to the account whose data built them,
+// one request at a time, retried when the connection comes back.
+const absenceSync = createAbsenceSync({
+  sessionUserId,
+  rpc: async (expectedUid, alerts) => {
+    const { error } = await supabase.rpc("sync_absence_alerts", { p_expected_uid: expectedUid, p_alerts: alerts });
+    return error ? { code: error.code ?? "" } : null;
+  },
+});
+let absenceRetryHooked = false;
+
+/**
+ * Make the outbox's absence alerts (`att-` rows) of `accountId` match the
+ * levels the student is at now, in one locked server step
+ * (sync_absence_alerts): a new level is queued, a level no longer current is
+ * cancelled without being used up, a cancelled one is brought back, and a
+ * delivered one is never sent again. The server refuses it unless the request
+ * comes from that same account. Never throws.
+ */
+export function syncAbsenceAlerts(accountId: string | null | undefined, alerts: AbsenceAlertRow[]): void {
+  if (!absenceRetryHooked && typeof window !== "undefined") {
+    absenceRetryHooked = true;
+    window.addEventListener("online", () => absenceSync.retry());
+  }
+  absenceSync.sync(accountId, alerts);
 }
 
 // ---------------------------------------------------------------------------

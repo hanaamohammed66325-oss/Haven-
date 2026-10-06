@@ -366,6 +366,8 @@ export const ar: Record<TranslationKey, string> = {
   // Smart suggestions
   smart_attDanger: "{course}: غيابك {n}٪ — خطر حرمان!",
   smart_attWarn: "{course}: غيابك {n}٪، قربت من الحد",
+  smart_attLevel: "{course}: غيابك وصل {n}٪، والحد {limit}٪",
+  smart_attLevelUnexcused: "{course}: غيابك بدون عذر وصل {n}٪، والحد {limit}٪",
   smart_lowGrade: "{course}: درجتك {letter}، تحتاج تحسين",
   smart_examSoon: "{name} ({course}) {when}",
   smart_today: "اليوم",
