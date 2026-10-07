@@ -323,7 +323,8 @@ function eventDetail(e: DecisionRow["decisions"][number]): string {
   const s = (k: string) => (typeof m[k] === "string" || typeof m[k] === "number" || typeof m[k] === "boolean" ? String(m[k]) : "");
   if (e.event === "attendance_tracking") bits.push(m.on ? "turned on" : "turned off");
   if (e.event === "course_repeat") bits.push(m.on ? "marked" : "unmarked");
-  for (const k of ["name", "course", "university", "slug", "scheme", "calendar", "id", "result", "reason", "method"]) if (s(k)) bits.push(s(k));
+  for (const k of ["name", "course", "university", "slug", "scheme", "calendar", "id", "result", "method"]) if (s(k)) bits.push(s(k));
+  if (s("reason")) bits.push(({ unknown: "Doesn't know the reason", repeat: "Repeated course", notCounted: "Course excluded from GPA", hours: "Incorrect credit hours" } as Record<string, string>)[s("reason")] ?? s("reason"));
   if (s("limit")) bits.push(`${s("limit")}%`);
   if (s("start")) bits.push(`${s("start")} → ${s("end")}`);
   if (m.alternative) bits.push("students' version");

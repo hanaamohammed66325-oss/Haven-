@@ -84,6 +84,11 @@ interface Check {
   portal: number | null;
   result: "match" | "mismatch" | null;
   cumResult: string | null;
+  cumOurs: number | null;
+  cumPortal: number | null;
+  cumBefore: number | null;
+  cumHours: number | null;
+  cumComparison: string | null;
   withdrawn: boolean;
 }
 
@@ -91,15 +96,22 @@ function toCheck(r: EventRow): Check {
   const m = r.meta ?? {};
   const slug = slugOf(m);
   const past = r.event.startsWith("past_");
+  const cumulative = r.event.startsWith("term_cum");
+  const cum = past && m.cum && typeof m.cum === "object" ? m.cum as Record<string, unknown> : cumulative ? m : {};
   return {
     row: r,
     kind: past ? `Past term${str(m.name) ? ` · ${str(m.name)}` : ""}` : r.event.startsWith("term_cum") ? "Cumulative, end of term" : "End of term",
     uni: (slug && catalogBySlug(slug)?.ar) || str(m.university) || "—",
     scheme: schemeLabel(str(m.scheme)),
-    ours: num(m.ours),
-    portal: num(m.portal),
+    ours: cumulative ? null : num(m.ours),
+    portal: cumulative ? null : num(m.portal),
     result: r.event === "term_gpa_match" ? "match" : r.event === "term_gpa_mismatch" ? "mismatch" : m.result === "match" || m.result === "mismatch" ? m.result : null,
     cumResult: past ? cumResultOf(m) : null,
+    cumOurs: num(cum.ours),
+    cumPortal: num(cum.portal),
+    cumBefore: num(cum.before),
+    cumHours: num(cum.hours),
+    cumComparison: str(cum.comparison) ?? str(m.cum_comparison),
     withdrawn: m.withdrawn === true,
   };
 }
@@ -192,7 +204,8 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
         c.uni !== "—" ? c.uni : null,
         c.kind,
         c.scheme,
-        c.ours != null || c.portal != null ? `ours ${c.ours ?? "—"} · portal ${c.portal ?? "—"}` : null,
+        c.ours != null || c.portal != null ? `term: ours ${c.ours ?? "—"} · portal ${c.portal ?? "—"}` : null,
+        c.cumOurs != null || c.cumPortal != null ? `cumulative: ours ${c.cumOurs ?? "—"} · portal ${c.cumPortal ?? "—"}` : null,
         more.length ? `+${more.length} more` : null,
       ]
         .filter(Boolean)
@@ -343,7 +356,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
                 <table className="w-full text-[12px] tabular-nums" style={{ color: C.text }}>
                   <thead>
                     <tr style={{ color: C.textFaint, borderBottom: `1px solid ${C.border}` }}>
-                      {["Student", "University", "Check", "GPA system", "Ours", "Portal", "Result", "Date"].map((h) => (
+                      {["Student", "University", "Check", "GPA system", "Term · ours", "Term · portal", "Cumulative · ours", "Cumulative · portal", "Previous GPA / hours", "Result", "Date"].map((h) => (
                         <th key={h} className="text-start font-medium px-4 py-2.5 whitespace-nowrap">
                           {h}
                         </th>
@@ -370,18 +383,21 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
                         </td>
                         <td className="px-4 py-2.5">{c.ours ?? "—"}</td>
                         <td className="px-4 py-2.5">{c.portal ?? "—"}</td>
+                        <td className="px-4 py-2.5">{c.cumOurs ?? "—"}</td>
+                        <td className="px-4 py-2.5">{c.cumPortal ?? "—"}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">{c.cumBefore ?? "—"} / {c.cumHours ?? "—"}</td>
                         <td className="px-4 py-2.5 whitespace-nowrap">
                           {c.withdrawn ? (
                             <span style={{ color: C.textFaint }}>consent withdrawn</span>
                           ) : (
                             <>
                               <span style={{ color: c.result === "match" ? C.success : c.result ? C.warning : C.textFaint }}>
-                                {c.result === "match" ? "matched" : c.result ? "differed" : "—"}
+                                {c.row.event === "term_cum_checked" && c.cumComparison === "rounding" ? "compatible with prior rounding" : c.result === "match" ? "matched" : c.result ? "differed" : "—"}
                               </span>
                               {c.cumResult && (
                                 <span style={{ color: c.cumResult === "match" ? C.success : C.warning }}>
                                   {" "}
-                                  · cumulative {c.cumResult === "match" ? "matched" : "differed"}
+                                  · cumulative {c.cumComparison === "rounding" ? "compatible with prior rounding" : c.cumResult === "match" ? c.cumComparison ? "matched" : "matched (previous policy)" : "differed"}
                                 </span>
                               )}
                             </>

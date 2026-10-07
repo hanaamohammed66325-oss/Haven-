@@ -160,6 +160,9 @@ export type TermMismatchReason = "repeat" | "notCounted" | "hours" | "unknown";
 /** The cumulative GPA after a term compared with the portal's: ours from the
  *  cumulative GPA before the term (and its hours) plus the term's courses. */
 export interface CumulativeCheck {
+  /** Displayed equality is distinct from rounded-prior compatibility. */
+  comparison?: "match" | "rounding" | "mismatch";
+  beforeDecimals?: number;
   /** cumulative GPA before the term, and the hours it covers */
   before: number;
   hours: number;

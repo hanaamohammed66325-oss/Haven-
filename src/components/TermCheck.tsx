@@ -19,6 +19,7 @@ import { Modal } from "./Modal";
 import { pendingSetupSteps } from "./SetupCheck";
 import { useGpaChecked } from "./GpaCheckNudge";
 import { courseCurrentPct, projectedCumulativeGpa, semesterGPA } from "@/lib/grades";
+import { compareCumulativeGpa, priorGpaDecimals, sameDisplayedGpa } from "@/lib/gpaComparison";
 import { DENIED, SPECIAL_RESULTS, detectScheme } from "@/lib/gradeSchemes";
 import { toEnglishDigits } from "@/lib/dates";
 import { isolate, isolateOption } from "@/lib/format";
@@ -235,6 +236,8 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
     before: c.before,
     hours: c.hours,
     result: c.result,
+    comparison: c.comparison,
+    beforeDecimals: c.beforeDecimals,
     courses: courseMeta(termCheck?.grades ?? {}),
   });
 
@@ -242,8 +245,8 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   if (step === "cum") {
     const compareCum = () => {
       const before = cumEdit ? parseNumber(beforeRaw) : cumulativeGpa;
-      const hours = cumEdit ? Math.round(parseNumber(hoursRaw)) : cumulativeHours;
-      if (!(before >= 0 && before <= scheme.max) || !(hours >= 1 && hours <= 400)) {
+      const hours = cumEdit ? parseNumber(hoursRaw) : cumulativeHours;
+      if (!(before >= 0 && before <= scheme.max) || !(hours >= 0 && hours <= 400)) {
         setError(t("tc_cumErrBefore", { max: scheme.max }));
         return;
       }
@@ -257,16 +260,20 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
       // Corrected numbers are the student's own: the dashboard uses them too.
       if (before !== cumulativeGpa) setCumulativeGpa(before);
       if (hours !== cumulativeHours) setCumulativeHours(hours);
+      const beforeDecimals = priorGpaDecimals(toEnglishDigits(cumEdit ? beforeRaw : String(cumulativeGpa)));
+      const comparison = compareCumulativeGpa(o, portalCum, before, hours, scheme.max, (prior) => projectedCumulativeGpa(courses, prior, hours, scheme, academic), beforeDecimals);
       const cum: CumulativeCheck = {
+        comparison,
+        beforeDecimals,
         before,
         hours,
         portal: portalCum,
-        ours: Math.round(o * 1000) / 1000,
-        result: sameGpa(o, portalCum, scheme) ? "match" : "mismatch",
+        ours: o,
+        result: comparison === "mismatch" ? "mismatch" : "match",
       };
       save({ cum });
       // Without consent, only whether it matched.
-      reportTermCheck("term_cum_checked", termCheck?.consent ? { ...cumMeta(cum), consent: true } : { result: cum.result, scheme: scheme.id });
+      reportTermCheck("term_cum_checked", termCheck?.consent ? { ...cumMeta(cum), consent: true } : { result: cum.result, comparison: cum.comparison, scheme: scheme.id });
       setCumSaved(cum);
       setCumConsent(termCheck?.consent ?? false);
       setCumReasonDone(false);
@@ -314,6 +321,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           <>
             <Intro text={t("tc_cumNeedBefore")} />
             <div className="flex flex-wrap gap-4">
+              <label className="col-span-2 text-xs flex items-center gap-2"><input type="checkbox" checked={beforeRaw === "0" && hoursRaw === "0"} onChange={(e) => { setBeforeRaw(e.target.checked ? "0" : ""); setHoursRaw(e.target.checked ? "0" : ""); }} />{t("gpa_noPrevious")}</label>
               {numberField(beforeRaw, setBeforeRaw, t("tc_cumBeforeGpa"), true)}
               {numberField(hoursRaw, setHoursRaw, t("tc_cumBeforeHours"))}
             </div>
@@ -335,7 +343,8 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   }
 
   if (step === "cumResult" && cumSaved) {
-    const match = cumSaved.result === "match";
+    const rounding = cumSaved.comparison === "rounding";
+    const match = cumSaved.comparison ? cumSaved.comparison !== "mismatch" : sameDisplayedGpa(cumSaved.ours, cumSaved.portal);
     const pick = (reason: TermMismatchReason) => {
       const next = { ...cumSaved, reason };
       const shared = cumConsent || termCheck?.consent === true;
@@ -355,12 +364,12 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           )}
           <div className="min-w-0">
             <p className="text-base font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
-              {t(match ? "tc_cumMatchTitle" : cumReasonDone ? "tc_thanksTitle" : "tc_sorryTitle")}
+              {t(rounding ? "gpa_roundingTitle" : match ? "tc_cumMatchTitle" : cumReasonDone ? "tc_thanksTitle" : "tc_sorryTitle")}
             </p>
             <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
               {cumReasonDone
                 ? t(shared ? "tc_reasonDoneShared" : "tc_cumReasonDone")
-                : t(match ? "tc_cumMatchBody" : "tc_cumMismatchBody", {
+                : t(rounding ? "gpa_roundingBody" : match ? "tc_cumMatchBody" : "tc_cumMismatchBody", {
                     ours: fmt(cumSaved.ours),
                     portal: fmt(cumSaved.portal),
                     diff: fmt(Math.abs(cumSaved.ours - cumSaved.portal)),
@@ -378,7 +387,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                   <button
                     type="button"
                     onClick={() => {
-                      setBeforeRaw(String(cumSaved.before));
+                      setBeforeRaw(cumSaved.before.toFixed(cumSaved.beforeDecimals ?? 2));
                       setHoursRaw(String(cumSaved.hours));
                       setCumEdit(true);
                       setStep("cum");
@@ -828,7 +837,9 @@ function CumulativeProfileCard({ onOpen }: { onOpen: (step: Start) => void }) {
         </p>
         <p className="text-[13px] mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
           {cum
-            ? cum.result === "match"
+            ? cum.comparison === "rounding"
+              ? t("gpa_roundingBody", { ours: cum.ours.toFixed(2), portal: cum.portal.toFixed(2) })
+              : sameDisplayedGpa(cum.ours, cum.portal)
               ? t("tc_cumProfileMatched", { gpa: cum.portal.toFixed(2) })
               : t("tc_cumProfileMismatch", { ours: cum.ours.toFixed(2), portal: cum.portal.toFixed(2) })
             : ended
@@ -937,6 +948,7 @@ function PastTerms() {
   const { t } = useT();
   const { pastTerms, setPastTerms } = useStore();
   const checked = useGpaChecked();
+  const [sharing, setSharing] = useState<PastTerm | null>(null);
   const [editing, setEditing] = useState<PastTerm | "new" | null>(null);
   const [removed, setRemoved] = useState<{ term: PastTerm; index: number } | null>(null);
 
@@ -990,8 +1002,13 @@ function PastTerms() {
                   </Pill>
                   {p.cum && (
                     <Pill ok={p.cum.result === "match"}>
-                      {t(p.cum.result === "match" ? "pt_cumPillMatch" : "pt_cumPillDiffers")}
+                      {t(p.cum.comparison === "rounding" ? "gpa_roundingTitle" : sameDisplayedGpa(p.cum.ours, p.cum.portal) ? "pt_cumPillMatch" : "pt_cumPillDiffers")}
                     </Pill>
+                  )}
+                  {!p.consent && p.reason && (
+                    <button type="button" onClick={() => setSharing(p)} className="text-xs underline" style={{ color: "var(--color-primary)" }}>
+                      {t("gpa_shareDetails")}
+                    </button>
                   )}
                   <button
                     type="button"
@@ -1046,6 +1063,7 @@ function PastTerms() {
           )}
         </div>
       </div>
+      {sharing && <PastTermModal term={sharing} shareOnly onClose={() => setSharing(null)} />}
       {editing && (
         <PastTermModal term={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
       )}
@@ -1062,7 +1080,7 @@ interface Row {
 }
 const blankRow = (): Row => ({ key: newId(), name: "", hours: "", grade: "", pct: "" });
 
-function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () => void }) {
+function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | null; onClose: () => void; shareOnly?: boolean }) {
   const { t } = useT();
   const { pastTerms, setPastTerms, reportTermCheck, academic } = useStore();
   const scheme = useScheme();
@@ -1080,13 +1098,13 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
   );
   const [portalRaw, setPortalRaw] = useState(term ? String(term.portalGpa) : "");
   // The cumulative GPA before and after this term (optional, same transcript).
-  const [cumBeforeRaw, setCumBeforeRaw] = useState(term?.cum ? String(term.cum.before) : "");
+  const [cumBeforeRaw, setCumBeforeRaw] = useState(term?.cum ? term.cum.before.toFixed(term.cum.beforeDecimals ?? 2) : "");
   const [cumHoursRaw, setCumHoursRaw] = useState(term?.cum ? String(term.cum.hours) : "");
   const [cumAfterRaw, setCumAfterRaw] = useState(term?.cum ? String(term.cum.portal) : "");
   const [consent, setConsent] = useState(term?.consent ?? false);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState<PastTerm | null>(null);
-  const [reasonDone, setReasonDone] = useState(false);
+  const [saved, setSaved] = useState<PastTerm | null>(shareOnly ? term : null);
+  const [reasonDone, setReasonDone] = useState(shareOnly && !!term?.reason);
 
   const setRow = (key: string, patch: Partial<Row>) => {
     setError("");
@@ -1133,19 +1151,23 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
     let cum: CumulativeCheck | undefined;
     if (cumBeforeRaw.trim() || cumHoursRaw.trim() || cumAfterRaw.trim()) {
       const before = parseNumber(cumBeforeRaw);
-      const hours = Math.round(parseNumber(cumHoursRaw));
+      const hours = parseNumber(cumHoursRaw);
       const after = parseNumber(cumAfterRaw);
       if (!(before >= 0 && before <= scheme.max) || !(hours >= 0 && hours <= 400) || !(after >= 0 && after <= scheme.max)) {
         return setError(t("pt_errCum", { max: scheme.max }));
       }
       const o = pastTermCumulative(courses, scheme, before, hours);
       if (o != null) {
+        const beforeDecimals = priorGpaDecimals(toEnglishDigits(cumBeforeRaw));
+        const comparison = compareCumulativeGpa(o, after, before, hours, scheme.max, (prior) => pastTermCumulative(courses, scheme, prior, hours), beforeDecimals);
         cum = {
+          comparison,
+          beforeDecimals,
           before,
           hours,
           portal: after,
-          ours: Math.round(o * 1000) / 1000,
-          result: sameGpa(o, after, scheme) ? "match" : "mismatch",
+          ours: o,
+          result: comparison === "mismatch" ? "mismatch" : "match",
         };
       }
     }
@@ -1156,7 +1178,7 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
       scheme: scheme.id,
       courses,
       portalGpa: portal,
-      ours: Math.round(ours * 1000) / 1000,
+      ours: ours,
       result: sameGpa(ours, portal, scheme) ? "match" : "mismatch",
       ...(cum ? { cum } : {}),
       consent,
@@ -1167,9 +1189,22 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
       "past_term_checked",
       consent
         ? { result: result.result, university, catalog, scheme: scheme.id, name: result.name, ours: result.ours, portal, courses, ...(cum ? { cum } : {}) }
-        : { result: result.result, scheme: scheme.id, ...(cum ? { cum_result: cum.result } : {}) }
+        : { result: result.result, scheme: scheme.id, ...(cum ? { cum_result: cum.result, cum_comparison: cum.comparison } : {}) }
     );
     setSaved(result);
+  };
+
+  const shareDetails = () => {
+    if (!saved || saved.consent) return;
+    const next = { ...saved, consent: true };
+    setPastTerms(pastTerms.map((p) => p.id === saved.id ? next : p));
+    reportTermCheck("past_term_checked", {
+      consent: true, result: saved.result, university, catalog, scheme: saved.scheme,
+      name: saved.name, ours: saved.ours, portal: saved.portalGpa,
+      courses: saved.courses, ...(saved.cum ? { cum: saved.cum } : {}),
+      ...(saved.reason ? { reason: saved.reason } : {}),
+    });
+    setSaved(next);
   };
 
   const pickReason = (reason: TermMismatchReason) => {
@@ -1195,8 +1230,9 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
 
   // ── result ──
   if (saved) {
-    const termMatch = saved.result === "match";
-    const cumMatch = !saved.cum || saved.cum.result === "match";
+    const termMatch = sameDisplayedGpa(saved.ours, saved.portalGpa);
+    const rounding = saved.cum?.comparison === "rounding";
+    const cumMatch = !saved.cum || (saved.cum.comparison ? saved.cum.comparison !== "mismatch" : sameDisplayedGpa(saved.cum.ours, saved.cum.portal));
     const match = termMatch && cumMatch;
     const diff = Math.abs(saved.ours - saved.portalGpa).toFixed(2);
     return (
@@ -1209,18 +1245,18 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
           )}
           <div className="min-w-0">
             <p className="text-base font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
-              {t(match ? "pt_matchTitle" : "tc_sorryTitle")}
+              {t(reasonDone ? "gpa_reasonThanks" : rounding && termMatch ? "gpa_roundingTitle" : match ? "pt_matchTitle" : "tc_sorryTitle")}
             </p>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
+            {!reasonDone && <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
               {t(termMatch ? (saved.cum ? "pt_termLineMatch" : "pt_matchBody") : "pt_mismatchBody", {
                 ours: saved.ours.toFixed(2),
                 portal: saved.portalGpa.toFixed(2),
                 diff,
               })}
-            </p>
-            {saved.cum && (
+            </p>}
+            {!reasonDone && saved.cum && (
               <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--color-ink)" }}>
-                {t(cumMatch ? "pt_cumLineMatch" : "pt_cumLineMismatch", {
+                {t(rounding ? "gpa_roundingBody" : cumMatch ? "pt_cumLineMatch" : "pt_cumLineMismatch", {
                   ours: saved.cum.ours.toFixed(2),
                   portal: saved.cum.portal.toFixed(2),
                   diff: Math.abs(saved.cum.ours - saved.cum.portal).toFixed(2),
@@ -1249,16 +1285,22 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
                 </button>
               </>
             )}
+            {reasonDone && !saved.consent && (
+              <div className="mt-3">
+                <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--color-ink)" }}>{t("gpa_shareWhy")}</p>
+                <Secondary onClick={shareDetails}>{t("gpa_shareDetails")}</Secondary>
+              </div>
+            )}
             {(match || reasonDone) && (
               <p className="text-xs mt-3 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-                {t(saved.consent ? (match ? "pt_sharedMatch" : "tc_reasonDoneShared") : "pt_private")}
+                {t(reasonDone ? (saved.consent ? "gpa_reasonShared" : "gpa_reasonPrivate") : saved.consent ? "pt_sharedMatch" : "pt_private")}
               </p>
             )}
           </div>
         </div>
         {(match || reasonDone) && (
           <Footer>
-            <Primary onClick={onClose}>{t("tc_done")}</Primary>
+            <Primary onClick={onClose}>{t(reasonDone && !saved.consent ? "gpa_continuePrivate" : "tc_done")}</Primary>
           </Footer>
         )}
       </Modal>
@@ -1410,7 +1452,8 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
         <p className="text-[11.5px] mt-0.5 mb-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
           {t("pt_cumIntro")}
         </p>
-        <div className="grid grid-cols-3 gap-2 max-w-sm">
+        <label className="text-xs flex items-center gap-2 mb-2"><input type="checkbox" checked={cumBeforeRaw === "0" && cumHoursRaw === "0"} onChange={(e) => { setCumBeforeRaw(e.target.checked ? "0" : ""); setCumHoursRaw(e.target.checked ? "0" : ""); setError(""); }} />{t("gpa_noPrevious")}</label>
+        <div className="grid grid-cols-3 gap-2">
           {(
             [
               [cumBeforeRaw, setCumBeforeRaw, "pt_cumBefore", "0.00"],

@@ -11,20 +11,13 @@ import type { Course, CumulativeCheck, OfficialGrade, PastTerm, PastTermCourse, 
 import { bandForPct, pointsForOfficial, type GradeScheme } from "./gradeSchemes";
 import { courseCurrentPct, projectedCumulativeFromParts, semesterGPA } from "./grades";
 import { courseScheme } from "./curves";
+import { sameDisplayedGpa } from "./gpaComparison";
 
 const DAY_MS = 864e5;
 /** How long "not out yet" waits before asking again. */
 export const SNOOZE_DAYS = 7;
 
-/** The largest gap between our GPA and the portal's that is still just rounding:
- *  0.04 on a 4/5 scale (scaled up for larger ones like /20), 0.1 for a
- *  percentage average. */
-export function gpaTolerance(scheme: GradeScheme): number {
-  if (scheme.percent) return 0.1;
-  return scheme.max > 5 ? (0.04 * scheme.max) / 5 : 0.04;
-}
-
-export const sameGpa = (a: number, b: number, scheme: GradeScheme) => Math.abs(a - b) <= gpaTolerance(scheme) + 1e-9;
+export const sameGpa = (a: number, b: number, _scheme: GradeScheme) => sameDisplayedGpa(a, b);
 
 /** Attach each course's official result (from the term check) to the course. */
 export function withOfficial(courses: Course[], check: TermCheck | null): Course[] {
@@ -79,6 +72,8 @@ export function readCumulative(raw: unknown): CumulativeCheck | null {
     portal,
     ours,
     result: o.result === "match" ? "match" : "mismatch",
+    ...(o.comparison === "match" || o.comparison === "rounding" || o.comparison === "mismatch" ? { comparison: o.comparison } : {}),
+    ...(typeof o.beforeDecimals === "number" && Number.isInteger(o.beforeDecimals) && o.beforeDecimals >= 2 && o.beforeDecimals <= 6 ? { beforeDecimals: o.beforeDecimals } : {}),
     ...(reasons.includes(o.reason as string) ? { reason: o.reason as CumulativeCheck["reason"] } : {}),
   };
 }

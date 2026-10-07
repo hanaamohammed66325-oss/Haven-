@@ -7,7 +7,6 @@ import { SAUDI5, SAUDI4, PERCENTAGE, customScheme } from "@/lib/gradeSchemes";
 import { semesterGPA, coursePoints } from "@/lib/grades";
 import {
   explainGap,
-  gpaTolerance,
   pastTermCumulative,
   readPastTerms,
   readTermCheck,
@@ -98,15 +97,12 @@ describe("working back from the portal GPA", () => {
   });
 });
 
-describe("tolerance", () => {
-  test("0.04 on 4/5 scales, scaled for bigger ones, 0.1 for percentages", () => {
-    assert.equal(gpaTolerance(SAUDI5), 0.04);
-    assert.equal(gpaTolerance(SAUDI4), 0.04);
-    assert.equal(gpaTolerance(PERCENTAGE), 0.1);
-    const twenty = customScheme({ max: 20, bands: [{ letter: "A", points: 20, min: 90 }, { letter: "F", points: 0, min: null }] })!;
-    assert.ok(Math.abs(gpaTolerance(twenty) - 0.16) < 1e-9);
-    assert.ok(sameGpa(4.75, 4.71, SAUDI5));
-    assert.ok(!sameGpa(4.75, 4.70, SAUDI5));
+describe("display precision", () => {
+  test("compares the displayed two decimals instead of a fixed tolerance", () => {
+    assert.ok(sameGpa(4.529411, 4.53, SAUDI5));
+    assert.ok(!sameGpa(4.75, 4.71, SAUDI5));
+    assert.ok(!sameGpa(4.061875, 4.08, SAUDI5));
+    assert.ok(!sameGpa(82.04, 82.1, PERCENTAGE));
   });
 });
 
