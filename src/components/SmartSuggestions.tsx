@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -11,10 +11,12 @@ import {
   Sparkles,
   TrendingUp,
   Zap,
+  X,
 } from "lucide-react";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { buildSmartSuggestions, type SuggestionKind } from "@/lib/smartSuggestions";
+import { claimSmartSeasonDisplay } from "@/lib/db";
 import { holidayCalendar } from "@/lib/universityCountry";
 
 const ICON: Record<SuggestionKind, React.ReactNode> = {
@@ -32,7 +34,7 @@ const ICON: Record<SuggestionKind, React.ReactNode> = {
 
 export function SmartSuggestions() {
   const { t } = useT();
-  const { courses, semester, planner, gamification, gpaGoal, academic, attendanceEnabled } = useStore();
+  const { courses, semester, planner, gamification, gpaGoal, academic, attendanceEnabled, accountId } = useStore();
   const scheme = useScheme();
 
   const suggestions = useMemo(
@@ -44,9 +46,28 @@ export function SmartSuggestions() {
     [courses, semester, planner, gamification, gpaGoal, scheme, academic, attendanceEnabled, t]
   );
 
+  const seasonPrefix = `season:${semester.startDate}:${semester.endDate}:`;
+  const seasonKeys = suggestions.filter(s => s.kind === "midterm-week" || s.kind === "finals-week").map(s => seasonPrefix + s.kind).join("|");
+  const [display, setDisplay] = useState<{ uid: string; keys: string[] }>({ uid: "", keys: [] });
+  const seasonRequest = useRef<{ signature: string; result: Promise<string[]> } | null>(null);
+  useEffect(() => {
+    let stopped = false;
+    if (accountId && seasonKeys) {
+      const signature = `${accountId}|${seasonKeys}`;
+      if (seasonRequest.current?.signature !== signature) {
+        seasonRequest.current = { signature, result: claimSmartSeasonDisplay(accountId, seasonKeys.split("|")) };
+      }
+      void seasonRequest.current.result.then(keys => {
+        if (!stopped) setDisplay({ uid: accountId, keys });
+      });
+    }
+    return () => { stopped = true; };
+  }, [accountId, seasonKeys]);
+
   return (
     <div className="flex gap-2.5 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
-      {suggestions.map((s) => {
+      {suggestions.filter(s => !(s.kind === "midterm-week" || s.kind === "finals-week") ||
+        (display.uid === accountId && display.keys.includes(seasonPrefix + s.kind))).map((s) => {
         const chip = (
           <div
             key={s.id}
@@ -59,6 +80,8 @@ export function SmartSuggestions() {
           >
             <span style={{ color: s.color }} className="shrink-0">{ICON[s.kind]}</span>
             <span className="font-medium">{s.text}</span>
+            {(s.kind === "midterm-week" || s.kind === "finals-week") && <button type="button" aria-label={t("close")}
+              onClick={() => setDisplay(d => ({ ...d, keys: d.keys.filter(k => k !== seasonPrefix + s.kind) }))}><X size={14} /></button>}
           </div>
         );
 

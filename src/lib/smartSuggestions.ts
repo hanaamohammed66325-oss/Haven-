@@ -16,7 +16,6 @@ import {
   courseCurrentPct,
   attendanceInfo,
   fmtPct,
-  semesterProgress,
   semesterGPA,
 } from "./grades";
 import { buildUpcoming } from "./upcoming";
@@ -188,7 +187,7 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
   }
 
   // 7. Exam-week detection
-  const progress = semesterProgress(semester);
+  const progress = { currentWeek: Math.max(1, Math.ceil((now.getTime() - new Date(semester.startDate).getTime()) / (7 * 86400000)) || 1) };
   const isFinalsWeek =
     progress.currentWeek > semester.weeks &&
     progress.currentWeek <= semester.weeks + semester.finalsWeeks;

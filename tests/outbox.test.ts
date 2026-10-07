@@ -108,6 +108,29 @@ const row = (over: Row = {}): Row => ({
   ...over,
 });
 
+test('semantic smart pushes use the shared server claim, not a separate direct update', async () => {
+  const tables = { scheduled_pushes: [row({ dedup_key: 'smart2:term:midterm-week' })], push_subscriptions: [sub] };
+  const db = fakeDb(tables);
+  let calls = 0;
+  const push = fakePush();
+  const client = { ...db, rpc: async (name: string, args: Record<string, unknown>) => {
+    assert.equal(name, 'claim_smart_push'); assert.equal(args.p_body, 'old body'); calls++;
+    return { data: { ...tables.scheduled_pushes[0] }, error: null };
+  }};
+  assert.equal(await deliverOutbox(client, push.webpush, () => {}, NOW), 1);
+  assert.equal(calls, 1); assert.equal(push.sent.length, 1);
+});
+
+test('a consumed semantic event or failed claim does not send a duplicate', async () => {
+  for (const response of [{ data: null, error: null }, { data: null, error: { code: 'connection' } }]) {
+    const tables = { scheduled_pushes: [row({ dedup_key: 'smart2:term:midterm-week' })], push_subscriptions: [sub] };
+    const db = fakeDb(tables); const push = fakePush();
+    assert.equal(await deliverOutbox({ ...db, rpc: async () => response }, push.webpush, () => {}, NOW), 0);
+    assert.equal(push.sent.length, 0);
+    assert.equal(tables.scheduled_pushes[0].sent_at, null);
+  }
+});
+
 describe("outbox delivery", () => {
   test("a due row is sent once, with its content", async () => {
     const tables = { scheduled_pushes: [row()], push_subscriptions: [sub] };

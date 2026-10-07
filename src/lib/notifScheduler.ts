@@ -15,15 +15,6 @@ import { plannerItemDate } from "./reminders";
 import { plural } from "./format";
 import { toISODate } from "./dates";
 
-/** A single, ready-to-fire smart reminder (built in the React layer from
- *  buildSmartSuggestions, so the notification says the same smart thing the
- *  dashboard chips do). */
-export interface SmartAlert {
-  id: string;
-  title: string;
-  body: string;
-}
-
 let activeTimers: ReturnType<typeof setTimeout>[] = [];
 const FIRED_KEY = "haven-notif-fired";
 
@@ -157,24 +148,8 @@ function scheduleLectures(
   }
 }
 
-// ---- Daily smart reminder (single, highest-priority suggestion) ----
-
-// One notification a day carrying the SINGLE most relevant suggestion (nearest
-// deadline / attendance risk / low grade …), not a stacked list. The content is
-// computed in the React layer (buildSmartSuggestions) and passed in ready-made.
-function scheduleSmartDaily(alert: SmartAlert | null, prefs: NotifPrefs) {
-  if (!prefs.exams.enabled || !alert) return;
-  const now = Date.now();
-  const fireAt = todayAt(prefs.dailyReminderHour, 0);
-  const id = `smart-${localDateStr()}`;
-  const delay = fireAt - now;
-  if (delay > 0) {
-    scheduleAt(delay, alert.title, alert.body, id);
-  } else {
-    // App opened after the scheduled hour — fire immediately instead of skipping.
-    fire(alert.title, alert.body, id);
-  }
-}
+// Smart suggestions are delivered only by the server semantic outbox.
+// Local timers must not create a second notification with separate history.
 
 // ---- Task hour-based reminders ----
 
@@ -219,7 +194,6 @@ export function scheduleAll(
   semester: Semester,
   notifPrefs: NotifPrefs,
   lang: "en" | "ar",
-  smartAlert: SmartAlert | null,
   offDays: Set<string> = new Set(),
 ) {
   clearAll();
@@ -227,7 +201,6 @@ export function scheduleAll(
   if (!("Notification" in window) || Notification.permission !== "granted") return;
 
   scheduleLectures(courses, notifPrefs, semester, lang, offDays);
-  scheduleSmartDaily(smartAlert, notifPrefs);
   scheduleTasks(planner, semester, notifPrefs, lang);
 }
 

@@ -46,6 +46,15 @@ export async function deliverOutbox(
   // Take the row as this tick read it (see the header): still unsent, same
   // send time and content. null when it was changed or taken meanwhile.
   const claim = async (row: any) => {
+    if (row.dedup_key.startsWith('smart2:')) {
+      // Enqueue and delivery share one account lock; parallel ticks/devices
+      // cannot consume separate suggestions for the same reminder day.
+      const { data, error } = await supabase.rpc('claim_smart_push', {
+        p_id: row.id, p_send_at: row.send_at, p_title: row.title, p_body: row.body,
+      });
+      if (error) return null; // Leave it pending for a later tick.
+      return data ?? null;
+    }
     const { data } = await supabase
       .from('scheduled_pushes')
       .update({ sent_at: nowIso })

@@ -15,6 +15,7 @@
 // ---------------------------------------------------------------------------
 
 import { supabase, sessionUserId } from "./supabase";
+import { latestSync } from "./latestSync";
 import { toISODate } from "./dates";
 import { createAbsenceSync, type AbsenceAlertRow } from "./absenceSync";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
@@ -1101,4 +1102,36 @@ export async function updatePlannerItem(
 export async function deletePlannerItem(id: string): Promise<void> {
   const { error } = await supabase.from("planner_items").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+type SmartSnapshot = { uid: string; start: string; end: string; sendAt: string; title: string;
+  candidates: import("./smartNotificationPolicy").SmartCandidate[] };
+const smartSync = latestSync(async (s: SmartSnapshot) => {
+  if (await sessionUserId() !== s.uid) return true;
+  const { error } = await supabase.rpc("sync_smart_notifications", {
+    p_expected_uid: s.uid, p_start: s.start, p_end: s.end, p_send_at: s.sendAt,
+    p_title: s.title, p_candidates: s.candidates,
+  });
+  return !error || ["42501", "22023"].includes(error.code);
+});
+let smartRetryHooked = false;
+/** Ordered/retryable writes are bound to the account whose data built them. */
+export function syncSmartNotifications(expectedUid: string | null | undefined,
+  start: string, end: string, sendAt: string, title: string,
+  candidates: import("./smartNotificationPolicy").SmartCandidate[]): void {
+  if (!expectedUid) return;
+  if (!smartRetryHooked && typeof window !== "undefined") {
+    smartRetryHooked = true; window.addEventListener("online", () => smartSync.retry());
+  }
+  smartSync.push({ uid: expectedUid, start, end, sendAt, title, candidates });
+}
+export async function claimSmartSeasonDisplay(uid: string, keys: string[]): Promise<string[]> {
+  try {
+    if (await sessionUserId() !== uid) return [];
+    const { data, error } = await supabase.rpc("claim_smart_season_display", { p_expected_uid: uid, p_keys: keys });
+    if (error) return [];
+    return Array.isArray(data) ? data.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return []; // Offline/auth failures must not produce an unhandled rejection.
+  }
 }
