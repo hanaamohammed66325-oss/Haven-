@@ -333,6 +333,15 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
           },
         })),
 
+      markWhatsNewSeen: async (version) => { setData((d) => ({ ...d, whatsNewSeen: { ...d.whatsNewSeen, [`whatsNewSeen_v${version}`]: true } })); return true; },
+      setPlannerWeekStrike: (key, strike) => setData((d) => ({ ...d, planner: { ...d.planner, weekStrikes: { ...d.planner.weekStrikes, [key]: strike } } })),
+      setPlannerWeekIcon: (key, icon) => setData((d) => ({ ...d, planner: { ...d.planner, weekIcons: { ...d.planner.weekIcons, [key]: icon } } })),
+      setPlannerWeekDone: (key, color) => setData((d) => {
+        const completedWeeks = { ...d.planner.completedWeeks };
+        if (color === null) delete completedWeeks[key];
+        else completedWeeks[key] = color;
+        return { ...d, planner: { ...d.planner, completedWeeks } };
+      }),
       setLanguage: (language) => patch({ language }),
       setTheme: (theme) => patch({ theme }),
       setTaskOrder: (taskOrder) => patch({ taskOrder }),
@@ -411,7 +420,7 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
           inCourse(courseId, (c) => {
             const s = c.sessions.find((x) => x.id === sessionId);
             if (!s) return c;
-            return { ...c, missedSessions: [...c.missedSessions, { id: uid(), sessionId, day: s.day, minutes: s.minutes, ...extra }] };
+            return { ...c, missedSessions: [...c.missedSessions, { id: uid(), sessionId, day: s.day, minutes: s.minutes, date: toISODate(new Date()), ...extra }] };
           })
         );
         return Promise.resolve({ ok: true as const });

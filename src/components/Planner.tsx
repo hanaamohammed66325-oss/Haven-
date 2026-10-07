@@ -1,10 +1,11 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { X, Check, GraduationCap, ClipboardList } from "lucide-react";
+import { X, Check, ChevronLeft, ChevronRight, Slash, GraduationCap, ClipboardList } from "lucide-react";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { useUndo } from "./UndoManager";
+import { Modal } from "./Modal";
 import { Card } from "./Card";
 import { TimeField } from "./TimeField";
 import { addDays, formatShortDate, formatTime, hijriParts, toISODate } from "@/lib/dates";
@@ -12,7 +13,7 @@ import { weeksFromDates } from "@/lib/grades";
 import { resolveHolidaysForSemester, holidayDates } from "@/lib/holidays";
 import { REMINDER_TAGS } from "@/lib/reminders";
 import { detectPlannerKind, kindToTag } from "@/lib/plannerKind";
-import type { PlannerNote, PlannerAutoEdit, CalendarType } from "@/types";
+import type { PlannerNote, PlannerAutoEdit, PlannerWeekIcon, PlannerWeekStrike, CalendarType } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 import { holidayCalendar } from "@/lib/universityCountry";
 
@@ -149,6 +150,9 @@ export function Planner() {
     softDeletePlannerNote,
     restorePlannerNote,
     setPlannerAutoEdit,
+    setPlannerWeekDone,
+    setPlannerWeekIcon,
+    setPlannerWeekStrike,
   } = useStore();
   const { undoableDelete } = useUndo();
 
@@ -176,14 +180,21 @@ export function Planner() {
     });
   }, [semester.startDate, weekCount]);
 
+  const [todayIso, setTodayIso] = useState(() => toISODate(new Date()));
+  useEffect(() => {
+    const refresh = () => setTodayIso(toISODate(new Date()));
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, []);
+
   // The week today's date falls in — Havi "writes" on this one (data-havi-role).
   // -1 when the semester hasn't started / has ended, so no week gets tagged.
   const currentWeekIndex = useMemo(() => {
-    const todayIso = toISODate(new Date());
     return weeks.findIndex(
       (w) => w.start && w.end && todayIso >= toISODate(w.start) && todayIso <= toISODate(w.end)
     );
-  }, [weeks]);
+  }, [weeks, todayIso]);
 
   // The current-week card mounts once weeks render — nudge Havi to place on it.
   useEffect(() => {
@@ -404,6 +415,13 @@ export function Planner() {
               key={w.index}
               label={t("weekLabel", { n: w.index + 1 })}
               range={range(w)}
+              weekStrike={planner.weekStrikes?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`] ?? "none"}
+              onWeekStrike={(strike) => setPlannerWeekStrike(`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`, strike)}
+              weekIcon={planner.weekIcons?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`] ?? "check"}
+              onWeekIcon={(icon) => setPlannerWeekIcon(`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`, icon)}
+              canComplete={!!w.end && todayIso > toISODate(w.end)}
+              doneColor={planner.completedWeeks?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`]}
+              onWeekDone={(color) => setPlannerWeekDone(`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`, color)}
               notes={[
                 ...planner.notes.filter((n) => n.week === w.index + 1),
                 ...(holidayNotesByWeek[w.index] ?? []),
@@ -543,7 +561,27 @@ function TagEditor({
   );
 }
 
+function WeekMarker({ icon, size = 22 }: { icon: PlannerWeekIcon; size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {icon === "check" && <path d="m6 12 4 4 8-8" />}
+    {icon === "x" && <path d="m8 8 8 8m0-8-8 8" />}
+    {icon === "heart" && <path fill="currentColor" stroke="none" d="M12 20S3 14 3 8a4.5 4.5 0 0 1 9-1 4.5 4.5 0 0 1 9 1c0 6-9 12-9 12Z" />}
+    {icon === "skull" && <>
+      <path fill="currentColor" stroke="none" d="M6 3h12v3h3v9h-3v6H6v-6H3V6h3Z" />
+      <path stroke="var(--color-surface)" strokeWidth={3} strokeLinecap="butt" d="M6 10h3m6 0h3m-8 7v4m4-4v4" />
+    </>}
+  </svg>;
+}
+
 function WeekCard({
+  weekStrike,
+  onWeekStrike,
+  weekIcon,
+  onWeekIcon,
+  canComplete,
+  doneColor,
+  onWeekDone,
   label,
   range,
   notes,
@@ -563,6 +601,13 @@ function WeekCard({
   onHideAuto,
   onRetagAuto,
 }: {
+  weekStrike: PlannerWeekStrike;
+  onWeekStrike: (strike: PlannerWeekStrike) => void;
+  weekIcon: PlannerWeekIcon;
+  onWeekIcon: (icon: PlannerWeekIcon) => void;
+  canComplete: boolean;
+  doneColor?: string;
+  onWeekDone: (color: string | null) => void;
   label: string;
   range: string;
   notes: PlannerNote[];
@@ -584,6 +629,13 @@ function WeekCard({
   onRetagAuto: (id: string, tag: string) => void;
 }) {
   const { t, lang } = useT();
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const [strikePickerOpen, setStrikePickerOpen] = useState(false);
+  const strikeLabels = { none: "plannerStrikeNone", corners: "plannerStrikeCorners", right: "plannerStrikeRight", left: "plannerStrikeLeft" } as const;
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const iconOptions = ["check", "x", "heart", "skull"] as const;
+  const iconLabels = { check: "plannerIconCheck", x: "plannerIconX", heart: "plannerIconHeart", skull: "plannerIconSkull" } as const;
+  const [chosenColor, setChosenColor] = useState("#5fa98c");
   const [editNoteId, setEditNoteId] = useState<string | null>(null);
   const [editAutoId, setEditAutoId] = useState<string | null>(null);
 
@@ -594,6 +646,7 @@ function WeekCard({
   // Whole-week shading: a holiday/exam/quiz added to the whole week tints the
   // whole card (translucent overlay layered over the card's own surface).
   const weekShade = shadeImage(general);
+  const completed = canComplete && !!doneColor;
 
   const activeRing = { outline: "1px dashed var(--color-primary)", outlineOffset: 2, borderRadius: 8 };
 
@@ -757,18 +810,94 @@ function WeekCard({
   return (
     <Card
       padding="p-6"
-      className="min-h-[160px]"
+      className="relative min-h-[160px]"
       style={{
         outline: isActiveWeek ? "2px solid var(--color-brass)" : "none",
         outlineOffset: 2,
-        backgroundImage: weekShade,
+        backgroundImage: completed ?  `linear-gradient(${doneColor}30, ${doneColor}30)` : weekShade,
       }}
       {...(isCurrentWeek ? { "data-havi-role": "current-week" } : {})}
     >
-      <button onClick={() => onSetTarget(null)} className="block w-full text-start mb-4">
+      <button onClick={() => onSetTarget(null)} className="block w-full text-start mb-4 pe-10">
         <div className="font-display text-base" style={{ color: "var(--color-ink)" }}>{label}</div>
         {range && <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{range}</div>}
       </button>
+
+      {canComplete && <div className="absolute end-3 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1">
+        <button type="button" aria-expanded={controlsOpen} aria-label={t(controlsOpen ? "plannerHideControls" : "plannerShowControls")}
+          title={t(controlsOpen ? "plannerHideControls" : "plannerShowControls")} onClick={() => setControlsOpen((open) => !open)}
+          className="flex h-7 w-5 items-center justify-center"
+          style={{ color: "var(--color-muted)", background: "transparent" }}>
+          {controlsOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+        </button>
+        {controlsOpen && <div className="flex flex-col items-center gap-3">
+        <button type="button" aria-pressed={completed}
+          aria-label={t(completed ? "plannerUndoWeekDone" : "plannerMarkWeekDone")}
+          title={t(completed ? "plannerUndoWeekDone" : "plannerMarkWeekDone")}
+          onClick={() => onWeekDone(completed ? null : chosenColor)}
+          className="flex h-8 w-8 items-center justify-center rounded-full border"
+          style={{ color: "var(--color-ink)", borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
+          {completed ? <X size={14} /> : <Check size={14} />}
+        </button>
+        <label className="relative block h-6 w-6 rounded-full overflow-hidden border cursor-pointer"
+          title={t("plannerWeekColor")}
+          style={{ background: doneColor ?? chosenColor, borderColor: "var(--color-border)" }}>
+          <input type="color" aria-label={t("plannerWeekColor")} value={doneColor ?? chosenColor}
+            className="absolute inset-0 h-full w-full opacity-0 cursor-pointer" onInput={(e) => {
+              setChosenColor(e.currentTarget.value);
+              if (completed) onWeekDone(e.currentTarget.value);
+            }} />
+        </label>
+        <button type="button" aria-label={t("plannerChooseIcon")} title={t("plannerChooseIcon")}
+          onClick={() => setIconPickerOpen(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-full border"
+          style={{ background: "var(--color-surface)", color: doneColor ?? chosenColor, borderColor: "var(--color-border)" }}>
+          <WeekMarker icon={weekIcon} size={15} />
+        </button>
+        <button type="button" aria-label={t("plannerChooseStrike")} title={t("plannerChooseStrike")} onClick={() => setStrikePickerOpen(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-full border"
+          style={{ background: "var(--color-surface)", color: "var(--color-muted)", borderColor: "var(--color-border)" }}><Slash size={15} /></button>
+        </div>}
+      </div>}
+      <Modal open={strikePickerOpen && canComplete} onClose={() => setStrikePickerOpen(false)} title={t("plannerChooseStrike")}>
+        <div className="grid grid-cols-2 gap-3">
+          {(["none", "corners", "right", "left"] as const).map((strike) => <button key={strike} type="button"
+            aria-pressed={weekStrike === strike} onClick={() => { onWeekStrike(strike); setStrikePickerOpen(false); }}
+            className="rounded-xl border p-3 text-xs" style={{ borderColor: weekStrike === strike ? "var(--color-primary)" : "var(--color-border)", color: "var(--color-ink)" }}>
+            <svg viewBox="0 0 100 80" className="h-16 w-full mb-2" fill="none" stroke="currentColor" strokeWidth="1">
+              <rect x="1" y="1" width="98" height="78" rx="10" opacity="0.3" />
+              {strike === "corners" && <path d="M1 1 50 40M99 1 50 40M1 79 50 40M99 79 50 40" opacity="0.5" />}
+              {strike === "right" && <path d="M99 1 1 79" opacity="0.5" />}
+              {strike === "left" && <path d="M1 1 99 79" opacity="0.5" />}
+              <circle cx="50" cy="40" r="8" fill="var(--color-surface)" />
+            </svg>{t(strikeLabels[strike])}
+          </button>)}
+        </div>
+      </Modal>
+      <Modal open={iconPickerOpen && canComplete} onClose={() => setIconPickerOpen(false)} title={t("plannerChooseIcon")}>
+        <div className="flex justify-center gap-3">
+          {iconOptions.map((icon) => {
+            return <button key={icon} type="button" aria-label={t(iconLabels[icon])} title={t(iconLabels[icon])}
+              aria-pressed={weekIcon === icon} onClick={() => { onWeekIcon(icon); setIconPickerOpen(false); }}
+              className="flex h-12 w-12 items-center justify-center rounded-full border"
+              style={{ color: doneColor ?? chosenColor, borderColor: weekIcon === icon ? "var(--color-primary)" : "var(--color-border)", background: "var(--color-surface)" }}>
+              <WeekMarker icon={icon} />
+            </button>;
+          })}
+        </div>
+      </Modal>
+      {completed && weekStrike !== "none" && <svg className="absolute inset-0 h-full w-full pointer-events-none rounded-3xl" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <path d={weekStrike === "corners" ? "M0 0 50 50M100 0 50 50M0 100 50 50M100 100 50 50" : weekStrike === "right" ? "M100 0 0 100" : "M0 0 100 100"}
+          fill="none" stroke={doneColor} strokeWidth="1.2" vectorEffect="non-scaling-stroke" opacity="0.45" />
+      </svg>}
+      {completed && <div className="absolute inset-0 flex items-center justify-center pointer-events-none" role="img" aria-label={t("plannerWeekDone")}>
+        <span className="flex h-10 w-10 items-center justify-center rounded-full border"
+          style={{ background: `color-mix(in srgb, var(--color-surface) 90%, ${doneColor})`, borderColor: `color-mix(in srgb, ${doneColor} 25%, transparent)`, color: doneColor }}>
+          <span style={{ opacity: 0.7 }}><WeekMarker icon={weekIcon} /></span>
+        </span>
+      </div>}
+      <div className={`${canComplete ? (controlsOpen ? "pe-12" : "pe-4") : ""} transition-[filter,opacity] duration-200`}
+        inert={completed} style={{ filter: completed ? "blur(0.75px)" : undefined, opacity: completed ? 0.75 : 1 }}>
 
       {/* Whole week: general (undated) notes + whole-week add. Dated items now
           land on their exact day row below, never here. */}
@@ -818,6 +947,7 @@ function WeekCard({
             </Fragment>
           );
         })}
+      </div>
       </div>
     </Card>
   );

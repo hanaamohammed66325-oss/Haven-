@@ -8,7 +8,7 @@ import { useUndo } from "./UndoManager";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { attendanceInfo, fmtPct, ruleMode, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
-import { toEnglishDigits } from "@/lib/dates";
+import { toEnglishDigits, toISODate, formatLongDate } from "@/lib/dates";
 import { AttendanceApproxNote } from "./AttendanceApproxNote";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -85,7 +85,8 @@ function NumberStepper({
 }
 
 export function AttendanceSection({ course }: { course: Course }) {
-  const { t } = useT();
+  const [absenceDate, setAbsenceDate] = useState(() => toISODate(new Date()));
+  const { t, lang } = useT();
   const {
     semester,
     academic,
@@ -332,11 +333,18 @@ export function AttendanceSection({ course }: { course: Course }) {
             <span className="text-sm font-medium block mb-2" style={{ color: "var(--color-ink)" }}>
               {t("logMissed")}
             </span>
+            <label className="inline-flex items-center gap-2 mb-3 text-xs" style={{ color: "var(--color-muted)" }}>
+              {t("absenceDate")}
+              <input type="date" aria-label={t("absenceDate")} value={absenceDate} max={toISODate(new Date())}
+                onInput={(e) => setAbsenceDate(e.currentTarget.value)} className="rounded border px-2 py-1"
+                style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }} />
+            </label>
             <div className="flex flex-wrap gap-2">
               {course.sessions.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => runAdd(addMissedSession(course.id, s.id))}
+                  disabled={!absenceDate || absenceDate > toISODate(new Date())}
+                  onClick={() => runAdd(addMissedSession(course.id, s.id, { date: absenceDate }))}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-80"
                   style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
                 >
@@ -360,6 +368,7 @@ export function AttendanceSection({ course }: { course: Course }) {
                     style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
                   >
                     {dayLabel(m.day)} · {dur(m.minutes)}
+                    {m.date && <time dateTime={m.date}> · {formatLongDate(`${m.date}T00:00:00`, lang, semester.calendarType)}</time>}
                     <button
                       onClick={() => removeMissedSession(course.id, m.id)}
                       className="rounded-full transition-opacity hover:opacity-70"

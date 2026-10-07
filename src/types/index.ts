@@ -322,7 +322,14 @@ export interface PlannerAutoEdit {
   done?: boolean; // checked off in the planner (planner-view only)
 }
 
+export type PlannerWeekIcon = "check" | "x" | "heart" | "skull";
+
+export type PlannerWeekStrike = "none" | "corners" | "right" | "left";
+
 export interface PlannerData {
+  weekStrikes?: Record<string, PlannerWeekStrike>;
+  weekIcons?: Record<string, PlannerWeekIcon>;
+  completedWeeks?: Record<string, string>; // semester date range + week start → chosen color
   notes: PlannerNote[];
   strokes: PlannerStroke[];
   highlights: number[]; // highlighted week indices
@@ -463,6 +470,7 @@ export interface AppData {
   /** whether the first-run onboarding walkthrough has been completed/skipped
    *  (per account, in preferences.onboardingSeen). Drives the one-time tour. */
   onboardingSeen: boolean;
+  whatsNewSeen?: Record<string, boolean>;
   /** essential-setup answers the student confirmed in the setup check (per
    *  account, in preferences.setupConfirmed). See components/SetupCheck. */
   setupConfirmed: SetupConfirmed;

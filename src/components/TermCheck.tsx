@@ -10,7 +10,7 @@
 // Profile page line to edit results or withdraw consent) and TermCheckFlow (the
 // window's contents, reused by the local test station).
 
-import { WHATSNEW_SEEN_KEY } from "./WhatsNewModal";
+import { hasSeenWhatsNew } from "@/lib/whatsNew";
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Calculator, CheckCircle2, History, Pencil, Plus, Trash2, TrendingUp, X } from "lucide-react";
 import { useStore, useScheme } from "@/store";
@@ -99,7 +99,7 @@ export function TermCheck() {
     if (readSession(SESSION_SKIP_KEY) === "1") return;
     // Never on top of the What's-New popup or an unfinished setup window.
     try {
-      if (localStorage.getItem(WHATSNEW_SEEN_KEY) !== "1") return;
+      if (!hasSeenWhatsNew(store.whatsNewSeen ?? {})) return;
     } catch {
       return;
     }
@@ -108,7 +108,7 @@ export function TermCheck() {
     return () => window.clearTimeout(id);
     // Evaluated once the app is ready — not on every store change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, onboardingSeen]);
+  }, [hydrated, onboardingSeen, store.accountId, store.whatsNewSeen]);
 
   if (!start) return null;
   const close = () => {

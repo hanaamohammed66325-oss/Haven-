@@ -2,7 +2,7 @@
 
 // Collapsible cards — the small arrow on Settings / Profile cards. A student can
 // fold away a card they don't need; the choice is remembered on this device
-// (localStorage), every card starts open. A folded card opens by itself when
+// (localStorage), cards start open unless a section requests otherwise. A folded card opens by itself when
 // something points at it: a link to its #anchor, or expandCard(id) (e.g. the
 // "turn on notifications" deep link). Inside the demo / tour everything stays
 // open (NoCollapse), so the guide never points at a folded card.
@@ -43,15 +43,16 @@ export function expandCard(id: string) {
 }
 
 /** Open/closed state for one card. `anchor` = its DOM id, opened by #anchor links. */
-export function useCardCollapse(id: string, anchor?: string) {
+export function useCardCollapse(id: string, anchor?: string, defaultOpen = true) {
   const locked = useContext(NoCollapse);
-  // Open on the server and first paint; the saved choice applies after mount.
-  const [open, setOpen] = useState(true);
+  // Apply the section default on first paint; saved folds apply after mount.
+  const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
     if (locked) return;
     const pointedAt = () => !!anchor && window.location.hash === `#${anchor}`;
-    if (readCollapsed().includes(id) && !pointedAt()) setOpen(false);
+    if (pointedAt()) setOpen(true);
+    else if (readCollapsed().includes(id)) setOpen(false);
     const onExpand = (e: Event) => {
       if ((e as CustomEvent).detail?.id === id) setOpen(true);
     };

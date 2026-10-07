@@ -10,7 +10,7 @@ import { AttendanceApproxNote } from "@/components/AttendanceApproxNote";
 import { ProgressBar } from "@/components/ProgressBar";
 import { attendanceInfo, courseLimit, fmtPct, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
-import { toISODate } from "@/lib/dates";
+import { toISODate, formatLongDate } from "@/lib/dates";
 import { resolveHolidaysForSemester } from "@/lib/holidays";
 import { TARDINESS_RULES, DEFAULT_RULE_ID } from "@/lib/tardiness";
 import { Shield, Clock, CalendarOff, ChevronDown, ChevronUp, CheckCircle, XCircle, Trash2 } from "lucide-react";
@@ -56,10 +56,11 @@ function StatBox({
 }
 
 function CourseAttendanceCard({ course }: { course: Course }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { semester, academic, updateMissedSession, addMissedSession, removeMissedSession } = useStore();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [addingAbsence, setAddingAbsence] = useState(false);
+  const [addDate, setAddDate] = useState(() => toISODate(new Date()));
   const [addType, setAddType] = useState<"full" | "late">("full");
   const [addSession, setAddSession] = useState("");
   const [addMinutesLate, setAddMinutesLate] = useState("");
@@ -235,7 +236,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                     {m.date && (
                       <>
                         <span style={{ color: "var(--color-muted)" }}>·</span>
-                        <span style={{ color: "var(--color-muted)" }}>{m.date}</span>
+                        <span style={{ color: "var(--color-muted)" }}>{formatLongDate(`${m.date}T00:00:00`, lang, semester.calendarType)}</span>
                       </>
                     )}
                     {isTardy(m) && (
@@ -336,7 +337,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
             {!addingAbsence ? (
               <button
                 data-tour="att-log"
-                onClick={() => { setAddingAbsence(true); setAddSession(course.sessions[0]?.id ?? ""); }}
+                onClick={() => { setAddingAbsence(true); setAddDate(toISODate(new Date())); setAddSession(course.sessions[0]?.id ?? ""); }}
                 className="mt-3 text-[12px] font-medium px-3 py-1.5 rounded-lg border border-dashed transition-colors hover:opacity-80"
                 style={{ borderColor: "var(--color-border)", color: "var(--color-primary)" }}
               >
@@ -347,6 +348,12 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                 className="mt-3 rounded-lg border p-3 flex flex-wrap items-center gap-2"
                 style={{ borderColor: "var(--color-border)", background: "var(--color-surface, #fafafa)" }}
               >
+                <label className="inline-flex items-center gap-2 text-xs" style={{ color: "var(--color-muted)" }}>
+                  {t("absenceDate")}
+                  <input type="date" aria-label={t("absenceDate")} value={addDate} max={toISODate(new Date())}
+                    onInput={(e) => setAddDate(e.currentTarget.value)} className="rounded border px-2 py-1"
+                    style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }} />
+                </label>
                 <select
                   value={addSession}
                   onChange={(e) => setAddSession(e.target.value)}
@@ -395,14 +402,16 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                 )}
                 <button
                   data-tour="att-save"
+                  disabled={!addSession || !addDate || addDate > toISODate(new Date())}
                   onClick={async () => {
                     if (!addSession) return;
                     const tardiness = addType === "late" ? Number(addMinutesLate) || undefined : undefined;
-                    const today = toISODate(new Date());
-                    await addMissedSession(course.id, addSession, {
-                      date: today,
+                    if (!addDate || addDate > toISODate(new Date())) return;
+                    const result = await addMissedSession(course.id, addSession, {
+                      date: addDate,
                       tardiness,
                     });
+                    if (!result.ok) return;
                     setAddingAbsence(false);
                     setAddMinutesLate("");
                     setAddType("full");

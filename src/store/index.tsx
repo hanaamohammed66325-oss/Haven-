@@ -77,6 +77,8 @@ import { releaseUniversityHolidays } from "@/lib/universityFacts";
 //     between accounts on a shared device. Course identity + grade components
 //     live in Supabase too — see src/lib/db.ts.
 // localStorage is device-scoped, so it is wiped on account switch / sign out.
+import { readWhatsNewSeen, whatsNewPrefKey, saveWhatsNewSeen } from "@/lib/whatsNew";
+
 const STORAGE_KEY = "haven-data";
 // Tiny pre-paint cache: the last-applied theme + language, mirrored to
 // localStorage so the blocking boot script in the root <head> can apply them
@@ -455,7 +457,10 @@ const sessionHasDetails = (
 /** Reshape cloud planner rows + the per-account autoEdits into PlannerData. */
 function buildPlanner(
   items: db.DbPlannerItem[],
-  autoEditsPref: unknown
+  autoEditsPref: unknown,
+  completedWeeksPref: unknown,
+  weekIconsPref: unknown,
+  weekStrikesPref: unknown
 ): PlannerData {
   const notes: PlannerNote[] = items.map((it) => ({
     id: it.id,
@@ -471,7 +476,19 @@ function buildPlanner(
     autoEditsPref && typeof autoEditsPref === "object"
       ? (autoEditsPref as PlannerData["autoEdits"])
       : {};
-  return { notes, strokes: [], highlights: [], autoEdits };
+  const completedWeeks = Object.fromEntries(
+    Object.entries(completedWeeksPref && typeof completedWeeksPref === "object" ? completedWeeksPref : {})
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string" && /^#[0-9a-f]{6}$/i.test(entry[1]))
+  );
+  const weekIcons = Object.fromEntries(
+    Object.entries(weekIconsPref && typeof weekIconsPref === "object" ? weekIconsPref : {})
+      .filter((entry) => ["check", "x", "heart", "skull"].includes(String(entry[1])))
+  ) as NonNullable<PlannerData["weekIcons"]>;
+  const weekStrikes = Object.fromEntries(
+    Object.entries(weekStrikesPref && typeof weekStrikesPref === "object" ? weekStrikesPref : {})
+      .filter((entry) => ["none", "corners", "right", "left"].includes(String(entry[1])))
+  ) as NonNullable<PlannerData["weekStrikes"]>;
+  return { notes, strokes: [], highlights: [], autoEdits, completedWeeks, weekIcons, weekStrikes };
 }
 
 /**
@@ -550,6 +567,7 @@ export interface StoreValue extends AppData {
   /** The account whose data the store holds, once it has fully loaded; null
    *  before that, signed out, or in the demo. */
   accountId?: string | null;
+  markWhatsNewSeen: (version: number) => Promise<boolean>;
   setProfileName: (name: string) => void;
   setEmail: (email: string) => void;
   /** Update the student's academic info (university/major/level); persisted per
@@ -587,6 +605,9 @@ export interface StoreValue extends AppData {
   /** Re-add a previously soft-deleted planner note to local state. */
   restorePlannerNote: (note: PlannerNote) => void;
   setPlannerAutoEdit: (id: string, patch: PlannerData["autoEdits"][string]) => void;
+  setPlannerWeekStrike: (key: string, strike: NonNullable<PlannerData["weekStrikes"]>[string]) => void;
+  setPlannerWeekIcon: (key: string, icon: NonNullable<PlannerData["weekIcons"]>[string]) => void;
+  setPlannerWeekDone: (key: string, color: string | null) => void;
   setLanguage: (lang: "en" | "ar") => void;
   setTheme: (theme: ThemeId) => void;
   /** Set the Tasks page section order and persist it to the cloud per account
@@ -988,7 +1009,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           gpaGoal: num(prefs.gpaGoal, initialData.gpaGoal),
           language: prefs.language === "en" ? "en" : "ar",
           theme: THEME_IDS.includes(prefs.theme as ThemeId) ? (prefs.theme as ThemeId) : "haven",
-          planner: buildPlanner(cloudPlanner, prefs.plannerAutoEdits),
+          planner: buildPlanner(cloudPlanner, prefs.plannerAutoEdits, prefs.plannerCompletedWeeks, prefs.plannerWeekIcons, prefs.plannerWeekStrikes),
           taskOrder: Array.isArray(prefs.taskOrder)
             ? (prefs.taskOrder as unknown[]).filter((id): id is string => typeof id === "string")
             : [],
@@ -1003,6 +1024,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
           haviName: str(prefs.haviName, "Havi") || "Havi",
           onboardingSeen: prefs.onboardingSeen === true,
+          whatsNewSeen: readWhatsNewSeen(prefs),
           attendanceEnabled: prefs.attendanceEnabled !== false,
           personalAttendanceRule: readPersonalRule(prefs.attendanceRule),
           attendancePolicyAck: typeof prefs.attendancePolicyAck === "string" ? prefs.attendancePolicyAck : null,
@@ -1655,6 +1677,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [persistPref]
   );
+
+  const markWhatsNewSeen = useCallback(async (version: number): Promise<boolean> => {
+    const uid = readyUidRef.current;
+    const saved = await saveWhatsNewSeen(version, uid,
+      () => readyUidRef.current === currentUidRef.current ? readyUidRef.current : null, db.savePreferences);
+    if (!saved) return false;
+    commit({ whatsNewSeen: { ...dataRef.current.whatsNewSeen, [whatsNewPrefKey(version)]: true } });
+    return true;
+  }, [commit]);
+
+  const setPlannerWeekStrike = useCallback((key: string, strike: NonNullable<PlannerData["weekStrikes"]>[string]) => {
+    if (!["none", "corners", "right", "left"].includes(strike)) return;
+    const weekStrikes = { ...dataRef.current.planner.weekStrikes, [key]: strike };
+    dataRef.current = { ...dataRef.current, planner: { ...dataRef.current.planner, weekStrikes } };
+    setData((d) => ({ ...d, planner: { ...d.planner, weekStrikes } }));
+    persistPref({ plannerWeekStrikes: weekStrikes });
+  }, [persistPref]);
+
+  const setPlannerWeekIcon = useCallback((key: string, icon: NonNullable<PlannerData["weekIcons"]>[string]) => {
+    if (!["check", "x", "heart", "skull"].includes(icon)) return;
+    const weekIcons = { ...dataRef.current.planner.weekIcons, [key]: icon };
+    dataRef.current = { ...dataRef.current, planner: { ...dataRef.current.planner, weekIcons } };
+    setData((d) => ({ ...d, planner: { ...d.planner, weekIcons } }));
+    persistPref({ plannerWeekIcons: weekIcons });
+  }, [persistPref]);
+
+  const setPlannerWeekDone = useCallback((key: string, color: string | null) => {
+    if (color !== null && !/^#[0-9a-f]{6}$/i.test(color)) return;
+    const completedWeeks = { ...dataRef.current.planner.completedWeeks };
+    if (color === null) delete completedWeeks[key];
+    else completedWeeks[key] = color;
+    dataRef.current = { ...dataRef.current, planner: { ...dataRef.current.planner, completedWeeks } };
+    setData((d) => ({ ...d, planner: { ...d.planner, completedWeeks } }));
+    persistPref({ plannerCompletedWeeks: completedWeeks });
+  }, [persistPref]);
 
   const setLanguage = useCallback(
     (lang: "en" | "ar") => {
@@ -2559,6 +2616,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     loadFailed,
     authStatus,
     accountId,
+    markWhatsNewSeen,
     setProfileName,
     setEmail,
     setAcademic,
@@ -2571,6 +2629,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     softDeletePlannerNote,
     restorePlannerNote,
     setPlannerAutoEdit,
+    setPlannerWeekDone,
+    setPlannerWeekIcon,
+    setPlannerWeekStrike,
     setLanguage,
     setTheme,
     setTaskOrder,

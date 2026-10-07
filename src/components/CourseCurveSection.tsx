@@ -21,7 +21,7 @@ export function CourseCurveSection({ course, scheme }: { course: Course; scheme:
   const { undoableDelete } = useUndo();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
-  const { open, toggle } = useCardCollapse(`course-curve-${course.id}`);
+  const { open, toggle } = useCardCollapse(`course-curve-${course.id}`, undefined, false);
 
   if (!curveFits(scheme)) return null;
   const average = course.curve != null;

@@ -1,78 +1,57 @@
 "use client";
 
-// WhatsNewModal — a one-time "what's new" popup that announces the latest round
-// of changes once per device (in the browser and the installed app alike), then
-// never nags again.
-//
-// The "seen" flag is versioned (…_v5 now) so a future update can bump the key
-// and resurface a fresh set without disturbing this one. A student who saw the
-// round before (…_v3 on this device) gets only what's new since; one who didn't
-// gets that round too, with the new one on top, since all of it is new to them.
-//
-// Self-contained and portals to <body> so the dashboard's fade-in transform
-// can't break its fixed positioning (see the modal-portal note in memory).
+// Versioned announcements are saved per account across devices.
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { BellRing, Calculator, CalendarDays, ClipboardCheck, Globe, ListChecks, Map as MapIcon, Maximize2, Sparkles, Timer } from "lucide-react";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
-
-/** Set once the student has seen this round (SetupCheck and TermCheck wait for it). */
-export const WHATSNEW_SEEN_KEY = "haven_whatsnew_seen_v5";
-const SEEN_KEY = WHATSNEW_SEEN_KEY;
-const LAST_SEEN_KEY = "haven_whatsnew_seen_v4";
-/** The round before this one: the university-system update. */
-const PREV_SEEN_KEY = "haven_whatsnew_seen_v3";
+import { hasSeenWhatsNew, WHATS_NEW_VERSION } from "@/lib/whatsNew";
 
 export function WhatsNewModal({ preview = false }: { preview?: boolean } = {}) {
   const { t } = useT();
-  const { hydrated, onboardingSeen } = useStore();
+  const { hydrated, onboardingSeen, accountId, whatsNewSeen = {}, markWhatsNewSeen } = useStore();
+  const [pendingAccount, setPendingAccount] = useState<string | null>(null);
+  const [dismissedAccount, setDismissedAccount] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [sawPrev, setSawPrev] = useState(false);
   const [sawLast, setSawLast] = useState(false);
 
+  const seen = hasSeenWhatsNew(whatsNewSeen);
   useEffect(() => {
+    setOpen(false);
     if (!hydrated) return;
-    // Local demo only: no account changes or seen flags.
-    if (preview) {
-      setSawLast(true);
-      setOpen(true);
-      return;
-    }
-    let seen = false;
-    try {
-      seen = localStorage.getItem(SEEN_KEY) === "1";
-      setSawPrev(localStorage.getItem(PREV_SEEN_KEY) === "1");
-      setSawLast(localStorage.getItem(LAST_SEEN_KEY) === "1");
-      // A brand-new student gets the onboarding tour instead — everything is
-      // new to them, so "what's new" would only stack on top of it.
-      if (!seen && !onboardingSeen) {
-        localStorage.setItem(SEEN_KEY, "1");
-        seen = true;
-      }
-    } catch {
-      /* ignore */
-    }
-    if (seen) return;
+    if (preview) { setSawLast(true); setOpen(true); return; }
+    if (!accountId) return;
+    setSawPrev(hasSeenWhatsNew(whatsNewSeen, 3));
+    setSawLast(hasSeenWhatsNew(whatsNewSeen, 4));
+    if (seen || dismissedAccount === accountId) return;
+    if (!onboardingSeen) { setPendingAccount(accountId); return; }
+    const timer = window.setTimeout(() => setOpen(true), 700);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, preview, accountId, onboardingSeen, seen, dismissedAccount]);
 
-    // Let the app paint first — feels like a welcome note, not a wall.
-    const id = window.setTimeout(() => setOpen(true), 700);
-    return () => window.clearTimeout(id);
-    // Decided once, when the account has loaded.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, preview]);
+  useEffect(() => {
+    if (preview || !pendingAccount || pendingAccount !== accountId || seen) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const save = async () => {
+      if (cancelled) return;
+      const saved = await markWhatsNewSeen(WHATS_NEW_VERSION);
+      if (cancelled) return;
+      if (saved) setPendingAccount(null);
+      else timer = setTimeout(save, 5000);
+    };
+    void save();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [preview, pendingAccount, accountId, seen, markWhatsNewSeen]);
 
   const close = () => {
     setOpen(false);
-    if (preview) return;
-    try {
-      localStorage.setItem(SEEN_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    // SetupCheck waits for this so the two popups never stack.
-    window.dispatchEvent(new Event("haven:whatsnew-closed"));
+    if (preview || !accountId) return;
+    setDismissedAccount(accountId);
+    setPendingAccount(accountId);
   };
 
   if (!open || typeof document === "undefined") return null;

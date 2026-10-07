@@ -34,7 +34,7 @@ import {
 } from "@/lib/universityFacts";
 import { termToApply, termToRelease } from "@/lib/universityTerms";
 import { useTermPlan } from "./TermCheckCard";
-import { WHATSNEW_SEEN_KEY } from "./WhatsNewModal";
+import { hasSeenWhatsNew } from "@/lib/whatsNew";
 import type { AcademicInfo, Semester, SetupConfirmed } from "@/types";
 
 export type SetupStep = "profile" | "grades" | "scheme" | "basics";
@@ -175,16 +175,13 @@ export function SetupCheck() {
       }
     };
     // Wait for the What's-New popup to be dismissed so the two never stack.
-    if (readFlag("local", WHATSNEW_SEEN_KEY) !== "1") {
-      window.addEventListener("haven:whatsnew-closed", open, { once: true });
-      return () => window.removeEventListener("haven:whatsnew-closed", open);
-    }
+    if (!hasSeenWhatsNew(store.whatsNewSeen ?? {})) return;
     const id = window.setTimeout(open, 900);
     return () => window.clearTimeout(id);
     // Evaluated when the app is ready (and right after the tour ends) — not on
     // every store change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, onboardingSeen]);
+  }, [hydrated, onboardingSeen, store.accountId, store.whatsNewSeen]);
 
   if (!steps) return null;
   const step = steps[index];
