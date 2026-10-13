@@ -40,3 +40,12 @@ export function pendingSchemeUpdate(academic: AcademicInfo | null | undefined): 
   if (chosen === "custom" || chosen === "percentage" || chosen === update.next) return null;
   return academic.schemeUpdate?.id === update.id ? null : update;
 }
+
+/** A change of university by the student (profile or setup): the patch plus,
+ *  when the new university has a GPA update, a "new" mark for it, so the pop-up
+ *  is only for students whose university was set before the update. */
+export function universityPatch(academic: AcademicInfo, patch: Partial<AcademicInfo>): Partial<AcademicInfo> {
+  const next = { ...academic, ...patch, schemeUpdate: undefined };
+  const update = pendingSchemeUpdate(next);
+  return update ? { ...patch, schemeUpdate: { id: update.id, answer: "new", at: new Date().toISOString() } } : patch;
+}

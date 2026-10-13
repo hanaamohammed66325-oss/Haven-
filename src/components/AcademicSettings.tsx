@@ -8,6 +8,7 @@ import { toEnglishDigits } from "@/lib/dates";
 import { detectScheme, gradeTableStatus, schemeById } from "@/lib/gradeSchemes";
 import { typedUniversityNames, universityChoices } from "@/lib/universityCountry";
 import { COUNTRY_LABEL, withCountry } from "@/lib/universityPick";
+import { universityPatch } from "@/lib/schemeUpdates";
 import { GradeTableSection, SchemeChips } from "./GradeTableCheck";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -93,12 +94,12 @@ export function AcademicSettings({ showScheme = true }: { showScheme?: boolean }
             onChange={(e) => {
               const slug = e.target.value;
               if (slug === "") {
-                setAcademic({ universitySlug: null, universityName: "" });
+                setAcademic(universityPatch(academic, { universitySlug: null, universityName: "" }));
               } else if (slug === "other") {
-                setAcademic({ universitySlug: "other", universityName: "" });
+                setAcademic(universityPatch(academic, { universitySlug: "other", universityName: "" }));
               } else {
                 const uni = UNIVERSITIES.find((u) => u.slug === slug);
-                setAcademic({ universitySlug: slug, universityName: uni?.name ?? "" });
+                setAcademic(universityPatch(academic, { universitySlug: slug, universityName: uni?.name ?? "" }));
               }
             }}
           >
@@ -118,7 +119,7 @@ export function AcademicSettings({ showScheme = true }: { showScheme?: boolean }
               placeholder={t("universityCustomPlaceholder")}
               list="haven-university-catalog"
               value={academic.universityName}
-              onChange={(e) => setAcademic({ universityName: e.target.value })}
+              onChange={(e) => setAcademic(universityPatch(academic, { universityName: e.target.value }))}
             />
           )}
           {isOtherUni && <UniversityCatalogList />}
@@ -235,7 +236,7 @@ function SameNameChoice() {
             <button
               key={`${c.ar}|${c.country}`}
               type="button"
-              onClick={() => setAcademic({ universityName: withCountry(name, c.country, lang) })}
+              onClick={() => setAcademic(universityPatch(academic, { universityName: withCountry(name, c.country, lang) }))}
               className="text-start rounded-lg border px-3 py-2 text-sm transition-colors hover:border-[var(--color-primary)]"
               style={{ borderColor: "var(--color-border)", color: "var(--color-ink)", background: "transparent" }}
             >

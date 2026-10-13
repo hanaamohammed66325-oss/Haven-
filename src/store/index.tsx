@@ -167,6 +167,14 @@ function readHolidayCheck(raw: unknown): HolidayCheck | undefined {
   return { calendar: r.calendar, at: typeof r.at === "string" ? r.at : "" };
 }
 
+/** Validate preferences.academic.schemeUpdate (the GPA-update pop-up answer). */
+function readSchemeUpdate(raw: unknown): AcademicInfo["schemeUpdate"] {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!r || typeof r.id !== "string" || !r.id || r.id.length > 120) return undefined;
+  if (r.answer !== "yes" && r.answer !== "no" && r.answer !== "custom" && r.answer !== "new") return undefined;
+  return { id: r.id, answer: r.answer, at: typeof r.at === "string" ? r.at : "" };
+}
+
 /** Validate preferences.academic.customScheme — bad rows are dropped. */
 function readCustomScheme(raw: unknown): CustomSchemeData | undefined {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
@@ -211,6 +219,7 @@ function readAcademic(raw: unknown): AcademicInfo {
     gpaSchemeId: scheme,
     gradeCheck: readGradeCheck(o.gradeCheck),
     holidayCheck: readHolidayCheck(o.holidayCheck),
+    schemeUpdate: readSchemeUpdate(o.schemeUpdate),
     customScheme: readCustomScheme(o.customScheme),
     ...(o.repeatPolicy === "higher" || o.repeatPolicy === "latest" || o.repeatPolicy === "both" || o.repeatPolicy === "other"
       ? { repeatPolicy: o.repeatPolicy }
