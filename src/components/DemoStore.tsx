@@ -425,13 +425,22 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
         );
         return Promise.resolve({ ok: true as const });
       },
-      updateMissedSession: (courseId, missedId, p) =>
+      updateMissedSession: (courseId, missedId, p) => {
         mapCourses(inCourse(courseId, (c) => ({
           ...c,
           missedSessions: c.missedSessions.map((m) =>
-            m.id === missedId ? { ...m, ...p, tardiness: p.tardiness === null ? undefined : (p.tardiness ?? m.tardiness) } : m
+            m.id === missedId
+              ? {
+                  ...m,
+                  ...p,
+                  tardiness: p.tardiness === null ? undefined : (p.tardiness ?? m.tardiness),
+                  ...(p.date ? { day: new Date(`${p.date}T12:00:00`).getDay() } : {}),
+                }
+              : m
           ),
-        }))),
+        })));
+        return Promise.resolve({ ok: true as const });
+      },
       removeMissedSession: (courseId, missedId) =>
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }))),
 

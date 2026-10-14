@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { DemoStoreProvider } from "./DemoStore";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { TourHavi } from "./tour/TourHavi";
 import { TourContext } from "./tour/TourContext";
 import { useStore } from "@/store";
@@ -137,12 +138,14 @@ const BEATS: Beat[] = [
 
   // ── Attendance: explain, then log an absence live ────────────────────
   { page: "attendance", title: "ob_att_t", line: "ob_att_p1", hold: 2600 },
-  { page: "attendance", target: "att-rule", callout: "tour_attRule", hold: 2800 },
-  { page: "attendance", target: "att-card", callout: "tour_attCard", hold: 3200 },
+  // While the calculation is suspended (featureFlags) the tardiness rule is
+  // hidden and the card shows only the log, so the tour says so.
+  ...(ATTENDANCE_CALC_SUSPENDED ? [] : [{ page: "attendance", target: "att-rule", callout: "tour_attRule", hold: 2800 } as const]),
+  { page: "attendance", target: "att-card", callout: ATTENDANCE_CALC_SUSPENDED ? "tour_attCardLog" : "tour_attCard", hold: 3200 },
   { page: "attendance", target: "att-expand", callout: "tour_attExpand", action: { kind: "click" }, hold: 900 },
   { page: "attendance", target: "att-log", callout: "tour_attLog", action: { kind: "click" }, hold: 900 },
   { page: "attendance", target: "att-save", callout: "tour_attSave", action: { kind: "click" }, hold: 1000 },
-  { page: "attendance", title: "ob_att_t", line: "tour_attDone", hold: 2400 },
+  { page: "attendance", title: "ob_att_t", line: ATTENDANCE_CALC_SUSPENDED ? "tour_attDoneLog" : "tour_attDone", hold: 2400 },
 
   // ── Pomodoro ─────────────────────────────────────────────────────────
   // The page is the lake itself, so the intro introduces it (a note pointing at

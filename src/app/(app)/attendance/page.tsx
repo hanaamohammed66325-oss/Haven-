@@ -13,11 +13,14 @@ import { formatDuration } from "@/lib/format";
 import { toISODate, formatLongDate } from "@/lib/dates";
 import { resolveHolidaysForSemester } from "@/lib/holidays";
 import { TARDINESS_RULES, DEFAULT_RULE_ID } from "@/lib/tardiness";
-import { Shield, Clock, CalendarOff, ChevronDown, ChevronUp, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import { Shield, Clock, CalendarOff, ChevronDown, ChevronUp, CheckCircle, XCircle, Trash2, Pencil } from "lucide-react";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 import { holidayCalendar } from "@/lib/universityCountry";
 import { HolidayCountryNote } from "@/components/HolidayCountryNote";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
+import { absenceLog, sumAbsenceLogs } from "@/lib/absenceLog";
+import { AttendanceSuspendedNote } from "@/components/AttendanceSuspendedNote";
 
 const isTardy = (m: { tardiness?: number | null }) => (m.tardiness ?? 0) > 0;
 
@@ -66,9 +69,26 @@ function CourseAttendanceCard({ course }: { course: Course }) {
   const [addMinutesLate, setAddMinutesLate] = useState("");
   const [editTardinessId, setEditTardinessId] = useState<string | null>(null);
   const [editTardinessVal, setEditTardinessVal] = useState("");
+  // The absence whose date is being changed.
+  const [editDateId, setEditDateId] = useState<string | null>(null);
+  const [editDateVal, setEditDateVal] = useState("");
+  const [dateSaving, setDateSaving] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const saveDate = async (courseId: string, missedId: string, current?: string) => {
+    if (!editDateVal || editDateVal > toISODate(new Date()) || dateSaving) return;
+    setDateError(null);
+    if (editDateVal === current) { setEditDateId(null); return; }
+    setDateSaving(true);
+    const res = await updateMissedSession(courseId, missedId, { date: editDateVal });
+    setDateSaving(false);
+    // On failure the old date comes back and the editor stays open with a message.
+    if (res.ok) setEditDateId(null);
+    else setDateError(missedId);
+  };
 
   const att = attendanceInfo(course, semester, holidayCalendar(academic));
-  if (!att) return null;
+  if (!att && !ATTENDANCE_CALC_SUSPENDED) return null;
+  const log = absenceLog(course);
 
   const hUnit = t("hoursUnit");
   const mUnit = t("minutesUnit");
@@ -76,8 +96,8 @@ function CourseAttendanceCard({ course }: { course: Course }) {
   const dayLabel = (d: number) => t(`day${d}` as TranslationKey);
 
   const limit = courseLimit(course, semester);
-  const pct = att.absence;
-  const barColor = STATUS_COLOR[att.status];
+  const pct = att?.absence ?? 0;
+  const barColor = att ? STATUS_COLOR[att.status] : "var(--color-ink)";
 
   let unexcusedCount = 0, excusedCount = 0;
   for (const m of course.missedSessions) m.excused ? excusedCount++ : unexcusedCount++;
@@ -85,6 +105,22 @@ function CourseAttendanceCard({ course }: { course: Course }) {
   return (
     <Card data-tour="att-card">
       <div className="px-5 sm:px-6 py-5">
+        {ATTENDANCE_CALC_SUSPENDED || !att ? (
+          <>
+            <h3 className="font-display text-base font-semibold truncate mb-4" style={{ color: "var(--color-ink)" }}>
+              {course.name}
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+              <StatBox label={t("attLog_lectures")} value={String(log.lectures)}
+                sub={log.excused > 0 ? t("attLog_excusedOf", { n: log.excused }) : undefined} />
+              <StatBox label={t("attLog_hours")} value={dur(log.minutes)} />
+              {log.lates > 0 && (
+                <StatBox label={t("attLog_lates")} value={String(log.lates)} sub={dur(log.lateMinutes)} />
+              )}
+            </div>
+          </>
+        ) : (
+        <>
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0">
@@ -192,6 +228,9 @@ function CourseAttendanceCard({ course }: { course: Course }) {
           )}
         </div>
 
+        </>
+        )}
+
         {/* Expand/collapse absences */}
         <button
           data-tour="att-expand"
@@ -233,11 +272,50 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                     </span>
                     <span style={{ color: "var(--color-muted)" }}>·</span>
                     <span style={{ color: "var(--color-muted)" }}>{dur(m.minutes)}</span>
-                    {m.date && (
-                      <>
-                        <span style={{ color: "var(--color-muted)" }}>·</span>
-                        <span style={{ color: "var(--color-muted)" }}>{formatLongDate(`${m.date}T00:00:00`, lang, semester.calendarType)}</span>
-                      </>
+                    <span style={{ color: "var(--color-muted)" }}>·</span>
+                    {editDateId === m.id ? (
+                      <span className="inline-flex items-center gap-1">
+                        <input
+                          type="date"
+                          aria-label={t("absenceDate")}
+                          value={editDateVal}
+                          max={toISODate(new Date())}
+                          autoFocus
+                          onInput={(e) => setEditDateVal(e.currentTarget.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void saveDate(course.id, m.id, m.date);
+                            else if (e.key === "Escape") setEditDateId(null);
+                          }}
+                          className="rounded border px-1.5 py-0.5 text-[11px]"
+                          style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
+                        />
+                        <button
+                          disabled={dateSaving || !editDateVal || editDateVal > toISODate(new Date())}
+                          onClick={() => void saveDate(course.id, m.id, m.date)}
+                          className="text-[10px] px-1.5 py-0.5 rounded font-medium disabled:opacity-50"
+                          style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
+                        >{t("save")}</button>
+                        {dateError === m.id && (
+                          <span className="text-[10px]" style={{ color: "var(--color-danger)" }}>{t("saveError")}</span>
+                        )}
+                        <button
+                          onClick={() => { setEditDateId(null); setDateError(null); }}
+                          aria-label={t("cancel")}
+                          className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                          style={{ color: "var(--color-muted)" }}
+                        >{t("cancel")}</button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => { setEditDateId(m.id); setEditDateVal(m.date ?? ""); setDateError(null); }}
+                        title={t("editAbsenceDate")}
+                        aria-label={t("editAbsenceDate")}
+                        className="inline-flex items-center gap-1 underline decoration-dotted underline-offset-2 hover:opacity-80"
+                        style={{ color: "var(--color-muted)" }}
+                      >
+                        {m.date ? formatLongDate(`${m.date}T00:00:00`, lang, semester.calendarType) : t("addAbsenceDate")}
+                        <Pencil size={11} />
+                      </button>
                     )}
                     {isTardy(m) && (
                       <>
@@ -333,8 +411,8 @@ function CourseAttendanceCard({ course }: { course: Course }) {
               </div>
             )}
 
-            {/* Log new absence */}
-            {!addingAbsence ? (
+            {/* Log new absence (needs a weekly session to log against) */}
+            {course.sessions.length === 0 ? null : !addingAbsence ? (
               <button
                 data-tour="att-log"
                 onClick={() => { setAddingAbsence(true); setAddDate(toISODate(new Date())); setAddSession(course.sessions[0]?.id ?? ""); }}
@@ -460,7 +538,9 @@ export default function AttendancePage() {
   const ruleId = semester?.tardinessRuleId ?? DEFAULT_RULE_ID;
 
   const coursesWithAttendance = useMemo(
-    () => courses.filter((c) => c.sessions.length > 0),
+    // A course stays here while it has a schedule or an existing log: a log
+    // remains evidence even after its weekly sessions are removed.
+    () => courses.filter((c) => c.sessions.length > 0 || c.missedSessions.length > 0),
     [courses]
   );
 
@@ -472,7 +552,8 @@ export default function AttendancePage() {
     let atRisk = 0;
     let approaching = 0;
 
-    for (const c of coursesWithAttendance) {
+    // Not computed while the calculation is suspended (nothing shows it).
+    for (const c of ATTENDANCE_CALC_SUSPENDED ? [] : coursesWithAttendance) {
       const att = attendanceInfo(c, semester, holidayCalendar(academic));
       if (!att) continue;
       totalMissed += att.missedMinutes;
@@ -484,6 +565,11 @@ export default function AttendancePage() {
 
     return { totalMissed, totalExcused, totalContact, atRisk, approaching };
   }, [coursesWithAttendance, semester, academic]);
+
+  const totalLog = useMemo(
+    () => sumAbsenceLogs(coursesWithAttendance.map((c) => absenceLog(c))),
+    [coursesWithAttendance]
+  );
 
   if (!attendanceEnabled) {
     return (
@@ -514,11 +600,19 @@ export default function AttendancePage() {
         <p className="text-sm mt-1" style={{ color: "var(--color-muted)" }}>
           {t("attendancePageSubtitle")}
         </p>
-        <AttendanceApproxNote className="mt-2" />
+        {ATTENDANCE_CALC_SUSPENDED ? <AttendanceSuspendedNote className="mt-4" /> : <AttendanceApproxNote className="mt-2" />}
       </div>
 
+      {ATTENDANCE_CALC_SUSPENDED && coursesWithAttendance.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+          <StatBox label={t("attLog_lectures")} value={String(totalLog.lectures)} />
+          <StatBox label={t("attLog_hours")} value={formatDuration(totalLog.minutes, t("hoursUnit"), t("minutesUnit"))} />
+          {totalLog.lates > 0 && <StatBox label={t("attLog_lates")} value={String(totalLog.lates)} />}
+        </div>
+      )}
+
       {/* Summary cards */}
-      {coursesWithAttendance.length > 0 && (
+      {!ATTENDANCE_CALC_SUSPENDED && coursesWithAttendance.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           <StatBox
             label={t("totalContactHours")}
@@ -587,7 +681,7 @@ export default function AttendancePage() {
       )}
 
       {/* Tardiness rule selector */}
-      <div
+      {!ATTENDANCE_CALC_SUSPENDED && <div
         className="rounded-xl border px-4 py-3 mb-8 flex flex-wrap items-center gap-3"
         style={{ borderColor: "var(--color-border)" }}
       >
@@ -642,7 +736,7 @@ export default function AttendancePage() {
             />
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Course cards */}
       {coursesWithAttendance.length === 0 ? (

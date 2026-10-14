@@ -21,9 +21,12 @@ import { CouponsSection } from "./coupons";
 import { TopUsersSection } from "./top-users";
 import { UniversitiesSection } from "./universities";
 import { GpaChecksSection } from "./gpa-checks";
-import { loadCalendarsReady, loadFactsCoverage } from "./university-facts";
+import { loadCalendarsReady } from "./university-facts";
 import { AttendanceAuditSection } from "./attendance-audit";
-import { UniversityFactsTabs, loadCrowdReview } from "./attendance-policies";
+import { AttendanceContributionsSection } from "./attendance-contributions";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
+import { UniversityFactsTabs } from "./attendance-policies";
+import { FeedbackSection } from "./feedback";
 import { DrillProvider } from "./_drill";
 
 const BILLING_PREF_KEY = "haven_admin_show_billing";
@@ -112,26 +115,14 @@ function AdminPage() {
   }, [session, isAdmin]);
   useEffect(() => { void refreshBadges(); }, [refreshBadges, section]);
 
-  // Universities still missing their official calendar for this academic year —
-  // a banner on every admin visit + a badge on "University facts" until done.
-  const [factsGap, setFactsGap] = useState<{ missing: number; review: number } | null>(null);
-  const [factsBannerHidden, setFactsBannerHidden] = useState(false);
-  const refreshFactsGap = useCallback(async () => {
-    if (!session || !isAdmin) return;
-    const cov = await loadFactsCoverage();
-    if (cov) setFactsGap({ missing: cov.missing.length, review: cov.review });
-  }, [session, isAdmin]);
-  useEffect(() => { void refreshFactsGap(); }, [refreshFactsGap, section]);
-  // Universities where 3+ students say the rule or the calendar is different.
-  const [crowdReview, setCrowdReview] = useState<string[]>([]);
   // Calendar terms 5+ students confirmed, waiting for approval.
   const [calendarsReady, setCalendarsReady] = useState(0);
   useEffect(() => {
     if (!session || !isAdmin) return;
-    void loadCrowdReview().then(setCrowdReview);
     void loadCalendarsReady().then(setCalendarsReady);
   }, [session, isAdmin, section]);
-  const factsBadge = (factsGap?.missing ?? 0) + crowdReview.length + calendarsReady;
+  // Only calendars waiting for approval count (Hanaa: the other notices were noise).
+  const factsBadge = calendarsReady;
   const allBadges = { ...badges, ...(factsBadge ? { facts: factsBadge } : {}) };
 
   // ---- Handlers ----
@@ -199,30 +190,12 @@ function AdminPage() {
       <div className="flex-1 min-w-0 flex flex-col">
         <AdminTopBar current={section} onOpenMenu={() => setDrawerOpen(true)} session={session} />
         <main className="p-5 md:p-8 max-w-[1400px] w-full mx-auto">
-          {crowdReview.length > 0 && section !== "facts" && (
-            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-[13px]" style={{ background: C.tint(C.danger, "18"), border: `1px solid ${C.tint(C.danger, "55")}`, color: C.text }}>
-              <span className="flex-1 min-w-0">
-                <b>{crowdReview.length}</b> {crowdReview.length > 1 ? "universities" : "university"}: 3 or more students say the absence rule or the calendar is different. Review them.
-              </span>
-              <button onClick={() => goSection("facts")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: C.danger, color: "#fff", border: "none", cursor: "pointer" }}>Review</button>
-            </div>
-          )}
           {calendarsReady > 0 && section !== "facts" && (
             <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-[13px]" style={{ background: C.tint(C.success, "18"), border: `1px solid ${C.tint(C.success, "55")}`, color: C.text }}>
               <span className="flex-1 min-w-0">
                 <b>{calendarsReady}</b> {calendarsReady > 1 ? "calendars" : "calendar"}: 5 or more students confirmed the dates. Waiting for your approval.
               </span>
               <button onClick={() => goSection("facts")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: C.success, color: "#fff", border: "none", cursor: "pointer" }}>Open</button>
-            </div>
-          )}
-          {factsGap && factsGap.missing > 0 && !factsBannerHidden && section !== "facts" && (
-            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-[13px]" style={{ background: C.tint(C.warning, "22"), border: `1px solid ${C.tint(C.warning, "55")}`, color: C.text }}>
-              <span className="flex-1 min-w-0">
-                <b>{factsGap.missing}</b> universities have no approved official calendar for this academic year
-                {factsGap.review > 0 && <> · <b>{factsGap.review}</b> prepared facts are waiting for your approval</>}.
-              </span>
-              <button onClick={() => goSection("facts")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: C.primary, color: "#fff", border: "none", cursor: "pointer" }}>Open University facts</button>
-              <button onClick={() => setFactsBannerHidden(true)} aria-label="Dismiss" className="rounded-lg px-2 py-1 text-[12px]" style={{ background: "transparent", color: C.textMuted, border: "none", cursor: "pointer" }}>✕</button>
             </div>
           )}
           <DrillProvider onOpenUser={openUser}>
@@ -245,13 +218,17 @@ function AdminPage() {
           ) : section === "facts" ? (
             <UniversityFactsTabs />
           ) : section === "attendance" ? (
-            <AttendanceAuditSection onOpenUser={openUser} />
+            // While the calculation is suspended the audit (percentages) is
+            // hidden and the students' contributions take its place.
+            ATTENDANCE_CALC_SUSPENDED ? <AttendanceContributionsSection onOpenUser={openUser} /> : <AttendanceAuditSection onOpenUser={openUser} />
           ) : section === "notifications" ? (
             <NotificationsSection />
           ) : section === "subscriptions" ? (
             <SubscriptionsSection session={session} onOpenUser={openUser} />
           ) : section === "payments" ? (
             <PaymentsSection session={session} onOpenUser={openUser} />
+          ) : section === "feedback" ? (
+            <FeedbackSection />
           ) : section === "support" ? (
             <SupportSection session={session} />
           ) : section === "coupons" ? (

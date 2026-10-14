@@ -7,6 +7,7 @@ import { useScheme, useStore, type MutationResult } from "@/store";
 import { toEnglishDigits } from "@/lib/dates";
 import { DENIED, detectScheme, isSaudiUniversity } from "@/lib/gradeSchemes";
 import { courseRule, hasOwnLimit } from "@/lib/grades";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { fmtPct, isolateOption } from "@/lib/format";
 import type { Course, RepeatInfo, RepeatPolicy } from "@/types";
 
@@ -184,7 +185,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("creditHours")}</label>
           <input data-tour="course-credits" className={field} style={border} type="number" min="1" step="1" value={credits} onChange={(e) => setCredits(e.target.value)} />
         </div>
-        <div className="flex flex-col gap-1.5">
+        {!ATTENDANCE_CALC_SUSPENDED && <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("courseLimitLabel")}</label>
           <input
             className={field}
@@ -206,7 +207,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
               ? t(termRule.source === "university" ? "courseLimitHintUniversity" : termRule.source === "personal" ? "courseLimitHintPersonal" : "courseLimitHintDefault", { n: fmtPct(termLimit) })
               : t("courseLimitHintUnknown")}
           </span>
-        </div>
+        </div>}
         <RepeatFields
           repeated={repeated}
           setRepeated={clear(setRepeated)}

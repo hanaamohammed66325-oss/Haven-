@@ -10,6 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Course, PlannerData, Semester } from "@/types";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import type { GamificationState } from "./gamification";
 import type { TranslationKey } from "@/i18n/translations/en";
 import {
@@ -70,7 +71,8 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
   const items: Suggestion[] = [];
 
   // 1. Attendance danger / warn
-  for (const c of ctx.attendanceEnabled === false ? [] : courses) {
+  // No absence nudges while the attendance calculation is suspended.
+  for (const c of ctx.attendanceEnabled === false || ATTENDANCE_CALC_SUSPENDED ? [] : courses) {
     const att = attendanceInfo(c, semester, ctx.holidayCalendar);
     if (att?.status === "danger") {
       items.push({

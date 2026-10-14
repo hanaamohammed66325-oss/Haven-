@@ -1,12 +1,13 @@
 "use client";
 
 import { useC, useTheme } from "./_lib";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
   | "dashboard" | "users" | "insights" | "retention" | "top-users" | "universities" | "gpa-checks" | "facts"
   | "attendance" | "notifications"
-  | "subscriptions" | "payments" | "support" | "coupons";
+  | "subscriptions" | "payments" | "feedback" | "support" | "coupons";
 
 /** Sections that are only relevant once paid subscriptions are live. Hidden by
  *  default behind the billing toggle so the dashboard stays focused on usage. */
@@ -36,10 +37,11 @@ export function AdminSidebar({
     { id: "universities",  label: "Universities",  icon: "🎓" },
     { id: "gpa-checks",    label: "GPA",           icon: "✅" },
     { id: "facts",         label: "University facts", icon: "📅", badge: badges?.facts },
-    { id: "attendance",    label: "Attendance audit", icon: "📋" },
+    { id: "attendance",    label: ATTENDANCE_CALC_SUSPENDED ? "Absence contributions" : "Attendance audit", icon: "📋" },
     { id: "notifications", label: "Notifications", icon: "🔔" },
     { id: "subscriptions", label: "Subscriptions", icon: "💳" },
     { id: "payments",      label: "Payments",      icon: "💰", badge: badges?.payments },
+    { id: "feedback",      label: "Feedback",      icon: "💬" },
     { id: "support",       label: "Support",       icon: "🎫", badge: badges?.support },
     { id: "coupons",       label: "Coupons",       icon: "🏷️" },
   ];

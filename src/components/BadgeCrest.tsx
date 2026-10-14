@@ -27,6 +27,8 @@ const BADGE_COLORS: Record<string, Palette> = {
   "coursework-complete": { light: "#d98f6f", mid: "#c0563f", dark: "#853629", ring: "#a8482f" },
   "all-marks-complete":  { light: "#8f93e0", mid: "#5a5fbf", dark: "#393d80", ring: "#4a4d9e" },
   "perfect-score":       { light: "#e88a86", mid: "#d9534f", dark: "#943430", ring: "#b8423e" },
+  "pomodoro-sessions":   { light: "#86c9a9", mid: "#5fa98c", dark: "#356a58", ring: "#4a8570" },
+  "pomodoro-streak":     { light: "#e08bad", mid: "#c0567a", dark: "#853854", ring: "#a84868" },
 };
 const DEFAULT_COLOR: Palette = { light: "#9fb0b2", mid: "#6b7a80", dark: "#3c474a", ring: "#556065" };
 
@@ -41,6 +43,8 @@ const GLYPHS: Record<string, string> = {
   "coursework-complete": `<path d="M12 6.5C10 4.9 7 4.6 4.5 5.3v12.4C7 17 10 17.3 12 18.9c2-1.6 5-1.9 7.5-1.2V5.3C17 4.6 14 4.9 12 6.5z"/><path d="M12 6.5v12.4"/>`,
   "all-marks-complete": `<path d="M12 4L2.8 8.2 12 12.4l9.2-4.2L12 4z"/><path d="M6.5 10.2v4.1c0 1.4 2.6 2.6 5.5 2.6s5.5-1.2 5.5-2.6v-4.1"/><path d="M21.2 8.2v4.4"/>`,
   "perfect-score": `<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/>`,
+  "pomodoro-sessions": `<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.6 1.8"/><path d="M9.5 3.5h5M12 3.5v2"/>`,
+  "pomodoro-streak": `<path d="M12 3.5c.4 3-2.2 4.4-2.2 7a2.2 2.2 0 004.4 0c0-.9-.3-1.6-.8-2.3 2.6 1.3 4.1 3.6 4.1 6.2a5.5 5.5 0 01-11 0c0-4.6 4.6-6.6 5.5-10.9z"/>`,
 };
 
 function leaf(cx: number, cy: number, rot: number, rx: number, ry: number): string {

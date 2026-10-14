@@ -56,6 +56,7 @@ import {
   XP_REWARDS,
   MAX_TIER,
 } from "@/lib/gamification";
+import { semesterPomodoroProgress } from "@/lib/pomodoro/achievementHistory";
 import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
 import { ruleMode, semesterGPA } from "@/lib/grades";
 import { resolveScheme, setLearnedCutoffs, SCHEMES, type LearnedCutoffs } from "@/lib/gradeSchemes";
@@ -421,7 +422,7 @@ const initialData: AppData = {
   haviName: "Havi",
   onboardingSeen: false,
   setupConfirmed: {},
-  attendanceEnabled: true,
+  attendanceEnabled: false,
   personalAttendanceRule: null,
   attendancePolicyAck: null,
   ownLimits: [],
@@ -699,7 +700,7 @@ export interface StoreValue extends AppData {
     sessionId: string,
     extra?: { date?: string; excused?: boolean; tardiness?: number }
   ) => Promise<MutationResult>;
-  updateMissedSession: (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null }) => void;
+  updateMissedSession: (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null; date?: string }) => Promise<MutationResult>;
   removeMissedSession: (courseId: string, missedId: string) => void;
   resetData: () => void;
   recordAppOpen: () => { xpEarned: number; streakBroke: boolean; streakCurrent: number };
@@ -728,7 +729,8 @@ export function badgeContext({
   planner,
   academic,
   semester,
-}: Pick<AppData, "courses" | "planner" | "academic" | "semester">): BadgeContext {
+  pomodoroStats,
+}: Pick<AppData, "courses" | "planner" | "academic" | "semester"> & Partial<Pick<AppData, "pomodoroStats">>): BadgeContext {
   const scheme = resolveScheme(academic);
   return {
     courses,
@@ -739,6 +741,8 @@ export function badgeContext({
     semesterWeeks: semester.weeks,
     semester,
     holidayCalendar: holidayCalendar(academic),
+    // This term only: the Pomodoro badges reward the current semester's work.
+    pomodoro: pomodoroStats ? semesterPomodoroProgress(pomodoroStats, semester) : undefined,
   };
 }
 
@@ -1034,7 +1038,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           haviName: str(prefs.haviName, "Havi") || "Havi",
           onboardingSeen: prefs.onboardingSeen === true,
           whatsNewSeen: readWhatsNewSeen(prefs),
-          attendanceEnabled: prefs.attendanceEnabled !== false,
+          // Off unless the account turned it on. Accounts that existed before the
+          // default changed (2026-10-13) were saved as on by a migration.
+          attendanceEnabled: prefs.attendanceEnabled === true,
           personalAttendanceRule: readPersonalRule(prefs.attendanceRule),
           attendancePolicyAck: typeof prefs.attendancePolicyAck === "string" ? prefs.attendancePolicyAck : null,
           ownLimits: Array.isArray(prefs.ownLimits)
@@ -2485,26 +2491,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [awardGamificationXP]);
 
   const updateMissedSession = useCallback(
-    (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null }) => {
-      setData((d) => ({
-        ...d,
-        courses: d.courses.map((c) =>
-          c.id === courseId
-            ? {
-                ...c,
-                missedSessions: c.missedSessions.map((m) =>
-                  m.id === missedId
-                    ? { ...m, ...patch, tardiness: patch.tardiness ?? undefined }
-                    : m
-                ),
-              }
-            : c
-        ),
-      }));
-      if (loggedInRef.current) {
-        db.updateAbsence(missedId, patch).catch((e) =>
-          console.error("Haven: failed to update absence", e)
-        );
+    async (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null; date?: string }): Promise<MutationResult> => {
+      type Missed = Course["missedSessions"][number];
+      const apply = (m: Missed, p: typeof patch): Missed => ({
+        ...m,
+        ...(p.excused !== undefined ? { excused: p.excused } : {}),
+        // Only a tardiness patch touches tardiness (a date or excuse change
+        // used to clear it).
+        ...(p.tardiness !== undefined ? { tardiness: p.tardiness ?? undefined } : {}),
+        // The weekday follows the date, as it does when loaded.
+        ...(p.date ? { date: p.date, day: db.weekdayFromIso(p.date) } : {}),
+      });
+      const mapOne = (fn: (m: Missed) => Missed) =>
+        setData((d) => ({
+          ...d,
+          courses: d.courses.map((c) =>
+            c.id === courseId ? { ...c, missedSessions: c.missedSessions.map((m) => (m.id === missedId ? fn(m) : m)) } : c
+          ),
+        }));
+      const before = dataRef.current.courses.find((c) => c.id === courseId)?.missedSessions.find((m) => m.id === missedId);
+      mapOne((m) => apply(m, patch));
+      if (!loggedInRef.current) return { ok: true };
+      try {
+        await db.updateAbsence(missedId, patch);
+        return { ok: true };
+      } catch (e) {
+        console.error("Haven: failed to update absence", e);
+        // Put back only the fields this patch changed, and only if nothing
+        // newer has changed them since (another edit, another account).
+        if (before) {
+          const optimistic = apply(before, patch);
+          mapOne((m) => ({
+            ...m,
+            ...(patch.excused !== undefined && m.excused === optimistic.excused ? { excused: before.excused } : {}),
+            ...(patch.tardiness !== undefined && m.tardiness === optimistic.tardiness ? { tardiness: before.tardiness } : {}),
+            ...(patch.date && m.date === optimistic.date ? { date: before.date, day: before.day } : {}),
+          }));
+        }
+        return { ok: false, error: asError(e) };
       }
     },
     []

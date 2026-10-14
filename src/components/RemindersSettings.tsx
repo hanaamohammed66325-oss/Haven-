@@ -11,6 +11,7 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState } from "react";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import type { NotifPrefs } from "@/types";
@@ -415,7 +416,7 @@ export function RemindersSettings() {
       </div>
 
       {/* 4) Attendance alerts (no timing to customize) */}
-      <div className={rowCls} style={border}>
+      {!ATTENDANCE_CALC_SUSPENDED && <div className={rowCls} style={border}>
         <div className="flex items-center justify-between gap-4">
           <span className={titleCls} style={{ color: "var(--color-ink)" }}>
             {t("remAttendanceTitle")}
@@ -429,7 +430,7 @@ export function RemindersSettings() {
         <p className={helpCls} style={{ color: "var(--color-muted)" }}>
           {t("remAttendanceHelp")}
         </p>
-      </div>
+      </div>}
 
       {/* 5) Lecture reminders (minutes before a class start) */}
       <div className={rowCls} style={border}>

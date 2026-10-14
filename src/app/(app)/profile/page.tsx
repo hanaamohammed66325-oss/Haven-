@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
-import { badgesForTier, getBadgeThreshold, getBadgePercent } from "@/lib/gamification";
+import { ATTENDANCE_BADGES, BADGES, badgesForTier, earnedBadgeCount, getBadgeThreshold, getBadgePercent } from "@/lib/gamification";
 import { hasActiveAccess } from "@/lib/premium";
 import { callFunction } from "@/lib/supabase";
 import { PENDING_EMAIL_CHANGE_KEY } from "@/lib/auth";
@@ -67,6 +67,7 @@ export default function ProfilePage() {
     planner,
     semester,
     academic,
+    pomodoroStats,
     setProfileName,
     setProfilePhoto,
   } = useStore();
@@ -270,8 +271,13 @@ export default function ProfilePage() {
       {/* ── Badges ──────────────────────────────────────────── */}
       {isPremium && (() => {
         const tier = gamification.badgeTier;
-        const earnedCount = gamification.badges.length;
-        const badgeCtx = badgeContext({ courses, planner, academic, semester });
+        const earnedCount = earnedBadgeCount(gamification.badges, tier);
+        const badgeCtx = badgeContext({ courses, planner, academic, semester, pomodoroStats });
+        // Attendance badges earned before the calculation was suspended stay on
+        // show beside this tier's badges (they count toward it as before).
+        const kept = ATTENDANCE_BADGES.filter(
+          (b) => !BADGES.includes(b) && gamification.badges.includes(b.id) && tier >= (b.minTier ?? 1)
+        );
         return (
           <Card padding="p-5 sm:p-8" className="haven-stagger mt-8">
             <div
@@ -295,7 +301,7 @@ export default function ProfilePage() {
             </div>
             <CollapseBody open={badgesFold.open}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {badgesForTier(tier).map((badge) => {
+              {[...badgesForTier(tier), ...kept].map((badge) => {
                 const earned = gamification.badges.includes(badge.id);
                 const key = badge.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
                 const threshold = getBadgeThreshold(badge.id, tier, badgeCtx);

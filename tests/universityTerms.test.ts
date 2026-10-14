@@ -12,8 +12,10 @@ const TODAY = "2026-09-25";
 const mine = { startDate: "2026-08-23", endDate: "2027-01-07", weeks: 18, finalsWeeks: 2 };
 
 describe("official term dates", () => {
-  test("every university with its own holidays has its terms, in order", () => {
-    assert.deepEqual(Object.keys(OFFICIAL_TERMS).sort(), Object.keys(UNIVERSITY_HOLIDAYS).sort());
+  test("every university with terms has its own holidays too, and the terms are in order", () => {
+    // A calendar may give the holidays without both terms in full (the October
+    // 2026 audit): then the student enters the dates.
+    for (const key of Object.keys(OFFICIAL_TERMS)) assert.ok(UNIVERSITY_HOLIDAYS[key], key);
     for (const [key, terms] of Object.entries(OFFICIAL_TERMS)) {
       for (const t of terms) assert.ok(t.start < t.finalsStart && t.finalsStart <= t.end, `${key} ${t.term}`);
       assert.ok(terms[0].end < terms[1].start, key);

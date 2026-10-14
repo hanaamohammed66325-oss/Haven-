@@ -8,6 +8,15 @@ import { ENFORCE_PREMIUM } from "./premium";
 export const POMODORO_ENABLED = true;
 
 /**
+ * Attendance calculation suspended (Hanaa, 2026-10-12; ACCURACY_PLAN.md). While
+ * true, students see only their raw absence log (lectures, hours, dates): no
+ * percentage, remaining allowance, denial status, absence alerts, personal
+ * rules or attendance badges. The calculation code stays untouched; set to
+ * `false` to bring everything back.
+ */
+export const ATTENDANCE_CALC_SUSPENDED: boolean = true;
+
+/**
  * Free-launch notice shown atop billing-related policy pages while payments are
  * disabled. Pair with `ENFORCE_PREMIUM` — show only when premium is off.
  */

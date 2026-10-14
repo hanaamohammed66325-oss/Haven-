@@ -157,8 +157,8 @@ describe("a university whose own calendar we hold", () => {
   });
 
   test("a sister university in the same country doesn't get it", () => {
-    assert.equal(universityCalendarKey("جامعة حمد بن خليفة"), null);
-    assert.equal(holidayCalendar(typed("جامعة حمد بن خليفة")), "QA");
+    assert.equal(universityCalendarKey("جامعة قطر للعلوم الطبية"), null);
+    assert.equal(holidayCalendar(typed("جامعة قطر للعلوم الطبية")), "QA");
     assert.equal(holidayCalendar(typed("جامعة الإمارات")), "AE");
   });
 

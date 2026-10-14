@@ -969,9 +969,10 @@ export async function addAbsence(
 
 export async function updateAbsence(
   id: string,
-  patch: { excused?: boolean; tardiness?: number | null }
+  patch: { excused?: boolean; tardiness?: number | null; date?: string }
 ): Promise<void> {
   const updates: Record<string, unknown> = {};
+  if (patch.date) updates.absent_on = patch.date;
   if (patch.excused !== undefined) updates.excused = patch.excused;
   if (patch.tardiness !== undefined) updates.tardiness = patch.tardiness ?? null;
   if (!Object.keys(updates).length) return;

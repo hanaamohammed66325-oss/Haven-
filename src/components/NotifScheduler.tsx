@@ -8,6 +8,7 @@ import { smartCandidates } from "@/lib/smartNotificationPolicy";
 import { syncSmartNotifications } from "@/lib/db";
 import { buildSmartSuggestions } from "@/lib/smartSuggestions";
 import { absenceLevel } from "@/lib/absenceAlerts";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { enqueueScheduledPush, reconcileScheduledPushes, syncAbsenceAlerts, type AbsenceAlertRow } from "@/lib/db";
 import { plannerItemDate } from "@/lib/reminders";
 import { holidayCalendar } from "@/lib/universityCountry";
@@ -73,7 +74,9 @@ export function NotifScheduler() {
     // that's no longer current (a newer level, an absence removed, alerts off)
     // without using it up.
     const absenceAlerts: AbsenceAlertRow[] = [];
-    if (notifPrefs.attendance.enabled && attendanceEnabled !== false) {
+    // While the attendance calculation is suspended nothing is queued, and the
+    // empty sync cancels any level still waiting on the server.
+    if (!ATTENDANCE_CALC_SUSPENDED && notifPrefs.attendance.enabled && attendanceEnabled !== false) {
       for (const c of courses) {
         const lv = absenceLevel(c, semester, calendar);
         if (!lv) continue;

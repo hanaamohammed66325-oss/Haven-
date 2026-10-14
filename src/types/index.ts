@@ -223,6 +223,8 @@ export interface PastTerm {
 }
 
 export interface Semester {
+  /** Stable cloud identity; date/name edits never create another achievement archive. */
+  id?: string;
   name: string;
   startDate: string;
   endDate: string;
@@ -538,6 +540,8 @@ export interface TaskFocus {
 }
 
 export interface PomodoroStats {
+  /** Permanent daily summaries, independent of the bounded lake artwork history. */
+  achievementHistory?: AchievementHistory;
   totalSessions: number;
   totalFocusMinutes: number;
   longestDailyStreak: number;
@@ -549,6 +553,33 @@ export interface PomodoroStats {
   /** per-session pads (newest last), each tagged with the course it was spent on.
    *  May be shorter than lilyPadCount for sessions logged before this existed. */
   pads: PomodoroPad[];
+}
+
+export interface AchievementDay {
+  date: string;
+  sessions: number;
+  minutes: number;
+  lotus: number;
+  /** Daily streak reached on this date; null for unprovable legacy history. */
+  streak: number | null;
+}
+
+export interface AchievementPeriod {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  trackedFrom: string;
+  incomplete: boolean;
+  days: AchievementDay[];
+}
+
+export interface AchievementHistory {
+  version: 1;
+  periods: Record<string, AchievementPeriod>;
+  unassignedDays: AchievementDay[];
+  /** Historical totals without enough retained detail to assign to a semester. */
+  legacy: { sessions: number; minutes: number; lotus: number };
 }
 
 /** Semester-GPA card mode. "semester" = live GPA out of 5.0; "cumulative" =

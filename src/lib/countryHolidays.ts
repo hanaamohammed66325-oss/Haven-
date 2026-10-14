@@ -351,12 +351,504 @@ export interface UniversityCalendar {
 
 const without = (list: CountryHoliday[], ids: string[]) => list.filter((h) => !ids.includes(h.id));
 
+// ── Calendars checked against each university's own 2026-2027 calendar ─────
+// (research audit, October 2026: research/gpa-calendar-audit/*_READY_FOR_TRANSFER.md).
+// What the university's calendar doesn't mention is kept from its country's
+// list (marked "from the country" below), so a holiday is never dropped only
+// because one calendar left it out. Holidays for one faith only (Nahda's
+// Christian holidays, PSUT's Palm Sunday and Easter) aren't listed: they don't
+// apply to every student.
+
+const h = (id: string, nameAr: string, nameEn: string, start: string, end = start, estimated?: boolean): CountryHoliday =>
+  estimated ? { id, nameAr, nameEn, start, end, estimated } : { id, nameAr, nameEn, start, end };
+/** The country's holiday with this id (to keep one the university's calendar leaves out). */
+const fromCountry = (country: string, id: string): CountryHoliday => COUNTRY_HOLIDAYS[country].find((x) => x.id === id)!;
+const arafatAdha = (id: string, start: string, end: string): CountryHoliday =>
+  h(id, "يوم عرفة وإجازة عيد الأضحى", "Arafat Day and Eid al-Adha break", start, end, true);
+const ashura = (id: string, start: string, end = start): CountryHoliday => h(id, "عاشوراء", "Ashura", start, end, true);
+const isra = (id: string, start: string, end = start): CountryHoliday => h(id, "الإسراء والمعراج", "Isra and Mi'raj", start, end, true);
+
+const BH_NATIONAL = (p: string) => h(`${p}-national-day-2026`, "العيد الوطني", "National Day", "2026-12-16", "2026-12-17");
+const QA_NATIONAL = (p: string, day = "2026-12-18") => h(`${p}-national-day-2026`, "اليوم الوطني", "Qatar National Day", day);
+const QA_SPORT = (p: string) => h(`${p}-sport-day-2027`, "اليوم الرياضي للدولة", "National Sport Day", "2027-02-09");
+const AE_MARTYRS = (p: string) => h(`${p}-martyrs-2026`, "يوم الشهيد", "Commemoration Day", "2026-12-01");
+const LB = (p: string) => ({
+  independence: (start = "2026-11-22", end = start) => h(`${p}-independence-2026`, "عيد الاستقلال", "Independence Day", start, end),
+  maroun: () => h(`${p}-st-maroun-2027`, "عيد مار مارون", "St. Maroun's Day", "2027-02-09"),
+  hariri: (estimated?: boolean) => h(`${p}-hariri-2027`, "ذكرى الرئيس رفيق الحريري", "Rafic Hariri Memorial Day", "2027-02-14", "2027-02-14", estimated),
+  annunciation: () => h(`${p}-annunciation-2027`, "عيد البشارة", "Annunciation Day", "2027-03-25"),
+  easter: (start = "2027-03-26", end = "2027-03-29") => h(`${p}-easter-2027`, "عيد الفصح (الغربي)", "Easter (Western)", start, end),
+  orthodoxEaster: () => h(`${p}-orthodox-easter-2027`, "عيد الفصح (الشرقي)", "Easter (Eastern)", "2027-04-30", "2027-05-03"),
+  armenianChristmas: (end = "2027-01-06") => h(`${p}-armenian-christmas-2027`, "عيد الميلاد عند الأرمن", "Armenian Christmas", "2027-01-06", end),
+  liberation: () => h(`${p}-liberation-2027`, "عيد المقاومة والتحرير", "Resistance and Liberation Day", "2027-05-25"),
+  assumption: (day = "2027-08-15") => h(`${p}-assumption-2027`, "عيد انتقال السيدة العذراء", "Assumption Day", day),
+});
+
+const AUDITED_HOLIDAYS: Record<string, UniversityCalendar> = {
+  // ── Bahrain (University of Bahrain's calendar is the country's list) ──
+  "ahlia-university": {
+    country: "BH", nameAr: "الجامعة الأهلية", nameEn: "Ahlia University",
+    holidays: [
+      BH_NATIONAL("ahlia"),
+      newYear("ahlia-new-year-2027", "2027-01-01"),
+      h("ahlia-semester-break-2027", "إجازة بين الفصلين", "Semester break", "2027-01-24", "2027-02-06"),
+      eidFitr("ahlia-eid-fitr-2027", "2027-03-11", "2027-03-13"),
+      labourDay("ahlia-labour-day-2027", "2027-05-01"),
+      arafatAdha("ahlia-eid-adha-2027", "2027-05-16", "2027-05-19"),
+      hijriNewYear("ahlia-hijri-2027", "2027-06-06"),
+      ashura("ahlia-ashura-2027", "2027-06-14", "2027-06-15"),
+      h("ahlia-mawlid-2027", "المولد النبوي (والتعويض عنه)", "Prophet's Birthday (and the day in lieu)", "2027-08-14", "2027-08-15", true),
+    ],
+  },
+  "gulf-university": {
+    country: "BH", nameAr: "الجامعة الخليجية", nameEn: "Gulf University",
+    holidays: [
+      BH_NATIONAL("gu"),
+      newYear("gu-new-year-2027", "2027-01-01"),
+      h("gu-student-break-2027", "عطلة الطلبة", "Student break", "2027-01-09", "2027-01-16"),
+      eidFitr("gu-eid-fitr-2027", "2027-03-10", "2027-03-12"),
+      labourDay("gu-labour-day-2027", "2027-05-01"),
+      arafatAdha("gu-eid-adha-2027", "2027-05-16", "2027-05-19"),
+      hijriNewYear("gu-hijri-2027", "2027-06-06"),
+      ashura("gu-ashura-2027", "2027-06-15", "2027-06-16"),
+    ],
+  },
+  "kingdom-university": {
+    country: "BH", nameAr: "جامعة المملكة", nameEn: "Kingdom University",
+    holidays: [
+      BH_NATIONAL("ku-bh"),
+      newYear("ku-bh-new-year-2027", "2027-01-01"),
+      eidFitr("ku-bh-eid-fitr-2027", "2027-03-09", "2027-03-11"),
+      labourDay("ku-bh-labour-day-2027", "2027-05-01"),
+      arafatAdha("ku-bh-eid-adha-2027", "2027-05-15", "2027-05-18"),
+      hijriNewYear("ku-bh-hijri-2027", "2027-06-06"),
+      ashura("ku-bh-ashura-2027", "2027-06-14", "2027-06-15"),
+    ],
+  },
+  "royal-university-for-women": {
+    country: "BH", nameAr: "الجامعة الملكية للبنات", nameEn: "Royal University for Women",
+    holidays: [
+      h("ruw-mid-fall-2026", "إجازة منتصف الفصل", "Mid-semester break", "2026-11-15", "2026-11-21"),
+      BH_NATIONAL("ruw"),
+      h("ruw-semester-break-2027", "إجازة بين الفصلين", "Semester break", "2027-01-10", "2027-01-23"),
+      eidFitr("ruw-eid-fitr-2027", "2027-03-09", "2027-03-11"),
+      h("ruw-mid-spring-2027", "إجازة منتصف الفصل", "Mid-semester break", "2027-03-28", "2027-04-03"),
+      labourDay("ruw-labour-day-2027", "2027-05-01"),
+      arafatAdha("ruw-eid-adha-2027", "2027-05-16", "2027-05-19"),
+      hijriNewYear("ruw-hijri-2027", "2027-06-06"),
+      ashura("ruw-ashura-2027", "2027-06-14", "2027-06-15"),
+      mawlid("ruw-mawlid-2027", "2027-08-15"),
+    ],
+  },
+  "university-of-technology-bahrain": {
+    country: "BH", nameAr: "جامعة البحرين للتكنولوجيا", nameEn: "University of Technology Bahrain",
+    holidays: [
+      BH_NATIONAL("utb"),
+      h("utb-break-1-2026", "إجازة بين الفصلين", "Term break", "2026-12-16", "2027-01-09"),
+      newYear("utb-new-year-2027", "2027-01-01"),
+      eidFitr("utb-eid-fitr-2027", "2027-03-09", "2027-03-11"),
+      h("utb-break-2-2027", "إجازة بين الفصلين", "Term break", "2027-04-18", "2027-05-02"),
+      labourDay("utb-labour-day-2027", "2027-05-01"),
+      eidAdha("utb-eid-adha-2027", "2027-05-15", "2027-05-18"),
+      hijriNewYear("utb-hijri-2027", "2027-06-06"),
+      ashura("utb-ashura-2027", "2027-06-14", "2027-06-15"),
+      mawlid("utb-mawlid-2027", "2027-08-15"),
+    ],
+  },
+  // ── Qatar (Qatar University above) ──
+  "university-of-doha-for-science-and-technology": {
+    country: "QA", nameAr: "جامعة الدوحة للعلوم والتكنولوجيا", nameEn: "University of Doha for Science and Technology",
+    holidays: [
+      h("udst-mid-fall-2026", "إجازة منتصف الفصل", "Mid-semester break", "2026-10-18", "2026-10-22"),
+      QA_NATIONAL("udst"),
+      QA_SPORT("udst"),
+      eidFitr("udst-eid-fitr-2027", "2027-03-07", "2027-03-12"),
+      eidAdha("udst-eid-adha-2027", "2027-05-15", "2027-05-19"),
+    ],
+  },
+  "hamad-bin-khalifa-university": {
+    country: "QA", nameAr: "جامعة حمد بن خليفة", nameEn: "Hamad Bin Khalifa University",
+    holidays: [
+      h("hbku-fall-break-2026", "إجازة الخريف", "Fall break", "2026-10-11", "2026-10-17"),
+      QA_NATIONAL("hbku"),
+      QA_SPORT("hbku"),
+      h("hbku-eid-spring-2027", "إجازة عيد الفطر والربيع", "Eid al-Fitr and spring break", "2027-03-07", "2027-03-13", true),
+      fromCountry("QA", "qa-eid-adha-2027"), // from the country
+    ],
+  },
+  "georgetown-university-school-of-foreign-service-in-qatar": {
+    country: "QA", nameAr: "جامعة جورجتاون في قطر", nameEn: "Georgetown University in Qatar",
+    holidays: [
+      h("gu-q-fall-break-2026", "إجازة الخريف", "Fall break", "2026-10-11", "2026-10-15"),
+      QA_NATIONAL("gu-q"), // from the country
+      h("gu-q-spring-break-2027", "اليوم الرياضي وإجازة الربيع", "National Sport Day and spring break", "2027-02-09", "2027-02-11"),
+      eidFitr("gu-q-eid-fitr-2027", "2027-03-07", "2027-03-11"),
+      h("gu-q-no-classes-2027", "لا دراسة", "No classes", "2027-03-28"),
+      eidAdha("gu-q-eid-adha-2027", "2027-05-16", "2027-05-20"),
+    ],
+  },
+  "northwestern-university-in-qatar": {
+    country: "QA", nameAr: "جامعة نورثويسترن في قطر", nameEn: "Northwestern University in Qatar",
+    holidays: [
+      h("nu-q-fall-break-2026", "إجازة الخريف", "Fall break", "2026-10-09", "2026-10-17"),
+      QA_NATIONAL("nu-q"), // from the country
+      QA_SPORT("nu-q"), // from the country
+      h("nu-q-spring-break-2027", "إجازة الربيع", "Spring break", "2027-02-19", "2027-02-22"),
+      eidFitr("nu-q-eid-fitr-2027", "2027-03-05", "2027-03-13"),
+      fromCountry("QA", "qa-eid-adha-2027"), // from the country
+    ],
+  },
+  "carnegie-mellon-university-in-qatar": {
+    country: "QA", nameAr: "جامعة كارنيجي ميلون في قطر", nameEn: "Carnegie Mellon University in Qatar",
+    holidays: [
+      h("cmu-q-no-classes-1-2026", "لا دراسة", "No classes", "2026-09-13", "2026-09-14"),
+      h("cmu-q-fall-break-2026", "إجازة الخريف", "Fall break", "2026-10-11", "2026-10-15"),
+      h("cmu-q-no-classes-2-2026", "لا دراسة", "No classes", "2026-11-11", "2026-11-12"),
+      QA_NATIONAL("cmu-q"), // from the country
+      h("cmu-q-sport-2027", "اليوم الرياضي ولا دراسة", "National Sport Day and no classes", "2027-02-09", "2027-02-11"),
+      eidFitr("cmu-q-eid-fitr-2027", "2027-03-07", "2027-03-11"),
+      h("cmu-q-no-classes-3-2027", "لا دراسة", "No classes", "2027-04-04", "2027-04-05"),
+      eidAdha("cmu-q-eid-adha-2027", "2027-05-16", "2027-05-20"),
+    ],
+  },
+  "lusail-university": {
+    country: "QA", nameAr: "جامعة لوسيل", nameEn: "Lusail University",
+    holidays: [
+      QA_NATIONAL("lusail", "2026-12-17"),
+      QA_SPORT("lusail"),
+      h("lusail-mid-spring-2027", "إجازة منتصف الفصل (والفطر)", "Mid-semester break (and Eid al-Fitr)", "2027-02-28", "2027-03-11"),
+      eidAdha("lusail-eid-adha-2027", "2027-05-16", "2027-05-20"),
+    ],
+  },
+  "virginia-commonwealth-university-in-qatar": {
+    country: "QA", nameAr: "جامعة فرجينيا كومنولث في قطر", nameEn: "Virginia Commonwealth University in Qatar",
+    holidays: [
+      h("vcu-q-fall-break-2026", "إجازة الخريف", "Fall break", "2026-10-11", "2026-10-15"),
+      QA_NATIONAL("vcu-q"),
+      h("vcu-q-spring-break-2027", "إجازة الربيع (واليوم الرياضي)", "Spring break (and National Sport Day)", "2027-02-08", "2027-02-11"),
+      eidFitr("vcu-q-eid-fitr-2027", "2027-03-07", "2027-03-11"),
+      eidAdha("vcu-q-eid-adha-2027", "2027-05-16", "2027-05-19"),
+    ],
+  },
+  // ── Kuwait (the Australian University's calendar is the country's list) ──
+  "american-university-of-kuwait": {
+    country: "KW", nameAr: "الجامعة الأمريكية في الكويت", nameEn: "American University of Kuwait",
+    holidays: [
+      h("auk-winter-closure-2026", "عطلة الشتاء (الجامعة مغلقة)", "Winter break (university closed)", "2026-12-24", "2026-12-31"),
+      h("auk-new-year-2027", "رأس السنة الميلادية", "New Year", "2027-01-01", "2027-01-02"),
+      isra("auk-isra-2027", "2027-01-07", "2027-01-09"),
+      h("auk-national-days-2027", "العيد الوطني وعيد التحرير", "National and Liberation Day", "2027-02-25", "2027-02-27"),
+      eidFitr("auk-eid-fitr-2027", "2027-03-09", "2027-03-13"),
+      eidAdha("auk-eid-adha-2027", "2027-05-15", "2027-05-22"),
+      hijriNewYear("auk-hijri-2027", "2027-06-05"),
+      mawlid("auk-mawlid-2027", "2027-08-14"),
+    ],
+  },
+  "american-international-university-aiu": {
+    country: "KW", nameAr: "الجامعة الأمريكية الدولية", nameEn: "American International University",
+    holidays: [
+      mawlid("aiu-mawlid-2026", "2026-08-27"),
+      h("aiu-winter-closure-2026", "إغلاق الشتاء", "Winter closure", "2026-12-19", "2027-01-02"),
+      isra("aiu-isra-2027", "2027-01-06"),
+      h("aiu-no-classes-1-2027", "لا دراسة", "No classes", "2027-02-11"),
+      h("aiu-national-days-2027", "العيد الوطني وعيد التحرير", "National and Liberation Day", "2027-02-25", "2027-02-26"),
+      h("aiu-spring-break-2027", "إجازة الربيع والفطر", "Spring break and Eid al-Fitr", "2027-03-07", "2027-03-12", true),
+      h("aiu-no-classes-2-2027", "لا دراسة", "No classes", "2027-03-25"),
+      h("aiu-no-classes-3-2027", "لا دراسة", "No classes", "2027-04-19"),
+      arafatAdha("aiu-eid-adha-2027", "2027-05-16", "2027-05-19"),
+    ],
+  },
+  // ── UAE (Abu Dhabi, Ajman, AUD, AUS, Sharjah and Khalifa above) ──
+  "american-university-of-ras-al-khaimah": {
+    country: "AE", nameAr: "الجامعة الأمريكية في رأس الخيمة", nameEn: "American University of Ras Al Khaimah",
+    holidays: [
+      ...without(COUNTRY_HOLIDAYS.AE, ["ae-eid-fitr-2027"]),
+      AE_MARTYRS("aurak"),
+      eidFitr("aurak-eid-fitr-2027", "2027-03-08", "2027-03-10"),
+    ],
+  },
+  "gulf-medical-university": {
+    country: "AE", nameAr: "جامعة الخليج الطبية", nameEn: "Gulf Medical University",
+    holidays: [
+      ...without(COUNTRY_HOLIDAYS.AE, ["ae-eid-fitr-2027", "ae-eid-adha-2027"]),
+      eidFitr("gmu-eid-fitr-2027", "2027-03-08", "2027-03-12"),
+      eidAdha("gmu-eid-adha-2027", "2027-05-15", "2027-05-18"),
+    ],
+  },
+  "mohammed-bin-rashid-university-of-medicine-and-health-sciences": {
+    // its MD phases 1 and 2
+    country: "AE", nameAr: "جامعة محمد بن راشد للطب والعلوم الصحية", nameEn: "Mohammed Bin Rashid University of Medicine and Health Sciences",
+    holidays: [
+      ...without(COUNTRY_HOLIDAYS.AE, ["ae-spring-break-2027", "ae-eid-adha-2027"]),
+      h("mbru-spring-break-2027", "إجازة الربيع", "Spring break", "2027-03-22", "2027-04-02"),
+      eidAdha("mbru-eid-adha-2027", "2027-05-16", "2027-05-21"),
+    ],
+  },
+  "new-york-university-abu-dhabi": {
+    country: "AE", nameAr: "جامعة نيويورك أبوظبي", nameEn: "New York University Abu Dhabi",
+    holidays: [
+      ...without(COUNTRY_HOLIDAYS.AE, ["ae-eid-fitr-2027", "ae-spring-break-2027", "ae-eid-adha-2027"]),
+      h("nyuad-no-classes-2026", "لا محاضرات (اختبارات مقررات السبعة أسابيع)", "No classes (7-week course exams)", "2026-10-18", "2026-10-22"),
+      h("nyuad-fall-break-2026", "إجازة الخريف", "Fall break", "2026-10-23", "2026-10-25"),
+      h("nyuad-spring-break-2027", "إجازة الربيع وعيد الفطر", "Spring break and Eid al-Fitr", "2027-03-08", "2027-03-12", true),
+      eidAdha("nyuad-eid-adha-2027", "2027-05-17", "2027-05-19"),
+    ],
+  },
+  "university-of-dubai": {
+    country: "AE", nameAr: "جامعة دبي", nameEn: "University of Dubai",
+    holidays: [
+      ...without(COUNTRY_HOLIDAYS.AE, ["ae-eid-adha-2027"]),
+      eidAdha("ud-eid-adha-2027", "2027-05-16", "2027-05-18"),
+    ],
+  },
+  "university-of-fujairah": {
+    country: "AE", nameAr: "جامعة الفجيرة", nameEn: "University of Fujairah",
+    holidays: [
+      ...without(COUNTRY_HOLIDAYS.AE, ["ae-spring-break-2027"]),
+      AE_MARTYRS("uof"),
+      h("uof-spring-break-2027", "إجازة الربيع", "Spring break", "2027-04-05", "2027-04-11"),
+    ],
+  },
+  // ── Oman ──
+  "sultan-qaboos-university": {
+    country: "OM", nameAr: "جامعة السلطان قابوس", nameEn: "Sultan Qaboos University",
+    holidays: [
+      // National Day on 20 Nov (Hanaa's decision, 2026-10-12: the calendar the
+      // university's page links; an older copy says 18 Nov).
+      h("squ-national-day-2026", "العيد الوطني", "National Day", "2026-11-20"),
+      ...without(COUNTRY_HOLIDAYS.OM, ["om-national-day-2026"]),
+      mawlid("squ-mawlid-2027", "2027-08-14"),
+    ],
+  },
+  "dhofar-university": {
+    country: "OM", nameAr: "جامعة ظفار", nameEn: "Dhofar University",
+    holidays: [
+      h("du-national-day-2026", "العيد الوطني", "National Day", "2026-11-25", "2026-11-26"),
+      isra("du-isra-2027", "2027-01-06"),
+      h("du-accession-2027", "ذكرى تولي السلطان مقاليد الحكم", "Sultan's Accession Day", "2027-01-11"),
+      eidFitr("du-eid-fitr-2027", "2027-03-10", "2027-03-11"),
+      eidAdha("du-eid-adha-2027", "2027-05-16", "2027-05-20"),
+      hijriNewYear("du-hijri-2027", "2027-06-06"),
+    ],
+  },
+  "muscat-university": {
+    country: "OM", nameAr: "جامعة مسقط", nameEn: "Muscat University",
+    holidays: [
+      h("mu-national-day-2026", "العيد الوطني", "National Day", "2026-11-25", "2026-11-26"),
+      isra("mu-isra-2027", "2027-01-07"),
+      h("mu-accession-2027", "ذكرى تولي السلطان مقاليد الحكم", "Sultan's Accession Day", "2027-01-14"),
+      eidFitr("mu-eid-fitr-2027", "2027-03-09", "2027-03-09"),
+      eidAdha("mu-eid-adha-2027", "2027-05-16", "2027-05-16"),
+      hijriNewYear("mu-hijri-2027", "2027-06-06"),
+      mawlid("mu-mawlid-2027", "2027-08-14"),
+    ],
+  },
+  // ── Jordan (others' calendars hold nothing beyond the country's list) ──
+  "german-jordanian-university-gju": {
+    country: "JO", nameAr: "الجامعة الألمانية الأردنية", nameEn: "German Jordanian University",
+    holidays: [
+      ...COUNTRY_HOLIDAYS.JO,
+      h("gju-study-break-2026", "استراحة دراسية", "Study break", "2026-12-27", "2026-12-31"),
+    ],
+  },
+  "princess-sumaya-university-for-technology-psut": {
+    country: "JO", nameAr: "جامعة الأميرة سمية للتكنولوجيا", nameEn: "Princess Sumaya University for Technology",
+    holidays: [
+      ...without(COUNTRY_HOLIDAYS.JO, ["jo-christmas-2026", "jo-eid-fitr-2027", "jo-eid-adha-2027"]),
+      h("psut-winter-break-2026", "إجازة الشتاء", "Winter break", "2026-12-25", "2026-12-31"),
+      eidFitr("psut-eid-fitr-2027", "2027-03-09", "2027-03-12"),
+      eidAdha("psut-eid-adha-2027", "2027-05-16", "2027-05-19"),
+    ],
+  },
+  "mutah-university": {
+    country: "JO", nameAr: "جامعة مؤتة", nameEn: "Mutah University",
+    holidays: [
+      ...without(COUNTRY_HOLIDAYS.JO, ["jo-eid-fitr-2027", "jo-eid-adha-2027"]),
+      eidFitr("mutah-eid-fitr-2027", "2027-03-09", "2027-03-11"),
+      eidAdha("mutah-eid-adha-2027", "2027-05-16", "2027-05-19"),
+    ],
+  },
+  // ── Egypt ──
+  "nahda-university": {
+    country: "EG", nameAr: "جامعة النهضة", nameEn: "Nahda University",
+    holidays: [
+      mawlid("nub-mawlid-2026", "2026-08-27"), // from the country
+      h("nub-victory-2026", "عيد النصر", "Victory Day", "2026-10-06", "2026-10-06", true),
+      h("nub-christmas-2027", "عيد الميلاد المجيد", "Coptic Christmas", "2027-01-07"),
+      h("nub-midyear-2027", "إجازة منتصف العام", "Mid-year break", "2027-01-23", "2027-02-04"),
+      h("nub-police-2027", "عيد الشرطة وثورة 25 يناير", "Police Day and January 25 Revolution", "2027-01-25"),
+      eidFitr("nub-eid-fitr-2027", "2027-03-09", "2027-03-11"),
+      h("nub-sinai-2027", "عيد تحرير سيناء", "Sinai Liberation Day", "2027-04-25"),
+      labourDay("nub-labour-day-2027", "2027-05-01"),
+      h("nub-sham-el-nessim-2027", "شم النسيم", "Sham El Nessim", "2027-05-03"),
+      eidAdha("nub-eid-adha-2027", "2027-05-16", "2027-05-19"),
+      hijriNewYear("nub-hijri-2027", "2027-06-06"),
+      h("nub-june-30-2027", "ذكرى 30 يونيو", "June 30 Revolution", "2027-06-30"),
+    ],
+  },
+  // ── Lebanon (AUB above) ──
+  "beirut-arab-university": {
+    country: "LB", nameAr: "جامعة بيروت العربية", nameEn: "Beirut Arab University",
+    holidays: (() => {
+      const l = LB("bau");
+      return [
+        l.independence(),
+        h("bau-christmas-2026", "عيد الميلاد المجيد", "Christmas", "2026-12-25"),
+        h("bau-new-year-2026", "رأس السنة والميلاد عند الأرمن (لا دراسة)", "New Year and Armenian Christmas (no classes)", "2026-12-31", "2027-01-10"),
+        l.maroun(),
+        h("bau-eid-fitr-2027", "إجازة عيد الفطر (لا دراسة)", "Eid al-Fitr (no classes)", "2027-03-06", "2027-03-14", true),
+        l.annunciation(),
+        l.easter(),
+        h("bau-orthodox-easter-2027", "عيد الفصح (الشرقي) وعيد العمال", "Easter (Eastern) and Labour Day", "2027-04-30", "2027-05-03"),
+        h("bau-eid-adha-2027", "إجازة عيد الأضحى (لا دراسة)", "Eid al-Adha (no classes)", "2027-05-15", "2027-05-23", true),
+        l.liberation(),
+      ];
+    })(),
+  },
+  "holy-spirit-university-of-kaslik": {
+    country: "LB", nameAr: "جامعة الروح القدس الكسليك", nameEn: "Holy Spirit University of Kaslik",
+    holidays: (() => {
+      const l = LB("usek");
+      return [
+        mawlid("usek-mawlid-2026", "2026-08-26"),
+        h("usek-all-saints-2026", "عيد جميع القديسين", "All Saints' Day", "2026-11-01"),
+        l.independence(),
+        h("usek-christmas-2026", "إجازة الميلاد ورأس السنة", "Christmas and New Year break", "2026-12-23", "2027-01-02"),
+        h("usek-epiphany-2027", "عيد الغطاس والميلاد عند الأرمن", "Epiphany and Armenian Christmas", "2027-01-06"),
+        h("usek-st-anthony-2027", "عيد القديس أنطونيوس الكبير", "Saint Anthony the Great", "2027-01-17"),
+        l.maroun(),
+        l.hariri(),
+        eidFitr("usek-eid-fitr-2027", "2027-03-09", "2027-03-10"),
+        l.easter("2027-03-25", "2027-03-29"),
+        h("usek-orthodox-easter-2027", "عيد الفصح (الشرقي) وعيد العمال", "Easter (Eastern) and Labour Day", "2027-04-30", "2027-05-03"),
+        eidAdha("usek-eid-adha-2027", "2027-05-16", "2027-05-17"),
+        l.liberation(),
+        hijriNewYear("usek-hijri-2027", "2027-06-06"),
+        ashura("usek-ashura-2027", "2027-06-14"),
+      ];
+    })(),
+  },
+  "lebanese-american-university": {
+    country: "LB", nameAr: "الجامعة اللبنانية الأمريكية", nameEn: "Lebanese American University",
+    holidays: (() => {
+      const l = LB("lau");
+      return [
+        l.independence("2026-11-22", "2026-11-23"),
+        h("lau-christmas-2026", "عيد الميلاد المجيد", "Christmas", "2026-12-25"),
+        newYear("lau-new-year-2027", "2027-01-01"),
+        l.armenianChristmas(),
+        l.maroun(),
+        eidFitr("lau-eid-fitr-2027", "2027-03-09", "2027-03-10"),
+        l.annunciation(),
+        l.easter(),
+        h("lau-orthodox-easter-2027", "عيد الفصح (الشرقي) وعيد العمال", "Easter (Eastern) and Labour Day", "2027-04-30", "2027-05-03"),
+        eidAdha("lau-eid-adha-2027", "2027-05-16", "2027-05-18"),
+        h("lau-hijri-2027", "رأس السنة الهجرية", "Islamic New Year", "2027-06-06", "2027-06-07", true),
+        h("lau-ashura-2027", "عاشوراء", "Ashura", "2027-06-15"),
+        mawlid("lau-mawlid-2027", "2027-08-14"),
+        l.assumption(),
+      ];
+    })(),
+  },
+  "antonine-university": {
+    country: "LB", nameAr: "الجامعة الأنطونية", nameEn: "Antonine University",
+    holidays: (() => {
+      const l = LB("ua");
+      return [
+        h("ua-holy-cross-2026", "عيد الصليب", "Feast of the Holy Cross", "2026-09-14"),
+        l.independence(),
+        h("ua-christmas-2026", "إجازة الميلاد", "Christmas break", "2026-12-24", "2027-01-02"),
+        l.armenianChristmas(),
+        l.maroun(),
+        l.hariri(),
+        eidFitr("ua-eid-fitr-2027", "2027-03-10", "2027-03-11"),
+        h("ua-easter-2027", "عيد البشارة والفصح (الكاثوليكي)", "Annunciation and Easter (Catholic)", "2027-03-25", "2027-03-29"),
+        h("ua-orthodox-easter-2027", "عيد الفصح (الأرثوذكسي) وعيد العمال", "Easter (Orthodox) and Labour Day", "2027-04-30", "2027-05-03"),
+        eidAdha("ua-eid-adha-2027", "2027-05-17", "2027-05-18"),
+        l.liberation(),
+        h("ua-ashura-2027", "عاشوراء", "Ashura", "2027-06-15"),
+      ];
+    })(),
+  },
+  "middle-east-university-lebanon": {
+    country: "LB", nameAr: "جامعة الشرق الأوسط - لبنان", nameEn: "Middle East University (Lebanon)",
+    holidays: (() => {
+      const l = LB("meu-lb");
+      return [
+        l.independence(),
+        h("meu-lb-christmas-2026", "عيد الميلاد المجيد", "Christmas", "2026-12-25"),
+        newYear("meu-lb-new-year-2027", "2027-01-01"),
+        l.armenianChristmas(),
+        l.maroun(),
+        l.hariri(true),
+        eidFitr("meu-lb-eid-fitr-2027", "2027-03-09", "2027-03-10"),
+        l.annunciation(),
+        l.easter(),
+        h("meu-lb-orthodox-easter-2027", "عيد الفصح (الشرقي) وعيد العمال", "Easter (Eastern) and Labour Day", "2027-04-30", "2027-05-03"),
+        eidAdha("meu-lb-eid-adha-2027", "2027-05-17", "2027-05-18"),
+        hijriNewYear("meu-lb-hijri-2027", "2027-06-06"),
+        ashura("meu-lb-ashura-2027", "2027-06-15"),
+        h("meu-lb-assumption-2027", "عيد انتقال السيدة العذراء والمولد النبوي", "Assumption Day and Prophet's Birthday", "2027-08-15"),
+      ];
+    })(),
+  },
+  "haigazian-university": {
+    country: "LB", nameAr: "جامعة هايكازيان", nameEn: "Haigazian University",
+    holidays: (() => {
+      const l = LB("hu");
+      return [
+        l.independence(),
+        h("hu-christmas-2026", "عيد الميلاد المجيد", "Christmas", "2026-12-24", "2026-12-25"),
+        h("hu-new-year-2026", "رأس السنة الميلادية", "New Year", "2026-12-31", "2027-01-01"),
+        l.armenianChristmas("2027-01-07"),
+        h("hu-vartanants-2027", "عيد فارتانانتس", "Vartanants Day", "2027-02-04"),
+        l.maroun(),
+        eidFitr("hu-eid-fitr-2027", "2027-03-10", "2027-03-11"),
+        l.annunciation(),
+        l.easter(),
+        h("hu-genocide-2027", "ذكرى الإبادة الأرمنية", "Armenian Genocide Commemoration", "2027-04-24"),
+        h("hu-orthodox-easter-2027", "عيد الفصح (الشرقي) وعيد العمال", "Easter (Eastern) and Labour Day", "2027-04-30", "2027-05-03"),
+        eidAdha("hu-eid-adha-2027", "2027-05-17", "2027-05-18"),
+        h("hu-armenian-independence-2027", "عيد الاستقلال الأرمني", "Armenian Independence Day", "2027-05-28"),
+        hijriNewYear("hu-hijri-2027", "2027-06-06"),
+        ashura("hu-ashura-2027", "2027-06-15"),
+        l.assumption(),
+      ];
+    })(),
+  },
+  "global-university-lebanon": {
+    country: "LB", nameAr: "الجامعة العالمية (لبنان)", nameEn: "Global University (Lebanon)",
+    holidays: (() => {
+      const l = LB("gu-lb");
+      return [
+        l.independence(),
+        h("gu-lb-winter-2026", "عطلة رسمية (الميلاد ورأس السنة)", "Official holiday (Christmas and New Year)", "2026-12-24", "2027-01-06"),
+        l.maroun(),
+        l.hariri(),
+        h("gu-lb-ramadan-break-2027", "استراحة رمضان", "Ramadan break", "2027-03-04", "2027-03-08"),
+        eidFitr("gu-lb-eid-fitr-2027", "2027-03-09", "2027-03-11"),
+        l.annunciation(),
+        h("gu-lb-easter-2027", "عيد الفصح (الغربي)", "Easter (Western)", "2027-03-26"),
+        h("gu-lb-easter-monday-2027", "عطلة رسمية (الفصح)", "Official holiday (Easter)", "2027-03-29"),
+        h("gu-lb-orthodox-easter-2027", "عيد الفصح (الشرقي) وعيد العمال", "Easter (Eastern) and Labour Day", "2027-04-30", "2027-05-01"),
+        h("gu-lb-orthodox-easter-monday-2027", "عطلة رسمية (الفصح الشرقي)", "Official holiday (Eastern Easter)", "2027-05-03"),
+        eidAdha("gu-lb-eid-adha-2027", "2027-05-16", "2027-05-19"),
+        l.liberation(),
+        hijriNewYear("gu-lb-hijri-2027", "2027-06-05"),
+        ashura("gu-lb-ashura-2027", "2027-06-14"),
+        mawlid("gu-lb-mawlid-2027", "2027-08-14"),
+        l.assumption(),
+      ];
+    })(),
+  },
+};
+
 /** A university whose own 2026-2027 calendar we've read: its holidays AND its
  *  own breaks (a mid-term break, a Christmas break), which the country's list
  *  leaves out. Keyed by the catalogue slug (lib/gradeCatalog) where it has one.
  *  A university whose calendar holds nothing beyond its country's list (Yarmouk,
- *  University of Bahrain, Sultan Qaboos, AU Kuwait, UAE University) needs no
- *  entry. Sources:
+ *  University of Bahrain, AU Kuwait, UAE University) needs no entry. The
+ *  October 2026 audit's calendars (AUDITED_HOLIDAYS) are added at the end. Sources:
  *    Qatar University 2026/2027 academic calendar.
  *    University of Sharjah 2026/2027 academic calendar.
  *    American University in Dubai 2026-2027 calendar (updated 14 July 2026).
@@ -493,6 +985,7 @@ export const UNIVERSITY_HOLIDAYS: Record<string, UniversityCalendar> = {
       ...COUNTRY_HOLIDAYS.PS,
     ],
   },
+  ...AUDITED_HOLIDAYS,
 };
 
 /** A calendar the admin published (public.university_calendars) — reached

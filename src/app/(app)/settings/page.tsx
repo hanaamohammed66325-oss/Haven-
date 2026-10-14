@@ -13,6 +13,7 @@ import { DemoPlayer } from "@/components/DemoPlayer";
 import { NotificationsSettings } from "@/components/NotificationsSettings";
 import { RemindersSettings, Toggle } from "@/components/RemindersSettings";
 import { AttendanceRuleModal } from "@/components/AttendanceRuleModal";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { HolidaysManager } from "@/components/HolidaysManager";
 import { signOut as clearSession } from "@/lib/auth";
 import { useDeleteAccount } from "@/lib/useDeleteAccount";
@@ -417,9 +418,15 @@ export default function SettingsPage() {
               <span className="text-xs leading-relaxed sm:text-end" style={{ color: "var(--color-muted)" }}>
                 {t("attSystemToggleHint")}
               </span>
+              {/* Says why no percentage shows (featureFlags). */}
+              {ATTENDANCE_CALC_SUSPENDED && (
+                <span className="text-xs leading-relaxed sm:text-end" style={{ color: "var(--color-ink)" }}>
+                  {t("attSuspended_paused")}
+                </span>
+              )}
             </div>
           </Row>
-          {attendanceEnabled && (
+          {attendanceEnabled && !ATTENDANCE_CALC_SUSPENDED && (
             <Row label={t("attSystemRule")}>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm" style={{ color: "var(--color-ink)" }}>

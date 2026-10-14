@@ -1,20 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
-import { useUndo } from "./UndoManager";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { attendanceInfo, fmtPct, ruleMode, STATUS_COLOR } from "@/lib/grades";
 import { formatDuration } from "@/lib/format";
-import { toEnglishDigits, toISODate, formatLongDate } from "@/lib/dates";
+import { toEnglishDigits, formatLongDate } from "@/lib/dates";
 import { AttendanceApproxNote } from "./AttendanceApproxNote";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
+import { absenceLog } from "@/lib/absenceLog";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 import { holidayCalendar } from "@/lib/universityCountry";
-
-const DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 /** Sanitise the manual "% per lecture" box: Arabic or ASCII digits with one
  *  optional decimal, clamped to (0, 100]. Anything else (a sign, letters, an
@@ -29,79 +28,19 @@ function sanitizePct(raw: string): number | undefined {
 }
 
 
-/** A number input with up/down stepper buttons, matching the day selector's
- *  arrow affordance. Clicking a step clamps to [min, max]; typing directly
- *  still works exactly as before (unclamped, same as the plain input did). */
-function NumberStepper({
-  value,
-  min,
-  max,
-  ariaLabel,
-  onChange,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  ariaLabel: string;
-  onChange: (v: number) => void;
-}) {
-  const border = { borderColor: "var(--color-border)" };
-  const clamp = (v: number) => Math.min(max, Math.max(min, v));
-  const btnCls = "flex items-center justify-center h-[15px] w-5 transition-colors hover:bg-black/5";
-  return (
-    <div className="inline-flex items-stretch rounded-lg border overflow-hidden" style={border}>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step={1}
-        value={value}
-        aria-label={ariaLabel}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="w-11 px-1.5 py-1.5 text-sm text-center outline-none"
-        style={{ color: "var(--color-ink)" }}
-      />
-      <div className="flex flex-col border-s" style={border}>
-        <button
-          type="button"
-          onClick={() => onChange(clamp(value + 1))}
-          aria-label={`${ariaLabel} +1`}
-          className={btnCls}
-        >
-          <ChevronUp size={10} style={{ color: "var(--color-muted)" }} />
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(clamp(value - 1))}
-          aria-label={`${ariaLabel} -1`}
-          className={`${btnCls} border-t`}
-          style={border}
-        >
-          <ChevronDown size={10} style={{ color: "var(--color-muted)" }} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function AttendanceSection({ course }: { course: Course }) {
-  const [absenceDate, setAbsenceDate] = useState(() => toISODate(new Date()));
   const { t, lang } = useT();
   const {
     semester,
     academic,
     updateCourse,
-    addSession,
-    updateSession,
-    deleteSession,
-    softDeleteSession,
-    restoreSession,
     addMissedSession,
     removeMissedSession,
   } = useStore();
-  const { undoableDelete } = useUndo();
 
-  const att = attendanceInfo(course, semester, holidayCalendar(academic));
+  // While the calculation is suspended the section shows only the raw log.
+  const att = ATTENDANCE_CALC_SUSPENDED ? null : attendanceInfo(course, semester, holidayCalendar(academic));
+  const log = absenceLog(course);
   const mode = course.attendanceMode ?? "hour";
   // The rule the student took on counts differently from this course.
   const termMode = ruleMode(semester);
@@ -130,6 +69,18 @@ export function AttendanceSection({ course }: { course: Course }) {
           </span>
           {att?.limitKnown && <AttendanceBadge status={att.status} explain limit={att.limit} atLimit={att.atLimit} />}
         </div>
+        {ATTENDANCE_CALC_SUSPENDED && (
+          <div className="text-right rtl:text-left">
+            <span className="font-display text-lg leading-none" style={{ color: "var(--color-ink)" }}>
+              {log.lectures === 0 ? t("attLog_none") : t("attLog_summary", { n: log.lectures, h: dur(log.minutes) })}
+            </span>
+            {log.lates > 0 && (
+              <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
+                {t("attLog_latesLine", { n: log.lates, m: dur(log.lateMinutes) })}
+              </div>
+            )}
+          </div>
+        )}
         {att && !att.limitKnown && (
           <div className="text-right rtl:text-left">
             <span className="font-display text-lg leading-none" style={{ color: "var(--color-ink)" }}>
@@ -169,7 +120,7 @@ export function AttendanceSection({ course }: { course: Course }) {
       {/* Counting method — per course. "By hour" weighs each session by length;
           "by lecture" counts every missed lecture equally, with an optional
           fixed per-lecture % for professors who set one. */}
-      <div className="mb-6 flex flex-col gap-2">
+      {!ATTENDANCE_CALC_SUSPENDED && <div className="mb-6 flex flex-col gap-2">
         <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
           {t("attMethodLabel")}
         </span>
@@ -243,108 +194,23 @@ export function AttendanceSection({ course }: { course: Course }) {
             })}
           </p>
         )}
-      </div>
-
-      {/* Weekly sessions editor */}
-      <div data-tour="sessions-box" className="rounded-xl border p-4" style={border}>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-            {t("weeklySessionsLabel")}
-          </span>
-          <button
-            data-tour="add-session"
-            onClick={() => runAdd(addSession(course.id, { day: 0, minutes: 60 }))}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
-            style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
-          >
-            <Plus size={13} />
-            {t("addSession")}
-          </button>
-        </div>
-        {addError && (
-          <span className="block mb-2 text-xs" style={{ color: "var(--color-danger)" }}>{addError}</span>
-        )}
-
-        {course.sessions.length === 0 ? (
-          <p className="text-xs py-1" style={{ color: "var(--color-muted)" }}>
-            {t("noSessions")}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {course.sessions.map((s) => {
-              const h = Math.floor(s.minutes / 60);
-              const m = s.minutes % 60;
-              return (
-                <div key={s.id} className="flex items-center gap-2 flex-wrap">
-                  <select
-                    value={s.day}
-                    onChange={(e) => updateSession(course.id, s.id, { day: Number(e.target.value) })}
-                    className="flex-1 min-w-[110px] rounded-lg border px-2.5 py-1.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]"
-                    style={border}
-                  >
-                    {DAYS.map((d) => (
-                      <option key={d} value={d}>{dayLabel(d)}</option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <NumberStepper
-                      value={h}
-                      min={0}
-                      max={23}
-                      ariaLabel={hUnit}
-                      onChange={(nh) => updateSession(course.id, s.id, { minutes: nh * 60 + m })}
-                    />
-                    <span className="text-xs" style={{ color: "var(--color-muted)" }}>{hUnit}</span>
-                    <NumberStepper
-                      value={m}
-                      min={0}
-                      max={59}
-                      ariaLabel={mUnit}
-                      onChange={(nm) => updateSession(course.id, s.id, { minutes: h * 60 + nm })}
-                    />
-                    <span className="text-xs" style={{ color: "var(--color-muted)" }}>{mUnit}</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const removed = softDeleteSession(course.id, s.id);
-                      if (!removed) return;
-                      undoableDelete({
-                        message: t("sessionDeleted"),
-                        onUndo: () => restoreSession(course.id, removed),
-                        onCommit: () => deleteSession(course.id, s.id),
-                      });
-                    }}
-                    className="rounded-lg p-1.5 transition-colors hover:bg-black/5 shrink-0"
-                    aria-label={t("delete")}
-                  >
-                    <Trash2 size={14} style={{ color: "var(--color-muted)" }} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      </div>}
 
       {/* Logging absence — tap a session to log its missed minutes */}
+      {addError && (
+        <span className="block mb-2 text-xs" style={{ color: "var(--color-danger)" }}>{addError}</span>
+      )}
       {course.sessions.length > 0 && (
         <div className="mt-4 flex flex-col gap-3">
           <div>
             <span className="text-sm font-medium block mb-2" style={{ color: "var(--color-ink)" }}>
               {t("logMissed")}
             </span>
-            <label className="inline-flex items-center gap-2 mb-3 text-xs" style={{ color: "var(--color-muted)" }}>
-              {t("absenceDate")}
-              <input type="date" aria-label={t("absenceDate")} value={absenceDate} max={toISODate(new Date())}
-                onInput={(e) => setAbsenceDate(e.currentTarget.value)} className="rounded border px-2 py-1"
-                style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }} />
-            </label>
             <div className="flex flex-wrap gap-2">
               {course.sessions.map((s) => (
                 <button
                   key={s.id}
-                  disabled={!absenceDate || absenceDate > toISODate(new Date())}
-                  onClick={() => runAdd(addMissedSession(course.id, s.id, { date: absenceDate }))}
+                  onClick={() => runAdd(addMissedSession(course.id, s.id))}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-80"
                   style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
                 >

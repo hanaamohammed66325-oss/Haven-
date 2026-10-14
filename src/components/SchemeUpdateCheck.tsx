@@ -14,13 +14,15 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Modal } from "./Modal";
 import { GradeTableForm, SchemeChips } from "./GradeTableCheck";
-import { schemeById } from "@/lib/gradeSchemes";
+import { catalogBySlug, schemeById, type GradeScheme, type SchemeId } from "@/lib/gradeSchemes";
 import { universityBySlug } from "@/lib/tools/universities";
-import type { SchemeUpdate } from "@/lib/schemeUpdates";
+import { keepPrevious, type SchemeUpdate } from "@/lib/schemeUpdates";
 
 type Answer = "yes" | "no" | "custom";
 
 const btn = "rounded-xl px-4 py-2.5 text-sm font-semibold";
+
+const asScheme = (s: SchemeId | GradeScheme): GradeScheme | undefined => (typeof s === "string" ? schemeById(s) : s);
 const ghost: React.CSSProperties = {
   border: "1px solid var(--color-border)",
   color: "var(--color-ink)",
@@ -34,19 +36,21 @@ export function SchemeUpdateBody({ update, onDone }: { update: SchemeUpdate; onD
   // A student who picked a system by hand compares against that one; an automatic
   // student against what the automatic system gave him before the update.
   const manual = academic.gpaSchemeId && academic.gpaSchemeId !== "auto" ? schemeById(academic.gpaSchemeId) : undefined;
-  const before = manual ?? schemeById(update.previous);
-  const after = schemeById(update.next);
-  const uni = universityBySlug(update.slug);
-  const name = uni ? (lang === "en" ? uni.nameEn : uni.name) : academic.universityName;
-  if (!before || !after) return null;
+  const previous = asScheme(update.previous);
+  const before = manual ?? previous;
+  const after = asScheme(update.next);
+  const uni = update.catalog ? undefined : universityBySlug(update.slug);
+  const cat = update.catalog ? catalogBySlug(update.slug) : undefined;
+  const name = uni ? (lang === "en" ? uni.nameEn : uni.name) : cat ? (lang === "en" ? cat.en : cat.ar) : academic.universityName;
+  if (!before || !after || !previous) return null;
 
   const record = (answer: Answer) => {
     reportGradeTable("scheme_update_answered", {
       university: name,
       updateId: update.id,
       answer,
-      from: update.previous,
-      to: update.next,
+      from: previous.id,
+      to: after.id,
     });
     return { id: update.id, answer, at: new Date().toISOString() };
   };
@@ -56,7 +60,8 @@ export function SchemeUpdateBody({ update, onDone }: { update: SchemeUpdate; onD
     // own choice, so the correction no longer follows him. "Yes" puts everyone on
     // the university's table (automatic).
     if (a === "yes") setAcademic({ schemeUpdate, gpaSchemeId: "auto" });
-    else setAcademic(manual ? { schemeUpdate } : { schemeUpdate, gpaSchemeId: update.previous });
+    else if (manual) setAcademic({ schemeUpdate });
+    else setAcademic({ schemeUpdate, ...keepPrevious(previous) });
     onDone();
   };
 

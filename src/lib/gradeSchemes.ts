@@ -16,6 +16,7 @@
 
 import { UNIVERSITIES, universityBySlug, type University } from "./tools/universities";
 import { CATALOG, CATALOG_TABLES } from "./gradeCatalog";
+import { ADDED_UNIVERSITIES, CORRECTED_TABLES, MATCHING_TABLES, verifiedScheme } from "./verifiedTables";
 import { CATALOG_COUNTRY, pickedCountry, stripPick } from "./universityPick";
 import type { AcademicInfo, CustomSchemeData } from "@/types";
 
@@ -42,9 +43,10 @@ export type SchemeId =
 export type SchemeFamily = "5" | "4" | "percent" | "other";
 
 export interface GradeScheme {
-  /** A built-in SchemeId, "custom" (the student's own table), or `cat:<n>` —
-   *  a catalogue table (lib/gradeCatalog). */
-  id: SchemeId | "custom" | `cat:${number}`;
+  /** A built-in SchemeId, "custom" (the student's own table), `cat:<n>` — a
+   *  catalogue table (lib/gradeCatalog) — or `uni:<slug>`, a university's table
+   *  checked against its regulation (lib/verifiedTables). */
+  id: SchemeId | "custom" | `cat:${number}` | `uni:${string}`;
   labelKey: string; // i18n key for the human name
   family: SchemeFamily;
   max: number; // 5 | 4 | 100 — the denominator the GPA is shown out of
@@ -372,8 +374,8 @@ const FOREIGN_UNIVERSITIES: { scheme: GradeScheme; countries: string[]; names: s
   { scheme: JORDAN4_PLUS, countries: ["JO"], names: ["الجامعة الهاشمية", "Hashemite University"] },
   {
     scheme: PLUSMINUS4,
-    countries: ["AE", "BH"],
-    names: ["جامعة الإمارات", "جامعة الإمارات العربية المتحدة", "UAEU", "United Arab Emirates University", "جامعة البحرين", "University of Bahrain"],
+    countries: ["AE"],
+    names: ["جامعة الإمارات", "جامعة الإمارات العربية المتحدة", "UAEU", "United Arab Emirates University"],
   },
 ];
 
@@ -410,13 +412,12 @@ export interface CatalogUniversity {
   table: number;
 }
 
-export const CATALOG_UNIVERSITIES: CatalogUniversity[] = CATALOG.map(([slug, ar, en, country, table]) => ({
-  slug,
-  ar,
-  en,
-  country,
-  table,
-}));
+/** `table` is -1 for a university added from lib/verifiedTables (its table is
+ *  always the verified one). */
+export const CATALOG_UNIVERSITIES: CatalogUniversity[] = [
+  ...CATALOG.map(([slug, ar, en, country, table]) => ({ slug, ar, en, country, table })),
+  ...ADDED_UNIVERSITIES.map(([slug, ar, en, country]) => ({ slug, ar, en, country, table: -1 })),
+];
 
 /** Catalogue entries whose table we checked against the university's own
  *  official page. The catalogue's University of Jordan table is the outdated
@@ -427,7 +428,6 @@ const VERIFIED_CATALOG: Record<string, GradeScheme | "table"> = {
   "the-hashemite-university": JORDAN4_PLUS,
   "qatar-university": QATAR4,
   "united-arab-emirates-university": PLUSMINUS4,
-  "university-of-bahrain": PLUSMINUS4,
   "kuwait-university": "table",
   "sultan-qaboos-university": "table",
   "king-saud-university": "table",
@@ -469,6 +469,20 @@ const familyForMax = (max: number): SchemeFamily => (max === 5 ? "5" : max === 4
 const sameBands = (a: GradeBand[], letters: string[], points: number[]) =>
   a.length === points.length &&
   a.every((b, i) => b.points === points[i] && (i === a.length - 1 || b.letter === letters[i]));
+
+// The audited tables (lib/verifiedTables), built on first use: the cutoff
+// estimator they fall back on is defined above.
+let audited: Map<string, GradeScheme | "table"> | null = null;
+function verifiedFor(slug: string): GradeScheme | "table" | undefined {
+  if (!audited) {
+    audited = new Map();
+    for (const s of MATCHING_TABLES) audited.set(s, "table");
+    for (const [s, table] of Object.entries(CORRECTED_TABLES)) audited.set(s, verifiedScheme(s, table, estimateCutoffs));
+    for (const [s, , , , table] of ADDED_UNIVERSITIES) audited.set(s, verifiedScheme(s, table, estimateCutoffs));
+  }
+  return VERIFIED_CATALOG[slug] ?? audited.get(slug);
+}
+const auditedFor = (slug: string) => (verifiedFor(slug), audited!.get(slug));
 
 const FAIL_LABEL = /راسب|فاشل/;
 const catalogCache = new Map<number, GradeScheme>();
@@ -526,6 +540,9 @@ function catalogIndex() {
   return catalogTokens;
 }
 
+const institutionKind = (s: string): "university" | "college" | undefined =>
+  /جامع|university|univ/i.test(s) ? "university" : /كلي|college/i.test(s) ? "college" : undefined;
+
 /** The catalogue university a typed name refers to: every word of one of its
  *  names must be present, with at most one extra word (see allowedExtra); the
  *  tightest fit wins. */
@@ -534,13 +551,17 @@ export function matchCatalog(name: string): CatalogUniversity | undefined {
   if (!typed.length) return undefined;
   const set = new Set(typed);
   const pick = pickedCountry(name);
-  let best: { u: CatalogUniversity; extra: number } | null = null;
+  // "جامعة"/"كلية" are dropped by normalize, so "الجامعة الأمريكية في دبي" and
+  // "الكلية الأمريكية في دبي" tie; the one whose kind the student typed wins.
+  const kind = institutionKind(name);
+  let best: { u: CatalogUniversity; extra: number; sameKind: boolean } | null = null;
   for (const { u, names } of catalogIndex()) {
     if (pick && CATALOG_COUNTRY[u.country] !== pick) continue;
     for (const want of names) {
       const extra = typed.length - want.length;
       if (extra < 0 || extra > allowedExtra(want) || !want.every((w) => set.has(w))) continue;
-      if (!best || extra < best.extra) best = { u, extra };
+      const sameKind = !!kind && institutionKind(u.en) === kind;
+      if (!best || extra < best.extra || (extra === best.extra && sameKind && !best.sameKind)) best = { u, extra, sameKind };
     }
   }
   return best?.u;
@@ -629,9 +650,14 @@ export function detectScheme(academic: AcademicInfo | null | undefined): SchemeD
   const typed = academic?.universityName?.trim();
   if ((slug === "other" || !slug) && typed) {
     const cat = matchCatalog(typed);
+    // A university added or corrected from its regulation (lib/verifiedTables)
+    // wins over the older name list: "جامعة الشرق الأوسط - لبنان" is not the
+    // Jordanian one.
+    const own = cat && auditedFor(cat.slug);
+    if (cat && own && own !== "table") return withLearned({ scheme: own, source: "typed", catalog: cat });
     const foreign = matchForeignScheme(typed);
     if (foreign) return withLearned({ scheme: foreign, source: "typed", ...(cat ? { catalog: cat } : {}) });
-    const verified = cat && VERIFIED_CATALOG[cat.slug];
+    const verified = cat && verifiedFor(cat.slug);
     if (cat && verified) {
       return withLearned({ scheme: verified === "table" ? catalogScheme(cat.table) : verified, source: "typed", catalog: cat });
     }

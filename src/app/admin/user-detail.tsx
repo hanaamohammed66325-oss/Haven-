@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import type { Session } from "@supabase/supabase-js";
 import { Badge, useC, useS, callAdmin, fmtDateTime, fmtSar, fmtNum, timeAgo, Loading, StatCard } from "./_lib";
 import { AttendanceAuditView, loadAudit, type AuditRecord } from "./attendance-audit";
@@ -145,7 +146,7 @@ export function UserDetailSection({
       <InputsCard inputs={detail.inputs} />
 
       {/* Attendance % per course, recomputed with the app's own maths */}
-      <AttendanceCard userId={userId} />
+      {!ATTENDANCE_CALC_SUSPENDED && <AttendanceCard userId={userId} />}
 
       {/* Subscription + payment summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

@@ -231,7 +231,16 @@ export function typedUniversityNames(): string[] {
 }
 
 // Universities of ours outside the catalogue, by name (see UNIVERSITY_HOLIDAYS).
-const UNIVERSITY_TERMS: [string, string[]][] = [["ptuk", ["خضوري", "kadoorie", "palestine technical university"]]];
+/** [calendar key, names that point to it, the country the name must be placed in
+ *  when the name alone is too common]. */
+const UNIVERSITY_TERMS: [string, string[], string?][] = [
+  ["ptuk", ["خضوري", "kadoorie", "palestine technical university"]],
+  // not in the catalogue, or a short name it doesn't match (lib/countryHolidays AUDITED_HOLIDAYS)
+  ["haigazian-university", ["هايكازيان", "haigazian"]],
+  ["muscat-university", ["جامعة مسقط", "muscat university"]],
+  ["global-university-lebanon", ["الجامعة العالمية", "global university"], "LB"],
+  ["georgetown-university-school-of-foreign-service-in-qatar", ["جورجتاون", "georgetown"], "QA"],
+];
 
 /** The university whose own calendar we hold that a typed name refers to, or
  *  null: one in the code (lib/countryHolidays UNIVERSITY_HOLIDAYS) first, then
@@ -239,7 +248,8 @@ const UNIVERSITY_TERMS: [string, string[]][] = [["ptuk", ["خضوري", "kadoori
 export function universityCalendarKey(name: string): string | null {
   const n = normalizeName(name);
   if (!n) return null;
-  for (const [key, terms] of UNIVERSITY_TERMS) {
+  for (const [key, terms, country] of UNIVERSITY_TERMS) {
+    if (country && countryFromName(name) !== country) continue;
     if (terms.some((t) => n.includes(normalizeName(t)))) return key;
   }
   const slug = matchCatalog(name)?.slug;

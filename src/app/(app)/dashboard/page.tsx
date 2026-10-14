@@ -9,6 +9,8 @@ import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { AcademicBanner } from "@/components/AcademicBanner";
 import { AttendanceApproxNote } from "@/components/AttendanceApproxNote";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
+import { absenceLog } from "@/lib/absenceLog";
 import { CircularProgress } from "@/components/CircularProgress";
 import { InfoPopover } from "@/components/InfoPopover";
 import { GradeBadge } from "@/components/GradeBadge";
@@ -621,7 +623,7 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-          {store.attendanceEnabled && courses.some((c) => c.sessions.length > 0) && <AttendanceApproxNote className="mt-4" compact />}
+          {!ATTENDANCE_CALC_SUSPENDED && store.attendanceEnabled && courses.some((c) => c.sessions.length > 0) && <AttendanceApproxNote className="mt-4" compact />}
 
           {/* What-if simulator */}
           {courses.length > 0 && (
@@ -677,7 +679,9 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
   const [colorOpen, setColorOpen] = useState(false);
   const colorRef = useRef<HTMLDivElement>(null);
   const pct = courseCurrentPct(course);
-  const att = attendanceEnabled ? attendanceInfo(course, semester, holidayCalendar(academic)) : null;
+  const att = attendanceEnabled && !ATTENDANCE_CALC_SUSPENDED ? attendanceInfo(course, semester, holidayCalendar(academic)) : null;
+  // While the calculation is suspended the card shows only the lectures missed.
+  const log = attendanceEnabled && ATTENDANCE_CALC_SUSPENDED && course.sessions.length > 0 ? absenceLog(course) : null;
   const cardColor = course.color;
 
   useEffect(() => {
@@ -840,6 +844,16 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
                 {att.limitKnown ? `${fmtPct(att.absence)}%` : t("attMissedLectures", { n: att.missedLectures })}
               </div>
               <div className="text-[10px]" style={{ color: STATUS_COLOR[att.status], opacity: 0.7 }}>
+                {t("attendance")}
+              </div>
+            </div>
+          )}
+          {log && (
+            <div className="flex-1 rounded-lg px-2.5 py-2 text-center" style={{ background: "var(--color-primary-soft)" }}>
+              <div className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
+                {t("attMissedLectures", { n: log.lectures })}
+              </div>
+              <div className="text-[10px]" style={{ color: "var(--color-muted)" }}>
                 {t("attendance")}
               </div>
             </div>

@@ -12,6 +12,7 @@ import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { holidayCalendar } from "@/lib/universityCountry";
 import { COUNTRY_HOLIDAYS, COUNTRY_NAMES, universityCalendar } from "@/lib/countryHolidays";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 
 export function HolidayCountryNote({ link = false, className = "" }: { link?: boolean; className?: string }) {
   const { t, lang } = useT();
@@ -20,15 +21,19 @@ export function HolidayCountryNote({ link = false, className = "" }: { link?: bo
   if (calendar === "SA") return null;
 
   const en = lang === "en";
+  // While the attendance calculation is suspended, no line about absence % (featureFlags).
+  const S = ATTENDANCE_CALC_SUSPENDED;
   const university = universityCalendar(calendar);
   const country = COUNTRY_NAMES[calendar]?.[en ? "en" : "ar"];
   const text = university
-    ? t("source" in university && university.source === "students" ? "holidaysStudentsNote" : "holidaysUniversityNote", {
+    ? t("source" in university && university.source === "students"
+        ? (S ? "holidaysStudentsNote_log" : "holidaysStudentsNote")
+        : (S ? "holidaysUniversityNote_log" : "holidaysUniversityNote"), {
         university: en ? university.nameEn : university.nameAr,
       })
     : COUNTRY_HOLIDAYS[calendar]?.length && country
-      ? t("holidaysCountryNote", { country })
-      : t("holidaysOwnNote");
+      ? t(S ? "holidaysCountryNote_log" : "holidaysCountryNote", { country })
+      : t(S ? "holidaysOwnNote_log" : "holidaysOwnNote");
 
   return (
     <p

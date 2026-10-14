@@ -54,6 +54,12 @@ describe("only students whose university was set before the update are asked", (
     assert.equal(after.schemeUpdate?.answer, "new");
     assert.equal(pendingSchemeUpdate(after), null);
   });
+  test("a typed-name student (University of Bahrain) is marked too, at any keystroke that matches", () => {
+    const other = student({ universitySlug: "other", universityName: "" });
+    const after = { ...other, ...universityPatch(other, { universityName: "University of Bahrain" }) };
+    assert.equal(after.schemeUpdate?.answer, "new");
+    assert.equal(pendingSchemeUpdate(after), null);
+  });
   test("an existing student moving to a corrected university is not asked", () => {
     const ksu = student({ universitySlug: "king-saud", universityName: "جامعة الملك سعود" });
     const after = { ...ksu, ...universityPatch(ksu, { universitySlug: "hail", universityName: "جامعة حائل" }) };

@@ -5,6 +5,7 @@ import { Plus, Trash2, Target, Pencil, Sparkles } from "lucide-react";
 import { Card } from "./Card";
 import { GradeBadge } from "./GradeBadge";
 import { AttendanceSection } from "./AttendanceSection";
+import { WeeklySessions } from "./WeeklySessions";
 import { AddItemModal } from "./AddItemModal";
 import { AddCourseModal } from "./AddCourseModal";
 import { CourseCurveSection } from "./CourseCurveSection";
@@ -216,6 +217,10 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           </div>
         )}
       </div>
+
+      {/* Weekly sessions: timetable and lecture reminders use them too, so
+          they show even with attendance tracking off. */}
+      <WeeklySessions course={course} />
 
       {/* Attendance */}
       {attendanceEnabled && <AttendanceSection course={course} />}

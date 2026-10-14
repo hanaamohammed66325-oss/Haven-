@@ -18,6 +18,7 @@ import { AlertTriangle, CalendarCheck } from "lucide-react";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { logEvent } from "@/lib/db";
+import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { DateField } from "./DateField";
 import { addDays, formatShortDate, toISODate } from "@/lib/dates";
 import { universityCalendar } from "@/lib/countryHolidays";
@@ -151,7 +152,11 @@ export function TermCheckCard({ className = "" }: { className?: string }) {
   const title =
     plan.status === "official" ? t("termCheckTitle", { uni }) : plan.status === "incomplete" ? t("termAskTitle", { uni }) : t("termUnknownTitle");
   const body =
-    plan.status === "official" ? t("termCheckBody") : plan.status === "incomplete" ? t("termAskBody") : t("termUnknownBody", { uni });
+    plan.status === "official"
+      ? t(ATTENDANCE_CALC_SUSPENDED ? "termCheckBody_log" : "termCheckBody")
+      : plan.status === "incomplete"
+        ? t(ATTENDANCE_CALC_SUSPENDED ? "termAskBody_log" : "termAskBody")
+        : t(ATTENDANCE_CALC_SUSPENDED ? "termUnknownBody_log" : "termUnknownBody", { uni });
 
   return (
     <div

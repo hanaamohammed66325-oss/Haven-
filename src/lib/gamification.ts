@@ -1,6 +1,7 @@
 import type { Course, PlannerData, Semester } from "@/types";
 import { attendanceInfo } from "@/lib/grades";
 import { toISODate } from "./dates";
+import { ATTENDANCE_CALC_SUSPENDED } from "./featureFlags";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -203,6 +204,8 @@ export interface BadgeContext {
   semester?: Semester;
   /** whose holidays apply (lib/universityCountry holidayCalendar) */
   holidayCalendar?: string | null;
+  /** Pomodoro totals (preferences.pomodoroStats) for the Pomodoro badges */
+  pomodoro?: { totalSessions: number; longestDailyStreak: number };
 }
 
 function semesterWeeksElapsed(startDate: string): number {
@@ -235,13 +238,9 @@ function countScoresAtLeast(courses: Course[], pct: number): number {
 // Gold    = weeks 10-15 (strong late-semester performance)
 // Diamond = after finals (excellent results, full documentation)
 
-export const BADGES: BadgeDef[] = [
-  {
-    id: "first-checkin",
-    icon: "🚀",
-    thresholds: [1, 10, 30, 60],
-    check: (g, _ctx, t) => g.totalCheckIns >= t,
-  },
+/** The two attendance badges. While the attendance calculation is suspended
+ *  (featureFlags) they are not awarded; badges already earned stay earned. */
+export const ATTENDANCE_BADGES: BadgeDef[] = [
   {
     id: "safe",
     icon: "🛡️",
@@ -265,18 +264,6 @@ export const BADGES: BadgeDef[] = [
     },
   },
   {
-    id: "organized",
-    icon: "📝",
-    thresholds: [3, 10, 25, 50],
-    getThreshold: (tier, ctx) => {
-      const total = ctx.planner.notes.length;
-      if (total === 0) return 999;
-      const pcts = [0.1, 0.3, 0.6, 0.9];
-      return Math.max([1, 3, 5, 8][tier - 1], Math.ceil(total * pcts[tier - 1]));
-    },
-    check: (_g, ctx, t) => ctx.planner.notes.filter((n) => n.done).length >= t,
-  },
-  {
     id: "committed",
     icon: "📚",
     thresholds: [1, 3, 8, 14],
@@ -296,6 +283,60 @@ export const BADGES: BadgeDef[] = [
       });
     },
   },
+];
+
+/** Their stand-ins while attendance is suspended: Pomodoro work the app sees
+ *  directly. Both scale to the term's length like the badges they replace. */
+export const POMODORO_BADGES: BadgeDef[] = [
+  {
+    id: "pomodoro-sessions",
+    icon: "🍅",
+    thresholds: [2, 12, 30, 50],
+    getThreshold: (tier, ctx) => {
+      const w = ctx.semesterWeeks;
+      if (w === 0) return 999;
+      const base = [2, 12, 30, 50][Math.min(tier, MAX_TIER) - 1];
+      return Math.min(base, w * 4);
+    },
+    check: (_g, ctx, t) => (ctx.pomodoro?.totalSessions ?? 0) >= t,
+  },
+  {
+    id: "pomodoro-streak",
+    icon: "🔥",
+    thresholds: [2, 5, 10, 21],
+    getThreshold: (tier, ctx) => {
+      const w = ctx.semesterWeeks;
+      if (w === 0) return 999;
+      const base = [2, 5, 10, 21][Math.min(tier, MAX_TIER) - 1];
+      return Math.min(base, w * 7);
+    },
+    check: (_g, ctx, t) => (ctx.pomodoro?.longestDailyStreak ?? 0) >= t,
+  },
+];
+
+const ATTENDANCE_OR_POMODORO_BADGES = ATTENDANCE_CALC_SUSPENDED ? POMODORO_BADGES : ATTENDANCE_BADGES;
+
+export const BADGES: BadgeDef[] = [
+  {
+    id: "first-checkin",
+    icon: "🚀",
+    thresholds: [1, 10, 30, 60],
+    check: (g, _ctx, t) => g.totalCheckIns >= t,
+  },
+  ATTENDANCE_OR_POMODORO_BADGES[0],
+  {
+    id: "organized",
+    icon: "📝",
+    thresholds: [3, 10, 25, 50],
+    getThreshold: (tier, ctx) => {
+      const total = ctx.planner.notes.length;
+      if (total === 0) return 999;
+      const pcts = [0.1, 0.3, 0.6, 0.9];
+      return Math.max([1, 3, 5, 8][tier - 1], Math.ceil(total * pcts[tier - 1]));
+    },
+    check: (_g, ctx, t) => ctx.planner.notes.filter((n) => n.done).length >= t,
+  },
+  ...ATTENDANCE_OR_POMODORO_BADGES.slice(1),
   {
     id: "outstanding-gpa",
     icon: "🎓",
@@ -389,6 +430,22 @@ export function badgesForTier(tier: number): BadgeDef[] {
   return BADGES.filter((b) => tier >= (b.minTier ?? 1));
 }
 
+/** An attendance badge and the Pomodoro badge that stands in for it fill the
+ *  same slot: earning both counts once toward the tier (both stay on show). */
+const SLOT_OF: Record<string, string> = {
+  safe: "safe",
+  "pomodoro-sessions": "safe",
+  committed: "committed",
+  "pomodoro-streak": "committed",
+};
+const slotOf = (id: string) => SLOT_OF[id] ?? id;
+
+/** How many of this tier's badge slots the student has earned. */
+export function earnedBadgeCount(badges: string[], tier: number): number {
+  const open = new Set(badgesForTier(Math.min(tier, MAX_TIER)).map((b) => slotOf(b.id)));
+  return new Set(badges.map(slotOf).filter((s) => open.has(s))).size;
+}
+
 export function checkBadges(
   state: GamificationState,
   ctx: BadgeContext
@@ -413,7 +470,7 @@ export function checkBadges(
 
   let tierAdvanced = false;
   const required = Math.ceil(eligible.length * 0.8);
-  if (badges.length >= required && state.badgeTier < MAX_TIER) {
+  if (earnedBadgeCount(badges, tier) >= required && state.badgeTier < MAX_TIER) {
     nextState = { ...nextState, badgeTier: state.badgeTier + 1, badges: [] };
     tierAdvanced = true;
   }
@@ -422,7 +479,7 @@ export function checkBadges(
 }
 
 export function getBadgeThreshold(id: string, tier: number, ctx?: BadgeContext): number {
-  const def = BADGES.find((b) => b.id === id);
+  const def = BADGES.find((b) => b.id === id) ?? [...ATTENDANCE_BADGES, ...POMODORO_BADGES].find((b) => b.id === id);
   if (!def) return 0;
   if (def.getThreshold && ctx) return def.getThreshold(tier, ctx);
   return def.thresholds[Math.min(tier, MAX_TIER) - 1];

@@ -239,7 +239,7 @@ export function AttendancePoliciesSection() {
         )}
       </div>
 
-      {/* Student reports */}
+      {/* Student reports: kept visible while the calculation is suspended. */}
       <h3 className="text-[14px] font-semibold mb-1" style={{ color: C.text }}>Student reports</h3>
       <p className="text-[12px] mb-3" style={{ color: C.textDim }}>
         Each student&apos;s answer already applies to them. &ldquo;Accept for the university&rdquo; is only possible with an official regulation link; it becomes the university&apos;s approved rule.
@@ -255,6 +255,7 @@ export function AttendancePoliciesSection() {
           ))
         )}
       </div>
+
 
       {/* Every university */}
       <h3 className="text-[14px] font-semibold mb-3" style={{ color: C.text }}>Universities & colleges in the app</h3>

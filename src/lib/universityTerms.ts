@@ -56,6 +56,31 @@ export const OFFICIAL_TERMS: Record<string, UniversityTerm[]> = {
   "american-university-of-beirut": terms(["2026-08-31", "2026-12-09", "2026-12-18"], ["2027-01-13", "2027-05-04", "2027-05-13"]),
   "the-american-university-in-cairo": terms(["2026-09-06", "2026-12-14", "2026-12-20"], ["2027-01-31", "2027-05-30", "2027-06-05"]),
   ptuk: terms(["2026-09-13", "2026-12-20", "2027-01-16"], ["2027-01-24", "2027-05-09", "2027-06-13"]),
+  // The October 2026 audit (research/gpa-calendar-audit/*_READY_FOR_TRANSFER.md):
+  // only universities whose calendar gives both terms in full. The others have
+  // their holidays (lib/countryHolidays) and the student enters the dates.
+  "ahlia-university": terms(["2026-09-27", "2027-01-04", "2027-01-19"], ["2027-02-08", "2027-05-20", "2027-06-01"]),
+  "gulf-university": terms(["2026-09-15", "2026-12-25", "2027-01-08"], ["2027-01-23", "2027-04-30", "2027-05-12"]),
+  "kingdom-university": terms(["2026-09-20", "2026-12-26", "2027-01-12"], ["2027-01-24", "2027-05-02", "2027-05-25"]),
+  // trimesters: the first two
+  "university-of-technology-bahrain": terms(["2026-09-20", "2026-12-09", "2026-12-15"], ["2027-01-10", "2027-04-11", "2027-04-15"]),
+  // fall and winter terms
+  "university-of-doha-for-science-and-technology": terms(["2026-08-25", "2026-12-05", "2026-12-14"], ["2027-01-05", "2027-04-17", "2027-04-26"]),
+  "northwestern-university-in-qatar": terms(["2026-08-23", "2026-12-06", "2026-12-10"], ["2027-01-05", "2027-04-25", "2027-04-29"]),
+  "carnegie-mellon-university-in-qatar": terms(["2026-08-23", "2026-12-06", "2026-12-10"], ["2027-01-10", "2027-04-25", "2027-04-29"]),
+  "lusail-university": terms(["2026-08-22", "2026-11-28", "2026-12-10"], ["2027-01-10", "2027-05-01", "2027-05-15"]),
+  "virginia-commonwealth-university-in-qatar": terms(["2026-08-23", "2026-12-06", "2026-12-10"], ["2027-01-04", "2027-04-25", "2027-04-29"]),
+  "american-university-of-kuwait": terms(["2026-09-15", "2027-01-10", "2027-01-14"], ["2027-01-31", "2027-05-30", "2027-06-03"]),
+  "american-international-university-aiu": terms(["2026-09-09", "2026-12-06", "2026-12-13"], ["2027-01-25", "2027-05-03", "2027-05-11"]),
+  "sultan-qaboos-university": terms(["2026-09-13", "2026-12-27", "2027-01-09"], ["2027-01-31", "2027-05-16", "2027-05-29"]),
+  "nahda-university": terms(["2026-09-19", "2026-12-19", "2027-01-21"], ["2027-02-06", "2027-05-30", "2027-06-24"]),
+  "beirut-arab-university": terms(["2026-09-14", "2026-12-14", "2026-12-24"], ["2027-02-15", "2027-05-31", "2027-06-11"]),
+  "holy-spirit-university-of-kaslik": terms(["2026-08-31", "2026-12-07", "2026-12-16"], ["2027-01-25", "2027-05-10", "2027-05-20"]),
+  "lebanese-american-university": terms(["2026-08-31", "2026-12-08", "2026-12-18"], ["2027-01-14", "2027-05-04", "2027-05-14"]),
+  "antonine-university": terms(["2026-09-07", "2026-12-08", "2026-12-17"], ["2027-01-18", "2027-04-26", "2027-05-08"]),
+  "middle-east-university-lebanon": terms(["2026-08-31", "2026-12-14", "2026-12-17"], ["2027-01-18", "2027-05-13", "2027-05-20"]),
+  "haigazian-university": terms(["2026-08-31", "2026-12-16", "2026-12-22"], ["2027-01-13", "2027-05-10", "2027-05-15"]),
+  "global-university-lebanon": terms(["2026-09-07", "2026-12-14", "2026-12-23"], ["2027-01-11", "2027-04-26", "2027-05-08"]),
 };
 
 const DAY_MS = 864e5;
