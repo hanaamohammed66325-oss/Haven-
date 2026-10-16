@@ -8,6 +8,21 @@ import { ENFORCE_PREMIUM } from "./premium";
 export const POMODORO_ENABLED = true;
 
 /**
+ * Group study (/study). Off until the whole feature is done (her rule,
+ * 2026-10-06); the server also keeps it closed to all but the trial accounts.
+ */
+export const GROUP_STUDY_ENABLED = process.env.NODE_ENV === "development";
+
+/** Award projection is enabled only for the same local development trial. */
+/** Public opening date for group study and referrals, shown while they are closed. */
+export const PUBLIC_OPENING_DATE = "2026-10-27";
+export function openingDateLabel(lang: "ar" | "en"): string {
+  return new Intl.DateTimeFormat(lang === "ar" ? "ar-u-ca-gregory" : "en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(`${PUBLIC_OPENING_DATE}T00:00:00Z`));
+}
+export const GROUP_STUDY_AWARDS_ENABLED = GROUP_STUDY_ENABLED;
+
+/**
  * Attendance calculation suspended (Hanaa, 2026-10-12; ACCURACY_PLAN.md). While
  * true, students see only their raw absence log (lectures, hours, dates): no
  * percentage, remaining allowance, denial status, absence alerts, personal

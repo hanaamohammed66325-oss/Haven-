@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // ---------------------------------------------------------------------------
 // Undo manager — one shared "deleted … [Undo]" toast for the whole app.
@@ -19,7 +20,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Trash2, Undo2 } from "lucide-react";
+import { Trash2, Undo2 } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 
 const UNDO_MS = 5000;
@@ -123,14 +124,14 @@ export function UndoProvider({ children }: { children: React.ReactNode }) {
             >
               {visible.message}
             </span>
-            <button
+            <InteractionButton
               onClick={handleUndo}
               className="haven-undo-btn shrink-0 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold cursor-pointer"
               style={{ background: "var(--color-primary)", color: "#fff" }}
             >
               <Undo2 size={14} />
               {t("undo")}
-            </button>
+            </InteractionButton>
           </div>
           {/* Depleting countdown — mirrors the time left before the delete commits. */}
           <div className="h-[3px] w-full" style={{ background: "rgba(255,255,255,0.10)" }}>

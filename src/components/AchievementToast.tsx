@@ -1,8 +1,11 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Trophy, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { EXIT, SURFACE } from "@/components/motion/springs";
+import { Trophy, X } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { BADGES } from "@/lib/gamification";
 import { BadgeCrest } from "@/components/BadgeCrest";
@@ -43,10 +46,10 @@ export function AchievementToast() {
     };
   }, [items]);
 
-  if (!mounted || items.length === 0) return null;
+  if (!mounted) return null;
 
   const latest = items[items.length - 1];
-  const badgeDefs = latest.newBadges
+  const badgeDefs = (latest?.newBadges ?? [])
     .map((id) => BADGES.find((b) => b.id === id))
     .filter(Boolean);
 
@@ -56,10 +59,10 @@ export function AchievementToast() {
   };
 
   return createPortal(
-    <div
+    <AnimatePresence>{latest && <motion.div key="toast" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6, transition: EXIT }} transition={SURFACE}
       role="status"
       aria-live="assertive"
-      className="fixed bottom-5 start-5 z-[80] w-[320px] max-w-[calc(100vw-2.5rem)] rounded-2xl p-4 animate-[slideUp_0.4s_ease-out]"
+      className="fixed bottom-5 start-5 z-[80] w-[320px] max-w-[calc(100vw-2.5rem)] rounded-2xl p-4"
       style={{
         background: latest.tierAdvanced
           ? "linear-gradient(135deg, var(--color-brass), var(--color-primary))"
@@ -83,14 +86,14 @@ export function AchievementToast() {
                 : t("gam_achievementBadge")}
           </span>
         </div>
-        <button
+        <InteractionButton
           type="button"
           onClick={close}
           aria-label={t("close")}
           className="rounded-lg p-1 -m-1 transition-colors hover:bg-black/10"
         >
           <X size={15} style={{ opacity: 0.7 }} />
-        </button>
+        </InteractionButton>
       </div>
 
       {latest.tierAdvanced && (
@@ -126,7 +129,7 @@ export function AchievementToast() {
           })}
         </div>
       )}
-    </div>,
+    </motion.div>}</AnimatePresence>,
     document.body
   );
 }

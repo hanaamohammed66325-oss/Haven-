@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, BookOpen } from "lucide-react";
+import { Plus, BookOpen } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { useUndo } from "@/components/UndoManager";
@@ -57,14 +58,14 @@ export default function CoursesPage() {
         <h1 className="font-display text-[34px] leading-tight" style={{ color: "var(--color-ink)" }}>
           {t("nav_courses")}
         </h1>
-        <button
+        <InteractionButton
           data-tour="add-course"
           onClick={() => (canAdd ? setAdding(true) : setGateOpen(true))}
           className="haven-btn shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium"
         >
           <Plus size={17} />
           {t("addCourse")}
-        </button>
+        </InteractionButton>
       </div>
       <p className="text-[15px] mb-12" style={{ color: "var(--color-muted)" }}>
         {t("coursesSubtitle")}

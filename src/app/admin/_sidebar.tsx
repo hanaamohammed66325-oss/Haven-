@@ -1,4 +1,7 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
+import { NavigationDrawer } from "@/components/motion/NavigationDrawer";
+
 
 import { useC, useTheme } from "./_lib";
 import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
@@ -6,7 +9,7 @@ import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
   | "dashboard" | "users" | "insights" | "retention" | "top-users" | "universities" | "gpa-checks" | "facts"
-  | "attendance" | "notifications"
+  | "attendance" | "notifications" | "referral-review" | "growth"
   | "subscriptions" | "payments" | "feedback" | "support" | "coupons";
 
 /** Sections that are only relevant once paid subscriptions are live. Hidden by
@@ -32,6 +35,8 @@ export function AdminSidebar({
     { id: "dashboard",     label: "Dashboard",     icon: "🏠" },
     { id: "users",         label: "Users",         icon: "👥" },
     { id: "insights",      label: "Insights",      icon: "📊" },
+    { id: "referral-review", label: "Referral review", icon: "" },
+    { id: "growth", label: "النمو · Growth", icon: "" },
     { id: "retention",     label: "Retention",     icon: "🔁" },
     { id: "top-users",     label: "Top users",     icon: "🏆" },
     { id: "universities",  label: "Universities",  icon: "🎓" },
@@ -61,7 +66,7 @@ export function AdminSidebar({
         {items.map((it) => {
           const isActive = current === it.id;
           return (
-            <button
+            <InteractionButton
               key={it.id}
               onClick={() => onChange(it.id)}
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors"
@@ -81,20 +86,20 @@ export function AdminSidebar({
                   {it.badge}
                 </span>
               )}
-            </button>
+            </InteractionButton>
           );
         })}
       </nav>
 
       {/* Billing visibility toggle — paid-subscription sections are hidden until launch */}
       <div className="px-3 pb-2">
-        <button
+        <InteractionButton
           onClick={onToggleBilling}
           className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-[11px] font-medium transition-colors"
           style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
         >
           {showBilling ? "🙈 Hide billing sections" : "💳 Show billing sections"}
-        </button>
+        </InteractionButton>
       </div>
 
       {/* Theme toggle */}
@@ -106,13 +111,13 @@ export function AdminSidebar({
       </div>
 
       <div className="p-3 border-t" style={{ borderColor: C.border }}>
-        <button
+        <InteractionButton
           onClick={onSignOut}
           className="w-full rounded-lg px-3 py-2 text-[12px] font-medium"
           style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
         >
           Sign out
-        </button>
+        </InteractionButton>
       </div>
     </aside>
   );
@@ -124,7 +129,7 @@ function ThemeButton({
   const C = useC();
   const active = current === value;
   return (
-    <button
+    <InteractionButton
       onClick={onClick}
       className="flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors"
       style={{
@@ -134,7 +139,7 @@ function ThemeButton({
       }}
     >
       {label}
-    </button>
+    </InteractionButton>
   );
 }
 
@@ -152,14 +157,14 @@ export function AdminTopBar({
       className="haven-safe-top md:hidden sticky top-0 z-40 border-b flex items-center justify-between px-4 py-3"
       style={{ background: C.panel, borderColor: C.border }}
     >
-      <button
+      <InteractionButton
         onClick={onOpenMenu}
         className="rounded-lg p-2"
         aria-label="Open menu"
         style={{ background: C.border, color: C.text, border: "none" }}
       >
         <span style={{ fontSize: 18 }}>☰</span>
-      </button>
+      </InteractionButton>
       <div className="text-[14px] font-semibold" style={{ color: C.text }}>Haven Admin · {label}</div>
       <span className="text-[10px] truncate max-w-[100px]" style={{ color: C.textDim }}>{session.user.email}</span>
     </header>
@@ -179,14 +184,8 @@ export function AdminMobileDrawer({
   showBilling: boolean;
   onToggleBilling: () => void;
 }) {
-  if (!open) return null;
   return (
-    <div
-      className="md:hidden fixed inset-0 z-50 flex"
-      onClick={onClose}
-      style={{ background: "rgba(0,0,0,0.6)" }}
-    >
-      <div onClick={(e) => e.stopPropagation()} className="flex">
+    <NavigationDrawer open={open} onClose={onClose} label="Navigation" className="md:hidden" panelClassName="flex w-60 [&_aside]:flex">
         <AdminSidebar
           current={current}
           onChange={(s) => { onChange(s); onClose(); }}
@@ -196,7 +195,6 @@ export function AdminMobileDrawer({
           showBilling={showBilling}
           onToggleBilling={onToggleBilling}
         />
-      </div>
-    </div>
+    </NavigationDrawer>
   );
 }

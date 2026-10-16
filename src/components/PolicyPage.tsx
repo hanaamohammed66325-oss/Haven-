@@ -1,7 +1,7 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
-import Link from "next/link";
-import { Globe } from "lucide-react";
+import { Globe } from "@/components/motion/icons";
 import { Logo } from "./Logo";
 import { Markdown } from "./Markdown";
 import { Footer } from "./Footer";
@@ -37,13 +37,13 @@ export function PolicyPage({
   return (
     <div className="haven-safe-top min-h-dvh flex flex-col">
       <header className="mx-auto w-full max-w-[720px] px-5 flex items-center justify-between py-6">
-        <Link href="/" className="flex items-center gap-2.5">
+        <InteractionLink href="/" className="flex items-center gap-2.5">
           <Logo size={30} mono />
           <span className="font-display text-xl" style={{ color: "var(--color-ink)" }}>
             {t("appName")}
           </span>
-        </Link>
-        <button
+        </InteractionLink>
+        <InteractionButton
           onClick={() => setLanguage(language === "en" ? "ar" : "en")}
           className="surface-card inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium"
           style={{ color: "var(--color-ink)" }}
@@ -52,7 +52,7 @@ export function PolicyPage({
           <span className="hidden sm:inline">
             {lang === "en" ? t("switchToArabic") : t("switchToEnglish")}
           </span>
-        </button>
+        </InteractionButton>
       </header>
 
       <main className="mx-auto w-full max-w-[720px] px-5 flex-1 pb-16">

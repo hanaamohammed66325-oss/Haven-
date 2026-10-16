@@ -1,11 +1,11 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { Fragment, useEffect, useState } from "react";
 import {
   TrendingUp,
   SlidersHorizontal,
   CalendarRange,
-  AlertTriangle,
   CalendarCheck,
   Check,
   Sparkles,
@@ -13,7 +13,7 @@ import {
   Medal,
   Lightbulb,
   Flame,
-} from "lucide-react";
+} from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -60,7 +60,6 @@ const SCENES: Scene[] = [
   { key: "demo_momentum", Icon: Sparkles, duration: 5600, Comp: MomentumScene },
   { key: "demo_whatif", Icon: SlidersHorizontal, duration: 6800, Comp: WhatIfScene },
   { key: "demo_planner", Icon: CalendarRange, duration: 6400, Comp: PlannerScene },
-  { key: "demo_attendance", Icon: AlertTriangle, duration: 4200, Comp: AttendanceScene },
 ];
 
 export function HeroDemo() {
@@ -137,7 +136,7 @@ export function HeroDemo() {
         {/* dots */}
         <div className="mt-4 flex items-center justify-center gap-2">
           {SCENES.map((s, i) => (
-            <button
+            <InteractionButton
               key={s.key}
               onClick={() => setActive(i)}
               aria-label={t("demo_goToSlide", { n: i + 1 })}
@@ -466,30 +465,3 @@ function PlannerScene({ active, reduced }: { active: boolean; reduced: boolean }
   );
 }
 
-function AttendanceScene({ active, reduced }: { active: boolean; reduced: boolean }) {
-  const { t } = useT();
-  const grown = active || reduced;
-  const rows = [
-    { name: "Physics II", pct: 76, status: t("attStatus_warn"), color: "var(--color-warning)", soft: "#FBF0E2" },
-    { name: "English", pct: 93, status: t("attStatus_danger"), color: "var(--color-danger)", soft: "#FDEAEA" },
-  ];
-  return (
-    <div className="w-full space-y-3.5">
-      {rows.map((r) => (
-        <div key={r.name} className="rounded-2xl border p-4" style={{ borderColor: "var(--color-border)" }}>
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{r.name}</span>
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-              style={{ background: r.soft, color: r.color }}>
-              <AlertTriangle size={11} /> {r.status}
-            </span>
-          </div>
-          <div className="h-2 rounded-full" style={{ background: "var(--color-primary-soft)" }}>
-            <div className="h-2 rounded-full"
-              style={{ width: grown ? `${r.pct}%` : "0%", background: r.color, transition: "width 1.1s cubic-bezier(0.22,1,0.36,1)" }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}

@@ -1,6 +1,7 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, callAdmin, useC, fmtSar, StatCard, ClickableCard, SectionHeader, Loading, timeAgo, ErrorBanner } from "./_lib";
 import { useDrill } from "./_drill";
@@ -24,6 +25,8 @@ interface Metrics {
   revenue_30d_sar: number;
   revenue_all_sar: number;
 }
+
+export type DashboardBadgeMetrics = Pick<Metrics, "open_tickets" | "failed_payments">;
 
 interface Event {
   kind: string;
@@ -58,7 +61,11 @@ function rangeLabel(days: number): string {
   return `last ${days} days`;
 }
 
-export function DashboardSection({ session, showBilling }: { session: Session; showBilling: boolean }) {
+export function DashboardSection({ session, showBilling, onMetrics, onRefresh }: {
+  session: Session; showBilling: boolean;
+  onMetrics?: (metrics: DashboardBadgeMetrics) => void;
+  onRefresh?: () => Promise<void>;
+}) {
   const C = useC();
   const drill = useDrill();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -69,33 +76,84 @@ export function DashboardSection({ session, showBilling }: { session: Session; s
   const [rangeDays, setRangeDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const sessionRef = useRef(session);
+  useLayoutEffect(() => { sessionRef.current = session; }, [session]);
+  const accountId = session.user.id;
+  const generation = useRef(0);
+  const overviewInFlight = useRef<number | null>(null);
+  const liveInFlight = useRef<Promise<{ data: unknown; error: unknown }> | null>(null);
+
+  // One live request at a time, including the initial overview read. This is
+  // component-local in-flight ownership, not a stored response cache.
+  const readLive = useCallback(async (owner: number, wait = false) => {
+    while (liveInFlight.current) {
+      if (!wait) return null;
+      try { await liveInFlight.current; } catch { /* Allow the new read to retry. */ }
+    }
+    if (generation.current !== owner || sessionRef.current.user.id !== accountId
+      || document.visibilityState === "hidden" || navigator.onLine === false) return null;
+    const request = Promise.resolve(supabase.rpc("admin_dashboard_live", { range_days: rangeDays }));
+    liveInFlight.current = request;
+    try { return await request; }
+    finally { if (liveInFlight.current === request) liveInFlight.current = null; }
+  }, [accountId, rangeDays]);
 
   const load = useCallback(async () => {
+    const owner = generation.current;
+    if (overviewInFlight.current === owner) return;
+    overviewInFlight.current = owner;
+    const current = () => generation.current === owner && sessionRef.current.user.id === accountId;
     setLoading(true); setError("");
-    const [m, r, c, l] = await Promise.all([
-      callAdmin(session, "dashboard_metrics"),
-      callAdmin(session, "dashboard_recent", { limit: 15 }),
-      callAdmin(session, "dashboard_charts", { days: rangeDays }),
-      supabase.rpc("admin_dashboard_live", { range_days: rangeDays }),
-    ]);
-    if (m?.ok) setMetrics(m.metrics);
-    else setError(m?.error ?? "Failed to load dashboard");
-    if (r?.ok) setEvents(r.events ?? []);
-    if (c?.ok) { setRevenue(c.revenue ?? []); setGrowth(c.user_growth ?? []); }
-    if (!l.error) setLive(l.data as Live);
-    setLoading(false);
-  }, [session, rangeDays]);
+    try {
+      const latest = sessionRef.current;
+      const [m, r, c, l] = await Promise.all([
+        callAdmin(latest, "dashboard_metrics").then((result) => {
+          // Badges belong to the page and can finish loading after navigating
+          // away from Overview. The page guards the signed-in account epoch.
+          if (result?.ok) onMetrics?.(result.metrics);
+          return result;
+        }),
+        callAdmin(latest, "dashboard_recent", { limit: 15 }),
+        callAdmin(latest, "dashboard_charts", { days: rangeDays }),
+        readLive(owner, true),
+      ]);
+      if (!current()) return;
+      if (m?.ok) setMetrics(m.metrics);
+      else setError(m?.error ?? "Failed to load dashboard");
+      if (r?.ok) setEvents(r.events ?? []);
+      if (c?.ok) { setRevenue(c.revenue ?? []); setGrowth(c.user_growth ?? []); }
+      if (l && !l.error) setLive(l.data as Live);
+    } catch {
+      if (current()) setError("Failed to load dashboard");
+    } finally {
+      if (overviewInFlight.current === owner) overviewInFlight.current = null;
+      if (current()) setLoading(false);
+    }
+  }, [accountId, rangeDays, onMetrics, readLive]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    generation.current++;
+    setLive(null);
+    void load();
+    return () => { generation.current++; };
+  }, [load]);
+
+  const refresh = () => {
+    void load();
+    void onRefresh?.().catch(() => {});
+  };
 
   // Keep the live presence numbers fresh without a full reload.
   useEffect(() => {
-    const id = setInterval(async () => {
-      const { data, error } = await supabase.rpc("admin_dashboard_live", { range_days: rangeDays });
-      if (!error && data) setLive(data as Live);
+    const owner = generation.current;
+    const id = setInterval(() => {
+      if (document.visibilityState === "hidden" || navigator.onLine === false || liveInFlight.current) return;
+      void readLive(owner).then((result) => {
+        if (generation.current === owner && result && !result.error) setLive(result.data as Live);
+      }).catch(() => {});
     }, 30000);
     return () => clearInterval(id);
-  }, [rangeDays]);
+  }, [load, readLive]);
 
   if (loading && !metrics) return <Loading text="Loading dashboard…" />;
 
@@ -104,13 +162,13 @@ export function DashboardSection({ session, showBilling }: { session: Session; s
       <SectionHeader
         title="Overview"
         action={
-          <button onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none" }}>
+          <InteractionButton onClick={refresh} disabled={loading} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none" }}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
 
-      {error && <ErrorBanner message={error} onRetry={load} />}
+      {error && <ErrorBanner message={error} onRetry={refresh} />}
 
       {metrics && (
         <div className="flex flex-col gap-4">
@@ -226,14 +284,14 @@ function RangeSelector({ days, onChange }: { days: number; onChange: (d: number)
       {RANGE_PRESETS.map((r) => {
         const active = days === r.days;
         return (
-          <button
+          <InteractionButton
             key={r.days}
             onClick={() => onChange(r.days)}
             className="rounded-full px-3 py-1 text-[12px] font-medium"
             style={{ background: active ? C.primary : C.border, color: active ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}
           >
             {r.label}
-          </button>
+          </InteractionButton>
         );
       })}
       <span className="mx-1 text-[11px]" style={{ color: C.textFaint }}>or</span>
@@ -251,13 +309,13 @@ function RangeSelector({ days, onChange }: { days: number; onChange: (d: number)
         <option value="days">days</option>
         <option value="months">months</option>
       </select>
-      <button
+      <InteractionButton
         onClick={applyCustom}
         className="rounded-lg px-3 py-1 text-[12px] font-medium"
         style={{ background: C.border, color: C.text, border: "none", cursor: "pointer" }}
       >
         Apply
-      </button>
+      </InteractionButton>
       {!isPreset && <span className="text-[11px]" style={{ color: C.textFaint }}>· {rangeLabel(days)}</span>}
     </div>
   );

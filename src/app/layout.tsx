@@ -7,6 +7,7 @@ import RegisterSW from "@/components/RegisterSW";
 import EnglishDigits from "@/components/EnglishDigits";
 import InstallPrompt from "@/components/InstallPrompt";
 import InstallGuideModal from "@/components/InstallGuideModal";
+import { MotionRoot } from "@/components/motion/Press";
 import { SubscriptionProvider } from "@/lib/subscription";
 
 // This is a STATIC site (next.config: output "export"), so the SSR <title>,
@@ -93,7 +94,7 @@ export default function RootLayout({
             and the brand tab title. Wrapped in try/catch so a storage error never
             blocks rendering. Keep the keys in sync with src/store/index.tsx. */}
         <Script id="haven-theme-boot" strategy="beforeInteractive">
-          {`(function(){try{var d=document.documentElement;var boot={};try{boot=JSON.parse(localStorage.getItem("haven-boot")||"{}")||{};}catch(e){}var loggedIn=false;try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("sb-")===0&&k.indexOf("-auth-token")>0){var v=localStorage.getItem(k);if(v&&v!=="null"&&v!=="undefined"){loggedIn=true;break;}}}}catch(e){}var theme=(loggedIn&&boot.theme)?boot.theme:"haven";d.setAttribute("data-theme",theme);var lang=(boot.lang==="ar"||boot.lang==="en")?boot.lang:"ar";d.setAttribute("lang",lang);d.setAttribute("dir",lang==="ar"?"rtl":"ltr");var T={ar:"Haven — نظّم فصلك الدراسي",en:"Haven — organize your semester"};document.title=T[lang]||T.en;}catch(e){}})();`}
+          {`(function(){try{var d=document.documentElement;var boot={};try{boot=JSON.parse(localStorage.getItem("haven-boot")||"{}")||{};}catch(e){}var loggedIn=false;try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("sb-")===0&&k.indexOf("-auth-token")>0){var v=localStorage.getItem(k);if(v&&v!=="null"&&v!=="undefined"){loggedIn=true;break;}}}}catch(e){}var theme=(loggedIn&&boot.theme)?boot.theme:"haven";if(theme==="aurora"||theme==="coral"||theme==="ambassador")theme="haven";d.setAttribute("data-theme",theme);var lang=(boot.lang==="ar"||boot.lang==="en")?boot.lang:"ar";d.setAttribute("lang",lang);d.setAttribute("dir",lang==="ar"?"rtl":"ltr");var T={ar:"Haven — نظّم فصلك الدراسي",en:"Haven — organize your semester"};document.title=T[lang]||T.en;}catch(e){}})();`}
         </Script>
         {/* Next 16 renders `appleWebApp.capable` as `mobile-web-app-capable`
             only — it no longer emits the apple-prefixed tag. iPadOS/iOS Safari
@@ -113,6 +114,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <MotionRoot>
         {/* One subscription read near the top, shared by the app AND the global
             Havi mascot (which lives outside Providers) so every premium gate
             evaluates the same source. */}
@@ -128,6 +130,7 @@ export default function RootLayout({
         <EnglishDigits />
         <InstallPrompt />
         <InstallGuideModal />
+        </MotionRoot>
       </body>
     </html>
   );

@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw } from "@/components/motion/icons";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
@@ -60,14 +61,14 @@ export function WhatIfCard() {
         <h2 className="font-display text-[22px]" style={{ color: "var(--color-ink)" }}>
           {t("whatIfTitle")}
         </h2>
-        <button
+        <InteractionButton
           onClick={() => setSim(buildInitial())}
           className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
           style={{ color: "var(--color-primary)" }}
         >
           <RotateCcw size={14} />
           {t("reset")}
-        </button>
+        </InteractionButton>
       </div>
       <p className="text-[13px] mb-6" style={{ color: "var(--color-muted)" }}>
         {t("whatIfNote")}

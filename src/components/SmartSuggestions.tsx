@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -12,7 +13,7 @@ import {
   TrendingUp,
   Zap,
   X,
-} from "lucide-react";
+} from "@/components/motion/icons";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { buildSmartSuggestions, type SuggestionKind } from "@/lib/smartSuggestions";
@@ -80,8 +81,8 @@ export function SmartSuggestions() {
           >
             <span style={{ color: s.color }} className="shrink-0">{ICON[s.kind]}</span>
             <span className="font-medium">{s.text}</span>
-            {(s.kind === "midterm-week" || s.kind === "finals-week") && <button type="button" aria-label={t("close")}
-              onClick={() => setDisplay(d => ({ ...d, keys: d.keys.filter(k => k !== seasonPrefix + s.kind) }))}><X size={14} /></button>}
+            {(s.kind === "midterm-week" || s.kind === "finals-week") && <InteractionButton type="button" aria-label={t("close")}
+              onClick={() => setDisplay(d => ({ ...d, keys: d.keys.filter(k => k !== seasonPrefix + s.kind) }))}><X size={14} /></InteractionButton>}
           </div>
         );
 

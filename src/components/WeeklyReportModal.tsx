@@ -1,16 +1,17 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Zap, CheckCircle2, Flame, BookOpen, ClipboardList } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { EXIT, SURFACE } from "@/components/motion/springs";
+import { X, Zap, CheckCircle2, Flame, BookOpen, ClipboardList } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { getLevel } from "@/lib/gamification";
 import type { WeeklyReportData } from "@/lib/challenges";
 
 export function WeeklyReportModal() {
-  const { t } = useT();
-  const { gamification } = useStore();
   const [report, setReport] = useState<WeeklyReportData | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -27,9 +28,14 @@ export function WeeklyReportModal() {
     return () => window.removeEventListener("haven-weekly-report", handler);
   }, []);
 
-  if (!mounted || !report) return null;
+  return <AnimatePresence>{mounted && report && <ReportBody key="weekly-report" report={report} onClose={() => setReport(null)} />}</AnimatePresence>;
+}
 
-  const level = getLevel(gamification.xp);
+function ReportBody({ report, onClose }: { report: WeeklyReportData; onClose: () => void }) {
+  const { t } = useT();
+  const { displayXp } = useStore();
+
+  const level = getLevel(displayXp);
 
   const stats = [
     { icon: <Zap size={20} />, value: `+${report.xpEarned}`, label: t("wr_xp"), color: "var(--color-brass)" },
@@ -39,12 +45,12 @@ export function WeeklyReportModal() {
   ].filter((s) => s.value !== "0" && s.value !== "+0");
 
   return createPortal(
-    <div
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: EXIT }} transition={{ duration: 0.18 }}
       className="fixed inset-0 z-[90] flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.5)" }}
     >
-      <div
-        className="w-full max-w-[360px] rounded-3xl p-6 animate-[slideUp_0.4s_ease-out]"
+      <motion.div initial={{ y: 12, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 5, scale: 0.99, transition: EXIT }} transition={SURFACE}
+        className="w-full max-w-[360px] rounded-3xl p-6"
         style={{
           background: "linear-gradient(160deg, var(--color-surface) 0%, color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)) 100%)",
           boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
@@ -60,14 +66,14 @@ export function WeeklyReportModal() {
               {t("wr_subtitle")}
             </p>
           </div>
-          <button
+          <InteractionButton
             type="button"
-            onClick={() => setReport(null)}
+            onClick={onClose}
             aria-label={t("close")}
             className="rounded-lg p-1.5 -m-1 transition-colors hover:bg-black/10"
           >
             <X size={18} style={{ color: "var(--color-muted)" }} />
-          </button>
+          </InteractionButton>
         </div>
 
         {/* Stats grid */}
@@ -120,15 +126,15 @@ export function WeeklyReportModal() {
         </div>
 
         {/* Close button */}
-        <button
+        <InteractionButton
           type="button"
-          onClick={() => setReport(null)}
+          onClick={onClose}
           className="haven-btn w-full rounded-xl py-3 text-sm font-semibold"
         >
           {t("wr_dismiss")}
-        </button>
-      </div>
-    </div>,
+        </InteractionButton>
+      </motion.div>
+    </motion.div>,
     document.body
   );
 }

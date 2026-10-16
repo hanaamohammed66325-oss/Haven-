@@ -2,6 +2,10 @@ import type { SchemeId } from "@/lib/gradeSchemes";
 
 export type CalendarType = "hijri" | "gregorian";
 
+export type RewardMotionTheme = "aurora" | "coral" | "ambassador";
+export type RewardMotionId = "glass" | "liquid-silver" | "silver-ribbon" | "petals" | "silk" | "lotus" | "fireflies" | "river" | "gilded-stars";
+export type RewardMotionChoices = Record<RewardMotionTheme, RewardMotionId>;
+
 export type ThemeId =
   | "haven"
   | "midnight"
@@ -10,7 +14,15 @@ export type ThemeId =
   | "sand"
   | "forest"
   | "ocean"
-  | "mono";
+  | "mono"
+  | "aurora"
+  | "coral"
+  | "ambassador";
+
+/** Havi's companion pets — the little friends that roam the cards beside him. */
+export const COMPANION_KINDS = ["fox", "tiger"] as const;
+export type CompanionKind = (typeof COMPANION_KINDS)[number];
+export const isCompanionKind = (v: unknown): v is CompanionKind => (COMPANION_KINDS as readonly unknown[]).includes(v);
 
 export type ComponentType = "quiz" | "midterm" | "final" | "project" | "assignment";
 export type WeightUnit = "percent" | "points";
@@ -440,6 +452,8 @@ export interface AppData {
   language: "en" | "ar";
   /** active color theme */
   theme: ThemeId;
+  /** Approved motion choices, stored separately for each reward theme. */
+  rewardMotionChoices?: RewardMotionChoices;
   semester: Semester;
   courses: Course[];
   planner: PlannerData;
@@ -458,6 +472,12 @@ export interface AppData {
   notifPrefs: NotifPrefs;
   /** custom name for the Havi mascot (default "Havi") */
   haviName: string;
+  /** equipped Havi outfit/cosmetic ids (default []); several can be worn at once
+   *  as long as they don't share a body zone. See src/lib/haviCosmetics. */
+  haviCosmetics: string[];
+  /** which companion pets roam alongside Havi (default both). The student can
+   *  keep one, both, or none. See src/components/HaviCompanions. */
+  haviCompanions: CompanionKind[];
   /** the whole absence system on/off (Settings); off hides every absence
    *  screen, card and reminder. Per account in preferences.attendanceEnabled. */
   attendanceEnabled: boolean;
@@ -520,6 +540,8 @@ export interface PomodoroSessionRecord {
  *  which course it was spent on so the pond can bloom that subject's colour — the
  *  lake becomes a living map of what the student actually studied. */
 export interface PomodoroPad {
+  /** Historical title of the work selected for a group round. */
+  title?: string;
   date: string; // ISO YYYY-MM-DD
   courseId: string | null; // null = "General" (no specific course)
   minutes: number;
@@ -594,6 +616,8 @@ export type GpaMode = "semester" | "cumulative";
  * read/normalize helper.
  */
 export interface NotifPrefs {
+  /** Group session invitations (delivered only to active group members). */
+  groups: { enabled: boolean };
   /** date-based items (quizzes, midterms, finals, assignments, projects) */
   exams: { enabled: boolean; days: number[] }; // up to 2, each 1..30
   /** planner items that carry a specific time */

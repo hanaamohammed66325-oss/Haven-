@@ -1,7 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
+import { ContentChange } from "@/components/motion/ContentChange";
 
 import { useState } from "react";
-import { NotebookPen, CalendarRange } from "lucide-react";
+import { NotebookPen, CalendarRange } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Planner } from "@/components/Planner";
@@ -35,8 +37,9 @@ export default function SchedulePage() {
 
       <div className="inline-flex rounded-xl p-1 mb-8" style={{ background: "var(--color-primary-soft)" }}>
         {tabs.map((tb) => (
-          <button
+          <InteractionButton
             key={tb.key}
+            aria-pressed={tab === tb.key}
             data-tour={tb.key === "timetable" ? "sched-tab-timetable" : "sched-tab-planner"}
             onClick={() => setTab(tb.key)}
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
@@ -48,11 +51,13 @@ export default function SchedulePage() {
           >
             {tb.icon}
             {tb.label}
-          </button>
+          </InteractionButton>
         ))}
       </div>
 
-      {tab === "planner" ? <Planner /> : <Timetable />}
+      <ContentChange changeKey={tab}>
+        {tab === "planner" ? <Planner /> : <Timetable />}
+      </ContentChange>
     </div>
   );
 }

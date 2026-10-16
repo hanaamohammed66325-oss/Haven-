@@ -1,17 +1,21 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
+import { ContentChange } from "@/components/motion/ContentChange";
 
 // Haven Admin Dashboard — v2
 // Standalone page (not wrapped in the app shell). Auth + section routing here;
 // each section lives in its own file for maintainability.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, callAdmin, AdminThemeProvider, useC, useS } from "./_lib";
 import { AdminSidebar, AdminTopBar, AdminMobileDrawer, BILLING_SECTIONS, type AdminSection } from "./_sidebar";
-import { DashboardSection } from "./dashboard";
+import { DashboardSection, type DashboardBadgeMetrics } from "./dashboard";
 import { UsersSection } from "./users";
 import { UserDetailSection } from "./user-detail";
 import { InsightsSection } from "./insights";
+import { ReferralReviewSection } from "./referral-review";
+import { GrowthSection } from "./growth";
 import { RetentionSection } from "./retention";
 import { NotificationsSection } from "./notifications";
 import { SubscriptionsSection } from "./subscriptions";
@@ -46,6 +50,11 @@ function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const accountId = session?.user.id ?? null;
+  const authEpoch = useRef(0);
+  const [accountEpoch, setAccountEpoch] = useState(0);
+  const calendarRequest = useRef(0);
 
   // ---- Login form ----
   const [loginEmail, setLoginEmail] = useState("");
@@ -81,46 +90,81 @@ function AdminPage() {
 
   // ---- Auth lifecycle ----
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
+    let active = true;
+    let receivedEvent = false;
+    const acceptSession = (s: Session | null, userUpdated = false) => {
+      if (!active) return;
+      const previousId = sessionRef.current?.user.id ?? null;
+      const nextId = s?.user.id ?? null;
+      sessionRef.current = s;
+      if (previousId !== nextId) {
+        authEpoch.current++;
+        setAccountEpoch(authEpoch.current);
+        calendarRequest.current++;
+        setIsAdmin(null);
+        setBadges({});
+        setCalendarsReady(0);
+        setSection("dashboard");
+        setOpenUserId(null);
+        setLoading(!!s);
+      }
+      // Visibility can emit SIGNED_IN with an equivalent new object. Keep the
+      // latest token, but do not restart the account's admin effects.
+      setSession((previous) => !userUpdated && previous?.user.id === nextId
+        && previous?.access_token === s?.access_token ? previous : s);
       if (!s) setLoading(false);
+    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      receivedEvent = true;
+      acceptSession(s, event === "USER_UPDATED");
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      if (!s) { setLoading(false); setIsAdmin(null); }
-    });
-    return () => subscription.unsubscribe();
+    void supabase.auth.getSession().then(({ data: { session: s } }) => {
+      // A late initial read must not undo a newer sign-in or sign-out event.
+      if (!receivedEvent) acceptSession(s);
+    }).catch(() => { if (active && !receivedEvent) setLoading(false); });
+    return () => { active = false; authEpoch.current++; calendarRequest.current++; subscription.unsubscribe(); };
   }, []);
 
-  // Verify admin when session changes
+  // Verify once for this signed-in account, not for a visibility/token event.
   useEffect(() => {
-    if (!session) return;
+    const current = sessionRef.current;
+    if (!accountId || current?.user.id !== accountId) return;
+    let active = true;
     setLoading(true);
-    callAdmin(session, "verify")
-      .then((res) => setIsAdmin(res?.ok === true))
-      .catch(() => setIsAdmin(false))
-      .finally(() => setLoading(false));
-  }, [session]);
+    callAdmin(current, "verify")
+      .then((res) => { if (active) setIsAdmin(res?.ok === true); })
+      .catch(() => { if (active) setIsAdmin(false); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [accountId, accountEpoch]);
 
-  // Load quick badges from dashboard metrics (once we're admin)
-  const refreshBadges = useCallback(async () => {
-    if (!session || !isAdmin) return;
-    const res = await callAdmin(session, "dashboard_metrics");
-    if (res?.ok) {
-      setBadges({
-        support: Number(res.metrics?.open_tickets ?? 0),
-        payments: Number(res.metrics?.failed_payments ?? 0),
-      });
-    }
-  }, [session, isAdmin]);
-  useEffect(() => { void refreshBadges(); }, [refreshBadges, section]);
+  // Reuse the overview's metrics for badges; no second request or shared cache.
+  const acceptMetrics = useCallback((metrics: DashboardBadgeMetrics) => {
+    if (authEpoch.current !== accountEpoch || sessionRef.current?.user.id !== accountId) return;
+    setBadges({
+      support: Number(metrics.open_tickets ?? 0),
+      payments: Number(metrics.failed_payments ?? 0),
+    });
+  }, [accountId, accountEpoch]);
 
   // Calendar terms 5+ students confirmed, waiting for approval.
   const [calendarsReady, setCalendarsReady] = useState(0);
+  const refreshCalendars = useCallback(async () => {
+    if (!accountId || !isAdmin || sessionRef.current?.user.id !== accountId) return;
+    const request = ++calendarRequest.current;
+    const ready = await loadCalendarsReady();
+    if (request === calendarRequest.current && sessionRef.current?.user.id === accountId) setCalendarsReady(ready);
+  }, [accountId, accountEpoch, isAdmin]);
   useEffect(() => {
-    if (!session || !isAdmin) return;
-    void loadCalendarsReady().then(setCalendarsReady);
-  }, [session, isAdmin, section]);
+    void refreshCalendars().catch(() => {});
+    return () => { calendarRequest.current++; };
+  }, [refreshCalendars]);
+  const previousSection = useRef(section);
+  useEffect(() => {
+    const leftFacts = previousSection.current === "facts" && section !== "facts";
+    previousSection.current = section;
+    if (leftFacts) void refreshCalendars().catch(() => {});
+  }, [section, refreshCalendars]);
   // Only calendars waiting for approval count (Hanaa: the other notices were noise).
   const factsBadge = calendarsReady;
   const allBadges = { ...badges, ...(factsBadge ? { facts: factsBadge } : {}) };
@@ -136,7 +180,9 @@ function AdminPage() {
   const handleSignOut = async () => { await supabase.auth.signOut(); };
   const openUser = (id: string) => setOpenUserId(id);
   const closeUser = () => setOpenUserId(null);
-  const goSection = (s: AdminSection) => { setOpenUserId(null); setSection(s); };
+  const goSection = (s: AdminSection) => { setOpenUserId(null); setReviewOwner(null); setSection(s); };
+  const [reviewOwner, setReviewOwner] = useState<string | null>(null);
+  const openGrowthReview = (id: string) => { setReviewOwner(id); setOpenUserId(null); setSection("referral-review"); };
 
   // ---- Render: loading ----
   if (loading) {
@@ -160,7 +206,7 @@ function AdminPage() {
             <input type="email" required placeholder="Admin email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} style={S.input} />
             <input type="password" required placeholder="Password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} style={S.input} />
             {loginError && <p className="text-sm" style={{ color: C.danger }}>{loginError}</p>}
-            <button type="submit" disabled={loginLoading} style={{ ...S.btnPrimary, opacity: loginLoading ? 0.5 : 1 }}>{loginLoading ? "Signing in…" : "Sign in"}</button>
+            <InteractionButton type="submit" disabled={loginLoading} style={{ ...S.btnPrimary, opacity: loginLoading ? 0.5 : 1 }}>{loginLoading ? "Signing in…" : "Sign in"}</InteractionButton>
           </form>
         </div>
       </Screen>
@@ -174,7 +220,7 @@ function AdminPage() {
         <div className="text-center">
           <div className="text-xl font-semibold mb-2" style={{ color: C.text }}>Access denied</div>
           <div className="text-sm mb-6" style={{ color: C.textDim }}>{session.user.email} is not an admin account.</div>
-          <button onClick={handleSignOut} style={{ ...S.btnSec, padding: "8px 20px" }}>Sign out</button>
+          <InteractionButton onClick={handleSignOut} style={{ ...S.btnSec, padding: "8px 20px" }}>Sign out</InteractionButton>
         </div>
       </Screen>
     );
@@ -195,18 +241,23 @@ function AdminPage() {
               <span className="flex-1 min-w-0">
                 <b>{calendarsReady}</b> {calendarsReady > 1 ? "calendars" : "calendar"}: 5 or more students confirmed the dates. Waiting for your approval.
               </span>
-              <button onClick={() => goSection("facts")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: C.success, color: "#fff", border: "none", cursor: "pointer" }}>Open</button>
+              <InteractionButton onClick={() => goSection("facts")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: C.success, color: "#fff", border: "none", cursor: "pointer" }}>Open</InteractionButton>
             </div>
           )}
           <DrillProvider onOpenUser={openUser}>
+          <ContentChange changeKey={`${section}:${openUserId ?? "list"}`}>
           {openUserId ? (
             <UserDetailSection session={session} userId={openUserId} onBack={closeUser} />
           ) : section === "dashboard" ? (
-            <DashboardSection session={session} showBilling={showBilling} />
+            <DashboardSection key={accountEpoch} session={session} showBilling={showBilling} onMetrics={acceptMetrics} onRefresh={refreshCalendars} />
           ) : section === "users" ? (
             <UsersSection session={session} onOpenUser={openUser} />
           ) : section === "insights" ? (
-            <InsightsSection />
+            <InsightsSection accountId={session.user.id} />
+          ) : section === "referral-review" ? (
+            <ReferralReviewSection session={session} onOpenUser={openUser} ownerFilter={reviewOwner} onClearOwner={() => setReviewOwner(null)} />
+          ) : section === "growth" ? (
+            <GrowthSection session={session} onOpenUser={openUser} onOpenReview={openGrowthReview} />
           ) : section === "retention" ? (
             <RetentionSection />
           ) : section === "top-users" ? (
@@ -234,6 +285,7 @@ function AdminPage() {
           ) : section === "coupons" ? (
             <CouponsSection session={session} />
           ) : null}
+          </ContentChange>
           </DrillProvider>
         </main>
       </div>

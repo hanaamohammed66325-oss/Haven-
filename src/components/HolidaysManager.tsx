@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useMemo, useState } from "react";
-import { Plus, X, RotateCcw, CalendarDays, Check } from "lucide-react";
+import { Plus, X, RotateCcw, CalendarDays, Check } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { logEvent } from "@/lib/db";
 import { useT } from "@/i18n";
@@ -162,7 +163,7 @@ export function HolidaysManager() {
                 </div>
               </div>
               {off ? (
-                <button
+                <InteractionButton
                   type="button"
                   onClick={() => restore(h.id)}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shrink-0 transition-colors"
@@ -170,9 +171,9 @@ export function HolidaysManager() {
                 >
                   <RotateCcw size={13} />
                   {t("holidayRestore")}
-                </button>
+                </InteractionButton>
               ) : (
-                <button
+                <InteractionButton
                   type="button"
                   onClick={() => dismiss(h.id)}
                   aria-label={t("holidayRemove")}
@@ -181,7 +182,7 @@ export function HolidaysManager() {
                 >
                   <X size={13} />
                   {t("holidayRemove")}
-                </button>
+                </InteractionButton>
               )}
             </li>
           );
@@ -197,7 +198,7 @@ export function HolidaysManager() {
                 {fmtRange(c.startDate, c.endDate)} · {t(c.id.startsWith(UNI_HOLIDAY_PREFIX) ? "holidayFromUniversity" : "holidayCustom")}
               </div>
             </div>
-            <button
+            <InteractionButton
               type="button"
               onClick={() => deleteCustom(c.id)}
               aria-label={t("holidayDelete")}
@@ -206,7 +207,7 @@ export function HolidaysManager() {
             >
               <X size={13} />
               {t("holidayDelete")}
-            </button>
+            </InteractionButton>
           </li>
         ))}
 
@@ -257,7 +258,7 @@ export function HolidaysManager() {
               />
             </div>
           </div>
-          <button
+          <InteractionButton
             type="button"
             onClick={wholeWeek}
             className="inline-flex items-center gap-1.5 mt-3 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
@@ -265,14 +266,14 @@ export function HolidaysManager() {
           >
             <CalendarDays size={13} />
             {t("holidayWholeWeek")}
-          </button>
+          </InteractionButton>
           {err && (
             <p className="text-xs mt-3" style={{ color: "var(--color-danger)" }}>
               {err}
             </p>
           )}
           <div className="flex justify-end gap-2 mt-4">
-            <button
+            <InteractionButton
               type="button"
               onClick={() => {
                 setAdding(false);
@@ -283,19 +284,19 @@ export function HolidaysManager() {
               style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
             >
               {t("cancel")}
-            </button>
-            <button
+            </InteractionButton>
+            <InteractionButton
               type="button"
               onClick={submit}
               className="px-4 py-2 rounded-xl text-sm font-medium text-white"
               style={{ background: "var(--color-primary)" }}
             >
               {t("holidayAdd")}
-            </button>
+            </InteractionButton>
           </div>
         </div>
       ) : (
-        <button
+        <InteractionButton
           type="button"
           onClick={() => {
             setStart(semester.startDate);
@@ -307,7 +308,7 @@ export function HolidaysManager() {
         >
           <Plus size={16} />
           {t("holidayAddBtn")}
-        </button>
+        </InteractionButton>
       )}
 
       {asksCheck &&
@@ -324,7 +325,7 @@ export function HolidaysManager() {
             <p className="text-[13px] mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
               {t("holidayCheckBody")}
             </p>
-            <button
+            <InteractionButton
               type="button"
               onClick={() => setAcademic({ holidayCheck: { calendar, at: new Date().toISOString() } })}
               className="inline-flex items-center gap-2 mt-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
@@ -332,7 +333,7 @@ export function HolidaysManager() {
             >
               <Check size={16} />
               {t("holidayCheckBtn")}
-            </button>
+            </InteractionButton>
           </div>
         ))}
     </div>

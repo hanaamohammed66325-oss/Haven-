@@ -1,12 +1,15 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "@/components/motion/icons";
 import { AuthLayout } from "@/components/AuthLayout";
 import { useT } from "@/i18n";
 import { signIn, resendConfirmation, requestPasswordReset } from "@/lib/auth";
+import { pendingStudyDestination } from "@/lib/study/destination";
+import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
 
 const fieldBase =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -45,7 +48,7 @@ export default function SignInPage() {
       setError(isUnconfirmed ? t("authErrUnconfirmed") : t("authErrInvalid"));
       return;
     }
-    router.push("/dashboard");
+    router.push((GROUP_STUDY_ENABLED && pendingStudyDestination()) || "/dashboard");
   };
 
   const resend = async () => {
@@ -104,17 +107,17 @@ export default function SignInPage() {
             </span>
           )}
 
-          <button
+          <InteractionButton
             type="submit"
             disabled={resetSending || resetSent}
             className="haven-btn mt-1 w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
           >
             {resetSending ? t("authForgotSending") : t("authForgotSend")}
-          </button>
+          </InteractionButton>
         </form>
 
         <p className="text-center text-sm mt-6">
-          <button
+          <InteractionButton
             type="button"
             onClick={() => {
               setForgot(false);
@@ -125,7 +128,7 @@ export default function SignInPage() {
             style={{ color: "var(--color-primary)" }}
           >
             {t("authForgotBack")}
-          </button>
+          </InteractionButton>
         </p>
       </AuthLayout>
     );
@@ -158,7 +161,7 @@ export default function SignInPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
             />
-            <button
+            <InteractionButton
               type="button"
               onClick={() => setShow((s) => !s)}
               aria-label={show ? t("authHidePassword") : t("authShowPassword")}
@@ -166,7 +169,7 @@ export default function SignInPage() {
               style={{ color: "var(--color-muted)" }}
             >
               {show ? <EyeOff size={17} /> : <Eye size={17} />}
-            </button>
+            </InteractionButton>
           </div>
         </label>
 
@@ -177,7 +180,7 @@ export default function SignInPage() {
             <span className="text-xs" style={{ color: "var(--color-primary)" }}>{t("authResendSent")}</span>
           ) : (
             <div className="flex flex-col gap-1 -mt-1">
-              <button
+              <InteractionButton
                 type="button"
                 onClick={resend}
                 disabled={resending}
@@ -185,7 +188,7 @@ export default function SignInPage() {
                 style={{ color: "var(--color-primary)" }}
               >
                 {resending ? t("authResending") : t("authResend")}
-              </button>
+              </InteractionButton>
               {resendError && (
                 <span className="text-xs" style={{ color: "var(--color-danger)" }}>{resendError}</span>
               )}
@@ -194,23 +197,23 @@ export default function SignInPage() {
         )}
 
         <div className="flex justify-end -mt-1">
-          <button
+          <InteractionButton
             type="button"
             onClick={() => setForgot(true)}
             className="text-xs font-medium"
             style={{ color: "var(--color-primary)" }}
           >
             {t("authForgot")}
-          </button>
+          </InteractionButton>
         </div>
 
-        <button
+        <InteractionButton
           type="submit"
           disabled={busy}
           className="haven-btn mt-1 w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
         >
           {t("authSignIn")}
-        </button>
+        </InteractionButton>
       </form>
 
       <p className="text-center text-sm mt-6" style={{ color: "var(--color-muted)" }}>

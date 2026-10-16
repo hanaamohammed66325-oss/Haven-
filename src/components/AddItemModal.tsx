@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
@@ -107,12 +108,12 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
       title={isEdit ? t("editItem") : t("addItem")}
       footer={
         <div className="flex justify-end gap-3">
-          <button type="button" data-tour="item-cancel" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
+          <InteractionButton type="button" data-tour="item-cancel" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
             {t("cancel")}
-          </button>
-          <button type="submit" form="add-item-form" data-tour="item-save" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
+          </InteractionButton>
+          <InteractionButton type="submit" form="add-item-form" data-tour="item-save" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
             {saving ? t("saving") : isEdit ? t("save") : t("addItem")}
-          </button>
+          </InteractionButton>
         </div>
       }
     >
@@ -153,7 +154,7 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
             />
             <div className="inline-flex rounded-xl p-1 shrink-0" style={{ background: "var(--color-primary-soft)" }}>
               {(["percent", "points"] as const).map((u) => (
-                <button
+                <InteractionButton
                   key={u}
                   type="button"
                   onClick={() => setUnit(u)}
@@ -161,7 +162,7 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
                   style={unit === u ? { background: "#fff", color: "var(--color-primary)" } : { color: "var(--color-muted)" }}
                 >
                   {u === "percent" ? t("unitPercent") : t("unitPoints")}
-                </button>
+                </InteractionButton>
               ))}
             </div>
           </div>
@@ -180,7 +181,7 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
           <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("itemDate")}</label>
           <div className="inline-flex rounded-xl p-1" style={{ background: "var(--color-primary-soft)" }}>
             {(["none", "specific"] as const).map((m) => (
-              <button
+              <InteractionButton
                 key={m}
                 type="button"
                 onClick={() => setDateMode(m)}
@@ -188,7 +189,7 @@ export function AddItemModal({ open, onClose, onSubmit, initial }: AddItemModalP
                 style={dateMode === m ? { background: "#fff", color: "var(--color-primary)" } : { color: "var(--color-muted)" }}
               >
                 {m === "none" ? t("dateNotSpecified") : t("dateSpecific")}
-              </button>
+              </InteractionButton>
             ))}
           </div>
           {dateMode === "specific" && (

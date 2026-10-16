@@ -1,13 +1,15 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil, Flame, Sparkles, Lock, Target, CheckCircle2 } from "lucide-react";
+import { Plus, Eye, EyeOff, CalendarClock, BookOpen, ChevronDown, Calculator, Info, ClipboardList, User, Calendar, Palette, Pencil, Flame, Sparkles, Lock, Target, CheckCircle2 } from "@/components/motion/icons";
 import { useStore, useScheme } from "@/store";
 import { gradeTableStatus } from "@/lib/gradeSchemes";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { AcademicBanner } from "@/components/AcademicBanner";
+import { AmbassadorIdentityBadge } from "@/components/AmbassadorBadge";
 import { AttendanceApproxNote } from "@/components/AttendanceApproxNote";
 import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { absenceLog } from "@/lib/absenceLog";
@@ -85,7 +87,7 @@ export default function DashboardPage() {
       : tableStatus === "unknown"
       ? "gpaSchemeNudge"
       : null;
-  const { gamification, recordAppOpen, doCheckIn, refreshGamChallenges } = store;
+  const { gamification, displayXp, recordAppOpen, doCheckIn, refreshGamChallenges } = store;
   const { profile, sub } = useSubscription();
   const isPremium = hasActiveAccess(profile, sub);
 
@@ -195,18 +197,21 @@ export default function DashboardPage() {
           </p>
           {/* Academic identity — a light, seamless line that personalises the page.
               Editing lives on the profile, so no edit control is shown here. */}
-          <AcademicBanner />
+          <div className="flex flex-wrap items-center gap-x-2">
+            <AcademicBanner />
+            <span className="inline-flex mt-3"><AmbassadorIdentityBadge /></span>
+          </div>
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
           <GpaCheckNudge />
           <NotifNudge />
-          <Link
+          <InteractionLink
             href="/courses"
             className="haven-btn inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-medium"
           >
             <Plus size={17} />
             {t("addCourse")}
-          </Link>
+          </InteractionLink>
         </div>
       </header>
 
@@ -224,17 +229,17 @@ export default function DashboardPage() {
           return (
             <Card padding="p-5" className="flex items-center gap-4" data-tour="dash-checkin">
               <div className="relative shrink-0">
-                <button
+                <InteractionButton
                   onClick={handleCheckIn}
                   disabled={checkedIn}
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg transition-transform active:scale-90"
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg transition-transform "
                   style={{
                     background: checkedIn ? "var(--color-surface-alt)" : "var(--color-brass)",
                     color: checkedIn ? "var(--color-muted)" : "#fff",
                   }}
                 >
                   {checkedIn ? "✓" : "☀️"}
-                </button>
+                </InteractionButton>
                 {!checkedIn && gamification.totalCheckIns === 0 && (
                   <span
                     className="absolute -top-1 -end-1 w-3 h-3 rounded-full animate-ping"
@@ -288,9 +293,9 @@ export default function DashboardPage() {
         {/* XP / Level card (premium-gated) */}
         <Card padding="p-5" className="flex items-center gap-4 sm:col-span-2 xl:col-span-1">
           {isPremium ? (() => {
-            const lvl = getLevel(gamification.xp);
-            const next = getNextLevel(gamification.xp);
-            const pct = levelProgress(gamification.xp);
+            const lvl = getLevel(displayXp);
+            const next = getNextLevel(displayXp);
+            const pct = levelProgress(displayXp);
             return (
               <>
                 <div
@@ -319,7 +324,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
                     {next
-                      ? t("gam_xpProgress", { current: String(gamification.xp), next: String(next.xp) })
+                      ? t("gam_xpProgress", { current: String(displayXp), next: String(next.xp) })
                       : t("gam_maxLevel")}
                   </div>
                 </div>
@@ -399,7 +404,7 @@ export default function DashboardPage() {
               {/* GPA — live Semester / Cumulative modes, hidden by default */}
               <div className="relative flex flex-col items-center justify-center gap-3 p-8">
                 {/* Cumulative GPA calculator trigger (one-time modal) */}
-                <button
+                <InteractionButton
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setCalcOpen(true); }}
                   aria-label={t("calcCumGpa")}
@@ -408,12 +413,12 @@ export default function DashboardPage() {
                   style={{ color: "var(--color-primary)" }}
                 >
                   <Calculator size={16} />
-                </button>
+                </InteractionButton>
 
                 {/* Live mode toggle: Semester (out of 5) vs Cumulative (from current) */}
                 <div data-tour="dash-gpa" className="inline-flex rounded-lg p-0.5" style={{ background: "var(--color-primary-soft)" }}>
                   {(["semester", "cumulative"] as const).map((m) => (
-                    <button
+                    <InteractionButton
                       key={m}
                       type="button"
                       onClick={() => setGpaMode(m)}
@@ -426,7 +431,7 @@ export default function DashboardPage() {
                       }
                     >
                       {t(m === "semester" ? "gpaModeSemester" : "gpaModeCumulative")}
-                    </button>
+                    </InteractionButton>
                   ))}
                 </div>
 
@@ -725,14 +730,14 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
       style={{ animationDelay: `${0.18 + index * 0.07}s` }}
     >
       <Card hover className="group relative h-full" style={cardColor ? { background: `${cardColor}10`, borderColor: `${cardColor}30` } : undefined}>
-        <Link
+        <InteractionLink
           href="/courses"
           aria-label={course.name}
           className="absolute inset-0 z-[1] rounded-3xl"
         />
         {/* Color picker */}
         <div ref={colorRef} className="absolute top-2.5 end-2.5 z-[3]">
-          <button
+          <InteractionButton
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setColorOpen((v) => !v); }}
             className="w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110"
@@ -740,14 +745,14 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             aria-label="Pick color"
           >
             <Palette size={13} />
-          </button>
+          </InteractionButton>
           {colorOpen && (
             <div
               className="absolute top-8 end-0 p-2 rounded-xl shadow-lg grid grid-cols-7 gap-1.5"
               style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", minWidth: 170 }}
             >
               {CARD_PALETTE.map((c) => (
-                <button
+                <InteractionButton
                   key={c}
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateCourse(course.id, { color: c }); setColorOpen(false); }}
@@ -769,14 +774,14 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
                 title="Custom"
               />
               {course.color && (
-                <button
+                <InteractionButton
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateCourse(course.id, { color: undefined }); setColorOpen(false); }}
                   className="col-span-7 text-[10px] mt-1 py-1 rounded-lg transition-colors hover:bg-[var(--color-primary-soft)]"
                   style={{ color: "var(--color-muted)" }}
                 >
                   {t("resetColor")}
-                </button>
+                </InteractionButton>
               )}
             </div>
           )}
@@ -790,7 +795,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
             <span className="text-[12px] mt-1 block" style={{ color: "var(--color-muted)" }}>
               {creditHoursLabel(course.creditHours, lang)}
               {course.instructorName && !editingInstructor && (
-                <button
+                <InteractionButton
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setInstrDraft(course.instructorName ?? ""); setEditingInstructor(true); }}
                   className="relative z-[2] inline-flex items-center gap-0.5 hover:opacity-70 transition-opacity"
@@ -798,7 +803,7 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
                 >
                   <span> · {course.instructorName}</span>
                   <Pencil size={10} className="opacity-0 group-hover:opacity-60 transition-opacity" />
-                </button>
+                </InteractionButton>
               )}
             </span>
           </div>
@@ -894,14 +899,14 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
 
         {/* Instructor hint */}
         {!course.instructorName && !editingInstructor && (
-          <button
+          <InteractionButton
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingInstructor(true); }}
             className="relative z-[2] flex items-center gap-1 mt-2 text-[11px] transition-opacity hover:opacity-70"
             style={{ color: "var(--color-muted)" }}
           >
             <User size={12} />
             {t("addInstructor")}
-          </button>
+          </InteractionButton>
         )}
         {editingInstructor && (
           <div
@@ -921,13 +926,13 @@ function DashboardCourseCard({ course, index }: { course: Course; index: number 
                 else if (e.key === "Escape") setEditingInstructor(false);
               }}
             />
-            <button
+            <InteractionButton
               onClick={saveInstructor}
               className="text-[10px] px-2 py-1 rounded font-medium"
               style={{ background: "var(--color-primary)", color: "#fff" }}
             >
               {t("save")}
-            </button>
+            </InteractionButton>
           </div>
         )}
       </Card>

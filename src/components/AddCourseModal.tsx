@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
@@ -232,12 +233,12 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
           <span className="text-xs" style={{ color: "var(--color-danger)" }}>{error}</span>
         )}
         <div className="flex justify-end gap-3 pt-1">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
+          <InteractionButton type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
             {t("cancel")}
-          </button>
-          <button type="submit" data-tour="course-save" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
+          </InteractionButton>
+          <InteractionButton type="submit" data-tour="course-save" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
             {saving ? t("saving") : isEdit ? t("save") : t("addCourse")}
-          </button>
+          </InteractionButton>
         </div>
       </form>
     </Modal>
@@ -247,7 +248,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
 /** One radio card: a title and a line under it. */
 export function Choice({ on, onClick, label, desc }: { on: boolean; onClick: () => void; label: string; desc: string }) {
   return (
-    <button
+    <InteractionButton
       type="button"
       role="radio"
       aria-checked={on}
@@ -264,7 +265,7 @@ export function Choice({ on, onClick, label, desc }: { on: boolean; onClick: () 
       <span className="block text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
         {desc}
       </span>
-    </button>
+    </InteractionButton>
   );
 }
 
@@ -375,14 +376,14 @@ function RepeatFields({
           ) : (
             <p className="text-xs flex flex-wrap items-center gap-x-2" style={muted}>
               <span dir="auto">{t("rep_policyIs", { policy: policyLabel })}</span>
-              <button
+              <InteractionButton
                 type="button"
                 onClick={onChangePolicy}
                 className="font-medium underline underline-offset-2"
                 style={{ color: "var(--color-primary)" }}
               >
                 {t("rep_change")}
-              </button>
+              </InteractionButton>
             </p>
           )}
 

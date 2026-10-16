@@ -1,0 +1,65 @@
+.journey { min-width:0; }
+.progress { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:17px; }
+.counter { font-size:12px; font-weight:600; color:var(--color-muted); font-variant-numeric:tabular-nums; }
+.dots { display:flex; align-items:center; gap:5px; }
+.dot,.activeDot { width:5px; height:5px; border-radius:9px; background:var(--color-border); transition:background .18s,width .18s; }
+.activeDot { width:19px; background:var(--color-primary); }
+.page { min-height:265px; }
+.title { margin:0; color:var(--color-ink); font-size:21px; line-height:1.5; font-weight:700; letter-spacing:-.025em; }
+.subtitle,.description { margin:7px 0 0; color:var(--color-muted); font-size:13px; line-height:1.8; }
+.notes { display:grid; gap:16px; margin-top:21px; }
+.note { display:flex; align-items:flex-start; gap:12px; }
+.noteIcon { color:var(--color-primary); width:34px; height:34px; border-radius:11px; display:grid; place-items:center; background:var(--color-primary-soft); flex-shrink:0; }
+.note h4 { margin:0 0 4px; font-size:14px; font-weight:600; line-height:1.6; }
+.note p { margin:0; color:var(--color-muted); font-size:12px; line-height:1.8; }
+.actions { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.back,.next { display:inline-flex; justify-content:center; align-items:center; gap:9px; min-height:44px; border:0; border-radius:12px; font:inherit; font-size:13px; font-weight:600; cursor:pointer; padding:10px 18px; }
+.back { color:var(--color-muted); background:transparent; }
+.next { color:#fff; background:var(--grad-primary,var(--color-primary)); min-width:123px; box-shadow:0 3px 9px color-mix(in srgb,var(--color-primary) 15%,transparent); }
+.next:disabled,.back:disabled { opacity:.6; cursor:wait; }
+.back:focus-visible,.next:focus-visible,.sceneButton:focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
+.error { margin:0 0 9px; color:var(--color-danger); font-size:12px; line-height:1.6; }
+.featureCopy { padding-top:16px; }
+.eyebrow { display:block; color:var(--color-primary); font-size:11px; font-weight:600; letter-spacing:.04em; margin-bottom:4px; }
+.scene { position:relative; min-width:0; aspect-ratio:1.85; border-radius:16px; overflow:hidden; background:#e2e9df; isolation:isolate; }
+.scene canvas { width:100%; height:100%; display:block; }
+.sceneTools { position:absolute; inset-inline-end:9px; bottom:9px; display:flex; gap:8px; z-index:2; }
+.sceneButton { width:44px; height:44px; border-radius:50%; border:1px solid #ffffff40; display:grid; place-items:center; color:#fff; background:#193b35b8; cursor:pointer; backdrop-filter:blur(8px); }
+.sceneCaption { position:absolute; inset-inline:12px; bottom:15px; color:#fff; font-size:11px; line-height:1.6; max-width:calc(100% - 120px); text-shadow:0 1px 3px #0006; pointer-events:none; }
+.rewardsScene { background:linear-gradient(140deg,#f4eee3,#e8e5dc 55%,#dfe7de); }
+.rewardStage { position:absolute; inset:13px 16px 42px; display:grid; grid-template-columns:1fr 1fr 1fr; align-items:center; gap:10px; }
+.rewardTile { min-width:0; height:107px; border-radius:16px; background:#ffffffa8; border:1px solid #ffffffc7; box-shadow:0 7px 22px #3e4c3312; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+.rewardTile small { color:#566451; font-size:10px; }
+.rewardTile canvas { width:auto!important; height:66px!important; max-width:100%; object-fit:contain; flex-shrink:0; image-rendering:pixelated; }
+.swatches { display:flex; gap:4px; margin-top:4px; }
+.swatches span { width:11px; height:11px; border-radius:50%; border:1px solid #0001; }
+.miniTheme { width:54px; height:54px; border-radius:10px; display:flex; align-items:flex-start; padding:7px; gap:4px; box-shadow:0 4px 12px #1d32261a; transition:background 1s; }
+.miniTheme b { width:9px; height:40px; border-radius:4px; background:#ffffff70; }
+.miniTheme i { width:22px; height:11px; border-radius:3px; background:#ffffffaa; margin-top:7px; }
+.rewardsScene .sceneCaption { color:#425442; text-shadow:none; }
+.rewardsScene .sceneButton { background:#425b4edb; }
+.lakeScene { aspect-ratio:5/3; background:#28554c; }
+.interactiveLake { touch-action:none; cursor:grab; }
+.interactiveLake:active { cursor:grabbing; }
+.interactiveLake:focus-visible { outline:2px solid #f2d28b; outline-offset:-3px; }
+.filmCamera { position:absolute; top:10px; inset-inline-end:10px; display:flex; gap:5px; }
+.filmCamera .sceneButton { width:30px; height:30px; }
+.filmHeading { max-width:calc(100% - 120px); }
+.filmHeading { position:absolute; top:12px; inset-inline:12px; display:flex; justify-content:flex-start; pointer-events:none; }
+.filmHeading span { display:block; padding:5px 10px; border-radius:9px; color:#f3f3dd; font-size:11px; font-weight:600; background:#153a32bd; border:1px solid #ffffff24; backdrop-filter:blur(8px); }
+.filmRoster { position:absolute; inset-inline:12px; bottom:61px; display:flex; justify-content:center; flex-wrap:wrap; gap:5px; pointer-events:none; }
+.filmRoster span { display:inline-flex; align-items:center; gap:4px; padding:3px 7px; color:#f5f5e6; font-size:10px; line-height:1.5; border-radius:7px; background:#183c34c9; border:1px solid #ffffff22; }
+.filmRoster i { width:6px; height:6px; border-radius:50%; }
+.filmName { position:absolute; transform:translate(-50%,12px); padding:4px 8px; border-radius:7px; color:#fff; background:#173d36e6; font-size:11px; pointer-events:none; }
+.rewardMilestones { position:absolute; top:12px; inset-inline:14px; display:flex; gap:6px; justify-content:center; z-index:2; }
+.rewardMilestones button { appearance:none; border:1px solid #5e6b4320; border-radius:9px; padding:4px 13px; color:#536350; background:#ffffff66; font:inherit; font-size:11px; cursor:pointer; transition:background .2s,color .2s; }
+.rewardMilestones button[aria-pressed=true] { background:#425b4e; color:#fff; }
+.rewardMilestones button:focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
+.rewardMilestones ~ .rewardStage { inset-block-start:45px; }
+.outfitPair { display:flex; align-items:center; justify-content:center; width:100%; min-width:0; height:66px; }
+.outfitPair canvas { width:46%!important; max-width:46%; object-fit:contain; }
+.rewardBadge { display:block; width:44px; height:44px; }
+.rewardBadge svg { display:block; width:100%; height:100%; }
+@media (max-width:380px) { .title{font-size:19px}.rewardStage{inset-inline:10px;gap:6px}.rewardTile{height:90px}.rewardTile canvas{height:55px}.miniTheme{width:44px;height:44px}.miniTheme b{height:30px}.featureCopy{padding-top:12px}.notes{gap:12px} }
+@media (max-height:500px) and (min-width:540px) { .scene{aspect-ratio:2.8}.lakeScene{aspect-ratio:5/3}.page{min-height:0}.notes{margin-top:12px;gap:10px}.featureCopy{padding-top:9px}.title{font-size:18px}.description{font-size:12px}.rewardStage{inset-block:38px 22px}.rewardTile{height:72px}.rewardTile canvas{height:44px}.sceneCaption{bottom:6px}.progress{margin-bottom:9px}.rewardMilestones{top:5px}.rewardMilestones ~ .rewardStage{inset-block-start:33px}.outfitPair{height:44px} }
+@media (prefers-reduced-motion:reduce) { .dot,.activeDot,.miniTheme{transition:none} }

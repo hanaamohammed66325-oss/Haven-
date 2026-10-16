@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // University facts — where each university's OFFICIAL calendar (term dates,
 // finals, حرمان limit, breaks) is entered and approved. Only the admin approves
@@ -76,11 +77,11 @@ export async function loadFactsCoverage(): Promise<{ missing: University[]; revi
 export async function loadCalendarsReady(): Promise<number> {
   const [v, f] = await Promise.all([
     supabase.from("crowd_votes").select("university_slug, period, answer").eq("subject", "calendar"),
-    supabase.from("university_facts").select("*").neq("status", "rejected"),
+    supabase.from("university_facts").select("university_slug, academic_year, term, fact_key, status, value").neq("status", "rejected"),
   ]);
   if (v.error || f.error) return 0;
   const votes = v.data as CalendarVote[];
-  const facts = f.data as FactRow[];
+  const facts = f.data as CalendarFactRow[];
   return [...new Set(votes.map((x) => x.university_slug))].reduce(
     (n, slug) =>
       n +
@@ -113,7 +114,9 @@ interface CalendarTally {
 
 /** Students' answers per term, against the dates on record (approved, suggested
  *  or waiting). */
-export function calendarTallies(votes: CalendarVote[], rows: FactRow[]): CalendarTally[] {
+type CalendarFactRow = Pick<FactRow, "university_slug" | "academic_year" | "term" | "fact_key" | "status" | "value">;
+
+export function calendarTallies(votes: CalendarVote[], rows: CalendarFactRow[]): CalendarTally[] {
   const periods = [...new Set(votes.map((v) => v.period))];
   return periods.map((period) => {
     const [yr, term] = period.split("|");
@@ -291,9 +294,9 @@ export function UniversityFactsSection() {
       <SectionHeader
         title="University facts"
         action={
-          <button onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>
+          <InteractionButton onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
       {error && <ErrorBanner message={error} onRetry={load} />}
@@ -312,9 +315,9 @@ export function UniversityFactsSection() {
           </div>
           <div className="flex flex-wrap gap-2">
             {toReview.map((slug) => (
-              <button key={slug} onClick={() => setOpenSlug(slug)} className="rounded-lg px-2.5 py-1 text-[12px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
+              <InteractionButton key={slug} onClick={() => setOpenSlug(slug)} className="rounded-lg px-2.5 py-1 text-[12px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
                 <span dir="auto">{UNIVERSITIES.find((u) => u.slug === slug)?.name ?? slug}</span>
-              </button>
+              </InteractionButton>
             ))}
           </div>
         </div>
@@ -326,9 +329,9 @@ export function UniversityFactsSection() {
           </div>
           <div className="flex flex-wrap gap-2">
             {ready.map((r) => (
-              <button key={`${r.slug}|${r.period}`} onClick={() => setOpenSlug(r.slug)} className="rounded-lg px-2.5 py-1 text-[12px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
+              <InteractionButton key={`${r.slug}|${r.period}`} onClick={() => setOpenSlug(r.slug)} className="rounded-lg px-2.5 py-1 text-[12px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
                 <span dir="auto">{UNIVERSITIES.find((u) => u.slug === r.slug)?.name ?? r.slug}</span> · {TERM_LABEL[r.period.split("|")[1] as Term]} · {r.agree}
-              </button>
+              </InteractionButton>
             ))}
           </div>
         </div>
@@ -363,8 +366,8 @@ export function UniversityFactsSection() {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => void decide(rows.map((r) => r.id), "rejected")} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Reject all</button>
-                    <button onClick={() => void decide(rows.map((r) => r.id), "verified")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={btn(true)}>Approve all</button>
+                    <InteractionButton onClick={() => void decide(rows.map((r) => r.id), "rejected")} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Reject all</InteractionButton>
+                    <InteractionButton onClick={() => void decide(rows.map((r) => r.id), "verified")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={btn(true)}>Approve all</InteractionButton>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -373,8 +376,8 @@ export function UniversityFactsSection() {
                       <span className="w-40 shrink-0" style={{ color: C.textDim }}>{f.academic_year} · {TERM_LABEL[f.term]}</span>
                       <span className="w-28 shrink-0" style={{ color: C.textMuted }}>{keyLabel(f.fact_key)}</span>
                       <span dir="auto" className="flex-1 min-w-0" style={{ color: C.text }}>{describe(f)}</span>
-                      <button onClick={() => void decide([f.id], "rejected")} className="text-[11px]" style={{ ...btn(), background: "transparent" }}>Reject</button>
-                      <button onClick={() => void decide([f.id], "verified")} className="text-[11px]" style={{ ...btn(), background: "transparent", color: C.primary }}>Approve</button>
+                      <InteractionButton onClick={() => void decide([f.id], "rejected")} className="text-[11px]" style={{ ...btn(), background: "transparent" }}>Reject</InteractionButton>
+                      <InteractionButton onClick={() => void decide([f.id], "verified")} className="text-[11px]" style={{ ...btn(), background: "transparent", color: C.primary }}>Approve</InteractionButton>
                     </div>
                   ))}
                 </div>
@@ -414,7 +417,7 @@ export function UniversityFactsSection() {
                   <span className="text-[11px]" style={{ color: l.status === "failed" ? C.warningText : C.textDim }}>
                     {l.status === "failed" ? `Couldn't read${l.note ? `: ${l.note}` : ""}` : `Waiting · ${new Date(l.created_at).toLocaleDateString()}`}
                   </span>
-                  <button onClick={() => void removeLink(l.id)} className="text-[11px]" style={{ ...btn(), background: "transparent" }}>Delete</button>
+                  <InteractionButton onClick={() => void removeLink(l.id)} className="text-[11px]" style={{ ...btn(), background: "transparent" }}>Delete</InteractionButton>
                 </div>
               );
             })}
@@ -455,7 +458,7 @@ export function UniversityFactsSection() {
           const open = openSlug === u.slug;
           return (
             <div key={u.slug} style={{ borderBottom: i === list.length - 1 ? "none" : `1px solid ${C.border}` }}>
-              <button
+              <InteractionButton
                 onClick={() => setOpenSlug(open ? null : u.slug)}
                 className="admin-hover-row w-full text-start flex items-center gap-3 px-5 py-3"
                 style={{ background: "transparent", border: "none", cursor: "pointer" }}
@@ -472,7 +475,7 @@ export function UniversityFactsSection() {
                 {tallies.some((t) => t.ready) && <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0" style={{ background: C.tint(C.success, "22"), color: C.successText }}>Ready to approve</span>}
                 {needsReview && <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0" style={{ background: C.tint(C.danger, "22"), color: C.danger }}>Review</span>}
                 <span className="text-[12px] shrink-0" style={{ color: C.textFaint }}>{open ? "▾" : "▸"}</span>
-              </button>
+              </InteractionButton>
               {open && (
                 <div className="px-5 pb-5">
                   {rows.length > 0 && (
@@ -485,7 +488,7 @@ export function UniversityFactsSection() {
                           <span className="text-[11px]" style={{ color: f.status === "verified" ? C.successText : C.warningText }}>
                             {f.status === "verified" ? (f.verified_via === "crowd" ? "approved by students" : "approved") : f.status === "suggested" ? "suggested" : "waiting"}
                           </span>
-                          <button onClick={() => void remove(f.id)} className="text-[11px]" style={{ ...btn(), background: "transparent" }}>Delete</button>
+                          <InteractionButton onClick={() => void remove(f.id)} className="text-[11px]" style={{ ...btn(), background: "transparent" }}>Delete</InteractionButton>
                         </div>
                       ))}
                     </div>
@@ -497,9 +500,9 @@ export function UniversityFactsSection() {
                           Students — {t.period.replace("|", " · ")}: {t.agree} agree, {t.differ} different
                         </span>
                         {t.ready && (
-                          <button onClick={() => void approveTerm(u.slug, t.period)} className="rounded-lg px-3 py-1 text-[12px] font-semibold" style={btn(true)}>
+                          <InteractionButton onClick={() => void approveTerm(u.slug, t.period)} className="rounded-lg px-3 py-1 text-[12px] font-semibold" style={btn(true)}>
                             Approve this term
-                          </button>
+                          </InteractionButton>
                         )}
                       </div>
                       {t.answers.map((a) => (
@@ -613,20 +616,20 @@ function EntryForm({ slug, year, onSaved, onError }: { slug: string; year: strin
             <input dir="auto" placeholder="Name (e.g. إجازة اليوم الوطني)" value={h.name} onChange={(e) => setHolidays(holidays.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} style={{ ...input, width: 240 }} />
             <input type="date" value={h.start} onChange={(e) => setHolidays(holidays.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} style={input} />
             <input type="date" value={h.end} onChange={(e) => setHolidays(holidays.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} style={input} />
-            <button onClick={() => setHolidays(holidays.filter((_, j) => j !== i))} className="text-[12px]" style={{ background: "transparent", border: "none", color: C.textMuted, cursor: "pointer" }}>✕</button>
+            <InteractionButton onClick={() => setHolidays(holidays.filter((_, j) => j !== i))} className="text-[12px]" style={{ background: "transparent", border: "none", color: C.textMuted, cursor: "pointer" }}>✕</InteractionButton>
           </div>
         ))}
-        <button onClick={() => setHolidays([...holidays, { name: "", start: "", end: "" }])} className="rounded-lg px-3 py-1 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>+ Add break</button>
+        <InteractionButton onClick={() => setHolidays([...holidays, { name: "", start: "", end: "" }])} className="rounded-lg px-3 py-1 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>+ Add break</InteractionButton>
       </div>
       <div className="flex flex-wrap gap-3 items-end">
         <label className="flex-1 min-w-[240px]">{lab("Official source link (required)")}<input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" style={{ ...input, width: "100%" }} /></label>
         <label className="flex-1 min-w-[200px]">{lab("Source title")}<input dir="auto" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="التقويم الأكاديمي 1448هـ" style={{ ...input, width: "100%" }} /></label>
-        <button onClick={() => void prepare()} disabled={saving} title="Fill the dates from this link for you to approve" className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.border, color: C.text, border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+        <InteractionButton onClick={() => void prepare()} disabled={saving} title="Fill the dates from this link for you to approve" className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.border, color: C.text, border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
           Prepare from this link
-        </button>
-        <button onClick={() => void save()} disabled={saving} className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.primary, color: "#fff", border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+        </InteractionButton>
+        <InteractionButton onClick={() => void save()} disabled={saving} className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.primary, color: "#fff", border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
           {saving ? "Saving…" : "Save & approve"}
-        </button>
+        </InteractionButton>
       </div>
       <p className="text-[11px] mt-2" style={{ color: C.textFaint }}>
         Only have the link? Paste it and press &ldquo;Prepare from this link&rdquo; — the dates are read from it and come back for your approval.

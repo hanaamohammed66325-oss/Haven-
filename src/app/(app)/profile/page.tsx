@@ -1,8 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Check, User, Trash2, Mail, Lock, Award } from "lucide-react";
+import { Camera, Check, User, Trash2, Mail, Lock, Award } from "@/components/motion/icons";
 import { ATTENDANCE_BADGES, BADGES, badgesForTier, earnedBadgeCount, getBadgeThreshold, getBadgePercent } from "@/lib/gamification";
 import { hasActiveAccess } from "@/lib/premium";
 import { callFunction } from "@/lib/supabase";
@@ -19,6 +20,8 @@ import { AcademicBanner } from "@/components/AcademicBanner";
 import { AcademicSettings } from "@/components/AcademicSettings";
 import { GpaAccuracyCard } from "@/components/TermCheck";
 import { CollapseBody, CollapseToggle, CollapsibleSection, useCardCollapse } from "@/components/Collapsible";
+import AmbassadorPanel from "@/components/AmbassadorPanel";
+import { AmbassadorIdentityBadge } from "@/components/AmbassadorBadge";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -63,6 +66,7 @@ export default function ProfilePage() {
     email,
     profilePhoto,
     gamification,
+    displayXp,
     courses,
     planner,
     semester,
@@ -160,25 +164,28 @@ export default function ProfilePage() {
             )}
           </span>
           <div className="flex flex-col gap-2 min-w-0">
-            <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{t("profilePhoto")}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-medium truncate" style={{ color: "var(--color-ink)" }}>{profileName || t("profilePhoto")}</span>
+              <AmbassadorIdentityBadge />
+            </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
+              <InteractionButton
                 onClick={() => fileRef.current?.click()}
                 className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors"
                 style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
               >
                 <Camera size={15} />
                 {photo ? t("changePhoto") : t("uploadPhoto")}
-              </button>
+              </InteractionButton>
               {photo && (
-                <button
+                <InteractionButton
                   onClick={() => setPhoto(null)}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-black/5"
                   style={{ color: "var(--color-muted)" }}
                 >
                   <Trash2 size={15} />
                   {t("remove")}
-                </button>
+                </InteractionButton>
               )}
             </div>
           </div>
@@ -201,9 +208,9 @@ export default function ProfilePage() {
               {t("savedToast")}
             </span>
           )}
-          <button onClick={save} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
+          <InteractionButton onClick={save} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
             {t("save")}
-          </button>
+          </InteractionButton>
         </div>
       </Card>
 
@@ -239,28 +246,28 @@ export default function ProfilePage() {
                 {email || "—"}
               </div>
             </div>
-            <button
+            <InteractionButton
               onClick={() => setEmailOpen(true)}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors shrink-0"
               style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
             >
               <Mail size={14} />
               <span className="hidden sm:inline">{t("changeEmailBtn")}</span>
-            </button>
+            </InteractionButton>
           </div>
           <div className="flex items-center justify-between gap-4 pt-5">
             <div className="min-w-0">
               <div className="text-xs mb-1" style={{ color: "var(--color-muted)" }}>{t("newPasswordLabel")}</div>
               <div className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>••••••••</div>
             </div>
-            <button
+            <InteractionButton
               onClick={() => setPasswordOpen(true)}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors shrink-0"
               style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
             >
               <Lock size={14} />
               <span className="hidden sm:inline">{t("changePasswordBtn")}</span>
-            </button>
+            </InteractionButton>
           </div>
         </Card>
       </CollapsibleSection>
@@ -268,11 +275,14 @@ export default function ProfilePage() {
       {/* Subscription management */}
       <SubscriptionSection />
 
+      {/* Ambassador / referral reward system (preview — shown unlocked) */}
+      <AmbassadorPanel />
+
       {/* ── Badges ──────────────────────────────────────────── */}
       {isPremium && (() => {
         const tier = gamification.badgeTier;
         const earnedCount = earnedBadgeCount(gamification.badges, tier);
-        const badgeCtx = badgeContext({ courses, planner, academic, semester, pomodoroStats });
+        const badgeCtx = badgeContext({ courses, planner, academic, semester, pomodoroStats, displayXp });
         // Attendance badges earned before the calculation was suspended stay on
         // show beside this tier's badges (they count toward it as before).
         const kept = ATTENDANCE_BADGES.filter(
@@ -420,9 +430,9 @@ function ChangeEmailModal({ open, onClose }: { open: boolean; onClose: () => voi
           {t("changeEmailSuccessBody")}
         </p>
         <div className="flex justify-end mt-6">
-          <button onClick={onClose} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
+          <InteractionButton onClick={onClose} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
             {t("close")}
-          </button>
+          </InteractionButton>
         </div>
       </Modal>
     );
@@ -463,12 +473,12 @@ function ChangeEmailModal({ open, onClose }: { open: boolean; onClose: () => voi
           <p className="text-xs" style={{ color: "#c0392b" }}>{error}</p>
         )}
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-medium" style={{ color: "var(--color-muted)" }}>
+          <InteractionButton type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-medium" style={{ color: "var(--color-muted)" }}>
             {t("cancel")}
-          </button>
-          <button type="submit" disabled={loading} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
+          </InteractionButton>
+          <InteractionButton type="submit" disabled={loading} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
             {loading ? "…" : t("changeEmailSubmit")}
-          </button>
+          </InteractionButton>
         </div>
       </form>
     </Modal>
@@ -524,9 +534,9 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
           <p className="text-sm leading-relaxed">{t("changePasswordSuccess")}</p>
         </div>
         <div className="flex justify-end mt-6">
-          <button onClick={onClose} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
+          <InteractionButton onClick={onClose} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
             {t("close")}
-          </button>
+          </InteractionButton>
         </div>
       </Modal>
     );
@@ -581,12 +591,12 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
           <p className="text-xs" style={{ color: "#c0392b" }}>{error}</p>
         )}
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-medium" style={{ color: "var(--color-muted)" }}>
+          <InteractionButton type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-medium" style={{ color: "var(--color-muted)" }}>
             {t("cancel")}
-          </button>
-          <button type="submit" disabled={loading} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
+          </InteractionButton>
+          <InteractionButton type="submit" disabled={loading} className="haven-btn px-6 py-2.5 rounded-xl text-sm font-medium">
             {loading ? "…" : t("changePasswordSubmit")}
-          </button>
+          </InteractionButton>
         </div>
       </form>
     </Modal>

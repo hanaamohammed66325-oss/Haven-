@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -127,17 +128,17 @@ export function ReturnNudge() {
     <Modal open onClose={close} title={t(cfg.title as Key)}>
       <p style={{ color: "var(--color-ink)", fontSize: 15, lineHeight: 1.7 }}>{t(cfg.body as Key)}</p>
       <div className="mt-6 flex justify-end gap-3">
-        <button
+        <InteractionButton
           type="button"
           onClick={close}
           className="rounded-xl px-4 py-2 text-sm font-medium"
           style={{ color: "var(--color-muted)" }}
         >
           {t("nudge_later" as Key)}
-        </button>
-        <button type="button" onClick={act} className="haven-btn rounded-xl px-5 py-2 text-sm font-semibold">
+        </InteractionButton>
+        <InteractionButton type="button" onClick={act} className="haven-btn rounded-xl px-5 py-2 text-sm font-semibold">
           {t(cfg.cta as Key)}
-        </button>
+        </InteractionButton>
       </div>
     </Modal>
   );

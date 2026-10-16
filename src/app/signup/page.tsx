@@ -1,13 +1,17 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
+import { captureReferralInvite } from "@/lib/referralInvite";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "@/components/motion/icons";
 import { AuthLayout } from "@/components/AuthLayout";
 import { useT } from "@/i18n";
 import { signUp, signIn, verifySignupOtp, resendConfirmation, PENDING_SIGNUP_KEY } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { pendingStudyDestination } from "@/lib/study/destination";
+import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
 
 // Simple, permissive email check: something@something.something (no spaces).
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -18,6 +22,7 @@ const fieldBase =
 export default function SignUpPage() {
   const { t } = useT();
   const router = useRouter();
+  useEffect(() => captureReferralInvite(window.location.search), []);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +49,7 @@ export default function SignUpPage() {
     } catch {
       // ignore
     }
-    router.replace("/dashboard");
+    router.replace((GROUP_STUDY_ENABLED && pendingStudyDestination()) || "/dashboard");
   };
 
   // Once the "check your email" screen is showing, poll for the account being
@@ -173,7 +178,7 @@ export default function SignUpPage() {
       setConfirmSent(true);
       return;
     }
-    router.push("/dashboard");
+      router.push((GROUP_STUDY_ENABLED && pendingStudyDestination()) || "/dashboard");
   };
 
   if (confirmSent) {
@@ -214,17 +219,17 @@ export default function SignUpPage() {
           />
           <span className="text-xs" style={{ color: "var(--color-muted)" }}>{t("authOtpHint")}</span>
           {otpError && <span className="text-xs" style={{ color: "var(--color-danger)" }}>{otpError}</span>}
-          <button
+          <InteractionButton
             type="submit"
             disabled={verifying || code.length !== 6}
             className="haven-btn mt-1 w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
           >
             {verifying ? t("authOtpVerifying") : t("authOtpVerify")}
-          </button>
+          </InteractionButton>
         </form>
 
         <div className="mt-3 text-center">
-          <button
+          <InteractionButton
             type="button"
             onClick={resendCode}
             disabled={resendBusy || resendCooldown > 0}
@@ -236,7 +241,7 @@ export default function SignUpPage() {
               : resendBusy
                 ? t("authResending")
                 : t("authResendCode")}
-          </button>
+          </InteractionButton>
         </div>
 
         <p
@@ -302,7 +307,7 @@ export default function SignUpPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
-            <button
+            <InteractionButton
               type="button"
               onClick={() => setShow((s) => !s)}
               aria-label={show ? t("authHidePassword") : t("authShowPassword")}
@@ -310,7 +315,7 @@ export default function SignUpPage() {
               style={{ color: "var(--color-muted)" }}
             >
               {show ? <EyeOff size={17} /> : <Eye size={17} />}
-            </button>
+            </InteractionButton>
           </div>
           <FieldError msg={errors.password} />
         </Field>
@@ -331,13 +336,13 @@ export default function SignUpPage() {
           <span className="text-xs" style={{ color: "var(--color-danger)" }}>{formError}</span>
         )}
 
-        <button
+        <InteractionButton
           type="submit"
           disabled={busy}
           className="haven-btn mt-1 w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
         >
           {t("authCreateAccount")}
-        </button>
+        </InteractionButton>
       </form>
 
       <p className="text-center text-sm mt-6" style={{ color: "var(--color-muted)" }}>

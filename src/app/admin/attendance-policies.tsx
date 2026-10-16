@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Attendance policies — each university's OFFICIAL حرمان rule, for the admin to
 // check against its source before any student sees it.
@@ -57,13 +58,13 @@ export function UniversityFactsTabs() {
     try { sessionStorage.setItem("haven_admin_facts_tab", t); } catch { /* ignore */ }
   };
   const tabBtn = (t: typeof tab, label: string) => (
-    <button
+    <InteractionButton
       onClick={() => pick(t)}
       className="rounded-lg px-4 py-2 text-[13px] font-semibold"
       style={{ background: tab === t ? C.primary : C.border, color: tab === t ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}
     >
       {label}
-    </button>
+    </InteractionButton>
   );
   return (
     <div>
@@ -176,9 +177,9 @@ export function AttendancePoliciesSection() {
       <SectionHeader
         title="Attendance policies"
         action={
-          <button onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>
+          <InteractionButton onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
       {error && <ErrorBanner message={error} onRetry={load} />}
@@ -199,9 +200,9 @@ export function AttendancePoliciesSection() {
             {toReview.map((slug) => {
               const tl = tallyOf(slug)!;
               return (
-                <button key={slug} onClick={() => setOpenSlug(slug)} className="rounded-lg px-2.5 py-1 text-[12px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
+                <InteractionButton key={slug} onClick={() => setOpenSlug(slug)} className="rounded-lg px-2.5 py-1 text-[12px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
                   <span dir="auto">{uniName(slug, null)}</span> · {tl.agree} agree · {tl.differ} different
-                </button>
+                </InteractionButton>
               );
             })}
           </div>
@@ -215,9 +216,9 @@ export function AttendancePoliciesSection() {
       {/* Policies by status */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {(["review", "verified", "rejected"] as const).map((s) => (
-          <button key={s} onClick={() => setView(s)} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={btn(view === s)}>
+          <InteractionButton key={s} onClick={() => setView(s)} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={btn(view === s)}>
             {s === "review" ? `Waiting (${count("review")})` : s === "verified" ? `Approved (${count("verified")})` : `Rejected (${count("rejected")})`}
-          </button>
+          </InteractionButton>
         ))}
         <span className="flex-1" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search…" className="rounded-lg px-3 py-1.5 text-[13px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, width: 180 }} />
@@ -272,7 +273,7 @@ export function AttendancePoliciesSection() {
             const open = openSlug === u.slug;
             return (
               <div key={u.slug} style={{ borderBottom: i === arr.length - 1 ? "none" : `1px solid ${C.border}` }}>
-                <button onClick={() => setOpenSlug(open ? null : u.slug)} className="admin-hover-row w-full text-start flex items-center gap-3 px-5 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+                <InteractionButton onClick={() => setOpenSlug(open ? null : u.slug)} className="admin-hover-row w-full text-start flex items-center gap-3 px-5 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: approved ? C.success : waiting ? C.warning : C.danger }} />
                   <div className="min-w-0 flex-1">
                     <div dir="auto" className="text-[13px] font-medium truncate" style={{ color: C.text }}>{u.name}</div>
@@ -285,7 +286,7 @@ export function AttendancePoliciesSection() {
                   </div>
                   {tl?.review && <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0" style={{ background: C.tint(C.danger, "22"), color: C.danger }}>Review</span>}
                   <span className="text-[12px] shrink-0" style={{ color: C.textFaint }}>{open ? "▾" : "▸"}</span>
-                </button>
+                </InteractionButton>
                 {open && (
                   <div className="px-5 pb-5">
                     {ps.map((p) => (
@@ -469,9 +470,9 @@ function PolicyLinkBox({
         <span className="text-[11px] flex-1" style={{ color: C.textFaint }}>
           When the regulation isn&apos;t online: photos of its pages (up to {MAX_FILE_MB} MB each). Only admins can see them.
         </span>
-        <button onClick={() => void submit()} disabled={saving} className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.primary, color: "#fff", border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+        <InteractionButton onClick={() => void submit()} disabled={saving} className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.primary, color: "#fff", border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
           {saving ? "Saving…" : "Save"}
-        </button>
+        </InteractionButton>
       </div>
       {files.length > 0 && (
         <div dir="auto" className="text-[11px] mt-1" style={{ color: C.textDim }}>{files.map((f) => f.name).join(" · ")}</div>
@@ -505,7 +506,7 @@ function PolicyLinkBox({
               {l.status === "failed" ? `Couldn't read it${l.result_note ? `: ${l.result_note}` : ""}` : `Waiting to be read · ${new Date(l.created_at).toLocaleDateString("en-GB")}`}
             </div>
           </div>
-          <button onClick={() => void remove(l)} className="shrink-0" style={{ background: "transparent", border: "none", color: C.textMuted, cursor: "pointer" }}>Remove</button>
+          <InteractionButton onClick={() => void remove(l)} className="shrink-0" style={{ background: "transparent", border: "none", color: C.textMuted, cursor: "pointer" }}>Remove</InteractionButton>
         </div>
       ))}
     </div>
@@ -633,10 +634,10 @@ function PolicyCard({
           {flags.includes("verify") && flagChip("Check wording", C.warning)}
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setEditing((v) => !v)} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>{editing ? "Close" : "Edit"}</button>
-          {p.status !== "rejected" && <button onClick={() => onDecide(p.id, "rejected")} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Reject</button>}
-          {p.status !== "review" && <button onClick={() => onDecide(p.id, "review")} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Back to waiting</button>}
-          {p.status !== "verified" && <button onClick={() => onDecide(p.id, "verified")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={btn(true)}>Approve</button>}
+          <InteractionButton onClick={() => setEditing((v) => !v)} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>{editing ? "Close" : "Edit"}</InteractionButton>
+          {p.status !== "rejected" && <InteractionButton onClick={() => onDecide(p.id, "rejected")} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Reject</InteractionButton>}
+          {p.status !== "review" && <InteractionButton onClick={() => onDecide(p.id, "review")} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Back to waiting</InteractionButton>}
+          {p.status !== "verified" && <InteractionButton onClick={() => onDecide(p.id, "verified")} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={btn(true)}>Approve</InteractionButton>}
         </div>
       </div>
 
@@ -820,12 +821,12 @@ function PolicyForm({
       </div>
       <label className="block mb-3">{lab("Quoted text from the source")}<textarea dir="auto" value={quote} onChange={(e) => setQuote(e.target.value)} rows={2} style={{ ...input, width: "100%" }} /></label>
       <div className="flex flex-wrap gap-3 items-center">
-        <button onClick={() => void save(false)} disabled={saving} className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.border, color: C.text, border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+        <InteractionButton onClick={() => void save(false)} disabled={saving} className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.border, color: C.text, border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
           {existing ? "Save" : "Save for review"}
-        </button>
-        <button onClick={() => void save(true)} disabled={saving} className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.primary, color: "#fff", border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+        </InteractionButton>
+        <InteractionButton onClick={() => void save(true)} disabled={saving} className="rounded-lg px-4 py-2 text-[12px] font-semibold" style={{ background: C.primary, color: "#fff", border: "none", cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
           {saving ? "Saving…" : "Save & approve"}
-        </button>
+        </InteractionButton>
         {msg && <span className="text-[12px]" style={{ color: C.textMuted }}>{msg}</span>}
       </div>
     </div>
@@ -912,9 +913,9 @@ function ReportRow({ report: r, existing, onDone, onError }: { report: PolicyRep
         </div>
         {r.status === "pending" && (
           <div className="flex gap-2">
-            <button onClick={() => void mark("rejected")} disabled={busy} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Reject</button>
-            <button onClick={() => void mark("personal")} disabled={busy} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Keep for student only</button>
-            <button
+            <InteractionButton onClick={() => void mark("rejected")} disabled={busy} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Reject</InteractionButton>
+            <InteractionButton onClick={() => void mark("personal")} disabled={busy} className="rounded-lg px-3 py-1.5 text-[12px]" style={btn()}>Keep for student only</InteractionButton>
+            <InteractionButton
               onClick={() => void accept()}
               disabled={busy || !r.regulation_url || r.scope === "course"}
               title={!r.regulation_url ? "Needs an official regulation link" : r.scope === "course" ? "A single course's rule can't become the university's" : ""}
@@ -922,7 +923,7 @@ function ReportRow({ report: r, existing, onDone, onError }: { report: PolicyRep
               style={{ ...btn(true), opacity: !r.regulation_url || r.scope === "course" ? 0.4 : 1, cursor: !r.regulation_url || r.scope === "course" ? "not-allowed" : "pointer" }}
             >
               Accept for the university
-            </button>
+            </InteractionButton>
           </div>
         )}
       </div>

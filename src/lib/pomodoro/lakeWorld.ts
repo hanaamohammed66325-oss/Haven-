@@ -45,6 +45,8 @@ export interface LakeInput {
   padSpecs: GrovePadSpec[];
   tod: TimeOfDay;
   reducedMotion: boolean;
+  lakeScale?: number; // Optional compact scene; default preserves the personal lake.
+  hideHomePad?: boolean;
 }
 
 export interface Camera {
@@ -102,25 +104,8 @@ export function release(c?: HTMLCanvasElement) {
 // A soft round glow (a firefly, a lantern): one painted sprite per pair of
 // colours ("r,g,b"), drawn at any strength, instead of a new gradient for each
 // glow every frame.
-const glows = new Map<string, HTMLCanvasElement>();
-export function drawGlow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha: number, inner: string, outer = inner) {
-  const key = inner + "|" + outer;
-  let c = glows.get(key);
-  if (!c) {
-    const G = 128;
-    const [cv, g] = makeCanvas(G, G);
-    const gr = g.createRadialGradient(G / 2, G / 2, 0, G / 2, G / 2, G / 2);
-    gr.addColorStop(0, `rgba(${inner},1)`);
-    gr.addColorStop(1, `rgba(${outer},0)`);
-    g.fillStyle = gr;
-    g.fillRect(0, 0, G, G);
-    glows.set(key, (c = cv));
-  }
-  const a = ctx.globalAlpha;
-  ctx.globalAlpha = a * alpha;
-  ctx.drawImage(c, x - r, y - r, r * 2, r * 2);
-  ctx.globalAlpha = a;
-}
+export { drawGlow } from "./glow";
+import { drawGlow } from "./glow";
 
 // Adds a circle to the current path (without joining it to the previous one).
 function addCircle(ctx: CanvasRenderingContext2D | Path2D, x: number, y: number, r: number) {
@@ -237,6 +222,30 @@ interface Koi { cx: number; cy: number; ax: number; ay: number; sp: number; ph: 
 interface Ripple { x: number; y: number; t0: number }
 interface Tile { c: HTMLCanvasElement; used: number; bytes: number }
 interface Sprite { c: HTMLCanvasElement; size: number; rb: number }
+
+const padRadius = (w: number, h: number) => clamp(Math.min(w, h) * 0.048, 22, 34);
+const homeRadius = (padR: number) => Math.max(28, padR * 1.3);
+
+/**
+ * The lake's radii for a screen and a harvest of `count` pads: at least the
+ * size that suits the screen (times `lakeScale` for a compact scene); past
+ * that it grows with the harvest, so every pad keeps its size and its room on
+ * the water. LakeWorld lays its lake out with this; other scenes call it to
+ * place things on the same lake without building one.
+ */
+export function lakeRadii(w: number, h: number, count: number, lakeScale = 1): { rx: number; ry: number } {
+  const n = clamp(Math.round(count), 0, MAX_PADS);
+  const padR = padRadius(w, h);
+  const scale = clamp(lakeScale, 0.45, 1);
+  let rx0 = Math.min(w * 0.42, h * 0.74) * scale;
+  const ry0 = Math.min(h * 0.38 * scale, rx0 * 1.6);
+  rx0 = Math.min(rx0, ry0 * 1.9);
+  const room = padR * 2.3; // centre-to-centre room per pad
+  const rIn = homeRadius(padR) * 1.2 + padR; // Havi's open circle
+  const need = Math.sqrt(rIn ** 2 + n * 1.06 * room ** 2) / 0.86;
+  const grow = Math.max(1, need / Math.sqrt(rx0 * ry0));
+  return { rx: rx0 * grow, ry: ry0 * grow };
+}
 
 // A polyline (the path, the stream) with chunk boxes for quick distance checks.
 class Poly {
@@ -361,6 +370,16 @@ export class LakeWorld {
     return 1 / this.s0;
   }
 
+  /** The lake's radii as last built (the shoreline wobbles around them). */
+  get radii(): { rx: number; ry: number } {
+    return { rx: this.rx, ry: this.ry };
+  }
+
+  /** Where each earned pad floats, in harvest order, as last built. */
+  get padSpots(): readonly { x: number; y: number; r: number }[] {
+    return this.pads;
+  }
+
   build(inp: LakeInput): void {
     this.inp = inp;
     this.pal = lakePalette(inp.tod);
@@ -370,7 +389,7 @@ export class LakeWorld {
     this.layout();
     // The ground only changes with the screen, day/night, the lake's size and the
     // groves; a new pad colour just redraws the sprites.
-    const sig = [inp.w, inp.h, inp.dpr, this.pal.night, this.pads.length, this.groveSig].join("|");
+    const sig = [inp.w, inp.h, inp.dpr, this.pal.night, this.pads.length, this.groveSig, inp.lakeScale ?? 1].join("|");
     if (sig !== this.groundSig) {
       this.groundSig = sig;
       this.dropTiles();
@@ -441,6 +460,16 @@ export class LakeWorld {
     this.reactUntil = now + 1500;
   }
 
+  /** The narrow river water, using the same inverse camera transform as taps. */
+  riverExit(): Pt { return this.stream.pts[Math.min(8, this.stream.pts.length - 1)] ?? [0, 0]; }
+
+  hitRiver(sx: number, sy: number, cam: Camera): boolean {
+    const dx = (sx - this.inp.w / 2) / cam.s, dy = (sy - this.inp.h / 2) / cam.s;
+    const c = Math.cos(-cam.rot), s = Math.sin(-cam.rot);
+    const x = dx * c - dy * s + cam.x, y = dx * s + dy * c + cam.y;
+    return this.lakeR(x, y) > 1 && this.stream.dist(x, y, 16) <= 16;
+  }
+
   /** A tap at a screen point: Havi celebrates, or the water ripples. */
   tap(sx: number, sy: number, cam: Camera, now: number): void {
     const { w, h } = this.inp;
@@ -508,21 +537,15 @@ export class LakeWorld {
   private layout(): void {
     const { w, h, count, padSpecs } = this.inp;
     const n = clamp(Math.round(count), 0, MAX_PADS);
-    const padR = clamp(Math.min(w, h) * 0.048, 22, 34);
+    const padR = padRadius(w, h);
     this.padR = padR;
-    this.homeR = Math.max(28, padR * 1.3);
+    this.homeR = homeRadius(padR);
 
-    // The lake: at least the size that suits the screen; past that it grows with
-    // the harvest, so every pad keeps its size and its room on the water.
-    let rx0 = Math.min(w * 0.42, h * 0.74);
-    const ry0 = Math.min(h * 0.38, rx0 * 1.6);
-    rx0 = Math.min(rx0, ry0 * 1.9);
+    const { rx, ry } = lakeRadii(w, h, n, this.inp.lakeScale ?? 1);
+    this.rx = rx;
+    this.ry = ry;
     const room = padR * 2.3; // centre-to-centre room per pad
     const rIn = this.homeR * 1.2 + padR; // Havi's open circle
-    const need = Math.sqrt(rIn ** 2 + n * 1.06 * room ** 2) / 0.86;
-    const grow = Math.max(1, need / Math.sqrt(rx0 * ry0));
-    const rx = (this.rx = rx0 * grow);
-    const ry = (this.ry = ry0 * grow);
     const g = Math.sqrt(rx * ry);
     this.band = clamp(padR * 0.6, 12, 22);
     const circ = TAU * Math.sqrt((rx * rx + ry * ry) / 2);
@@ -748,7 +771,7 @@ export class LakeWorld {
       const [cx, cy] = i < 3 ? [(rk() - 0.5) * padR * 2, (rk() - 0.5) * padR * 2] : inLake(0.66);
       const ax = padR * (i < 3 ? 3.4 + i * 1.3 : 2.6 + rk() * 3.2);
       const [body, patch] = KOI[i % KOI.length];
-      return {
+      const koi = {
         cx,
         cy,
         ax,
@@ -760,6 +783,15 @@ export class LakeWorld {
         patch,
         seed: i * 3.7,
       };
+      // Fit the entire orbit (including lateral drift and tail) inside water.
+      // 0.878 is the lower bound of shoreK, even between shoreline samples.
+      const margin = koi.len * 0.7 + 8;
+      const safe = Math.max(0.1, 0.878 - margin / Math.min(rx, ry) - 10 / rx);
+      const reach = Math.hypot((Math.abs(cx) + koi.ax) / rx, (Math.abs(cy) + koi.ay) / ry);
+      const fit = Math.min(1, safe / reach);
+      koi.cx *= fit; koi.cy *= fit; koi.ax *= fit; koi.ay *= fit;
+      koi.sp /= fit;
+      return koi;
     });
     this.glints = Array.from({ length: clamp(Math.round(area / 20000), 18, 600) }, () => [...inLake(0.86), rk()] as [number, number, number]);
     this.dashes = Array.from({ length: clamp(Math.round(area / 12000), 14, 900) }, () => [...inLake(0.78), rk()] as [number, number, number]);
@@ -1431,7 +1463,7 @@ export class LakeWorld {
 
   // ── A frame ───────────────────────────────────────────────────────────────
   /** Draws a frame, spending up to `budgetMs` painting missing ground tiles. */
-  draw(ctx: CanvasRenderingContext2D, cam: Camera, now: number, showHavi: boolean, budgetMs: number): void {
+  draw(ctx: CanvasRenderingContext2D, cam: Camera, now: number, showHavi: boolean, budgetMs: number, deferAir = false, cosmetics: readonly string[] = []): void {
     if (!this.base) return;
     const { w, h, dpr, reducedMotion: rm } = this.inp;
     const p = this.pal;
@@ -1452,9 +1484,9 @@ export class LakeWorld {
     this.drawGround(ctx, cam, lod);
     this.drawWater(ctx, t, now, view);
     this.drawPads(ctx, t, cam, view, Math.min(lod, 4));
-    this.drawHome(ctx, now, showHavi, Math.min(lod, 4));
+    this.drawHome(ctx, now, showHavi, Math.min(lod, 4), cosmetics);
     this.drawTrees(ctx, t, cam, view, Math.min(lod, 4), rm);
-    this.drawAir(ctx, t, rm, cam, view);
+    if (!deferAir) this.drawAir(ctx, t, rm, cam, view);
     ctx.restore();
     if (showHavi) this.drawHaviMarker(ctx, cam, t);
 
@@ -1515,6 +1547,8 @@ export class LakeWorld {
     ctx.globalAlpha = 1;
 
     // koi gliding under the surface (under the pads)
+    ctx.save();
+    ctx.clip(this.shoreAt(-2));
     for (const k of this.koi) {
       const th = k.ph + t * k.sp;
       const x = k.cx + k.ax * Math.cos(th) + Math.sin(t * 0.0007 + k.seed) * 10;
@@ -1523,6 +1557,7 @@ export class LakeWorld {
       const ang = Math.atan2(k.ay * Math.cos(th) * k.sp, -k.ax * Math.sin(th) * k.sp);
       drawKoi(ctx, x, y, ang, k.len, t, k.seed, k.body, k.patch, p.night);
     }
+    ctx.restore();
 
     // little wind ripples drifting across the water, each fading in and out
     ctx.strokeStyle = p.night ? "#bff0d8" : "#ffffff";
@@ -1620,13 +1655,14 @@ export class LakeWorld {
     ctx.globalAlpha = 1;
   }
 
-  private drawHome(ctx: CanvasRenderingContext2D, now: number, showHavi: boolean, lod: number) {
+  private drawHome(ctx: CanvasRenderingContext2D, now: number, showHavi: boolean, lod: number, cosmetics: readonly string[]) {
+    if (this.inp.hideHomePad) return;
     const { c, size } = this.homeSprite(lod);
     ctx.drawImage(c, -size / 2, -size / 2, size, size);
     if (!showHavi) return;
     const mood = now < this.reactUntil ? "celebrating" : "idle";
     const scale = clamp(this.homeR / 44, 0.62, 1.3);
-    drawGroveHavi(ctx, 0, -this.homeR * 0.12, scale, Math.floor(now / 66), mood);
+    drawGroveHavi(ctx, 0, -this.homeR * 0.12, scale, Math.floor(now / 66), mood, cosmetics);
   }
 
   // The trees stand up from the ground: each leans out from the middle of the
@@ -1660,6 +1696,18 @@ export class LakeWorld {
       const size = sp.size * (tr.r / sp.rb) * k;
       ctx.drawImage(sp.c, x - size / 2, y - size / 2, size, size);
     }
+  }
+
+  /** Group desks and flowers must be below flying creatures. */
+  drawAirLayer(ctx: CanvasRenderingContext2D, cam: Camera, now: number) {
+    if (!this.base) return;
+    const { w, h, dpr, reducedMotion } = this.inp;
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(w / 2, h / 2); ctx.rotate(cam.rot);
+    ctx.scale(cam.s, cam.s); ctx.translate(-cam.x, -cam.y);
+    this.drawAir(ctx, reducedMotion ? 0 : now, reducedMotion, cam, this.viewBox(cam));
+    ctx.restore();
   }
 
   private drawAir(ctx: CanvasRenderingContext2D, t: number, rm: boolean, cam: Camera, v: Box) {

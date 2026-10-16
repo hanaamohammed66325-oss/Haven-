@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Crop, EyeOff, Undo2, CheckCircle2, ImagePlus } from "lucide-react";
+import { Crop, EyeOff, Undo2, CheckCircle2, ImagePlus } from "@/components/motion/icons";
 import { Modal } from "./Modal";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
@@ -267,8 +268,8 @@ export function AttendanceContributeModal({ open, onClose, courseId }: { open: b
             {t(!course ? "attContrib_needCourse" : "attContrib_needImage")}
           </span>
         )}
-        <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm" style={{ color: "var(--color-muted)" }}>{t("cancel")}</button>
-        <button
+        <InteractionButton type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm" style={{ color: "var(--color-muted)" }}>{t("cancel")}</InteractionButton>
+        <InteractionButton
           type="button"
           disabled={preparing || loadingImg}
           onClick={() => {
@@ -279,19 +280,19 @@ export function AttendanceContributeModal({ open, onClose, courseId }: { open: b
           }}
           className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: "var(--color-primary)", color: "#fff" }}>
           {t("attContrib_next")}
-        </button>
+        </InteractionButton>
       </div>
     ) : step === 2 ? (
       <div className="flex justify-between gap-2">
-        <button type="button" disabled={sending} onClick={() => setStep(1)} className="rounded-lg px-4 py-2 text-sm disabled:opacity-50" style={{ color: "var(--color-muted)" }}>{t("attContrib_back")}</button>
-        <button type="button" disabled={!canSend} onClick={send}
+        <InteractionButton type="button" disabled={sending} onClick={() => setStep(1)} className="rounded-lg px-4 py-2 text-sm disabled:opacity-50" style={{ color: "var(--color-muted)" }}>{t("attContrib_back")}</InteractionButton>
+        <InteractionButton type="button" disabled={!canSend} onClick={send}
           className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: "var(--color-primary)", color: "#fff" }}>
           {sending ? t("attContrib_sending") : t("attContrib_send")}
-        </button>
+        </InteractionButton>
       </div>
     ) : (
       <div className="flex justify-end">
-        <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold" style={{ background: "var(--color-primary)", color: "#fff" }}>{t("attContrib_done")}</button>
+        <InteractionButton type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold" style={{ background: "var(--color-primary)", color: "#fff" }}>{t("attContrib_done")}</InteractionButton>
       </div>
     );
 
@@ -351,18 +352,18 @@ export function AttendanceContributeModal({ open, onClose, courseId }: { open: b
               <p className="text-xs leading-relaxed" style={{ color: "var(--color-ink)" }}>{t("attContrib_coverHint")}</p>
               <div className="flex flex-wrap items-center gap-2">
                 {(["cover", "crop"] as const).map((k) => (
-                  <button key={k} type="button" onClick={() => setTool(k)} aria-pressed={tool === k}
+                  <InteractionButton key={k} type="button" onClick={() => setTool(k)} aria-pressed={tool === k}
                     className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
                     style={tool === k ? { background: "var(--color-primary)", color: "#fff" } : { background: "var(--color-primary-soft)", color: "var(--color-primary)" }}>
                     {k === "cover" ? <EyeOff size={13} /> : <Crop size={13} />}
                     {t(k === "cover" ? "attContrib_toolCover" : "attContrib_toolCrop")}
-                  </button>
+                  </InteractionButton>
                 ))}
-                <button type="button" disabled={!covers.length && !crop}
+                <InteractionButton type="button" disabled={!covers.length && !crop}
                   onClick={() => (covers.length ? setCovers((cs) => cs.slice(0, -1)) : setCrop(null))}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40" style={{ color: "var(--color-muted)" }}>
                   <Undo2 size={13} /> {t("attContrib_undo")}
-                </button>
+                </InteractionButton>
               </div>
               <div ref={boxRef} className="relative select-none touch-none rounded-lg overflow-hidden border" style={{ borderColor: "var(--color-border)", cursor: "crosshair" }}
                 onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => setDrag(null)}>
@@ -416,11 +417,11 @@ export function AttendanceContributeModal({ open, onClose, courseId }: { open: b
             <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("attContrib_matchQ")}</span>
             <div className="flex flex-wrap gap-2">
               {(["yes", "no", "unsure"] as const).map((k) => (
-                <button key={k} type="button" onClick={() => setMatches(k)} aria-pressed={matches === k}
+                <InteractionButton key={k} type="button" onClick={() => setMatches(k)} aria-pressed={matches === k}
                   className="rounded-lg px-3.5 py-1.5 text-sm font-medium"
                   style={matches === k ? { background: "var(--color-primary)", color: "#fff" } : { background: "var(--color-primary-soft)", color: "var(--color-primary)" }}>
                   {t(k === "yes" ? "attContrib_matchYes" : k === "no" ? "attContrib_matchNo" : "attContrib_matchUnsure")}
-                </button>
+                </InteractionButton>
               ))}
             </div>
           </div>

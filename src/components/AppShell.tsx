@@ -1,17 +1,24 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
+import { NavigationDrawer } from "@/components/motion/NavigationDrawer";
+
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu } from "@/components/motion/icons";
 import { Sidebar } from "./Sidebar";
 import { Logo } from "./Logo";
 import { HaviLoader } from "./HaviLoader";
 import { ReminderToast } from "./ReminderToast";
+import { StudyReturnLifecycle } from "./study/StudyReturnBar";
+import { GroupStartCard } from "./study/GroupStartCard";
+import { StudyAwardSync } from "./study/StudyAwardSync";
 import { AchievementToast } from "./AchievementToast";
 import { WeeklyReportModal } from "./WeeklyReportModal";
 import { NotifScheduler } from "./NotifScheduler";
 import { ReturnNudge } from "./ReturnNudge";
+import { ReferralSurvey } from "./ReferralSurvey";
+import { ReferralRewardModal } from "./ReferralRewardModal";
 import { Onboarding } from "./Onboarding";
 import { WhatsNewModal } from "./WhatsNewModal";
 import { SetupCheck } from "./SetupCheck";
@@ -26,13 +33,14 @@ import { logEvent } from "@/lib/db";
 
 const STORAGE_KEY = "haven-sidebar-collapsed";
 
-// Pages that are a full-screen scene (the Pomodoro pond): they fill the space
-// under the phone's top bar edge to edge, with no padding, banners or footer.
-const SCENE_PAGES = ["/pomodoro"];
+// Pages that are a full-screen scene (the Pomodoro pond, the group study lake):
+// they fill the space under the phone's top bar edge to edge, with no padding,
+// banners or footer.
+const SCENE_PAGES = ["/pomodoro", "/study"];
 const isScenePage = (path: string | null) => !!path && SCENE_PAGES.some((p) => path === p || path.startsWith(p + "/"));
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { hydrated, loadFailed } = useStore();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -78,20 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setDrawerOpen(false);
   }, [pathname]);
 
-  // While the drawer is open: lock body scroll and allow Esc to close it.
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawerOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [drawerOpen]);
+  // NavigationDrawer owns the scroll lock and keys through its exit animation.
 
   const toggle = () =>
     setCollapsed((c) => {
@@ -133,7 +128,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ? "تحقّق من اتصالك بالإنترنت وحاول مرة أخرى"
             : "Check your connection and try again"}
         </p>
-        <button
+        <InteractionButton
           type="button"
           // A fresh page, not an in-place retry: auth caches a refresh that
           // failed on the network for a minute, and only a reload clears it.
@@ -142,7 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           style={{ marginTop: 8 }}
         >
           {lang === "ar" ? "إعادة المحاولة" : "Try again"}
-        </button>
+        </InteractionButton>
       </div>
     );
   }
@@ -156,31 +151,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar collapsed={collapsed} onToggle={toggle} />
 
       {/* Mobile nav drawer (< lg): backdrop + slide-in panel */}
-      <div
-        className={`lg:hidden fixed inset-0 z-50 ${drawerOpen ? "" : "pointer-events-none"}`}
-        aria-hidden={!drawerOpen}
-      >
-        <div
-          onClick={() => setDrawerOpen(false)}
-          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
-            drawerOpen ? "opacity-100" : "opacity-0"
-          }`}
-        />
-        <div
-          role="dialog"
-          aria-modal="true"
-          className={`absolute inset-y-0 start-0 w-[86vw] max-w-[320px] shadow-2xl transition-transform duration-300 ease-out ${
-            drawerOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"
-          }`}
-        >
-          <Sidebar mobile collapsed={false} onToggle={() => setDrawerOpen(false)} />
-        </div>
-      </div>
+      <NavigationDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label={t("openMenu")} rtl={lang === "ar"}>
+        <Sidebar mobile collapsed={false} onToggle={() => setDrawerOpen(false)} />
+      </NavigationDrawer>
 
       <main className={`haven-main flex-1 min-w-0 ${scene ? "flex flex-col" : ""}`}>
         {/* Mobile top bar (< lg) — hamburger + brand */}
         <div className="haven-topbar lg:hidden sticky top-0 z-30 flex items-center gap-2 px-3">
-          <button
+          <InteractionButton
             type="button"
             onClick={() => setDrawerOpen(true)}
             aria-label={t("openMenu")}
@@ -188,13 +166,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             style={{ color: "var(--color-ink)" }}
           >
             <Menu size={22} />
-          </button>
-          <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
+          </InteractionButton>
+          <InteractionLink href="/dashboard" className="flex items-center gap-2 min-w-0">
             <Logo size={26} mono />
             <span className="font-display text-lg truncate" style={{ color: "var(--color-ink)" }}>
               {t("appName")}
             </span>
-          </Link>
+          </InteractionLink>
         </div>
 
         {/* Generous bottom padding (+ safe-area inset) so content never touches
@@ -214,6 +192,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </main>
       <ReminderToast />
+      <StudyReturnLifecycle />
+      <GroupStartCard />
+      <StudyAwardSync />
       <AchievementToast />
       <WeeklyReportModal />
       <NotifScheduler />
@@ -222,6 +203,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SetupCheck />
       <TermCheck />
       <ReturnNudge />
+      <ReferralSurvey />
+      <ReferralRewardModal />
     </div>
   );
 }

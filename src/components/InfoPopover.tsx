@@ -1,7 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { PopoverPanel } from "@/components/motion/PopoverPanel";
 
 interface InfoPopoverProps {
   /** accessible label for the trigger button */
@@ -64,7 +66,7 @@ export function InfoPopover({ label, trigger, children }: InfoPopoverProps) {
 
   return (
     <>
-      <button
+      <InteractionButton
         ref={triggerRef}
         type="button"
         aria-label={label}
@@ -77,19 +79,17 @@ export function InfoPopover({ label, trigger, children }: InfoPopoverProps) {
         className="inline-flex items-center justify-center"
       >
         {trigger}
-      </button>
+      </InteractionButton>
 
-      {open &&
-        pos &&
-        typeof document !== "undefined" &&
+      {typeof document !== "undefined" &&
         createPortal(
-          <div
+          <PopoverPanel open={open && !!pos}
             ref={popRef}
             role="tooltip"
             className="haven-pop fixed z-[100] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed"
             style={{
-              top: pos.top,
-              left: pos.left,
+              top: pos?.top,
+              left: pos?.left,
               transform: "translateX(-50%)",
               width: 210,
               maxWidth: "80vw",
@@ -100,7 +100,7 @@ export function InfoPopover({ label, trigger, children }: InfoPopoverProps) {
             }}
           >
             {children}
-          </div>,
+          </PopoverPanel>,
           document.body
         )}
     </>

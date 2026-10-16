@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -52,7 +53,7 @@ export function SupportSection({ session }: { session: Session }) {
               onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
               style={{ ...S.input, width: 200, fontSize: 13 }}
             />
-            <button onClick={() => setShowCreate(true)} style={S.btnPrimary}>+ New ticket</button>
+            <InteractionButton onClick={() => setShowCreate(true)} style={S.btnPrimary}>+ New ticket</InteractionButton>
           </div>
         }
       />
@@ -62,13 +63,13 @@ export function SupportSection({ session }: { session: Session }) {
       <div className="flex flex-wrap gap-2 mb-4">
         <span className="text-[11px] uppercase tracking-wide me-2 self-center" style={{ color: C.textFaint }}>Status:</span>
         {[["all","All"],["open","Open"],["pending","Pending"],["resolved","Resolved"],["closed","Closed"]].map(([id, l]) => (
-          <button key={id} onClick={() => { setStatus(id); setOffset(0); }} className="rounded-full px-3 py-1 text-[12px] font-medium" style={{ background: status === id ? C.primarySoft : C.border, color: status === id ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}>{l}</button>
+          <InteractionButton key={id} onClick={() => { setStatus(id); setOffset(0); }} className="rounded-full px-3 py-1 text-[12px] font-medium" style={{ background: status === id ? C.primarySoft : C.border, color: status === id ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}>{l}</InteractionButton>
         ))}
       </div>
       <div className="flex flex-wrap gap-2 mb-4">
         <span className="text-[11px] uppercase tracking-wide me-2 self-center" style={{ color: C.textFaint }}>Priority:</span>
         {[["all","All"],["low","Low"],["normal","Normal"],["high","High"],["urgent","Urgent"]].map(([id, l]) => (
-          <button key={id} onClick={() => { setPriority(id); setOffset(0); }} className="rounded-full px-3 py-1 text-[12px] font-medium" style={{ background: priority === id ? C.primarySoft : C.border, color: priority === id ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}>{l}</button>
+          <InteractionButton key={id} onClick={() => { setPriority(id); setOffset(0); }} className="rounded-full px-3 py-1 text-[12px] font-medium" style={{ background: priority === id ? C.primarySoft : C.border, color: priority === id ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}>{l}</InteractionButton>
         ))}
       </div>
 
@@ -117,8 +118,8 @@ export function SupportSection({ session }: { session: Session }) {
             Showing {offset + 1}–{Math.min(offset + pageSize, total)} of {total.toLocaleString()}
           </span>
           <div className="flex gap-2">
-            <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))} style={{ ...S.btnSec, opacity: offset === 0 ? 0.5 : 1 }}>← Prev</button>
-            <button disabled={offset + pageSize >= total} onClick={() => setOffset(offset + pageSize)} style={{ ...S.btnSec, opacity: offset + pageSize >= total ? 0.5 : 1 }}>Next →</button>
+            <InteractionButton disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))} style={{ ...S.btnSec, opacity: offset === 0 ? 0.5 : 1 }}>← Prev</InteractionButton>
+            <InteractionButton disabled={offset + pageSize >= total} onClick={() => setOffset(offset + pageSize)} style={{ ...S.btnSec, opacity: offset + pageSize >= total ? 0.5 : 1 }}>Next →</InteractionButton>
           </div>
         </div>
       )}
@@ -171,7 +172,7 @@ function TicketModal({
             <h2 className="text-[15px] font-semibold truncate" style={{ color: C.text }}>{current.subject}</h2>
             <div className="text-[11px] mt-1" style={{ color: C.textDim }}>{current.user_email} · {fmtDateTime(current.created_at)}</div>
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5" style={{ background: C.border, color: C.text, border: "none", fontSize: 14 }}>✕</button>
+          <InteractionButton onClick={onClose} className="rounded-full p-1.5" style={{ background: C.border, color: C.text, border: "none", fontSize: 14 }}>✕</InteractionButton>
         </div>
 
         {/* Controls */}
@@ -221,9 +222,9 @@ function TicketModal({
             style={{ ...S.input, resize: "vertical", fontFamily: "inherit" }}
           />
           <div className="flex justify-end mt-2">
-            <button onClick={sendReply} disabled={saving || !reply.trim()} style={{ ...S.btnPrimary, opacity: (!reply.trim() || saving) ? 0.5 : 1 }}>
+            <InteractionButton onClick={sendReply} disabled={saving || !reply.trim()} style={{ ...S.btnPrimary, opacity: (!reply.trim() || saving) ? 0.5 : 1 }}>
               {saving ? "…" : "Send reply"}
-            </button>
+            </InteractionButton>
           </div>
         </div>
       </div>
@@ -260,7 +261,7 @@ function CreateTicketModal({
       <div className="w-full max-w-lg rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()} style={{ background: C.bg, border: `1px solid ${C.border}` }}>
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: C.border }}>
           <h2 className="text-[15px] font-semibold" style={{ color: C.text }}>New support ticket</h2>
-          <button onClick={onClose} style={{ background: C.border, color: C.text, border: "none", borderRadius: 999, padding: 6, fontSize: 14 }}>✕</button>
+          <InteractionButton onClick={onClose} style={{ background: C.border, color: C.text, border: "none", borderRadius: 999, padding: 6, fontSize: 14 }}>✕</InteractionButton>
         </div>
         <form onSubmit={submit} className="p-5 space-y-4">
           <div><label style={S.label}>Customer email *</label><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} style={S.input} /></div>
@@ -283,8 +284,8 @@ function CreateTicketModal({
           <div><label style={S.label}>First message (as user)</label><textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} style={{ ...S.input, resize: "vertical", fontFamily: "inherit" }} /></div>
           {error && <p className="text-[12px]" style={{ color: C.danger }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} style={S.btnSec}>Cancel</button>
-            <button type="submit" disabled={saving} style={{ ...S.btnPrimary, opacity: saving ? 0.5 : 1 }}>{saving ? "…" : "Create ticket"}</button>
+            <InteractionButton type="button" onClick={onClose} style={S.btnSec}>Cancel</InteractionButton>
+            <InteractionButton type="submit" disabled={saving} style={{ ...S.btnPrimary, opacity: saving ? 0.5 : 1 }}>{saving ? "…" : "Create ticket"}</InteractionButton>
           </div>
         </form>
       </div>

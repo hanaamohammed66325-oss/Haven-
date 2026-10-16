@@ -1,5 +1,6 @@
+
+import { InteractionLink } from "@/components/motion/Interaction";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 /**
  * Offline fallback — the service worker serves this when a page navigation
@@ -27,12 +28,12 @@ export default function OfflinePage() {
       <p className="text-sm mb-8" style={{ color: "var(--color-muted)" }}>
         You&rsquo;re offline. Your saved data is safe and will sync once you&rsquo;re back online.
       </p>
-      <Link
+      <InteractionLink
         href="/dashboard"
         className="haven-btn px-5 py-2.5 rounded-xl text-sm font-medium"
       >
         إعادة المحاولة · Try again
-      </Link>
+      </InteractionLink>
     </div>
   );
 }

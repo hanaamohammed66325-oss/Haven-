@@ -1,6 +1,7 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
-import { Pause, Play, SkipForward } from "lucide-react";
+import { Pause, Play, SkipForward } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { phaseOf, type TimerState } from "@/lib/pomodoro/timerEngine";
 import { GLASS, ACTION, ON_SCENE } from "./glass";
@@ -28,27 +29,27 @@ export function TimerControls({ timer, onStart, onPause, onResume, onAbandon, on
   return (
     <div className="flex flex-col items-center gap-2.5">
       {idle && (
-        <button onClick={onStart} data-tour="pom-start" className={big} style={ACTION}>
+        <InteractionButton onClick={onStart} data-tour="pom-start" className={big} style={ACTION}>
           <Play size={17} fill="currentColor" />
           {t("pom_start")}
-        </button>
+        </InteractionButton>
       )}
       {timer.phase === "focus" && (
-        <button onClick={onPause} className={big} style={GLASS}>
+        <InteractionButton onClick={onPause} className={big} style={GLASS}>
           <Pause size={17} />
           {t("pom_pause")}
-        </button>
+        </InteractionButton>
       )}
       {pausedFocus && (
         <>
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <button onClick={onResume} className={big} style={ACTION}>
+            <InteractionButton onClick={onResume} className={big} style={ACTION}>
               <Play size={17} fill="currentColor" />
               {t("pom_resume")}
-            </button>
-            <button onClick={onAbandon} className={small} style={{ ...GLASS, color: "#ffc4b8" }}>
+            </InteractionButton>
+            <InteractionButton onClick={onAbandon} className={small} style={{ ...GLASS, color: "#ffc4b8" }}>
               {t("pom_abandon")}
-            </button>
+            </InteractionButton>
           </div>
           <p className="text-xs" style={ON_SCENE}>
             {t("pom_endHint")}
@@ -57,20 +58,20 @@ export function TimerControls({ timer, onStart, onPause, onResume, onAbandon, on
       )}
       {breakWaiting && (
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <button onClick={onResume} className={big} style={ACTION}>
+          <InteractionButton onClick={onResume} className={big} style={ACTION}>
             <Play size={17} fill="currentColor" />
             {t("pom_startBreak")}
-          </button>
-          <button onClick={onSkipBreak} className={small} style={GLASS}>
+          </InteractionButton>
+          <InteractionButton onClick={onSkipBreak} className={small} style={GLASS}>
             {t("pom_skipBreak")}
-          </button>
+          </InteractionButton>
         </div>
       )}
       {onBreak && (
-        <button onClick={onSkipBreak} className={big} style={GLASS}>
+        <InteractionButton onClick={onSkipBreak} className={big} style={GLASS}>
           <SkipForward size={17} />
           {t("pom_skipBreak")}
-        </button>
+        </InteractionButton>
       )}
     </div>
   );

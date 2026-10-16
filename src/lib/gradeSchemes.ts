@@ -319,8 +319,9 @@ function normalize(raw: string): string {
 // A bare "ال" (from "الجامعة") once made "الجامعة الأردنية" match the Saudi
 // Electronic University ("الجامعة السعودية الإلكترونية").
 // "في"/"al"/"el" join names ("الجامعة الأمريكية في دبي", "Al Baha University")
-// and are often left out when a student types them.
-const STOPWORDS = new Set(["of", "the", "for", "and", "in", "at", "al", "el", "bin", "bint", "ال", "في"]);
+// and are often left out when a student types them. "بن"/"بنت" as their Latin
+// "bin"/"bint": shared, they once made "الأمير مساعد بن عبدالرحمن" Prince Sattam.
+const STOPWORDS = new Set(["of", "the", "for", "and", "in", "at", "al", "el", "bin", "bint", "ال", "في", "بن", "بنت"]);
 // Words many institutions share (after normalize): one of these alone never
 // identifies a university.
 const GENERIC = new Set([
@@ -328,7 +329,14 @@ const GENERIC = new Set([
   "الملك", "الامير", "الاميره", "الامام", "للعلوم", "العلوم", "الطبيه", "الصحيه", "التقنيه", "والتقنيه",
   "كليات", "private", "international", "national", "american", "arab", "islamic", "king", "prince",
   "princess", "imam", "science", "sciences", "technology", "medical", "health",
+  // A city or a kind of study is no evidence either: "كلية التقنية الرياض" is
+  // not the Riyadh University for Arts, "كلية التقنية التطبيقية" not Alghad.
+  "التطبيقيه", "applied", "الرياض", "riyadh",
 ]);
+// Universities outside our list whose names come close to one in it: never
+// matched to a listed (Saudi) university. Al-Madinah International University
+// is in Malaysia, not the Islamic University of Madinah.
+const NOT_LISTED = ["Al-Madinah International", "MEDIU", "جامعة المدينة العالمية"];
 // A name picked with its country ("… (عُمان)", lib/universityPick) is matched
 // without it; the country then narrows which university it is.
 const tokenize = (s: string): string[] =>
@@ -348,6 +356,7 @@ export function matchUniversityByName(name: string): University | undefined {
   const qTokens = tokenize(name);
   if (!qTokens.length) return undefined;
   const q = new Set(qTokens);
+  if (NOT_LISTED.some((n) => tokenize(n).every((t) => q.has(t)))) return undefined;
 
   let best: { u: University; score: number } | null = null;
   for (const u of UNIVERSITIES) {
@@ -355,9 +364,10 @@ export function matchUniversityByName(name: string): University | undefined {
     const hay = new Set(tokenize([u.name, u.nameEn, ...(u.aliases ?? [])].join(" ")));
     let inter = 0;
     for (const tk of q) if (hay.has(tk)) inter++;
-    // A single shared GENERIC word ("جامعة النجوم الأهلية" vs "كليات الريان
-    // الأهلية") is no evidence; a distinctive one ("طيبة") still counts.
-    if (!inter || (inter === 1 && q.size > 1 && [...q].some((tk) => hay.has(tk) && GENERIC.has(tk)))) continue;
+    // Shared GENERIC words alone ("جامعة النجوم الأهلية" vs "كليات الريان
+    // الأهلية"; "Sudan University of Science and Technology" vs KAUST) are no
+    // evidence; a distinctive one ("طيبة") is needed.
+    if (!inter || (q.size > 1 && ![...q].some((tk) => hay.has(tk) && !GENERIC.has(tk)))) continue;
     // Coverage of the shorter side rewards a full acronym/short-name hit.
     const score = inter / Math.min(q.size, hay.size || 1);
     if (score > (best?.score ?? 0)) best = { u, score };

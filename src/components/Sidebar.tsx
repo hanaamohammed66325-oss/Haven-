@@ -1,7 +1,8 @@
 "use client";
+import { CollapseBody } from "./Collapsible";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -20,13 +21,16 @@ import {
   ChevronsRight,
   ChevronDown,
   X,
-} from "lucide-react";
+} from "@/components/motion/icons";
 import { Logo } from "./Logo";
+import { RewardThemeMotion, isRewardTheme } from "./RewardThemeMotion";
+import { selectedRewardMotion } from "@/lib/rewardMotions";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
 import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES, hasActiveAccess } from "@/lib/premium";
 import { POMODORO_ENABLED } from "@/lib/featureFlags";
+import { StudyReturnBar } from "./study/StudyReturnBar";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface NavItem {
@@ -102,8 +106,9 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
   }
 
   return (
-    <Link
+    <InteractionLink
       href={item.href}
+      aria-current={active ? "page" : undefined}
       className={`haven-nav-item relative flex items-center rounded-xl text-sm font-medium ${base} ${
         active ? "haven-nav-active text-white" : "text-[rgba(231,239,240,0.7)] hover:text-white"
       } group`}
@@ -117,7 +122,7 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
       <Icon size={18} style={active ? { color: "var(--color-brass)" } : undefined} />
       {!collapsed && <span>{label}</span>}
       {collapsed && <Tooltip>{label}</Tooltip>}
-    </Link>
+    </InteractionLink>
   );
 }
 
@@ -135,7 +140,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const { t, lang } = useT();
-  const { language, setLanguage, profileName, email, profilePhoto, attendanceEnabled } = useStore();
+  const { language, setLanguage, profileName, email, profilePhoto, attendanceEnabled, theme, rewardMotionChoices } = useStore();
   const { sub, profile } = useSubscription();
   // Go Premium is only relevant to users who could still benefit from
   // subscribing. Hide it for anyone who already has full access — VIP, an active
@@ -209,18 +214,19 @@ export function Sidebar({
             }
       }
     >
+      {isRewardTheme(theme) && selectedRewardMotion(theme, rewardMotionChoices) !== "lotus" && <RewardThemeMotion theme={theme} motion={selectedRewardMotion(theme, rewardMotionChoices)} />}
       {/* Brand + toggle */}
       {collapsed ? (
         <div className="flex flex-col items-center gap-3">
           <Logo size={32} mono />
-          <button
+          <InteractionButton
             onClick={onToggle}
             aria-label={t("expandSidebar")}
             className="haven-nav-item flex items-center justify-center h-9 w-9 rounded-lg"
             style={{ color: "rgba(231,239,240,0.65)" }}
           >
             <ChevronsRight size={18} className="rtl:rotate-180" />
-          </button>
+          </InteractionButton>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2 px-1">
@@ -228,14 +234,14 @@ export function Sidebar({
             <Logo size={34} mono />
             <span className="font-display text-2xl text-white truncate">{t("appName")}</span>
           </div>
-          <button
+          <InteractionButton
             onClick={onToggle}
             aria-label={mobile ? t("closeMenu") : t("collapseSidebar")}
             className="haven-nav-item flex items-center justify-center h-9 w-9 rounded-lg shrink-0"
             style={{ color: "rgba(231,239,240,0.6)" }}
           >
             {mobile ? <X size={20} /> : <ChevronsLeft size={18} className="rtl:rotate-180" />}
-          </button>
+          </InteractionButton>
         </div>
       )}
 
@@ -257,6 +263,7 @@ export function Sidebar({
         {MENU.filter((item) => attendanceEnabled || item.href !== "/attendance").map((item) => (
           <NavRow key={item.href} item={item} active={pathname === item.href} collapsed={collapsed} />
         ))}
+        <StudyReturnBar collapsed={collapsed} onNavigate={mobile ? onToggle : undefined} />
       </nav>
 
       {/* hairline divider */}
@@ -273,21 +280,21 @@ export function Sidebar({
       {/* Bottom group */}
       <div className="mt-auto flex flex-col gap-4 pt-8">
         {!hideGoPremium && (collapsed ? (
-          <Link
+          <InteractionLink
             href="/premium"
             aria-label={t("premiumTitle")}
             className="haven-upgrade-btn group relative mx-auto flex items-center justify-center h-11 w-11 rounded-xl hover:-translate-y-0.5"
           >
             <Sparkles size={18} />
             <Tooltip>{t("premiumTitle")}</Tooltip>
-          </Link>
+          </InteractionLink>
         ) : (
           // Expanded sidebar: collapsible Go Premium card. The brass pill is
           // always the header/toggle; the full card body drops down beneath it
           // with a grid-rows height animation (the global reduced-motion rule
           // snaps it instantly). Collapsed = just the pill, nothing else.
           <div className="flex flex-col">
-            <button
+            <InteractionButton
               type="button"
               onClick={togglePremiumCard}
               aria-expanded={premiumCardOpen}
@@ -303,16 +310,9 @@ export function Sidebar({
                   style={{ transform: "rotate(180deg)" }}
                 />
               )}
-            </button>
+            </InteractionButton>
 
-            <div
-              aria-hidden={!premiumCardOpen}
-              style={{
-                display: "grid",
-                gridTemplateRows: premiumCardOpen ? "1fr" : "0fr",
-                transition: "grid-template-rows 0.3s cubic-bezier(0.22,1,0.36,1)",
-              }}
-            >
+            <CollapseBody open={premiumCardOpen}>
               <div style={{ overflow: "hidden", minHeight: 0 }}>
                 <div className="haven-premium-card relative overflow-hidden rounded-2xl p-4 mt-3">
                   <span
@@ -330,7 +330,7 @@ export function Sidebar({
                       {PLANS.map((p) => {
                         const selected = plan === p.id;
                         return (
-                          <button
+                          <InteractionButton
                             key={p.id}
                             type="button"
                             role="radio"
@@ -362,7 +362,7 @@ export function Sidebar({
                             <div className="mt-1 text-[10px]" style={{ color: "rgba(231,239,240,0.6)" }}>
                               {t(p.perMonthKey as TranslationKey)}
                             </div>
-                          </button>
+                          </InteractionButton>
                         );
                       })}
                     </div>
@@ -375,22 +375,22 @@ export function Sidebar({
                         </li>
                       ))}
                     </ul>
-                    <Link
+                    <InteractionLink
                       href="/premium"
                       className="haven-upgrade-btn block w-full rounded-xl py-2.5 text-center text-sm font-semibold hover:-translate-y-0.5 hover:brightness-105"
                     >
                       {t("premiumCta")}
-                    </Link>
+                    </InteractionLink>
                   </div>
                 </div>
               </div>
-            </div>
+            </CollapseBody>
           </div>
         ))}
 
         {/* Language toggle */}
         {collapsed ? (
-          <button
+          <InteractionButton
             onClick={() => setLanguage(language === "en" ? "ar" : "en")}
             aria-label={lang === "en" ? t("switchToArabic") : t("switchToEnglish")}
             className="haven-nav-item group relative mx-auto flex items-center justify-center h-11 w-11 rounded-xl"
@@ -398,21 +398,28 @@ export function Sidebar({
           >
             <Globe size={18} />
             <Tooltip>{lang === "en" ? t("switchToArabic") : t("switchToEnglish")}</Tooltip>
-          </button>
+          </InteractionButton>
         ) : (
-          <button
+          <InteractionButton
             onClick={() => setLanguage(language === "en" ? "ar" : "en")}
             className="haven-nav-item inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg text-xs font-medium"
             style={{ color: "rgba(231,239,240,0.75)", border: "1px solid rgba(255,255,255,0.1)" }}
           >
             <Globe size={14} />
             <span>{lang === "en" ? t("switchToArabic") : t("switchToEnglish")}</span>
-          </button>
+          </InteractionButton>
+        )}
+
+        {/* Reserve real layout space so the bloom never covers either control. */}
+        {isRewardTheme(theme) && selectedRewardMotion(theme, rewardMotionChoices) === "lotus" && (
+          <div aria-hidden="true" data-reward-lotus-slot className="relative h-16 w-full shrink-0 overflow-hidden">
+            <RewardThemeMotion theme={theme} motion="lotus" />
+          </div>
         )}
 
         {/* Profile area */}
         {collapsed ? (
-          <Link
+          <InteractionLink
             href="/profile"
             aria-label={profileName || t("nav_profile")}
             className={`haven-nav-item group relative mx-auto flex items-center justify-center rounded-xl ${
@@ -422,9 +429,9 @@ export function Sidebar({
           >
             {avatar(40)}
             <Tooltip>{profileName || t("nav_profile")}</Tooltip>
-          </Link>
+          </InteractionLink>
         ) : (
-          <Link
+          <InteractionLink
             href="/profile"
             className={`haven-nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl ${
               pathname === "/profile" ? "haven-nav-active" : ""
@@ -440,7 +447,7 @@ export function Sidebar({
                 {email || t("nav_profile")}
               </span>
             </span>
-          </Link>
+          </InteractionLink>
         )}
       </div>
     </aside>

@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // TermCheck — the end-of-term window: "does our semester GPA match your
 // portal?". A mismatch gets an apology and an opt-in consent, then we work out
@@ -10,9 +11,9 @@
 // Profile page line to edit results or withdraw consent) and TermCheckFlow (the
 // window's contents, reused by the local test station).
 
-import { hasSeenWhatsNew } from "@/lib/whatsNew";
+import { useWhatsNewReady } from "./useWhatsNewReady";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Calculator, CheckCircle2, History, Pencil, Plus, Trash2, TrendingUp, X } from "lucide-react";
+import { AlertCircle, Calculator, CheckCircle2, History, Pencil, Plus, Trash2, TrendingUp, X } from "@/components/motion/icons";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { Modal } from "./Modal";
@@ -68,6 +69,7 @@ export function openTermCheck(step: Start = "ask") {
 export function TermCheck() {
   const store = useStore();
   const { hydrated, onboardingSeen } = store;
+  const whatsNewReady = useWhatsNewReady(store.accountId, store.whatsNewSeen ?? {});
   const { t } = useT();
   const [start, setStart] = useState<Start | null>(null);
 
@@ -99,7 +101,7 @@ export function TermCheck() {
     if (readSession(SESSION_SKIP_KEY) === "1") return;
     // Never on top of the What's-New popup or an unfinished setup window.
     try {
-      if (!hasSeenWhatsNew(store.whatsNewSeen ?? {})) return;
+      if (!whatsNewReady) return;
     } catch {
       return;
     }
@@ -108,7 +110,7 @@ export function TermCheck() {
     return () => window.clearTimeout(id);
     // Evaluated once the app is ready — not on every store change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, onboardingSeen, store.accountId, store.whatsNewSeen]);
+  }, [hydrated, onboardingSeen, store.accountId, store.whatsNewSeen, whatsNewReady]);
 
   if (!start) return null;
   const close = () => {
@@ -312,9 +314,9 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
             </p>
             <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
               {t("tc_cumFrom", { gpa: fmt(cumulativeGpa), hours: cumulativeHours })}{" "}
-              <button type="button" onClick={() => setCumEdit(true)} className="underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
+              <InteractionButton type="button" onClick={() => setCumEdit(true)} className="underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
                 {t("tc_cumEditBefore")}
-              </button>
+              </InteractionButton>
             </p>
           </>
         ) : (
@@ -384,7 +386,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
               <>
                 <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
                   {t("tc_cumFrom", { gpa: fmt(cumSaved.before), hours: cumSaved.hours })}{" "}
-                  <button
+                  <InteractionButton
                     type="button"
                     onClick={() => {
                       setBeforeRaw(cumSaved.before.toFixed(cumSaved.beforeDecimals ?? 2));
@@ -396,7 +398,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                     style={{ color: "var(--color-primary)" }}
                   >
                     {t("tc_cumCheckBefore")}
-                  </button>
+                  </InteractionButton>
                 </p>
                 {!termCheck?.consent && (
                   <label className="mt-4 flex items-start gap-2.5 cursor-pointer">
@@ -604,14 +606,14 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           <Primary onClick={yes}>{t("tc_guessYes")}</Primary>
           <Secondary onClick={no}>{t("tc_guessNo")}</Secondary>
         </div>
-        <button
+        <InteractionButton
           type="button"
           onClick={() => setStep("grades")}
           className="mt-4 text-xs underline underline-offset-2"
           style={{ color: "var(--color-primary)" }}
         >
           {t("tc_enterAll")}
-        </button>
+        </InteractionButton>
       </>
     );
   }
@@ -918,14 +920,14 @@ export function TermCheckProfileCard({ onOpen = openTermCheck }: { onOpen?: (ste
             <p className="text-[13px] leading-relaxed" style={{ color: "var(--color-ink)" }}>
               {t("tc_profileConsent")}
             </p>
-            <button
+            <InteractionButton
               type="button"
               onClick={withdraw}
               className="mt-2 text-xs font-medium underline underline-offset-2"
               style={{ color: "var(--color-danger)" }}
             >
               {t("tc_profileWithdraw")}
-            </button>
+            </InteractionButton>
           </div>
         )}
         {withdrawn && !termCheck?.consent && (
@@ -1006,11 +1008,11 @@ function PastTerms() {
                     </Pill>
                   )}
                   {!p.consent && p.reason && (
-                    <button type="button" onClick={() => setSharing(p)} className="text-xs underline" style={{ color: "var(--color-primary)" }}>
+                    <InteractionButton type="button" onClick={() => setSharing(p)} className="text-xs underline" style={{ color: "var(--color-primary)" }}>
                       {t("gpa_shareDetails")}
-                    </button>
+                    </InteractionButton>
                   )}
-                  <button
+                  <InteractionButton
                     type="button"
                     onClick={() => setEditing(p)}
                     aria-label={t("pt_edit")}
@@ -1018,8 +1020,8 @@ function PastTerms() {
                     style={{ color: "var(--color-muted)" }}
                   >
                     <Pencil size={14} />
-                  </button>
-                  <button
+                  </InteractionButton>
+                  <InteractionButton
                     type="button"
                     onClick={() => remove(p, i)}
                     aria-label={t("pt_delete")}
@@ -1027,7 +1029,7 @@ function PastTerms() {
                     style={{ color: "var(--color-muted)" }}
                   >
                     <Trash2 size={14} />
-                  </button>
+                  </InteractionButton>
                 </li>
               );
             })}
@@ -1036,9 +1038,9 @@ function PastTerms() {
         {removed && (
           <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
             {t("pt_deleted")}{" "}
-            <button type="button" onClick={undo} className="underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
+            <InteractionButton type="button" onClick={undo} className="underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
               {t("pt_undo")}
-            </button>
+            </InteractionButton>
           </p>
         )}
 
@@ -1275,14 +1277,14 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
                     </Secondary>
                   ))}
                 </div>
-                <button
+                <InteractionButton
                   type="button"
                   onClick={() => setSaved(null)}
                   className="mt-4 text-xs underline underline-offset-2"
                   style={{ color: "var(--color-primary)" }}
                 >
                   {t("pt_backToEdit")}
-                </button>
+                </InteractionButton>
               </>
             )}
             {reasonDone && !saved.consent && (
@@ -1398,7 +1400,7 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
                 style={fieldStyle}
               />
             )}
-            <button
+            <InteractionButton
               type="button"
               onClick={() => setRows((rs) => (rs.length > 1 ? rs.filter((x) => x.key !== r.key) : rs))}
               aria-label={t("pt_removeRow")}
@@ -1406,12 +1408,12 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
               style={{ color: "var(--color-muted)" }}
             >
               <X size={14} />
-            </button>
+            </InteractionButton>
           </div>
         ))}
       </div>
       {rows.length < 20 && (
-        <button
+        <InteractionButton
           type="button"
           onClick={() => setRows((rs) => [...rs, blankRow()])}
           className="mt-2 inline-flex items-center gap-1 text-xs font-medium"
@@ -1419,7 +1421,7 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
         >
           <Plus size={13} />
           {t("pt_addRow")}
-        </button>
+        </InteractionButton>
       )}
       {!scheme.percent && (
         <p className="text-[11.5px] mt-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
@@ -1531,35 +1533,35 @@ function Footer({ children }: { children: React.ReactNode }) {
 
 function Primary({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className="haven-btn rounded-xl px-5 py-2 text-sm font-semibold">
+    <InteractionButton type="button" onClick={onClick} className="haven-btn rounded-xl px-5 py-2 text-sm font-semibold">
       {children}
-    </button>
+    </InteractionButton>
   );
 }
 
 function Secondary({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={onClick}
       className="rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:bg-black/5"
       style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
     >
       {children}
-    </button>
+    </InteractionButton>
   );
 }
 
 function Ghost({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={onClick}
       className="rounded-xl px-4 py-2 text-sm font-medium"
       style={{ color: "var(--color-muted)" }}
     >
       {children}
-    </button>
+    </InteractionButton>
   );
 }
 

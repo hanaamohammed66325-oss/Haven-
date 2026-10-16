@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle, ChevronDown } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { InfoPopover } from "./InfoPopover";
 

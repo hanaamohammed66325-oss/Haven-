@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { addDays, hijriParts, hijriMonthStart, hijriDaysInMonth } from "@/lib/dates";
 import type { CalendarType } from "@/types";
@@ -65,12 +66,12 @@ export function MiniCalendar({ calendar = "gregorian" }: { calendar?: CalendarTy
           {monthLabel}
         </span>
         <div className="flex items-center gap-1">
-          <button onClick={goPrev} className="rounded-lg p-1.5 transition-colors hover:bg-black/5" aria-label="Previous month">
+          <InteractionButton onClick={goPrev} className="rounded-lg p-1.5 transition-colors hover:bg-black/5" aria-label="Previous month">
             <ChevronLeft size={16} className="rtl:rotate-180" style={{ color: "var(--color-muted)" }} />
-          </button>
-          <button onClick={goNext} className="rounded-lg p-1.5 transition-colors hover:bg-black/5" aria-label="Next month">
+          </InteractionButton>
+          <InteractionButton onClick={goNext} className="rounded-lg p-1.5 transition-colors hover:bg-black/5" aria-label="Next month">
             <ChevronRight size={16} className="rtl:rotate-180" style={{ color: "var(--color-muted)" }} />
-          </button>
+          </InteractionButton>
         </div>
       </div>
 

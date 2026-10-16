@@ -1,7 +1,7 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
-import Link from "next/link";
-import { Globe } from "lucide-react";
+import { Globe } from "@/components/motion/icons";
 import { Logo } from "./Logo";
 import { Footer } from "./Footer";
 import { useStore } from "@/store";
@@ -22,21 +22,21 @@ export function AuthLayout({
   return (
     <div className="haven-safe-top relative min-h-dvh flex flex-col px-5">
       {/* Language toggle */}
-      <button
+      <InteractionButton
         onClick={() => setLanguage(language === "en" ? "ar" : "en")}
         className="surface-card absolute top-5 end-5 inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium z-10"
         style={{ color: "var(--color-ink)" }}
       >
         <Globe size={15} />
         <span className="hidden sm:inline">{lang === "en" ? t("switchToArabic") : t("switchToEnglish")}</span>
-      </button>
+      </InteractionButton>
 
       {/* Centered brand + card */}
       <div className="flex flex-1 flex-col items-center justify-center py-12">
-        <Link href="/" className="haven-fade-up flex items-center gap-3 mb-8">
+        <InteractionLink href="/" className="haven-fade-up flex items-center gap-3 mb-8">
           <Logo size={40} mono />
           <span className="font-display text-3xl" style={{ color: "var(--color-ink)" }}>{t("appName")}</span>
-        </Link>
+        </InteractionLink>
 
         <div
           className="haven-fade-up surface-card w-full max-w-md rounded-3xl p-8 sm:p-10"

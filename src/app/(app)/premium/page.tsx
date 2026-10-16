@@ -1,8 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Sparkles, Loader2 } from "lucide-react";
+import { Check, Sparkles, Loader2 } from "@/components/motion/icons";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { Footer } from "@/components/Footer";
@@ -147,14 +148,14 @@ function PremiumPageInner() {
               {/* Action area, driven by access state */}
               <div className="mt-6 pt-4 border-t" style={{ borderColor: "var(--color-border)" }}>
                 {vip ? (
-                  <button
+                  <InteractionButton
                     type="button"
                     disabled
                     className="w-full rounded-xl py-2.5 text-sm font-semibold cursor-not-allowed"
                     style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)", opacity: 0.85 }}
                   >
                     {t("premiumPermanentPlan")}
-                  </button>
+                  </InteractionButton>
                 ) : canSwitch ? (
                   p.cycle === currentCycle ? (
                     <div
@@ -165,7 +166,7 @@ function PremiumPageInner() {
                       {t("premiumCurrentPlan")}
                     </div>
                   ) : (
-                    <button
+                    <InteractionButton
                       type="button"
                       onClick={() => onSwitch(p.cycle as PlanCycle)}
                       disabled={switching}
@@ -177,17 +178,17 @@ function PremiumPageInner() {
                         <Sparkles size={16} />
                       )}
                       {pendingCycle === p.cycle ? t("subUpdating") : t("subSwitchToPlan")}
-                    </button>
+                    </InteractionButton>
                   )
                 ) : (
-                  <button
+                  <InteractionButton
                     type="button"
                     onClick={() => onSubscribe(p.cycle)}
                     className="haven-btn w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold"
                   >
                     <Sparkles size={16} />
                     {t("premiumStartFree")}
-                  </button>
+                  </InteractionButton>
                 )}
               </div>
             </Card>

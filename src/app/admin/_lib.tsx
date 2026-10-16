@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Shared helpers, styles, and reusable UI for the admin dashboard.
 // Theme-aware — call `useC()` inside components to react to the theme toggle.
@@ -243,7 +244,7 @@ export function ClickableCard({
   const c = useC();
   if (!onClick) return <div className={className} style={style}>{children}</div>;
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={onClick}
       className={`${className ?? ""} group relative text-start w-full transition-shadow hover:shadow-md`}
@@ -256,7 +257,7 @@ export function ClickableCard({
       >
         <span className="hidden lg:inline">View users </span>→
       </span>
-    </button>
+    </InteractionButton>
   );
 }
 
@@ -327,7 +328,7 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: (
   return (
     <div className="rounded-xl border p-4 mb-4 flex items-center justify-between gap-3" style={{ borderColor: c.tint(c.danger, "44"), background: c.dangerBg }}>
       <p className="text-[13px]" style={{ color: c.danger }}>{message}</p>
-      {onRetry && <button onClick={onRetry} className="text-[12px] px-3 py-1.5 rounded-lg font-medium shrink-0" style={{ background: c.border, color: c.text, border: "none", cursor: "pointer" }}>Retry</button>}
+      {onRetry && <InteractionButton onClick={onRetry} className="text-[12px] px-3 py-1.5 rounded-lg font-medium shrink-0" style={{ background: c.border, color: c.text, border: "none", cursor: "pointer" }}>Retry</InteractionButton>}
     </div>
   );
 }

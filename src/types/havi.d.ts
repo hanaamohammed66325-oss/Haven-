@@ -32,6 +32,9 @@ declare global {
       poke: () => void;
       /** recompute placement after cards mount / change */
       refresh: () => void;
+      /** Card occupied by the roaming mascot, and its actual transformed bounds. */
+      currentCard?: () => Element | null;
+      bounds?: () => DOMRect | null;
       /** relocate Havi to an element or CSS selector */
       goTo: (elOrSelector: Element | string) => void;
       /** hop Havi to an element or selector, leaning left/right (v6) */

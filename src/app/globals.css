@@ -591,7 +591,106 @@ html[data-theme="ocean"] {
   background-color: #e6edf3;
 }
 
-/* 8) Mono — calm neutral greyscale */
+/* 8) Platinum — exclusive ambassador reward (unlocked at 5 referrals) */
+html[data-theme="aurora"] {
+  --color-primary: #34465f;
+  --color-primary-dark: #233249;
+  --color-primary-soft: #e5eaf1;
+  --color-sidebar: #d0d6df;
+  --color-brass: #82745f;
+  --color-brass-soft: #eeeae3;
+  --color-warning: #b87529;
+  --color-danger: #c44f58;
+  --color-success: #43816b;
+  --color-ink: #263348;
+  --color-muted: #687487;
+  --color-surface: #fafbfd;
+  --color-canvas: #edf0f5;
+  --color-border: rgba(52, 70, 95, 0.13);
+  --shadow-card: 0 4px 24px rgba(39, 54, 77, 0.06);
+  --shadow-card-hover: 0 16px 44px rgba(39, 54, 77, 0.11);
+  --grad-primary: linear-gradient(135deg, #435771 0%, #25354d 100%);
+  --app-bg:
+    radial-gradient(900px 650px at 10% 0%, rgba(255, 255, 255, 0.8) 0%, transparent 65%),
+    linear-gradient(145deg, #f4f6fa 0%, #e8edf4 55%, #f2f4f8 100%);
+  background-color: #edf0f5;
+}
+html[data-theme="aurora"] .haven-sidebar {
+  color: var(--color-ink);
+  background: linear-gradient(115deg, #e5e9ef 0%, #c8cfd9 30%, #edf0f5 56%, #d5dbe4 100%);
+  border-inline-end: 1px solid rgba(52, 70, 95, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 4px 0 24px rgba(39, 54, 77, 0.07);
+}
+html[data-theme="aurora"] .haven-sidebar .text-white,
+html[data-theme="aurora"] .haven-sidebar .haven-nav-item {
+  color: var(--color-ink);
+}
+html[data-theme="aurora"] .haven-sidebar [style*="color: rgba(231"] {
+  color: var(--color-muted) !important;
+}
+html[data-theme="aurora"] .haven-sidebar .haven-nav-active {
+  background: linear-gradient(135deg, #fafbfd 0%, #dce2eb 100%);
+  box-shadow: inset 0 0 0 1px rgba(52, 70, 95, 0.15), 0 3px 10px rgba(39, 54, 77, 0.07);
+}
+html[data-theme="aurora"] .haven-sidebar .haven-nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.45);
+}
+
+/* 9) Coral — slate and berry reward palette (unlocked at 10 referrals) */
+html[data-theme="coral"] {
+  --color-primary: #4d557a;
+  --color-primary-dark: #39415f;
+  --color-primary-soft: #e9ebf4;
+  --color-sidebar: #4b5377;
+  --color-brass: #f39a8d;
+  --color-brass-soft: #fce9e5;
+  --color-warning: #ad712d;
+  --color-danger: #c45462;
+  --color-success: #477d69;
+  --color-ink: #30374e;
+  --color-muted: #6f7285;
+  --color-surface: #ffffff;
+  --color-canvas: #f1f1f7;
+  --color-border: rgba(77, 85, 122, 0.12);
+  --shadow-card: 0 4px 24px rgba(63, 68, 99, 0.06);
+  --shadow-card-hover: 0 16px 44px rgba(63, 68, 99, 0.11);
+  --grad-primary: linear-gradient(135deg, #596184 0%, #3e4668 100%);
+  --app-bg:
+    radial-gradient(1000px 700px at 0% 0%, rgba(77, 85, 122, 0.08) 0%, transparent 65%),
+    radial-gradient(850px 650px at 100% 100%, rgba(161, 96, 119, 0.07) 0%, transparent 65%),
+    linear-gradient(145deg, #f7f7fb 0%, #f0f1f7 60%, #f7f2f5 100%);
+  background-color: #f1f1f7;
+}
+html[data-theme="coral"] .haven-sidebar {
+  background: linear-gradient(155deg, #4b5377 0%, #665574 50%, #88586d 100%);
+  border-inline-end: 1px solid rgba(243, 154, 141, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 4px 0 24px rgba(63, 68, 99, 0.09);
+}
+html[data-theme="coral"] .haven-sidebar .haven-nav-active {
+  background: linear-gradient(135deg, rgba(243, 154, 141, 0.2) 0%, rgba(255, 255, 255, 0.07) 100%);
+  box-shadow: inset 0 0 0 1px rgba(243, 154, 141, 0.24), 0 3px 10px rgba(44, 36, 60, 0.1);
+}
+
+/* 10) Ambassador Gold — legendary reward (unlocked at 15 referrals) */
+html[data-theme="ambassador"] {
+  --color-primary: #b8934a;
+  --color-primary-dark: #98763a;
+  --color-primary-soft: #f3ead2;
+  --color-sidebar: #14110c;
+  --color-brass: #e3c063;
+  --color-ink: #14110c;
+  --color-surface: #fbf9f4;
+  --color-canvas: #f1ead9;
+  --color-border: rgba(20, 17, 12, 0.1);
+  --grad-primary: linear-gradient(135deg, #d9b45e 0%, #98763a 100%);
+  --app-bg:
+    radial-gradient(900px 600px at -8% 0%, rgba(227, 192, 99, 0.18) 0%, transparent 58%),
+    radial-gradient(1100px 700px at 100% 0%, rgba(184, 147, 74, 0.12) 0%, transparent 55%),
+    linear-gradient(180deg, #f7f1e2 0%, #f1e8d4 100%);
+  background-color: #f1e8d4;
+}
+
+/* 11) Mono — calm neutral greyscale */
 html[data-theme="mono"] {
   --color-primary: #4a4f54;
   --color-primary-dark: #393d41;
@@ -608,3 +707,16 @@ html[data-theme="mono"] {
     linear-gradient(180deg, #f2f2f2 0%, #eaeaea 100%);
   background-color: #eaeaea;
 }
+
+/* Reward-only line field stays beneath interactive navigation content. */
+.haven-reward-motion {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+html:is([data-theme="aurora"], [data-theme="coral"], [data-theme="ambassador"]) .haven-sidebar { isolation: isolate; }
+html:is([data-theme="aurora"], [data-theme="coral"], [data-theme="ambassador"]) .haven-sidebar > :not(.haven-reward-motion) { position: relative; z-index: 1; }
+html:is([data-theme="aurora"], [data-theme="coral"], [data-theme="ambassador"]) .haven-drawer { position: relative; }

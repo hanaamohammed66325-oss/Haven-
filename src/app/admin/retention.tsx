@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Retention — is Haven keeping the users it brings in? Reads the guarded
 // SECURITY DEFINER function admin_retention_stats() DIRECTLY via supabase.rpc
@@ -76,9 +77,9 @@ export function RetentionSection() {
       <SectionHeader
         title="Retention"
         action={
-          <button onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
+          <InteractionButton onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
 
@@ -357,13 +358,13 @@ function UsersTable({ rows }: { rows: UserRow[] }) {
         </table>
       </div>
       {filtered.length > limit && (
-        <button
+        <InteractionButton
           onClick={() => setLimit((l) => l + 100)}
           className="mt-3 rounded-lg px-4 py-2 text-[12px] font-medium"
           style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
         >
           Show more ({fmtNum(filtered.length - limit)} left)
-        </button>
+        </InteractionButton>
       )}
     </div>
   );

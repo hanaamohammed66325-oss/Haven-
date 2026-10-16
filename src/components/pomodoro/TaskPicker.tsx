@@ -1,16 +1,23 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "@/components/motion/icons";
 import { useT } from "@/i18n";
-import { Modal } from "@/components/Modal";
 import { daysUntil } from "@/lib/upcoming";
 import { spokenDuration } from "@/lib/format";
 import { isTaskKey, type FocusTask } from "@/lib/pomodoro/focusTasks";
 import type { Course, TaskFocus } from "@/types";
 import { GLASS } from "./glass";
+import { motion, type Variants } from "motion/react";
+import { MotionModal } from "@/components/motion/MotionModal";
+import { MotionRoot, Press } from "@/components/motion/Press";
+import { POP, PRESS } from "@/components/motion/springs";
 
 interface Props {
+  /** Group rounds can retain a historical title or an unselected placeholder. */
+  displayName?: string;
+  disabled?: boolean;
   /** "" (a free session), a course id, or a task key */
   value: string;
   onChange: (key: string) => void;
@@ -38,10 +45,16 @@ const GROUPS = [
 // The estimate chips (minutes) offered for a task.
 const ESTIMATES = [30, 60, 90, 120, 180];
 
+// The sheet's rows arrive one after another (Motion); a press dips the row.
+const ROWS: Variants = { out: {}, in: { transition: { staggerChildren: 0.025, delayChildren: 0.06 } } };
+const ROW: Variants = { out: { opacity: 0, y: 8 }, in: { opacity: 1, y: 0, transition: POP } };
+
 // What the session is spent on: a glass chip under the timer that opens a sheet
 // of the student's courses and open tasks, soonest first. A chosen task asks
 // once how long it should take (at the top of the sheet, where it can change).
 export function TaskPicker({
+  displayName,
+  disabled = false,
   value,
   onChange,
   courses,
@@ -58,12 +71,13 @@ export function TaskPicker({
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  useEffect(() => { if (locked) { setOpen(false); setEditing(false); } }, [locked]);
   const estimateRef = useRef<HTMLDivElement>(null);
   const dur = (m: number) => spokenDuration(m, t);
 
   const task = tasks.find((x) => x.key === value) ?? null;
   const course = task ? null : (courses.find((c) => c.id === value) ?? null);
-  const name = task ? task.name : course ? course.name : t("pom_generalFocus");
+  const name = displayName ?? (task ? task.name : course ? course.name : t("pom_generalFocus"));
   const sub = task?.courseName ?? null;
   const dot = courseColor(task ? task.courseId : course ? course.id : null);
   const estimate = task ? taskFocus[task.key]?.estimate : undefined;
@@ -89,6 +103,7 @@ export function TaskPicker({
   };
 
   const pick = (key: string) => {
+    if (locked || disabled) return;
     onChange(key);
     if (isTaskKey(key) && !taskFocus[key]?.estimate && !skipped.includes(key)) setEditing(true);
     else close();
@@ -98,10 +113,13 @@ export function TaskPicker({
     const selected = key === value;
     const detail = meta.filter(Boolean).join(" · ");
     return (
-      <button
+      <motion.button
         key={key || "free"}
         type="button"
+        variants={ROW}
+        whileTap={locked || disabled ? undefined : { scale: 0.98 }}
         onClick={() => pick(key)}
+        disabled={locked || disabled}
         aria-pressed={selected}
         className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition-colors hover:bg-[var(--color-primary-soft)]"
         style={{ background: selected ? "var(--color-primary-soft)" : undefined }}
@@ -125,8 +143,8 @@ export function TaskPicker({
             {dur(spent)}
           </span>
         )}
-        {selected && <Check size={16} className="shrink-0" style={{ color: "var(--color-primary)" }} />}
-      </button>
+        {selected && <motion.span className="grid shrink-0" initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={POP}><Check size={16} style={{ color: "var(--color-primary)" }} /></motion.span>}
+      </motion.button>
     );
   };
 
@@ -137,14 +155,14 @@ export function TaskPicker({
   );
 
   return (
-    <>
-      <button
-        type="button"
+    <MotionRoot>
+      <Press
         data-tour="pom-focus-course"
         onClick={() => setOpen(true)}
-        disabled={locked}
+        disabled={locked || disabled}
         aria-haspopup="dialog"
-        className={`inline-flex min-w-0 max-w-full flex-col items-center px-4 py-2 text-sm font-medium transition-transform duration-300 enabled:hover:-translate-y-px ${line ? "rounded-2xl" : "rounded-full"}`}
+        aria-expanded={open}
+        className={`inline-flex min-w-0 max-w-full flex-col items-center px-4 py-2 text-sm font-medium ${line ? "rounded-2xl" : "rounded-full"}`}
         style={GLASS}
       >
         <span className="flex min-w-0 max-w-full items-center gap-2.5">
@@ -156,19 +174,19 @@ export function TaskPicker({
             {name}
             {sub && <span style={{ opacity: 0.65 }}> · {sub}</span>}
           </span>
-          {!locked && <ChevronDown size={15} className="shrink-0" style={{ opacity: 0.7 }} />}
+          {!locked && <motion.span className="grid shrink-0" animate={{ rotate: open ? 180 : 0 }} transition={POP}><ChevronDown size={15} style={{ opacity: 0.7 }} /></motion.span>}
         </span>
         {line && (
           <span className="mt-0.5 block max-w-full truncate text-xs font-normal" style={{ opacity: 0.72 }}>
             {line}
           </span>
         )}
-      </button>
+      </Press>
 
-      <Modal open={open} onClose={close} title={t("pom_pickTitle")} variant="sheet">
+      <MotionModal open={open} onClose={close} title={t("pom_pickTitle")} variant="sheet">
         {/* built only while open: the page re-renders every second of a session */}
         {open && (
-          <div className="-mx-3 -my-3">
+          <motion.div className="-mx-3 -my-3" variants={ROWS} initial="out" animate="in">
             {task && (
               // the chosen task: how long it should take
               <div ref={estimateRef} className="mx-1 mb-2 rounded-2xl px-4 py-3" style={{ background: "var(--color-primary-soft)" }}>
@@ -179,9 +197,9 @@ export function TaskPicker({
                   <p className="mt-0.5 text-xs" style={{ color: "var(--color-muted)" }}>
                     {t("pom_taskExpected", { estimate: dur(estimate) })}
                     {" · "}
-                    <button onClick={() => setEditing(true)} className="font-medium" style={{ color: "var(--color-primary)" }}>
+                    <InteractionButton onClick={() => setEditing(true)} className="font-medium" style={{ color: "var(--color-primary)" }}>
                       {t("pom_estimateEdit")}
-                    </button>
+                    </InteractionButton>
                   </p>
                 ) : (
                   <>
@@ -192,8 +210,11 @@ export function TaskPicker({
                       {ESTIMATES.map((m) => {
                         const on = estimate === m;
                         return (
-                          <button
+                          <motion.button
                             key={m}
+                            type="button"
+                            whileTap={{ scale: 0.92 }}
+                            transition={PRESS}
                             onClick={() => {
                               onEstimate(task.key, m);
                               close();
@@ -207,10 +228,10 @@ export function TaskPicker({
                             }}
                           >
                             {dur(m)}
-                          </button>
+                          </motion.button>
                         );
                       })}
-                      <button
+                      <InteractionButton
                         onClick={() => {
                           onSkipEstimate(task.key);
                           close();
@@ -219,7 +240,7 @@ export function TaskPicker({
                         style={{ color: "var(--color-muted)" }}
                       >
                         {t("pom_estimateSkip")}
-                      </button>
+                      </InteractionButton>
                     </div>
                   </>
                 )}
@@ -242,9 +263,9 @@ export function TaskPicker({
                 </div>
               );
             })}
-          </div>
+          </motion.div>
         )}
-      </Modal>
-    </>
+      </MotionModal>
+    </MotionRoot>
   );
 }

@@ -7,6 +7,7 @@ import { clamp, smooth, lerp, easeInOut, easeOutCubic } from "@/lib/pomodoro/mat
 import { getTimeOfDay, type TimeOfDay } from "@/lib/pomodoro/timeOfDay";
 
 interface Props {
+  cosmetics?: readonly string[];
   /** finished focus sessions: the home pad + one pad each */
   lilyPadCount: number;
   /** the subject of each recorded session, oldest first (pad flowers + groves) */
@@ -14,6 +15,7 @@ interface Props {
   baseMood: "idle" | "studying" | "resting";
   /** 0..1 through the focus session that is running or paused, else null */
   focusProgress: number | null;
+  longBreak?: boolean;
   /** the colour of the subject being studied (the flower on the growing pad) */
   focusColor: string | null;
   showHavi: boolean;
@@ -62,6 +64,8 @@ export function PondScene(props: Props) {
     grown: { vis: 0, prog: 0, alpha: 0, grow: 0.3 }, // the pad growing with the session
     celebrateSeen: props.celebrateSignal,
     pulseAt: -1e9,
+    deskPad: (props.baseMood !== "idle" && !props.longBreak ? props.lilyPadCount : null) as number | null,
+    abandonedDesks: [] as number[],
     witherSeen: props.witherSignal,
   });
 
@@ -77,7 +81,7 @@ export function PondScene(props: Props) {
   }, [props.lilyPadCount, props.padSpecs]);
 
   // A session done: the pad that grew with it firms up, its flower opens and
-  // Havi jumps onto it.
+  // Havi jumps only at the end of the full cycle.
   useEffect(() => {
     const s = st.current;
     if (props.celebrateSignal === s.celebrateSeen) return;
@@ -88,7 +92,11 @@ export function PondScene(props: Props) {
     s.firm.set(idx, { alpha: Math.max(0.3, s.grown.alpha), grow: Math.max(0.4, s.grown.grow), start: now });
     s.opening.set(idx, now + JUMP_MS * 0.7);
     s.grown = { vis: 0, prog: 0, alpha: 0, grow: 0.3 };
-    s.jump = { from: s.haviPad, to: idx, start: now };
+    if (props.longBreak) {
+      if (s.deskPad !== null) s.abandonedDesks.push(s.deskPad);
+      s.deskPad = null;
+      s.jump = { from: s.haviPad, to: idx, start: now };
+    }
     s.pulseAt = now;
   }, [props.celebrateSignal]);
 
@@ -100,6 +108,8 @@ export function PondScene(props: Props) {
     const now = performance.now();
     const idx = s.haviPad - 1;
     if (idx >= 0 && !s.dead.has(idx)) s.dying = { index: idx, start: now };
+    if (s.deskPad !== null) s.abandonedDesks.push(s.deskPad);
+    s.deskPad = null;
     s.react = { mood: "sad", start: now };
   }, [props.witherSignal]);
 
@@ -119,10 +129,14 @@ export function PondScene(props: Props) {
     let cam = 0;
     let camSet = false;
     const look = { x: 0, tx: 0 };
+    let pan = 0;
+    let drag: {x:number; moved:boolean} | null = null;
     let rise = live.current.lifted ? 1 : 0;
     let risen = false;
     let studyStart = -1e9;
     let prevBase = live.current.baseMood;
+    let restStart = performance.now();
+    let wakeStart = -1e9;
     let last = 0;
 
     const measure = () => {
@@ -174,6 +188,15 @@ export function PondScene(props: Props) {
     // a pointer's x in the scene (mirrored in Arabic)
     const sceneX = (e: PointerEvent, r: DOMRect) => (rtl ? r.right - e.clientX : e.clientX - r.left);
     const onMove = (e: PointerEvent) => {
+      if (drag) {
+        const r = canvas.getBoundingClientRect();
+        const x = sceneX(e,r);
+        const delta = x-drag.x;
+        if (Math.abs(delta)>2) drag.moved=true;
+        pan=clamp(pan-delta,-Math.abs(view.padX(st.current.count)-view.padX(st.current.haviPad)),Math.abs(view.padX(st.current.count)-view.padX(0)));
+        drag.x=x;
+        return;
+      }
       if (e.pointerType !== "mouse") return;
       const r = canvas.getBoundingClientRect();
       look.tx = clamp((sceneX(e, r) / r.width - 0.5) * 2, -1, 1);
@@ -182,13 +205,22 @@ export function PondScene(props: Props) {
       look.tx = 0;
     };
     // a tap on Havi (when he isn't studying) makes him happy
+    const onDown = (e: PointerEvent) => {
+      drag={x:sceneX(e,canvas.getBoundingClientRect()),moved:false};
+      canvas.setPointerCapture(e.pointerId);
+    };
+    const onCancel = () => {drag=null;};
     const onTap = (e: PointerEvent) => {
+      const moved=drag?.moved;drag=null;
+      if(moved)return;
       const p = live.current;
       const s = st.current;
       if (!p.showHavi || s.jump || p.baseMood === "studying") return;
       const r = canvas.getBoundingClientRect();
       if (view.onHavi(s.haviPad, cam, sceneX(e, r), e.clientY - r.top)) s.react = { mood: "celebrating", start: performance.now() };
     };
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointercancel", onCancel);
     canvas.addEventListener("pointermove", onMove);
     canvas.addEventListener("pointerleave", onLeave);
     canvas.addEventListener("pointerup", onTap);
@@ -222,27 +254,31 @@ export function PondScene(props: Props) {
 
       // Havi's mood
       const base = p.baseMood;
+      if (base === "resting" && prevBase !== "resting") restStart = now;
       if (base === "studying" && prevBase !== "studying") {
-        studyStart = now;
+        if (s.deskPad === null) { studyStart = now; s.deskPad = s.haviPad; s.abandonedDesks = s.abandonedDesks.filter(pad => pad !== s.haviPad); }
+        else {studyStart = -1e9;wakeStart=now;}
+        pan=0;
         s.pulseAt = now; // the sky lights up as the session begins
       }
       prevBase = base;
-      let mood: HaviMood = base;
+      let mood: HaviMood = p.longBreak ? "idle" : s.deskPad !== null && base === "idle" ? (p.focusProgress !== null ? "studying" : "resting") : base;
       let fish = 0;
       if (base === "studying" && now - studyStart < FISH_MS) {
         mood = "fishing";
         fish = (now - studyStart) / FISH_MS;
       }
+      if (!reduced && base === "studying" && now-wakeStart < 2700) mood="resting";
       let jump: { from: number; to: number; p: number } | null = null;
       if (s.jump) {
         const q = (now - s.jump.start) / JUMP_MS;
         if (q >= 1) {
           s.haviPad = s.jump.to;
-          s.react = { mood: "celebrating", start: now };
+          s.react = null;
           s.jump = null;
         } else jump = { from: s.jump.from, to: s.jump.to, p: q };
       }
-      if (!s.jump && s.snapAt && now - s.snapAt > 120) {
+      if (!s.jump && s.deskPad === null && s.snapAt && now - s.snapAt > 120) {
         s.haviPad = s.count;
         s.snapAt = 0;
       }
@@ -262,7 +298,9 @@ export function PondScene(props: Props) {
       // the camera follows Havi (and looks back at a pad that is dying)
       let active = jump ? lerp(view.padX(jump.from), view.padX(jump.to), easeInOut(jump.p)) : view.padX(s.haviPad);
       if (s.dying) active = (active + view.padX(s.dying.index)) / 2;
-      const target = view.camFor(active);
+      if (!jump && s.deskPad !== null && s.count > s.haviPad) active = lerp(active,view.padX(s.count),.45);
+      if(jump)pan=0;
+      const target = view.camFor(active)+pan;
       if (!camSet || reduced) {
         cam = target;
         camSet = true;
@@ -318,7 +356,8 @@ export function PondScene(props: Props) {
         camX: cam,
         look: reduced ? 0 : look.x,
         pads,
-        havi: p.showHavi ? { pad: s.haviPad, jump, mood, fish } : null,
+        desks: s.abandonedDesks,
+        havi: p.showHavi ? { pad: s.haviPad, jump, mood, fish, cosmetics: p.cosmetics, restSeconds: base === "studying" && now-wakeStart < 2700 ? (now-wakeStart)/1000-2.7 : Math.max(0, (now-restStart)/1000) } : null,
         rise,
         hud: p.hud ? { ...p.hud, pulse: reduced ? 0 : Math.sin(Math.PI * clamp((now - s.pulseAt) / PULSE_MS, 0, 1)) } : null,
       });
@@ -332,6 +371,8 @@ export function PondScene(props: Props) {
       window.clearInterval(todTimer);
       ro.disconnect();
       io.disconnect();
+      canvas.removeEventListener("pointerdown", onDown);
+      canvas.removeEventListener("pointercancel", onCancel);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerleave", onLeave);
       canvas.removeEventListener("pointerup", onTap);
@@ -346,7 +387,7 @@ export function PondScene(props: Props) {
     <canvas
       ref={canvasRef}
       aria-hidden
-      style={{ position: "absolute", inset: 0, display: "block", width: "100%", height: "100%", background: "transparent" }}
+      style={{ position: "absolute", inset: 0, display: "block", width: "100%", height: "100%", background: "transparent", touchAction: "pan-y" }}
     />
   );
 }

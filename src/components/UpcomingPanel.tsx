@@ -1,7 +1,7 @@
 "use client";
+import { InteractionLink } from "@/components/motion/Interaction";
 
-import Link from "next/link";
-import { GraduationCap, ClipboardList, AlertTriangle, Clock } from "lucide-react";
+import { GraduationCap, ClipboardList, AlertTriangle, Clock } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { formatShortDate, formatTime } from "@/lib/dates";
@@ -92,7 +92,7 @@ export function UpcomingPanel({
             const urgent = it.diffDays >= 0 && it.diffDays <= 3;
             const isAlert = alertItem === it;
             return (
-              <Link
+              <InteractionLink
                 key={`${it.href}-${it.name}-${i}`}
                 href={it.href}
                 className="group flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 -mx-1 transition-colors hover:bg-[var(--color-primary-soft)]"
@@ -140,7 +140,7 @@ export function UpcomingPanel({
                     </span>
                   )}
                 </span>
-              </Link>
+              </InteractionLink>
             );
           })}
         </div>

@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Sparkles } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { Modal } from "./Modal";
 
@@ -62,15 +63,15 @@ export function PremiumGate({
       title={copy.title}
       footer={
         <div className="flex items-center justify-end gap-3">
-          <button
+          <InteractionButton
             type="button"
             onClick={onClose}
             className="px-4 py-2 rounded-xl text-sm font-medium border"
             style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
           >
             {close}
-          </button>
-          <button
+          </InteractionButton>
+          <InteractionButton
             type="button"
             onClick={goToPlans}
             className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:-translate-y-0.5"
@@ -78,7 +79,7 @@ export function PremiumGate({
           >
             <Sparkles size={16} />
             {seePlans}
-          </button>
+          </InteractionButton>
         </div>
       }
     >

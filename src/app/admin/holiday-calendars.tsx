@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Holidays outside Saudi — what students at universities outside Saudi Arabia
 // told us about their holidays (lib/holidayReports), and the calendars
@@ -143,9 +144,9 @@ export function HolidayCalendarsSection() {
       <SectionHeader
         title="Holidays outside Saudi"
         action={
-          <button onClick={() => void load()} style={S.btnSec}>
+          <InteractionButton onClick={() => void load()} style={S.btnSec}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
       {error && <ErrorBanner message={error} onRetry={load} />}
@@ -210,13 +211,13 @@ export function HolidayCalendarsSection() {
                           <td style={S.tableCell}>
                             <div className="flex gap-1.5 justify-end flex-wrap">
                               {p.status !== "verified" && (
-                                <button style={{ ...S.btnGhost, color: C.success }} onClick={() => void setStatus(p.key, "verified")}>Approve</button>
+                                <InteractionButton style={{ ...S.btnGhost, color: C.success }} onClick={() => void setStatus(p.key, "verified")}>Approve</InteractionButton>
                               )}
                               {p.status !== "suggested" && (
-                                <button style={S.btnGhost} onClick={() => void setStatus(p.key, "suggested")}>Back to suggestion</button>
+                                <InteractionButton style={S.btnGhost} onClick={() => void setStatus(p.key, "suggested")}>Back to suggestion</InteractionButton>
                               )}
                               {p.status !== "rejected" && (
-                                <button style={{ ...S.btnGhost, color: C.danger }} onClick={() => void setStatus(p.key, "rejected")}>Withdraw</button>
+                                <InteractionButton style={{ ...S.btnGhost, color: C.danger }} onClick={() => void setStatus(p.key, "rejected")}>Withdraw</InteractionButton>
                               )}
                             </div>
                           </td>
@@ -242,7 +243,7 @@ export function HolidayCalendarsSection() {
                   const expanded = open === g.key;
                   return (
                     <div key={g.key} style={{ borderTop: i ? `1px solid ${C.border}` : undefined }}>
-                      <button
+                      <InteractionButton
                         onClick={() => setOpen(expanded ? null : g.key)}
                         className="w-full flex items-center gap-3 px-4 py-3 text-start flex-wrap"
                         style={{ background: "transparent", border: "none", cursor: "pointer", color: C.text }}
@@ -259,7 +260,7 @@ export function HolidayCalendarsSection() {
                           termTallies(g.calendar, termVotes).some((t) => t.disputed) &&
                           chip("Term dates disputed", C.warning)}
                         <span style={{ color: C.textDim }}>{expanded ? "▾" : "▸"}</span>
-                      </button>
+                      </InteractionButton>
                       {expanded && (
                         <GroupDetail group={g} termVotes={termVotes} onStudents={() => students(g.label, g.students)} onSaved={load} />
                       )}
@@ -297,7 +298,7 @@ function GroupDetail({
       <div className="flex gap-2 flex-wrap text-[12px]" style={{ color: C.textDim }}>
         <span>Typed as: {g.names.join(" · ") || "—"}</span>
         {g.catalogSlug && <span>· catalogue: {g.catalogSlug}</span>}
-        <button style={S.btnGhost} onClick={onStudents}>View students</button>
+        <InteractionButton style={S.btnGhost} onClick={onStudents}>View students</InteractionButton>
       </div>
 
       {terms.length > 0 && (
@@ -354,9 +355,9 @@ function GroupDetail({
           <PublishForm group={g} onDone={() => { setPublishing(false); onSaved(); }} onCancel={() => setPublishing(false)} />
         ) : (
           <div>
-            <button style={S.btnSec} onClick={() => setPublishing(true)}>
+            <InteractionButton style={S.btnSec} onClick={() => setPublishing(true)}>
               {g.kind === "published" ? "Update the published calendar" : "Publish as suggestion"}
-            </button>
+            </InteractionButton>
           </div>
         ))}
     </div>
@@ -455,8 +456,8 @@ function PublishForm({ group: g, onDone, onCancel }: { group: UniversityGroup; o
 
       {err && <p className="text-[12px]" style={{ color: C.danger }}>{err}</p>}
       <div className="flex gap-2">
-        <button style={S.btnPrimary} disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Publish as suggestion"}</button>
-        <button style={S.btnSec} onClick={onCancel}>Cancel</button>
+        <InteractionButton style={S.btnPrimary} disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Publish as suggestion"}</InteractionButton>
+        <InteractionButton style={S.btnSec} onClick={onCancel}>Cancel</InteractionButton>
       </div>
     </div>
   );

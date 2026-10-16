@@ -1,7 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
+import { PopoverPanel } from "@/components/motion/PopoverPanel";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { X, Check, ChevronLeft, ChevronRight, Slash, GraduationCap, ClipboardList } from "lucide-react";
+import { X, Check, ChevronLeft, ChevronRight, Slash, GraduationCap, ClipboardList } from "@/components/motion/icons";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { useUndo } from "./UndoManager";
@@ -119,7 +121,7 @@ function PlannerToolbar({
         {t("plannerActiveTarget", { n: activeWeek + 1, target: targetLabel })}
       </span>
       {TAGS.map((tg) => (
-        <button
+        <InteractionButton
           key={tg.key}
           {...(anchor && tg.key === "tagDeadline" ? { "data-tour": "planner-tag" } : {})}
           onClick={() => onAddTag(tg)}
@@ -130,7 +132,7 @@ function PlannerToolbar({
         >
           <span className="h-2 w-2 rounded-full shrink-0" style={{ background: tg.color }} />
           {t(tg.key)}
-        </button>
+        </InteractionButton>
       ))}
     </div>
   );
@@ -519,7 +521,7 @@ function TagEditor({
       )}
       <div className="flex items-center gap-1.5">
         {TAGS.map((tg) => (
-          <button
+          <InteractionButton
             key={tg.key}
             type="button"
             onClick={() => onPick(tg.key, tg.color)}
@@ -550,12 +552,12 @@ function TagEditor({
         )}
       </div>
       <div className="flex items-center justify-between">
-        <button type="button" onClick={onDelete} className="text-[11px] font-medium" style={{ color: "var(--color-danger)" }}>
+        <InteractionButton type="button" onClick={onDelete} className="text-[11px] font-medium" style={{ color: "var(--color-danger)" }}>
           {t("delete")}
-        </button>
-        <button type="button" data-tour="planner-save" onClick={onDone} className="text-[11px] font-medium" style={{ color: "var(--color-primary)" }}>
+        </InteractionButton>
+        <InteractionButton type="button" data-tour="planner-save" onClick={onDone} className="text-[11px] font-medium" style={{ color: "var(--color-primary)" }}>
           {t("save")}
-        </button>
+        </InteractionButton>
       </div>
     </div>
   );
@@ -702,7 +704,7 @@ function WeekCard({
         className="group/note inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs max-w-full"
         style={{ background: `${n.color}1A`, border: "1px solid transparent" }}
       >
-        <button
+        <InteractionButton
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleDone(n.id); }}
           aria-label={t("plannerToggleDone")}
@@ -711,7 +713,7 @@ function WeekCard({
           style={done ? { background: n.color, border: `1px solid ${n.color}` } : { border: `1.5px solid ${n.color}` }}
         >
           {done && <Check size={9} color="#fff" strokeWidth={3} />}
-        </button>
+        </InteractionButton>
         <span
           {...(n.tag === "tagDeadline" && n.dueTime ? { "data-tour": "planner-note" } : {})}
           onClick={(e) => { e.stopPropagation(); setEditNoteId(n.id); }}
@@ -728,7 +730,7 @@ function WeekCard({
             · {formatTime(n.dueTime, lang)}
           </span>
         )}
-        <button
+        <InteractionButton
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(n.id); }}
           // pointer-events-none until hover: on touch devices (no hover) this
@@ -739,7 +741,7 @@ function WeekCard({
           aria-label={t("delete")}
         >
           <X size={11} style={{ color: "var(--color-muted)" }} />
-        </button>
+        </InteractionButton>
       </span>
     );
   };
@@ -768,7 +770,7 @@ function WeekCard({
         style={{ background: `${color}14`, border: `1px dashed ${color}66` }}
         title={`${a.name} · ${a.course}`}
       >
-        <button
+        <InteractionButton
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleAutoDone(a.id); }}
           aria-label={t("plannerToggleDone")}
@@ -777,7 +779,7 @@ function WeekCard({
           style={autoDone ? { background: color, border: `1px solid ${color}` } : { border: `1.5px solid ${color}` }}
         >
           {autoDone && <Check size={9} color="#fff" strokeWidth={3} />}
-        </button>
+        </InteractionButton>
         {EXAM_TYPES.includes(a.type) ? (
           <GraduationCap size={11} className="shrink-0" style={{ color }} />
         ) : (
@@ -793,7 +795,7 @@ function WeekCard({
         {/* Shrinks + truncates (full text stays in the chip's title) so a long
             course name can't push the chip past its day cell. */}
         <span className="text-[10px] truncate min-w-0 shrink-[2]" style={{ color: "var(--color-muted)", opacity: autoDone ? 0.5 : 1 }}>· {a.course}</span>
-        <button
+        <InteractionButton
           type="button"
           onClick={(e) => { e.stopPropagation(); onHideAuto(a.id); }}
           // See the note chip's X above: kept untappable on touch so an auto
@@ -802,7 +804,7 @@ function WeekCard({
           aria-label={t("plannerRemoveFromView")}
         >
           <X size={11} style={{ color: "var(--color-muted)" }} />
-        </button>
+        </InteractionButton>
       </span>
     );
   };
@@ -818,27 +820,27 @@ function WeekCard({
       }}
       {...(isCurrentWeek ? { "data-havi-role": "current-week" } : {})}
     >
-      <button onClick={() => onSetTarget(null)} className="block w-full text-start mb-4 pe-10">
+      <InteractionButton onClick={() => onSetTarget(null)} className="block w-full text-start mb-4 pe-10">
         <div className="font-display text-base" style={{ color: "var(--color-ink)" }}>{label}</div>
         {range && <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{range}</div>}
-      </button>
+      </InteractionButton>
 
       {canComplete && <div className="absolute end-3 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1">
-        <button type="button" aria-expanded={controlsOpen} aria-label={t(controlsOpen ? "plannerHideControls" : "plannerShowControls")}
+        <InteractionButton type="button" aria-expanded={controlsOpen} aria-label={t(controlsOpen ? "plannerHideControls" : "plannerShowControls")}
           title={t(controlsOpen ? "plannerHideControls" : "plannerShowControls")} onClick={() => setControlsOpen((open) => !open)}
           className="flex h-7 w-5 items-center justify-center"
           style={{ color: "var(--color-muted)", background: "transparent" }}>
           {controlsOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-        </button>
-        {controlsOpen && <div className="flex flex-col items-center gap-3">
-        <button type="button" aria-pressed={completed}
+        </InteractionButton>
+        <PopoverPanel open={controlsOpen} className="flex flex-col items-center gap-3">
+        <InteractionButton type="button" aria-pressed={completed}
           aria-label={t(completed ? "plannerUndoWeekDone" : "plannerMarkWeekDone")}
           title={t(completed ? "plannerUndoWeekDone" : "plannerMarkWeekDone")}
           onClick={() => onWeekDone(completed ? null : chosenColor)}
           className="flex h-8 w-8 items-center justify-center rounded-full border"
           style={{ color: "var(--color-ink)", borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
           {completed ? <X size={14} /> : <Check size={14} />}
-        </button>
+        </InteractionButton>
         <label className="relative block h-6 w-6 rounded-full overflow-hidden border cursor-pointer"
           title={t("plannerWeekColor")}
           style={{ background: doneColor ?? chosenColor, borderColor: "var(--color-border)" }}>
@@ -848,20 +850,20 @@ function WeekCard({
               if (completed) onWeekDone(e.currentTarget.value);
             }} />
         </label>
-        <button type="button" aria-label={t("plannerChooseIcon")} title={t("plannerChooseIcon")}
+        <InteractionButton type="button" aria-label={t("plannerChooseIcon")} title={t("plannerChooseIcon")}
           onClick={() => setIconPickerOpen(true)}
           className="flex h-8 w-8 items-center justify-center rounded-full border"
           style={{ background: "var(--color-surface)", color: doneColor ?? chosenColor, borderColor: "var(--color-border)" }}>
           <WeekMarker icon={weekIcon} size={15} />
-        </button>
-        <button type="button" aria-label={t("plannerChooseStrike")} title={t("plannerChooseStrike")} onClick={() => setStrikePickerOpen(true)}
+        </InteractionButton>
+        <InteractionButton type="button" aria-label={t("plannerChooseStrike")} title={t("plannerChooseStrike")} onClick={() => setStrikePickerOpen(true)}
           className="flex h-8 w-8 items-center justify-center rounded-full border"
-          style={{ background: "var(--color-surface)", color: "var(--color-muted)", borderColor: "var(--color-border)" }}><Slash size={15} /></button>
-        </div>}
+          style={{ background: "var(--color-surface)", color: "var(--color-muted)", borderColor: "var(--color-border)" }}><Slash size={15} /></InteractionButton>
+        </PopoverPanel>
       </div>}
       <Modal open={strikePickerOpen && canComplete} onClose={() => setStrikePickerOpen(false)} title={t("plannerChooseStrike")}>
         <div className="grid grid-cols-2 gap-3">
-          {(["none", "corners", "right", "left"] as const).map((strike) => <button key={strike} type="button"
+          {(["none", "corners", "right", "left"] as const).map((strike) => <InteractionButton key={strike} type="button"
             aria-pressed={weekStrike === strike} onClick={() => { onWeekStrike(strike); setStrikePickerOpen(false); }}
             className="rounded-xl border p-3 text-xs" style={{ borderColor: weekStrike === strike ? "var(--color-primary)" : "var(--color-border)", color: "var(--color-ink)" }}>
             <svg viewBox="0 0 100 80" className="h-16 w-full mb-2" fill="none" stroke="currentColor" strokeWidth="1">
@@ -871,18 +873,18 @@ function WeekCard({
               {strike === "left" && <path d="M1 1 99 79" opacity="0.5" />}
               <circle cx="50" cy="40" r="8" fill="var(--color-surface)" />
             </svg>{t(strikeLabels[strike])}
-          </button>)}
+          </InteractionButton>)}
         </div>
       </Modal>
       <Modal open={iconPickerOpen && canComplete} onClose={() => setIconPickerOpen(false)} title={t("plannerChooseIcon")}>
         <div className="flex justify-center gap-3">
           {iconOptions.map((icon) => {
-            return <button key={icon} type="button" aria-label={t(iconLabels[icon])} title={t(iconLabels[icon])}
+            return <InteractionButton key={icon} type="button" aria-label={t(iconLabels[icon])} title={t(iconLabels[icon])}
               aria-pressed={weekIcon === icon} onClick={() => { onWeekIcon(icon); setIconPickerOpen(false); }}
               className="flex h-12 w-12 items-center justify-center rounded-full border"
               style={{ color: doneColor ?? chosenColor, borderColor: weekIcon === icon ? "var(--color-primary)" : "var(--color-border)", background: "var(--color-surface)" }}>
               <WeekMarker icon={icon} />
-            </button>;
+            </InteractionButton>;
           })}
         </div>
       </Modal>
@@ -896,20 +898,22 @@ function WeekCard({
           <span style={{ opacity: 0.7 }}><WeekMarker icon={weekIcon} /></span>
         </span>
       </div>}
-      <div className={`${canComplete ? (controlsOpen ? "pe-12" : "pe-4") : ""} transition-[filter,opacity] duration-200`}
-        inert={completed} style={{ filter: completed ? "blur(0.75px)" : undefined, opacity: completed ? 0.75 : 1 }}>
+      {/* Dim completed content without filtering the whole scrolling subtree.
+          Fractional blur can leave compositing artifacts in iPad WebViews. */}
+      <div className={`${canComplete ? (controlsOpen ? "pe-12" : "pe-4") : ""} transition-opacity duration-200`}
+        inert={completed} style={{ opacity: completed ? 0.75 : 1 }}>
 
       {/* Whole week: general (undated) notes + whole-week add. Dated items now
           land on their exact day row below, never here. */}
       <div className="mb-3">
-        <button
+        <InteractionButton
           type="button"
           onClick={() => onSetTarget(null)}
           className="block text-[10px] font-semibold uppercase tracking-wide mb-1.5"
           style={{ color: wholeWeekActive ? "var(--color-primary)" : "var(--color-muted)" }}
         >
           {t("plannerWholeWeek")}
-        </button>
+        </InteractionButton>
         <div className="flex flex-wrap items-center gap-1.5 p-0.5" style={wholeWeekActive ? activeRing : undefined}>
           {general.map(renderNote)}
           <DayAddInput placeholder={t("plannerDayAdd")} onFocus={() => onSetTarget(null)} onAdd={(text) => onAdd(null, text)} />
@@ -927,7 +931,7 @@ function WeekCard({
           const dayShade = shadeImage(dayNotes);
           return (
             <Fragment key={d}>
-              <button
+              <InteractionButton
                 type="button"
                 onClick={() => onSetTarget(d)}
                 className="text-[11px] leading-6 pt-0.5 text-start whitespace-nowrap"
@@ -935,7 +939,7 @@ function WeekCard({
               >
                 {t(`day${d}` as TranslationKey)}
                 {date && <span className="ms-1 opacity-60">{date}</span>}
-              </button>
+              </InteractionButton>
               <div
                 className="flex flex-wrap items-center gap-1.5 min-w-0 p-0.5 rounded-lg"
                 style={{ ...(dayActive ? activeRing : undefined), backgroundImage: dayShade }}

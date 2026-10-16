@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 // ---------------------------------------------------------------------------
 // /reset-password — where the emailed reset link lands.
@@ -20,9 +21,8 @@
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "@/components/motion/icons";
 import { AuthLayout } from "@/components/AuthLayout";
 import { supabase } from "@/lib/supabase";
 import { updatePassword, signOut } from "@/lib/auth";
@@ -189,12 +189,12 @@ export default function ResetPasswordPage() {
             <p className="text-sm" style={{ color: "var(--color-danger)" }}>
               {t("resetPwInvalid")}
             </p>
-            <Link
+            <InteractionLink
               href="/signin"
               className="haven-btn w-full rounded-xl py-3 text-sm font-semibold text-center"
             >
               {t("resetPwRequestNew")}
-            </Link>
+            </InteractionLink>
           </div>
         )}
 
@@ -227,7 +227,7 @@ export default function ResetPasswordPage() {
                   autoComplete="new-password"
                   autoFocus
                 />
-                <button
+                <InteractionButton
                   type="button"
                   onClick={() => setShow((s) => !s)}
                   aria-label={show ? t("authHidePassword") : t("authShowPassword")}
@@ -235,7 +235,7 @@ export default function ResetPasswordPage() {
                   style={{ color: "var(--color-muted)" }}
                 >
                   {show ? <EyeOff size={17} /> : <Eye size={17} />}
-                </button>
+                </InteractionButton>
               </div>
               {errors.password && (
                 <span className="text-xs" style={{ color: "var(--color-danger)" }}>
@@ -271,13 +271,13 @@ export default function ResetPasswordPage() {
               </span>
             )}
 
-            <button
+            <InteractionButton
               type="submit"
               disabled={busy}
               className="haven-btn mt-1 w-full rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
             >
               {busy ? t("resetPwSubmitting") : t("resetPwSubmit")}
-            </button>
+            </InteractionButton>
           </form>
         )}
       </div>

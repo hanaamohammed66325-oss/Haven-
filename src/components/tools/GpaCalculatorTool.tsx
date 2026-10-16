@@ -1,8 +1,8 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Plus, Trash2, GraduationCap, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, GraduationCap, ArrowLeft } from "@/components/motion/icons";
 import { isolateOption, plural } from "@/lib/format";
 
 // Standalone, no-login GPA calculator for the public /tools/gpa-calculator page.
@@ -99,7 +99,7 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
         </span>
         <div className="inline-flex rounded-xl p-1" style={{ background: "var(--color-primary-soft)" }}>
           {(["5", "4"] as const).map((s) => (
-            <button
+            <InteractionButton
               key={s}
               type="button"
               onClick={() => setScale(s)}
@@ -112,7 +112,7 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
               }
             >
               من {s}.0
-            </button>
+            </InteractionButton>
           ))}
         </div>
       </div>
@@ -159,7 +159,7 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
                 </option>
               ))}
             </select>
-            <button
+            <InteractionButton
               type="button"
               onClick={() => removeRow(r.id)}
               aria-label="حذف المادة"
@@ -168,10 +168,10 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
               style={{ color: "var(--color-muted)" }}
             >
               <Trash2 size={16} />
-            </button>
+            </InteractionButton>
           </div>
         ))}
-        <button
+        <InteractionButton
           type="button"
           onClick={() => setRows((rs) => [...rs, makeRow()])}
           className="inline-flex items-center gap-2 self-start rounded-xl px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-primary-soft)]"
@@ -179,7 +179,7 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
         >
           <Plus size={16} />
           أضف مادة
-        </button>
+        </InteractionButton>
       </div>
 
       {/* Optional cumulative inputs */}
@@ -278,13 +278,13 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
             </div>
           </div>
         </div>
-        <Link
+        <InteractionLink
           href="/signup/"
           className="haven-btn shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold"
         >
           ابدأ مجاناً
           <ArrowLeft size={16} />
-        </Link>
+        </InteractionLink>
       </div>
     </div>
   );

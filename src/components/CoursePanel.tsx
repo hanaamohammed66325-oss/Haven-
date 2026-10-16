@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
-import { Plus, Trash2, Target, Pencil, Sparkles } from "lucide-react";
+import { Plus, Trash2, Target, Pencil, Sparkles } from "@/components/motion/icons";
 import { Card } from "./Card";
 import { GradeBadge } from "./GradeBadge";
 import { AttendanceSection } from "./AttendanceSection";
@@ -118,20 +119,20 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <GradeBadge scheme={scheme} pct={pct} size="lg" showDefaultNote gradedPct={gradedPct} showProvisional official={course.official} curve={curve?.status} />
-          <button
+          <InteractionButton
             onClick={() => setEditing(true)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"
             aria-label={t("editCourse")}
           >
             <Pencil size={16} style={{ color: "var(--color-muted)" }} />
-          </button>
-          <button
+          </InteractionButton>
+          <InteractionButton
             onClick={() => (onDeleteCourse ?? deleteCourse)(course.id)}
             className="rounded-lg p-2 transition-colors hover:bg-black/5"
             aria-label={t("delete")}
           >
             <Trash2 size={16} style={{ color: "var(--color-muted)" }} />
-          </button>
+          </InteractionButton>
         </div>
       </div>
 
@@ -140,7 +141,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
         <div className="flex items-center justify-between gap-2 mb-6">
           <h3 className="haven-label" style={{ color: "var(--color-ink)" }}>{t("componentsHeading")}</h3>
           <div className="flex items-center gap-2">
-            <button
+            <InteractionButton
               onClick={autofill}
               disabled={autoFilling || hasComponents}
               title={hasComponents ? t("autofillUsed") : undefined}
@@ -149,8 +150,8 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
             >
               <Sparkles size={15} />
               {t("autofill")}
-            </button>
-            <button
+            </InteractionButton>
+            <InteractionButton
               data-tour="add-component"
               onClick={() => setAddingItem(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
@@ -158,7 +159,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
             >
               <Plus size={15} />
               {t("addItem")}
-            </button>
+            </InteractionButton>
           </div>
         </div>
 
@@ -302,12 +303,12 @@ function ComponentRow({
         />
         <span className="text-sm" style={{ color: "var(--color-muted)" }}>/ {comp.total}</span>
       </div>
-      <button onClick={onEdit} className="rounded-lg p-1.5 transition-colors hover:bg-black/5 shrink-0" aria-label={t("editItem")}>
+      <InteractionButton onClick={onEdit} className="rounded-lg p-1.5 transition-colors hover:bg-black/5 shrink-0" aria-label={t("editItem")}>
         <Pencil size={14} style={{ color: "var(--color-muted)" }} />
-      </button>
-      <button onClick={onDelete} className="rounded-lg p-1.5 transition-colors hover:bg-black/5 shrink-0" aria-label={t("delete")}>
+      </InteractionButton>
+      <InteractionButton onClick={onDelete} className="rounded-lg p-1.5 transition-colors hover:bg-black/5 shrink-0" aria-label={t("delete")}>
         <Trash2 size={14} style={{ color: "var(--color-muted)" }} />
-      </button>
+      </InteractionButton>
     </div>
   );
 }

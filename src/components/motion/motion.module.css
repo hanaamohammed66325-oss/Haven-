@@ -1,0 +1,49 @@
+/* The CSS half of the study motion: what is cheaper as plain CSS than as a
+   spring (hover light, the main action's sweep, small loops). Movement itself
+   (press, arrive, leave, glide) is Motion's, in Press/Swap/Disclosure. */
+
+.press { -webkit-tap-highlight-color: transparent; }
+/* Older hover lifts (.haven-btn, .haven-card--hover) move the same transform;
+   on a pressable they would jump a frame before the spring takes over. */
+.press.press:hover, .press.press:active { transform: none; }
+.press:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+/* Hover light (mouse only): the glass catches light along its top edge. The
+   inline GLASS/ACTION shadows would win without !important, hover only. */
+@media (hover: hover) and (pointer: fine) {
+  .glass:not(:disabled):hover {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 0 0 1px rgba(255,255,255,.1), 0 14px 32px rgba(0,0,0,.28) !important;
+  }
+  .soft:not(:disabled):hover {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 22%, transparent), 0 10px 24px rgba(36,54,64,.14) !important;
+  }
+}
+
+/* The main action's light sweep, while it can be pressed. */
+.sheen { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.sheen::after {
+  content: ""; position: absolute; inset-block: -20%; inset-inline-start: 0; width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.34), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  animation: sweep 4.2s cubic-bezier(.45,0,.2,1) 0.6s infinite;
+}
+.sheen:dir(rtl)::after { animation-name: sweepRtl; }
+@keyframes sweep { 0% { transform: translateX(-160%) skewX(-18deg); } 32%, 100% { transform: translateX(330%) skewX(-18deg); } }
+@keyframes sweepRtl { 0% { transform: translateX(160%) skewX(18deg); } 32%, 100% { transform: translateX(-330%) skewX(18deg); } }
+
+/* A live group's dot breathes. */
+.breathe { position: relative; }
+.breathe::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: inherit; animation: breathe 2.2s ease-out infinite; }
+@keyframes breathe { 0% { transform: scale(1); opacity: .7; } 70%, 100% { transform: scale(2.6); opacity: 0; } }
+
+/* Music playing: three small bars on the sound button. */
+.bars { display: flex; align-items: flex-end; gap: 1.5px; height: 8px; }
+.bars > i { width: 2px; height: 100%; border-radius: 1px; background: currentColor; transform-origin: bottom; animation: bar 0.9s ease-in-out infinite; }
+.bars > i:nth-child(2) { animation-delay: -0.3s; animation-duration: 0.75s; }
+.bars > i:nth-child(3) { animation-delay: -0.55s; animation-duration: 1.05s; }
+@keyframes bar { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheen::after, .breathe::after { animation: none; opacity: 0; }
+  .bars > i { animation: none; transform: scaleY(.6); }
+}

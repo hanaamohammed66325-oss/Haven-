@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X } from "@/components/motion/icons";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { AttendanceBadge } from "./AttendanceBadge";
@@ -132,7 +133,7 @@ export function AttendanceSection({ course }: { course: Course }) {
             {(["hour", "lecture"] as const).map((m) => {
               const active = mode === m;
               return (
-                <button
+                <InteractionButton
                   key={m}
                   type="button"
                   onClick={() => updateCourse(course.id, { attendanceMode: m })}
@@ -149,7 +150,7 @@ export function AttendanceSection({ course }: { course: Course }) {
                   }
                 >
                   {t(m === "hour" ? "attMethodHour" : "attMethodLecture")}
-                </button>
+                </InteractionButton>
               );
             })}
           </div>
@@ -208,7 +209,7 @@ export function AttendanceSection({ course }: { course: Course }) {
             </span>
             <div className="flex flex-wrap gap-2">
               {course.sessions.map((s) => (
-                <button
+                <InteractionButton
                   key={s.id}
                   onClick={() => runAdd(addMissedSession(course.id, s.id))}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-80"
@@ -216,7 +217,7 @@ export function AttendanceSection({ course }: { course: Course }) {
                 >
                   <Plus size={12} />
                   {dayLabel(s.day)} ({dur(s.minutes)})
-                </button>
+                </InteractionButton>
               ))}
             </div>
           </div>
@@ -235,13 +236,13 @@ export function AttendanceSection({ course }: { course: Course }) {
                   >
                     {dayLabel(m.day)} · {dur(m.minutes)}
                     {m.date && <time dateTime={m.date}> · {formatLongDate(`${m.date}T00:00:00`, lang, semester.calendarType)}</time>}
-                    <button
+                    <InteractionButton
                       onClick={() => removeMissedSession(course.id, m.id)}
                       className="rounded-full transition-opacity hover:opacity-70"
                       aria-label={t("remove")}
                     >
                       <X size={12} />
-                    </button>
+                    </InteractionButton>
                   </span>
                 ))}
               </div>

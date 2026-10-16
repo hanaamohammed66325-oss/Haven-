@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -21,12 +22,11 @@ import {
   Bell,
   Timer,
   CalendarDays,
-  UserCheck,
   Calculator,
   TreePalm,
   Earth,
   BellRing,
-} from "lucide-react";
+} from "@/components/motion/icons";
 import { Logo } from "@/components/Logo";
 import { HeroDemo } from "@/components/HeroDemo";
 import { DemoPlayer } from "@/components/DemoPlayer";
@@ -83,7 +83,7 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <button
+            <InteractionButton
               onClick={() => setLanguage(language === "en" ? "ar" : "en")}
               className="surface-card inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium"
               style={{ color: "var(--color-ink)" }}
@@ -92,14 +92,14 @@ export default function LandingPage() {
               <span className="hidden sm:inline">
                 {lang === "en" ? t("switchToArabic") : t("switchToEnglish")}
               </span>
-            </button>
-            <Link
+            </InteractionButton>
+            <InteractionLink
               href="/dashboard"
               className="haven-btn inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium"
             >
               {t("land_open")}
               <ArrowRight size={16} className="rtl:rotate-180" />
-            </Link>
+            </InteractionLink>
           </div>
         </header>
 
@@ -134,21 +134,21 @@ export default function LandingPage() {
             </p>
 
             <div className="haven-fade-up mt-10 flex flex-wrap items-center gap-4" style={{ animationDelay: "0.15s" }}>
-              <Link
+              <InteractionLink
                 href="/signup"
                 className="haven-btn inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-medium"
               >
                 {t("land_getStarted")}
                 <ArrowRight size={18} className="rtl:rotate-180" />
-              </Link>
-              <button
+              </InteractionLink>
+              <InteractionButton
                 onClick={() => setDemoOpen(true)}
                 className="surface-card inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-medium transition-transform hover:-translate-y-0.5"
                 style={{ color: "var(--color-ink)" }}
               >
                 <Sparkles size={17} style={{ color: "var(--color-brass)" }} />
                 {t("land_seeDemo")}
-              </button>
+              </InteractionButton>
             </div>
 
             {/* Stat */}
@@ -241,7 +241,6 @@ export default function LandingPage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <NewCard accent="#477680" icon={<CalendarDays size={22} />} title={t("land_u1Title")} desc={t("land_u1Desc")} />
-            <NewCard accent="#d9694a" icon={<UserCheck size={22} />} title={t("land_u2Title")} desc={t("land_u2Desc")} />
             <NewCard accent="#b8975a" icon={<Calculator size={22} />} title={t("land_u3Title")} desc={t("land_u3Desc")} />
             <NewCard accent="#5fa98c" icon={<TreePalm size={22} />} title={t("land_u4Title")} desc={t("land_u4Desc")} />
             <NewCard accent="#7f77dd" icon={<Earth size={22} />} title={t("land_u5Title")} desc={t("land_u5Desc")} />
@@ -330,13 +329,13 @@ export default function LandingPage() {
                   </div>
 
                   {ENFORCE_PREMIUM ? (
-                    <Link
+                    <InteractionLink
                       href={startFreeHref(p.cycle)}
                       className="haven-btn mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
                     >
                       <Sparkles size={16} />
                       {t("land_pricingStartFree")}
-                    </Link>
+                    </InteractionLink>
                   ) : (
                     <div
                       className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium cursor-not-allowed select-none"
@@ -376,13 +375,13 @@ export default function LandingPage() {
             <p className="mt-5 text-lg max-w-xl mx-auto" style={{ color: "var(--color-muted)" }}>
               {t("land_ctaText")}
             </p>
-            <Link
+            <InteractionLink
               href="/signup"
               className="haven-btn mt-9 inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-medium"
             >
               {t("land_ctaBtn")}
               <ArrowRight size={18} className="rtl:rotate-180" />
-            </Link>
+            </InteractionLink>
           </div>
         </section>
 

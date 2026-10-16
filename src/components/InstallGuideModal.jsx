@@ -1,4 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
+import { createPortal } from "react-dom";
+import { motion } from "motion/react";
+import { PopoverPanel } from "@/components/motion/PopoverPanel";
+import { EXIT, SURFACE } from "@/components/motion/springs";
 
 /**
  * InstallGuideModal — a one-time, first-visit popup that teaches every visitor
@@ -147,14 +152,14 @@ export default function InstallGuideModal() {
     } catch (e) {}
   }, []);
 
-  if (!open) return null;
+  if (typeof document === "undefined") return null;
 
   const c = COPY[lang];
   const steps = tab === "apple" ? c.apple : c.android;
 
-  return (
-    <div className="haven-install-backdrop" style={S.backdrop} onClick={close} dir={c.dir} role="dialog" aria-modal="true" aria-label={c.title}>
-      <div className="haven-install-card" style={S.card} onClick={(e) => e.stopPropagation()}>
+  return createPortal(
+    <PopoverPanel open={open} fadeOnly className="haven-install-backdrop" style={S.backdrop} onClick={close} dir={c.dir} role="dialog" aria-modal="true" aria-label={c.title}>
+      <motion.div initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5, transition: EXIT }} transition={SURFACE} className="haven-install-card" style={{ ...S.card, animation: "none" }} onClick={(e) => e.stopPropagation()}>
         {/* header: app icon + title */}
         <div style={S.head}>
           <img src="/icons/icon-192.png" alt="Haven" width={52} height={52} style={S.appIcon} />
@@ -162,7 +167,7 @@ export default function InstallGuideModal() {
             <h2 style={S.title}>{c.title}</h2>
             <p style={S.subtitle}>{c.subtitle}</p>
           </div>
-          <button onClick={close} style={S.x} aria-label={c.later}>✕</button>
+          <InteractionButton onClick={close} style={S.x} aria-label={c.later}>✕</InteractionButton>
         </div>
 
         {/* benefit chips */}
@@ -173,18 +178,18 @@ export default function InstallGuideModal() {
 
         {/* tabs */}
         <div style={S.tabs}>
-          <button
+          <InteractionButton
             onClick={() => setTab("apple")}
             style={{ ...S.tab, ...(tab === "apple" ? S.tabActive : {}) }}
           >
             <AppleGlyph /> {c.tabApple}
-          </button>
-          <button
+          </InteractionButton>
+          <InteractionButton
             onClick={() => setTab("android")}
             style={{ ...S.tab, ...(tab === "android" ? S.tabActive : {}) }}
           >
             <AndroidGlyph /> {c.tabAndroid}
-          </button>
+          </InteractionButton>
         </div>
 
         {/* steps */}
@@ -203,9 +208,9 @@ export default function InstallGuideModal() {
           ))}
         </ol>
 
-        <button onClick={close} style={S.cta}>{c.got}</button>
-      </div>
-    </div>
+        <InteractionButton onClick={close} style={S.cta}>{c.got}</InteractionButton>
+      </motion.div>
+    </PopoverPanel>, document.body
   );
 }
 

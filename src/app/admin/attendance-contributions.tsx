@@ -1,4 +1,6 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
+import { MotionModal } from "@/components/motion/MotionModal";
 
 // Student contributions while the attendance calculation is suspended
 // (ACCURACY_PLAN.md, 2026-10-12): each one is a covered portal image for one
@@ -88,6 +90,7 @@ export function AttendanceContributionsSection({ onOpenUser }: { onOpenUser: (id
   const [rows, setRows] = useState<Contribution[] | null>(null);
   const [error, setError] = useState("");
   const [urls, setUrls] = useState<Record<string, string>>({});
+  const [selectedImage, setSelectedImage] = useState<{ path: string; course: string } | null>(null);
   const [onlyNew, setOnlyNew] = useState(true);
 
   const [totals, setTotals] = useState<Totals | null>(null);
@@ -202,14 +205,17 @@ export function AttendanceContributionsSection({ onOpenUser }: { onOpenUser: (id
                 const { ctx: x, malformed } = readContext(r.context);
                 return (
                   <div key={r.id} className="rounded-xl border p-4 flex flex-col md:flex-row gap-4" style={{ borderColor: C.border, background: C.panel }}>
-                    <a href={urls[r.image_path]} target="_blank" rel="noreferrer" className="md:w-72 shrink-0">
+                    <InteractionButton type="button" disabled={!urls[r.image_path]}
+                      aria-label="View contribution image" aria-haspopup="dialog"
+                      onClick={() => setSelectedImage({ path: r.image_path, course: x.course?.name ?? "Contribution image" })}
+                      className="md:w-72 shrink-0 self-start text-start cursor-zoom-in disabled:cursor-default">
                       {urls[r.image_path] ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={urls[r.image_path]} alt="" className="w-full h-auto rounded-lg border" style={{ borderColor: C.border }} />
                       ) : (
                         <span className="text-[12px]" style={{ color: C.textFaint }}>Image unavailable</span>
                       )}
-                    </a>
+                    </InteractionButton>
                     <div className="min-w-0 flex-1 text-[12.5px] flex flex-col gap-1.5" style={{ color: C.text }}>
                       <div className="flex flex-wrap items-center gap-2">
                         <span dir="auto" className="font-semibold">{x.course?.name ?? "—"}</span>
@@ -224,9 +230,9 @@ export function AttendanceContributionsSection({ onOpenUser }: { onOpenUser: (id
                       <div style={{ color: C.textDim }}>
                         Sent {new Date(r.created_at).toLocaleString()} · portal covers until {r.covers_until ?? "not clear"} ·{" "}
                         {r.user_id ? (
-                          <button onClick={() => onOpenUser(r.user_id!)} className="underline" style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", padding: 0 }}>
+                          <InteractionButton onClick={() => onOpenUser(r.user_id!)} className="underline" style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", padding: 0 }}>
                             {r.email ?? r.user_id}
-                          </button>
+                          </InteractionButton>
                         ) : (
                           <span>account deleted (image removed after a month)</span>
                         )}
@@ -256,13 +262,13 @@ export function AttendanceContributionsSection({ onOpenUser }: { onOpenUser: (id
                       {malformed && <div style={{ color: C.danger }}>Part of this contribution&apos;s details is unreadable; treat it as unusable evidence.</div>}
                       {typeof r.note === "string" && r.note && <div dir="auto" style={{ color: C.textDim }}>Note: {r.note}</div>}
                       <div className="mt-1">
-                        <button
+                        <InteractionButton
                           onClick={() => setStatus(r.id, r.status === "new" ? "reviewed" : "new")}
                           className="text-[12px] px-3 py-1.5 rounded-lg font-medium"
                           style={{ background: C.border, color: C.text, border: "none", cursor: "pointer" }}
                         >
                           {r.status === "new" ? "Mark reviewed" : "Mark not reviewed"}
-                        </button>
+                        </InteractionButton>
                       </div>
                     </div>
                   </div>
@@ -271,12 +277,20 @@ export function AttendanceContributionsSection({ onOpenUser }: { onOpenUser: (id
             </div>
           )}
           {more && (
-            <button onClick={loadMore} disabled={loadingMore} className="mt-4 text-[12px] px-3 py-1.5 rounded-lg font-medium" style={{ background: C.border, color: C.text, border: "none", cursor: "pointer" }}>
+            <InteractionButton onClick={loadMore} disabled={loadingMore} className="mt-4 text-[12px] px-3 py-1.5 rounded-lg font-medium" style={{ background: C.border, color: C.text, border: "none", cursor: "pointer" }}>
               Load more
-            </button>
+            </InteractionButton>
           )}
         </>
       )}
+      <MotionModal open={selectedImage !== null} onClose={() => setSelectedImage(null)} title="Contribution image">
+        {selectedImage && urls[selectedImage.path] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={urls[selectedImage.path]} alt={selectedImage.course} className="block w-full h-auto rounded-lg" />
+        ) : (
+          <p>Image unavailable</p>
+        )}
+      </MotionModal>
     </div>
   );
 }

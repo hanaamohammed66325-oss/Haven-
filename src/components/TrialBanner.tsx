@@ -1,8 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { X } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { plural } from "@/lib/format";
 import { useSubscription } from "@/lib/subscription";
@@ -41,14 +42,14 @@ export function TrialBanner() {
           {seePlans}
         </Link>
       </span>
-      <button
+      <InteractionButton
         type="button"
         onClick={() => setDismissed(true)}
         aria-label={lang === "ar" ? "إغلاق" : "Close"}
         className="shrink-0 rounded-full p-1 transition-colors hover:bg-black/5"
       >
         <X size={15} style={{ color: "var(--color-muted)" }} />
-      </button>
+      </InteractionButton>
     </div>
   );
 }

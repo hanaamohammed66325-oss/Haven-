@@ -1,7 +1,7 @@
 "use client";
+import { InteractionButton, InteractionLink, InteractionAnchor } from "@/components/motion/Interaction";
 
-import Link from "next/link";
-import { Globe, Mail } from "lucide-react";
+import { Globe, Mail } from "@/components/motion/icons";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
 import { useStore } from "@/store";
@@ -22,13 +22,13 @@ export default function ContactPage() {
   return (
     <div className="min-h-dvh flex flex-col">
       <header className="mx-auto w-full max-w-[720px] px-5 flex items-center justify-between py-6">
-        <Link href="/" className="flex items-center gap-2.5">
+        <InteractionLink href="/" className="flex items-center gap-2.5">
           <Logo size={30} mono />
           <span className="font-display text-xl" style={{ color: "var(--color-ink)" }}>
             {t("appName")}
           </span>
-        </Link>
-        <button
+        </InteractionLink>
+        <InteractionButton
           onClick={() => setLanguage(language === "en" ? "ar" : "en")}
           className="surface-card inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium"
           style={{ color: "var(--color-ink)" }}
@@ -37,7 +37,7 @@ export default function ContactPage() {
           <span className="hidden sm:inline">
             {lang === "en" ? t("switchToArabic") : t("switchToEnglish")}
           </span>
-        </button>
+        </InteractionButton>
       </header>
 
       <main className="mx-auto w-full max-w-[720px] px-5 flex-1 pb-16">
@@ -48,14 +48,14 @@ export default function ContactPage() {
           {body}
         </p>
 
-        <a
+        <InteractionAnchor
           href={`mailto:${SUPPORT_EMAIL}`}
           className="haven-btn inline-flex items-center gap-2.5 rounded-2xl px-6 py-4 text-base font-semibold"
           style={{ direction: "ltr" }}
         >
           <Mail size={18} />
           {SUPPORT_EMAIL}
-        </a>
+        </InteractionAnchor>
 
         <p className="text-[13px] mt-8" style={{ color: "var(--color-muted)" }}>
           {note}

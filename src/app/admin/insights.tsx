@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Insights — product usage analytics. Reads the guarded SECURITY DEFINER
 // functions (admin_engagement_stats / admin_content_stats) DIRECTLY via
@@ -9,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase, useC, useS, StatCard, ClickableCard, SectionHeader, Loading, ErrorBanner, fmtNum } from "./_lib";
 import { useDrill } from "./_drill";
 import { InsightsChoices } from "./student-decisions";
+import { SustainedUseOutcomes } from "./OutcomePanels";
 
 interface Engagement {
   total_users: number;
@@ -34,13 +36,14 @@ interface Content {
   };
 }
 
-export function InsightsSection() {
+export function InsightsSection({ accountId }: { accountId: string }) {
   const C = useC();
   const drill = useDrill();
   const [eng, setEng] = useState<Engagement | null>(null);
   const [content, setContent] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [outcomeRefresh, setOutcomeRefresh] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -62,13 +65,14 @@ export function InsightsSection() {
       <SectionHeader
         title="Insights"
         action={
-          <button onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
+          <InteractionButton onClick={() => { void load(); setOutcomeRefresh(n => n + 1); }} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
 
       {error && <ErrorBanner message={error} onRetry={load} />}
+      <div className="mb-6"><SustainedUseOutcomes account={accountId} refresh={outcomeRefresh} /></div>
 
       {eng && (
         <div className="flex flex-col gap-6">

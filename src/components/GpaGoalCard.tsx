@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Info } from "lucide-react";
+import { Info } from "@/components/motion/icons";
 import { effectiveGpaGoal } from "@/lib/gradeSchemes";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";

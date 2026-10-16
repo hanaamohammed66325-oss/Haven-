@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // ---------------------------------------------------------------------------
 // Checkout — SIMULATED (no payment gateway connected).
@@ -17,7 +18,7 @@
 
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Sparkles, ShieldCheck } from "lucide-react";
+import { Loader2, Sparkles, ShieldCheck } from "@/components/motion/icons";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
 import { callFunction } from "@/lib/supabase";
@@ -202,14 +203,14 @@ function CheckoutInner() {
             <span className="text-[13px] font-medium" style={{ color: "var(--color-primary)" }}>
               {t("checkoutCouponApplied", { percent: appliedCoupon.percentOff })}
             </span>
-            <button
+            <InteractionButton
               type="button"
               onClick={removeCoupon}
               className="text-[12px] font-medium underline"
               style={{ color: "var(--color-primary)" }}
             >
               {t("checkoutCouponRemove")}
-            </button>
+            </InteractionButton>
           </div>
         )}
       </Card>
@@ -231,7 +232,7 @@ function CheckoutInner() {
                 if (e.key === "Enter") { e.preventDefault(); void applyCoupon(); }
               }}
             />
-            <button
+            <InteractionButton
               type="button"
               onClick={() => void applyCoupon()}
               disabled={couponLoading || !couponCode.trim()}
@@ -239,7 +240,7 @@ function CheckoutInner() {
               style={{ opacity: couponLoading || !couponCode.trim() ? 0.5 : 1 }}
             >
               {couponLoading ? "…" : t("checkoutCouponApply")}
-            </button>
+            </InteractionButton>
           </div>
           {couponError && (
             <p className="text-[12px] mt-2" style={{ color: "#c0392b" }}>{couponError}</p>
@@ -325,7 +326,7 @@ function CheckoutInner() {
             <p className="text-[13px] mt-4" style={{ color: "#c0392b" }}>{error}</p>
           )}
 
-          <button
+          <InteractionButton
             type="submit"
             disabled={submitting}
             className="haven-btn mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold"
@@ -342,7 +343,7 @@ function CheckoutInner() {
                 {t("checkoutStartTrial")}
               </>
             )}
-          </button>
+          </InteractionButton>
 
           <p className="text-[12px] mt-4 text-center" style={{ color: "var(--color-muted)" }}>
             {t("premiumTrustFooter")}

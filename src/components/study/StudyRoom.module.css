@@ -1,0 +1,72 @@
+.room { container: study-room / size; }
+.hud { position:absolute; inset:0; display:flex; flex-direction:column; pointer-events:none; padding:max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); gap:12px; }
+.top { position:relative; display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); gap:12px; align-items:start; }
+.timer { grid-column:2; min-width:0; text-align:center; pointer-events:auto; }
+.task { display:flex; justify-content:center; flex-wrap:wrap; align-items:center; gap:6px; min-width:0; margin-top:6px; }
+.task > button { max-width:100%; }
+.digits { font-size:clamp(40px, min(15cqw, 15cqh), 112px); }
+.navigation { position:relative; grid-column:1; grid-row:1; display:flex; flex-direction:column; align-items:flex-start; gap:8px; pointer-events:auto; min-width:0; }
+.navigation button { max-width:100%; }
+.navigation { overflow-wrap:anywhere; }
+.shortLabel { display:none; }
+.longLabel { display:inline; }
+.middle { position:relative; flex:1; min-height:0; }
+.tools { max-height:100%; overflow:auto; scrollbar-width:none; position:absolute; inset-inline-end:0; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:auto; }
+.zoom, .dots { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.tools > button, .zoom { flex-shrink:0; }
+.tools button { flex-shrink:0; aspect-ratio:1; box-sizing:border-box; }
+.bottom { display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:auto; }
+.panel { position:relative; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; max-width:100%; border-radius:24px; padding:8px; }
+.panel > button { order:-1; }
+.panel select { max-width:100%; }
+.settingsRow { flex-basis:100%; order:1; min-width:0; }
+.settingsRow:empty { display:none; }
+.settingsFields { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; padding:4px; }
+.legend { display:flex; align-items:center; gap:8px; width:min(100%, 720px); padding:8px; border-radius:24px; }
+.chips { display:flex; align-items:center; gap:6px; overflow-x:auto; min-width:0; scrollbar-width:none; }
+.chip { display:flex; align-items:center; gap:6px; flex-shrink:0; border-radius:999px; padding:8px 12px; font-size:12px; }
+.note { max-width:560px; border-radius:16px; padding:6px 12px; text-align:center; font-size:12px; }
+.notice { cursor:pointer; font-size:11px; opacity:.8; }
+.notice p { max-width:420px; margin-top:4px; }
+.reveal { position:absolute; inset-inline-end:max(12px, env(safe-area-inset-left), env(safe-area-inset-right)); top:calc(50% - 20px); }
+@container study-room (max-width:600px) {
+ .shortLabel { display:inline; }
+ .longLabel { display:none; }
+ .top { grid-template-columns:minmax(0, 1fr); gap:8px; }
+ .timer { grid-column:1; grid-row:1; width:75%; justify-self:center; }
+ .navigation { grid-column:1; grid-row:2; flex-direction:row; flex-wrap:wrap; gap:6px; }
+ .navigation button { padding:8px 10px; font-size:11px; }
+ .panel { gap:6px; }
+ .panel button, .panel select { font-size:12px; padding-top:8px; padding-bottom:8px; }
+}
+@container study-room (max-height:500px) {
+ .hud { gap:6px; }
+ .top { grid-template-columns:minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); gap:8px; }
+ .timer { grid-column:2; grid-row:1; width:100%; }
+ .digits { font-size:clamp(32px, 14cqh, 64px); }
+ .navigation { grid-column:1; grid-row:1; flex-direction:column; gap:4px; }
+ .navigation button { padding:5px 10px; font-size:11px; }
+ .timer p:not(.digits) { font-size:10px; margin-top:2px; }
+ .timer > div { margin-block:4px; }
+ .task button { padding:5px 10px; font-size:11px; }
+ .tools, .zoom, .dots { flex-direction:column; }
+ .tools { gap:6px; }
+ .zoom { gap:2px; }
+ .dots { gap:3px; }
+ .tools button { width:34px; height:34px; }
+ .bottom { gap:4px; }
+ .panel { gap:6px; padding:6px; border-radius:20px; }
+ .panel button, .panel select { font-size:11px; padding-top:6px; padding-bottom:6px; min-height:34px; }
+ .note { padding:4px 10px; font-size:11px; }
+ .notice { font-size:10px; }
+}
+
+.exit { grid-column:3; grid-row:1; justify-self:end; pointer-events:auto; }
+
+/* Narrow landscape rooms must also reserve the close button's own row. */
+@container study-room (max-width:600px) {
+ .top { grid-template-columns:minmax(0, 1fr); }
+ .exit { grid-column:1; grid-row:1; }
+ .timer { grid-column:1; grid-row:2; width:100%; }
+ .navigation { grid-column:1; grid-row:3; flex-direction:row; flex-wrap:wrap; }
+}

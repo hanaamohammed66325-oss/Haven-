@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // ---------------------------------------------------------------------------
 // /email-changed — where Supabase's email-change confirmation links land.
@@ -123,13 +124,13 @@ export default function EmailChangedPage() {
         title={t("emailChangedSameDeviceTitle")}
         subtitle={t("emailChangedSameDeviceSubtitle")}
       >
-        <button
+        <InteractionButton
           type="button"
           onClick={() => router.replace("/profile")}
           className={primaryBtn}
         >
           {t("emailChangedGoToProfile")}
-        </button>
+        </InteractionButton>
       </AuthLayout>
     );
   }

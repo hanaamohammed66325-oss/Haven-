@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useCallback, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { StoreContext, type StoreValue } from "@/store";
 import type {
   AppData,
@@ -12,11 +12,16 @@ import type {
   PlannerNote,
   Semester,
 } from "@/types";
+import { COMPANION_KINDS, isCompanionKind } from "@/types";
 import { DEFAULT_NOTIF_PREFS } from "@/lib/notifPrefs";
+import { DEFAULT_REWARD_MOTIONS, isAllowedRewardMotion, normalizeRewardMotions } from "@/lib/rewardMotions";
 import { addMinutesToTime } from "@/lib/format";
 import { withOfficial } from "@/lib/termCheck";
 import { withRepeats } from "@/lib/repeats";
 import { curveUniversity, nextCurves, withCurves } from "@/lib/curves";
+import { EMPTY_REFERRAL_PROGRAM, type ReferralProgram } from "@/lib/referrals";
+import { canUseReferralReward, filterReferralPreferences } from "@/lib/referralRewards";
+import { totalGamificationXp } from "@/lib/gamification";
 import { NoCollapse } from "./Collapsible";
 import { toISODate } from "@/lib/dates";
 
@@ -215,6 +220,7 @@ function buildInitialData(): AppData {
     gpaGoal: 4.75,
     language: "en",
     theme: "haven",
+    rewardMotionChoices: DEFAULT_REWARD_MOTIONS,
     semester: demoSemester,
     courses,
     planner: demoPlanner(),
@@ -225,6 +231,8 @@ function buildInitialData(): AppData {
     cumulativeHours: 52,
     notifPrefs: DEFAULT_NOTIF_PREFS,
     haviName: "Havi",
+    haviCosmetics: [],
+    haviCompanions: [],
     onboardingSeen: true,
     attendanceEnabled: true,
     personalAttendanceRule: null,
@@ -242,8 +250,16 @@ function buildInitialData(): AppData {
   };
 }
 
-export function DemoStoreProvider({ children, initial }: { children: ReactNode; initial?: Partial<AppData> }) {
+export function DemoStoreProvider({ children, initial, referral = EMPTY_REFERRAL_PROGRAM }: { children: ReactNode; initial?: Partial<AppData>; referral?: ReferralProgram }) {
   const [data, setData] = useState<AppData>(() => ({ ...buildInitialData(), ...initial }));
+  useEffect(() => {
+    if (!referral.profile) return;
+    setData(previous => {
+      const clean = filterReferralPreferences(previous, referral.profile);
+      if (previous.theme === clean.theme && JSON.stringify(previous.haviCosmetics) === JSON.stringify(clean.haviCosmetics) && JSON.stringify(previous.haviCompanions) === JSON.stringify(clean.haviCompanions)) return previous;
+      return { ...previous, ...clean };
+    });
+  }, [referral.profile]);
 
   const patch = useCallback((p: Partial<AppData>) => setData((d) => ({ ...d, ...p })), []);
   const mapCourses = useCallback(
@@ -256,6 +272,10 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
 
     return {
       ...data,
+      ...filterReferralPreferences(data, referral.profile),
+      referralProgram: referral,
+      displayXp: totalGamificationXp(data.gamification.xp, referral.profile?.earnedXp ?? 0),
+      accountId: referral.accountId,
       courses: withCurves(
         withRepeats(withOfficial(data.courses, data.termCheck), data.repeats),
         data.curves,
@@ -267,6 +287,7 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
 
       setPomodoroSettings: (p) => patch({ pomodoroSettings: { ...data.pomodoroSettings, ...p } }),
       recordPomodoroComplete: () => ({ xpEarned: 0, lilyPadCount: data.pomodoroStats.lilyPadCount }),
+      syncStudyAwards: async () => true,
       recordPomodoroAbandon: () => {},
       setTaskFocus: () => {},
 
@@ -333,7 +354,7 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
           },
         })),
 
-      markWhatsNewSeen: async (version) => { setData((d) => ({ ...d, whatsNewSeen: { ...d.whatsNewSeen, [`whatsNewSeen_v${version}`]: true } })); return true; },
+      markWhatsNewSeen: async (version, page) => { setData((d) => ({ ...d, whatsNewSeen: { ...d.whatsNewSeen, [`whatsNewSeen_v${version}${page ? `_${page}` : ""}`]: true } })); return true; },
       setPlannerWeekStrike: (key, strike) => setData((d) => ({ ...d, planner: { ...d.planner, weekStrikes: { ...d.planner.weekStrikes, [key]: strike } } })),
       setPlannerWeekIcon: (key, icon) => setData((d) => ({ ...d, planner: { ...d.planner, weekIcons: { ...d.planner.weekIcons, [key]: icon } } })),
       setPlannerWeekDone: (key, color) => setData((d) => {
@@ -343,7 +364,10 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
         return { ...d, planner: { ...d.planner, completedWeeks } };
       }),
       setLanguage: (language) => patch({ language }),
-      setTheme: (theme) => patch({ theme }),
+      setTheme: (theme) => { if (canUseReferralReward(referral.profile, "theme", theme)) patch({ theme }); },
+      setRewardMotion: (theme, motion) => {
+        if (isAllowedRewardMotion(theme, motion)) setData((d) => ({ ...d, rewardMotionChoices: { ...normalizeRewardMotions(d.rewardMotionChoices), [theme]: motion } }));
+      },
       setTaskOrder: (taskOrder) => patch({ taskOrder }),
       setGpaMode: (gpaMode) => patch({ gpaMode }),
       setCumulativeGpa: (cumulativeGpa) => patch({ cumulativeGpa }),
@@ -445,6 +469,8 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
         mapCourses(inCourse(courseId, (c) => ({ ...c, missedSessions: c.missedSessions.filter((m) => m.id !== missedId) }))),
 
       setHaviName: (name) => patch({ haviName: name || "Havi" }),
+      setHaviCosmetics: (ids) => patch({ haviCosmetics: (ids || []).filter((id) => id && id !== "none" && canUseReferralReward(referral.profile, "outfit", id)) }),
+      setHaviCompanions: (ids) => patch({ haviCompanions: (ids || []).filter((id) => isCompanionKind(id) && canUseReferralReward(referral.profile, "companion", id)) }),
       completeOnboarding: () => {},
       confirmSetup: (patch) => setData((d) => ({ ...d, setupConfirmed: { ...d.setupConfirmed, ...patch } })),
       universityPolicy: null,
@@ -466,7 +492,7 @@ export function DemoStoreProvider({ children, initial }: { children: ReactNode; 
 
       resetData: () => {},
     };
-  }, [data, patch, mapCourses]);
+  }, [data, patch, mapCourses, referral]);
 
   // The demo / tour always shows cards open, whatever this device folded.
   return (

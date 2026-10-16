@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // GpaCheckNudge — a small button beside the notifications bell on the
 // dashboard, with the same pulsing dot, for students who haven't compared our
@@ -11,7 +12,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 
@@ -50,7 +51,7 @@ export function GpaCheckNudge() {
   };
 
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={open}
       aria-label={t("acc_title")}
@@ -65,6 +66,6 @@ export function GpaCheckNudge() {
       <ShieldCheck size={20} />
       <span className="absolute top-2 end-2 w-2.5 h-2.5 rounded-full animate-ping" style={{ background: "var(--color-brass)" }} />
       <span className="absolute top-2 end-2 w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-brass)" }} />
-    </button>
+    </InteractionButton>
   );
 }

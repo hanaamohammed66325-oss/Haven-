@@ -2,6 +2,7 @@ import type { Course, PlannerData, Semester } from "@/types";
 import { attendanceInfo } from "@/lib/grades";
 import { toISODate } from "./dates";
 import { ATTENDANCE_CALC_SUSPENDED } from "./featureFlags";
+import { advanceStreak, activeStreak } from "./streak";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -80,6 +81,12 @@ export const LEVELS = [
   { level: 8, name: "genius", xp: 5000 },
 ] as const;
 
+/** Referral XP is a display/assessment input, never persisted base XP. */
+export function totalGamificationXp(baseXp: number, referralXp = 0): number {
+  const safe = (xp: number) => Number.isFinite(xp) ? Math.max(0, xp) : 0;
+  return Math.min(Number.MAX_SAFE_INTEGER, safe(baseXp) + safe(referralXp));
+}
+
 export function getLevel(xp: number) {
   for (let i = LEVELS.length - 1; i >= 0; i--) {
     if (xp >= LEVELS[i].xp) return LEVELS[i];
@@ -106,37 +113,17 @@ function todayISO(): string {
   return toISODate(new Date());
 }
 
-function daysBetween(a: string, b: string): number {
-  const da = new Date(a + "T00:00:00");
-  const db = new Date(b + "T00:00:00");
-  return Math.round((db.getTime() - da.getTime()) / 86400000);
-}
-
-export function updateStreak(state: GamificationState): {
+export function updateStreak(state: GamificationState, today = todayISO()): {
   state: GamificationState;
   xpEarned: number;
   streakBroke: boolean;
 } {
-  const today = todayISO();
   const last = state.streak.lastActiveDate;
 
-  if (last === today) return { state, xpEarned: 0, streakBroke: false };
+  if (last && last >= today) return { state, xpEarned: 0, streakBroke: false };
 
-  let current = state.streak.current;
-  let streakBroke = false;
-
-  if (!last) {
-    current = 1;
-  } else {
-    const gap = daysBetween(last, today);
-    if (gap === 1) {
-      current += 1;
-    } else {
-      streakBroke = current > 0;
-      current = 1;
-    }
-  }
-
+  const streakBroke = !!last && state.streak.current > 0 && activeStreak(state.streak.current, last, today) === 0;
+  const current = advanceStreak(state.streak.current, last, today);
   const longest = Math.max(state.streak.longest, current);
   return {
     state: {
@@ -192,6 +179,7 @@ export interface BadgeDef {
 }
 
 export interface BadgeContext {
+  displayXp?: number;
   courses: Course[];
   planner: PlannerData;
   semesterGpa: number | null;
@@ -367,7 +355,7 @@ export const BADGES: BadgeDef[] = [
     id: "level-up",
     icon: "🏆",
     thresholds: [50, 300, 1500, 4000],
-    check: (g, _ctx, t) => g.xp >= t,
+    check: (g, ctx, t) => (ctx.displayXp ?? g.xp) >= t,
   },
   {
     id: "coursework-complete",

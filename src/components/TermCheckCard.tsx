@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // The student's term dates against their university's calendar
 // (lib/universityTerms), one card for every university:
@@ -14,7 +15,7 @@
 // answered, once per university and term.
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, CalendarCheck } from "lucide-react";
+import { AlertTriangle, CalendarCheck } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { logEvent } from "@/lib/db";
@@ -200,56 +201,56 @@ export function TermCheckCard({ className = "" }: { className?: string }) {
           <div className="flex flex-wrap items-center gap-2">
             {warn ? (
               <>
-                <button
+                <InteractionButton
                   type="button"
                   onClick={openForm}
                   className="rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white"
                   style={{ background: "var(--color-primary)" }}
                 >
                   {t("termUnknownAdd")}
-                </button>
-                <button
+                </InteractionButton>
+                <InteractionButton
                   type="button"
                   onClick={keepMine}
                   className="rounded-lg px-3.5 py-1.5 text-sm font-medium border"
                   style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
                 >
                   {t("termUnknownKeep")}
-                </button>
+                </InteractionButton>
               </>
             ) : complete ? (
               <>
-                <button
+                <InteractionButton
                   type="button"
                   onClick={confirm}
                   className="rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white"
                   style={{ background: "var(--color-primary)" }}
                 >
                   {t("termCheckYes")}
-                </button>
-                <button
+                </InteractionButton>
+                <InteractionButton
                   type="button"
                   onClick={openForm}
                   className="rounded-lg px-3.5 py-1.5 text-sm font-medium border"
                   style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
                 >
                   {t("calCheckEdit")}
-                </button>
+                </InteractionButton>
               </>
             ) : (
-              <button
+              <InteractionButton
                 type="button"
                 onClick={openForm}
                 className="rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white"
                 style={{ background: "var(--color-primary)" }}
               >
                 {t("termAskComplete")}
-              </button>
+              </InteractionButton>
             )}
             {canRestore && (
-              <button type="button" onClick={restore} className="text-xs underline underline-offset-2 ms-1" style={{ color: "var(--color-muted)" }}>
+              <InteractionButton type="button" onClick={restore} className="text-xs underline underline-offset-2 ms-1" style={{ color: "var(--color-muted)" }}>
                 {t("termCheckRestore")}
-              </button>
+              </InteractionButton>
             )}
           </div>
         </>
@@ -287,17 +288,17 @@ export function TermCheckCard({ className = "" }: { className?: string }) {
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={save} className="rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white" style={{ background: "var(--color-primary)" }}>
+            <InteractionButton type="button" onClick={save} className="rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white" style={{ background: "var(--color-primary)" }}>
               {t("calCheckSave")}
-            </button>
-            <button
+            </InteractionButton>
+            <InteractionButton
               type="button"
               onClick={() => setEditing(false)}
               className="rounded-lg px-3.5 py-1.5 text-sm font-medium border"
               style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
             >
               {t("cancel")}
-            </button>
+            </InteractionButton>
           </div>
         </>
       )}

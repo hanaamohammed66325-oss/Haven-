@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // "Grading method" on a course: fixed (the university's table) or graded on
 // the cohort average («متوسط», lib/curves). Average shows how sure the course's
@@ -88,14 +89,14 @@ export function CourseCurveSection({ course, scheme }: { course: Course; scheme:
             {cut?.baseMoved && cut.status === "partial" && <p className="mt-1">{t("curve_baseMoved")}</p>}
           </div>
           {status.button && (
-            <button
+            <InteractionButton
               type="button"
               onClick={() => setEditing(true)}
               className="shrink-0 self-start rounded-lg px-3 py-1.5 text-sm font-medium transition-colors sm:self-auto"
               style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
             >
               {status.button}
-            </button>
+            </InteractionButton>
           )}
         </div>
       )}

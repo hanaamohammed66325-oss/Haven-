@@ -1,11 +1,13 @@
 "use client";
+import { acquireBodyScrollLock } from "@/components/motion/bodyScroll";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X, Play, Pause, RotateCcw, Sparkles,
   LayoutDashboard, BookOpen, ClipboardList, CalendarDays, ShieldCheck, Timer, Settings as SettingsIcon, UserRound,
-} from "lucide-react";
+} from "@/components/motion/icons";
 import { Logo } from "./Logo";
 import { DemoStoreProvider } from "./DemoStore";
 import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
@@ -556,9 +558,8 @@ export function Onboarding() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") finish(); };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+    const releaseScroll = acquireBodyScrollLock();
+    return () => { document.removeEventListener("keydown", onKey); releaseScroll(); };
   }, [open, finish]);
 
   // Keep Havi glued to his target: re-anchor on scroll/resize, and lock manual
@@ -607,19 +608,19 @@ export function Onboarding() {
           >
             {/* Top bar: close · "jump to" quick-nav chips */}
             <div className="shrink-0 flex items-center gap-3 px-3 sm:px-4 border-b" style={{ height: 58, borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
-              <button onClick={finish} aria-label={t("close")}
+              <InteractionButton onClick={finish} aria-label={t("close")}
                 className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
                 <X size={18} />
-              </button>
+              </InteractionButton>
               <span className="hidden md:inline shrink-0 text-[12px] font-medium" style={{ color: "var(--color-muted)" }}>{t("tour_jumpTo")}</span>
               <div className="flex-1 min-w-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
                 <div className="flex items-center gap-2 w-max py-1 pe-1">
                   {QUICK.map((q) => (
-                    <button key={q.anchor} onClick={() => jumpTo(q.anchor)}
+                    <InteractionButton key={q.anchor} onClick={() => jumpTo(q.anchor)}
                       className="shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] font-medium whitespace-nowrap transition-colors hover:bg-[var(--color-primary-soft)] hover:border-[var(--color-primary)]"
                       style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
                       {t(q.label)}
-                    </button>
+                    </InteractionButton>
                   ))}
                 </div>
               </div>
@@ -664,20 +665,20 @@ export function Onboarding() {
             {/* Controls */}
             <div className="shrink-0 border-t px-4 sm:px-6 py-3" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
               <div className="flex items-center gap-3">
-                <button onClick={() => setPaused((p) => !p)} aria-label={paused ? t("tour_play") : t("tour_pause")}
+                <InteractionButton onClick={() => setPaused((p) => !p)} aria-label={paused ? t("tour_play") : t("tour_pause")}
                   className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full hover:bg-black/5" style={{ color: "var(--color-ink)" }}>
                   {paused ? <Play size={17} /> : <Pause size={17} />}
-                </button>
-                <button onClick={replay} aria-label={t("tour_replay")}
+                </InteractionButton>
+                <InteractionButton onClick={replay} aria-label={t("tour_replay")}
                   className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
                   <RotateCcw size={16} />
-                </button>
+                </InteractionButton>
                 <span className="hidden lg:inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>
                   <Sparkles size={12} style={{ color: "var(--color-brass)" }} />{t("tour_sample")}
                 </span>
                 <div className="flex-1 flex items-center justify-center gap-0.5 flex-wrap">
                   {BEATS.map((_, i) => (
-                    <button
+                    <InteractionButton
                       key={i}
                       onClick={() => runFromRef.current(i)}
                       aria-label={t("tour_goToStep", { n: i + 1 })}
@@ -693,12 +694,12 @@ export function Onboarding() {
                           opacity: i === idx ? 1 : 0.85,
                         }}
                       />
-                    </button>
+                    </InteractionButton>
                   ))}
                 </div>
-                <button onClick={finish} className="haven-btn shrink-0 rounded-xl px-4 py-2 text-sm font-semibold">
+                <InteractionButton onClick={finish} className="haven-btn shrink-0 rounded-xl px-4 py-2 text-sm font-semibold">
                   {idx >= BEATS.length - 1 ? t("ob_finish") : t("ob_skip")}
-                </button>
+                </InteractionButton>
               </div>
             </div>
           </div>

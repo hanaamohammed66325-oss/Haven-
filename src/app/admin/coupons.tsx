@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -48,7 +49,7 @@ export function CouponsSection({ session }: { session: Session }) {
 function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   const C = useC();
   return (
-    <button
+    <InteractionButton
       onClick={onClick}
       className="rounded-md px-4 py-2 text-[12px] font-medium transition-colors"
       style={{
@@ -58,7 +59,7 @@ function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => vo
       }}
     >
       {label}
-    </button>
+    </InteractionButton>
   );
 }
 
@@ -136,7 +137,7 @@ function CouponsTab({ session }: { session: Session }) {
             </div>
           </div>
           {createError && <p className="text-[12px] mb-3" style={{ color: C.danger }}>{createError}</p>}
-          <button type="submit" disabled={createLoading} style={{ ...S.btnPrimary, opacity: createLoading ? 0.5 : 1 }}>{createLoading ? "…" : "Create coupon"}</button>
+          <InteractionButton type="submit" disabled={createLoading} style={{ ...S.btnPrimary, opacity: createLoading ? 0.5 : 1 }}>{createLoading ? "…" : "Create coupon"}</InteractionButton>
         </form>
       </div>
 
@@ -171,9 +172,9 @@ function CouponsTab({ session }: { session: Session }) {
                       </span>
                     </td>
                     <td style={S.tableCell}>
-                      <button onClick={() => toggle(c)} className="text-[12px] px-3 py-1.5 rounded-lg font-medium" style={{ background: C.border, color: c.active ? C.danger : C.successText, border: "none", cursor: "pointer" }}>
+                      <InteractionButton onClick={() => toggle(c)} className="text-[12px] px-3 py-1.5 rounded-lg font-medium" style={{ background: C.border, color: c.active ? C.danger : C.successText, border: "none", cursor: "pointer" }}>
                         {c.active ? "Disable" : "Enable"}
-                      </button>
+                      </InteractionButton>
                     </td>
                   </tr>
                 ))
@@ -224,7 +225,7 @@ function InfluencersTab({ session }: { session: Session }) {
       {loadError && <ErrorBanner message={loadError} onRetry={load} />}
 
       <div className="flex justify-end mb-4">
-        <button onClick={() => setShowCreate(true)} style={S.btnPrimary}>+ Add influencer</button>
+        <InteractionButton onClick={() => setShowCreate(true)} style={S.btnPrimary}>+ Add influencer</InteractionButton>
       </div>
 
       {loading ? (
@@ -261,9 +262,9 @@ function InfluencersTab({ session }: { session: Session }) {
                       </span>
                     </td>
                     <td style={S.tableCell}>
-                      <button onClick={() => setEditing(i)} className="text-[12px] px-3 py-1.5 rounded-lg font-medium" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
+                      <InteractionButton onClick={() => setEditing(i)} className="text-[12px] px-3 py-1.5 rounded-lg font-medium" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
                         Edit
-                      </button>
+                      </InteractionButton>
                     </td>
                   </tr>
                 ))
@@ -335,7 +336,7 @@ function InfluencerModal({
       <div className="w-full max-w-lg rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()} style={{ background: C.bg, border: `1px solid ${C.border}` }}>
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: C.border }}>
           <h2 className="text-[15px] font-semibold" style={{ color: C.text }}>{isEdit ? "Edit influencer" : "Add influencer"}</h2>
-          <button onClick={onClose} style={{ background: C.border, color: C.text, border: "none", borderRadius: 999, padding: 6, fontSize: 14, cursor: "pointer" }}>✕</button>
+          <InteractionButton onClick={onClose} style={{ background: C.border, color: C.text, border: "none", borderRadius: 999, padding: 6, fontSize: 14, cursor: "pointer" }}>✕</InteractionButton>
         </div>
         <form onSubmit={submit} className="p-5 space-y-4">
           <div><label style={S.label}>Name *</label><input type="text" required value={name} onChange={(e) => setName(e.target.value)} style={S.input} placeholder="Sara Ahmed" /></div>
@@ -365,8 +366,8 @@ function InfluencerModal({
           </div>
           {error && <p className="text-[12px]" style={{ color: C.danger }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} style={S.btnSec}>Cancel</button>
-            <button type="submit" disabled={saving} style={{ ...S.btnPrimary, opacity: saving ? 0.5 : 1 }}>{saving ? "…" : (isEdit ? "Save" : "Add")}</button>
+            <InteractionButton type="button" onClick={onClose} style={S.btnSec}>Cancel</InteractionButton>
+            <InteractionButton type="submit" disabled={saving} style={{ ...S.btnPrimary, opacity: saving ? 0.5 : 1 }}>{saving ? "…" : (isEdit ? "Save" : "Add")}</InteractionButton>
           </div>
         </form>
       </div>

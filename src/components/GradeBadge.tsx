@@ -1,6 +1,6 @@
 "use client";
 
-import { Info } from "lucide-react";
+import { Info } from "@/components/motion/icons";
 import { badgeGrade } from "@/lib/grades";
 import type { GradeScheme } from "@/lib/gradeSchemes";
 import type { CurveStatus } from "@/lib/curves";

@@ -1,3 +1,5 @@
+
+import { InteractionLink } from "@/components/motion/Interaction";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
@@ -122,15 +124,15 @@ export default async function UniversityGpaPage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <header className="mx-auto w-full max-w-[760px] px-5 flex items-center justify-between py-6">
-        <Link href="/" className="flex items-center gap-2.5">
+        <InteractionLink href="/" className="flex items-center gap-2.5">
           <Logo size={30} mono />
           <span className="font-display text-xl" style={{ color: "var(--color-ink)" }}>Haven</span>
-        </Link>
+        </InteractionLink>
         <div className="flex items-center gap-2">
           <ShareButton title={title} path={path} />
-          <Link href="/signup/" className="haven-btn inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold">
+          <InteractionLink href="/signup/" className="haven-btn inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold">
             ابدأ مجاناً
-          </Link>
+          </InteractionLink>
         </div>
       </header>
 
@@ -193,9 +195,9 @@ export default async function UniversityGpaPage({
           <p className="text-[15px] leading-relaxed mb-5 mx-auto max-w-[520px]" style={{ color: "var(--color-muted)" }}>
             احفظ معدلك، وتابع غيابك قبل الحرمان، ومواعيد اختباراتك وواجباتك — في مكان واحد، مجاناً.
           </p>
-          <Link href="/signup/" className="haven-btn inline-flex items-center justify-center rounded-2xl px-7 py-3.5 text-base font-semibold">
+          <InteractionLink href="/signup/" className="haven-btn inline-flex items-center justify-center rounded-2xl px-7 py-3.5 text-base font-semibold">
             أنشئ حسابك المجاني
-          </Link>
+          </InteractionLink>
         </section>
 
         <p className="text-center text-sm mt-8">

@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // The cutoffs of a course graded on the cohort average (lib/curves). Opens
 // pre-filled with the university's table; the student changes the rows their
@@ -6,7 +7,7 @@
 // "I entered all the cutoffs" when the table is whole.
 
 import { useEffect, useMemo, useState } from "react";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus } from "@/components/motion/icons";
 import { Modal } from "./Modal";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
@@ -193,16 +194,16 @@ export function CourseCutoffsModal({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm" style={{ color: "var(--color-ink)" }}>
             <span>{t("curve_shift")}</span>
-            <button type="button" onClick={() => shift(-1)} aria-label={t("curve_shiftDown")} title={t("curve_shiftDown")} className="rounded-lg border p-1.5 transition-colors hover:bg-black/5" style={{ borderColor: "var(--color-border)" }}>
+            <InteractionButton type="button" onClick={() => shift(-1)} aria-label={t("curve_shiftDown")} title={t("curve_shiftDown")} className="rounded-lg border p-1.5 transition-colors hover:bg-black/5" style={{ borderColor: "var(--color-border)" }}>
               <Minus size={14} />
-            </button>
-            <button type="button" onClick={() => shift(1)} aria-label={t("curve_shiftUp")} title={t("curve_shiftUp")} className="rounded-lg border p-1.5 transition-colors hover:bg-black/5" style={{ borderColor: "var(--color-border)" }}>
+            </InteractionButton>
+            <InteractionButton type="button" onClick={() => shift(1)} aria-label={t("curve_shiftUp")} title={t("curve_shiftUp")} className="rounded-lg border p-1.5 transition-colors hover:bg-black/5" style={{ borderColor: "var(--color-border)" }}>
               <Plus size={14} />
-            </button>
+            </InteractionButton>
           </div>
-          <button type="button" onClick={reset} className="text-xs font-medium underline underline-offset-2" style={muted}>
+          <InteractionButton type="button" onClick={reset} className="text-xs font-medium underline underline-offset-2" style={muted}>
             {t("curve_reset")}
-          </button>
+          </InteractionButton>
         </div>
 
         <label className="flex items-start gap-2.5 text-sm cursor-pointer" style={{ color: "var(--color-ink)" }}>
@@ -235,12 +236,12 @@ export function CourseCutoffsModal({
           <span className="text-xs" style={{ color: "var(--color-danger)" }}>{error}</span>
         )}
         <div className="flex justify-end gap-3 pt-1">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
+          <InteractionButton type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
             {t("cancel")}
-          </button>
-          <button type="submit" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
+          </InteractionButton>
+          <InteractionButton type="submit" disabled={saving} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
             {saving ? t("saving") : t("save")}
-          </button>
+          </InteractionButton>
         </div>
       </form>
     </Modal>

@@ -14,6 +14,7 @@ import type { NotifPrefs } from "@/types";
 
 /** Applied whenever preferences.notifPrefs is absent — existing users unaffected. */
 export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
+  groups: { enabled: true },
   exams: { enabled: true, days: [3, 1] },
   tasks: { enabled: true, hours: [12, 2] },
   attendance: { enabled: true },
@@ -76,6 +77,7 @@ export function normalizeNotifPrefs(raw: unknown): NotifPrefs {
   const hour = intInRange(o.dailyReminderHour, DAILY_HOUR_MIN, DAILY_HOUR_MAX);
   const lectureMinutes = intInRange(lectures.minutesBefore, LECTURE_MINUTES_MIN, LECTURE_MINUTES_MAX);
   return {
+    groups: { enabled: normalizeBool((o.groups as { enabled?: unknown } | null)?.enabled, true) },
     exams: {
       enabled: normalizeBool(exams.enabled, DEFAULT_NOTIF_PREFS.exams.enabled),
       days: normalizeOffsets(exams.days, EXAM_DAYS_MIN, EXAM_DAYS_MAX, DEFAULT_NOTIF_PREFS.exams.days),

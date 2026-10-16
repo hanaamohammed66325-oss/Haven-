@@ -1,8 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Crown, Loader2, Check } from "lucide-react";
+import { Crown, Loader2, Check } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { Card } from "@/components/Card";
 import { CollapseBody, CollapseToggle, useCardCollapse } from "@/components/Collapsible";
@@ -189,22 +190,22 @@ export function SubscriptionSection() {
   // Manage buttons (Change plan + Cancel), shared by trial + active states.
   const manageButtons = (
     <div className="mt-5 flex flex-wrap gap-3">
-      <button
+      <InteractionButton
         type="button"
         onClick={openPicker}
         className={secondaryBtn}
         style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
       >
         {t("subChangePlan")}
-      </button>
-      <button
+      </InteractionButton>
+      <InteractionButton
         type="button"
         onClick={openConfirm}
         className={secondaryBtn}
         style={{ borderColor: "var(--color-danger)", color: "var(--color-danger)" }}
       >
         {t("subCancel")}
-      </button>
+      </InteractionButton>
     </div>
   );
 
@@ -279,7 +280,7 @@ export function SubscriptionSection() {
         </p>
         <div className="mt-5 flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-4">
-            <button
+            <InteractionButton
               type="button"
               disabled={changing}
               onClick={() => {
@@ -291,8 +292,8 @@ export function SubscriptionSection() {
             >
               {changing && <Loader2 size={15} className="animate-spin" />}
               {changing ? t("subUpdating") : t("subResubscribe")}
-            </button>
-            <button
+            </InteractionButton>
+            <InteractionButton
               type="button"
               onClick={openPicker}
               disabled={changing}
@@ -300,7 +301,7 @@ export function SubscriptionSection() {
               style={{ color: "var(--color-primary)" }}
             >
               {t("subChangePlanInstead")}
-            </button>
+            </InteractionButton>
           </div>
           {changeError && (
             <p className="text-sm" style={{ color: "var(--color-danger)" }} role="alert">
@@ -319,13 +320,13 @@ export function SubscriptionSection() {
           {t("subNoneText")}
         </p>
         <div className="mt-5">
-          <button
+          <InteractionButton
             type="button"
             onClick={() => router.push("/premium")}
             className="haven-btn inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
           >
             {t("subSeePlans")}
-          </button>
+          </InteractionButton>
         </div>
       </>
     );
@@ -342,7 +343,7 @@ export function SubscriptionSection() {
         title={t("subCancelConfirmTitle")}
         footer={
           <div className="flex justify-end gap-3">
-            <button
+            <InteractionButton
               type="button"
               onClick={() => setConfirmOpen(false)}
               disabled={busy}
@@ -350,8 +351,8 @@ export function SubscriptionSection() {
               style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
             >
               {t("subCancelConfirmNo")}
-            </button>
-            <button
+            </InteractionButton>
+            <InteractionButton
               type="button"
               onClick={onCancel}
               disabled={busy}
@@ -360,7 +361,7 @@ export function SubscriptionSection() {
             >
               {busy && <Loader2 size={15} className="animate-spin" />}
               {busy ? t("subCancelling") : t("subCancelConfirmYes")}
-            </button>
+            </InteractionButton>
           </div>
         }
       >
@@ -388,7 +389,7 @@ export function SubscriptionSection() {
             const isCurrent = p.cycle === sub?.billing_cycle;
             const pending = pendingCycle === p.cycle;
             return (
-              <button
+              <InteractionButton
                 key={p.cycle}
                 type="button"
                 disabled={isCurrent || changing}
@@ -424,7 +425,7 @@ export function SubscriptionSection() {
                     {t("subSwitchToPlan")}
                   </span>
                 )}
-              </button>
+              </InteractionButton>
             );
           })}
         </div>

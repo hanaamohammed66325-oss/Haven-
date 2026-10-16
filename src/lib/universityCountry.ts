@@ -54,6 +54,7 @@ const GROUPS: [string, string[]][][] = [
     ["MA", ["القاضي عياض", "cadi ayyad", "ابن طفيل", "ibn tofail", "الاخوين", "al akhawayn", "محمد الخامس", "mohammed v"]],
     ["DZ", ["باب الزوار", "usthb", "هواري بومدين"]],
     ["TN", ["المنار", "el manar", "منوبه", "manouba", "قرطاج", "carthage"]],
+    ["MY", ["جامعه المدينه العالميه", "al madinah international", "mediu"]],
   ],
   // 2. cities
   [
@@ -116,6 +117,9 @@ const GROUPS: [string, string[]][][] = [
 ];
 
 const LATIN = /^[a-z0-9 ]+$/;
+// Arabic place names that must not take "ال": "الجبيل" is Jubail (Saudi),
+// "جبيل" is Byblos (Lebanon).
+const NO_ARTICLE = new Set(["جبيل"]);
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const MATCHERS: [string, ((n: string) => boolean)[]][][] = GROUPS.map((group) =>
@@ -127,7 +131,11 @@ const MATCHERS: [string, ((n: string) => boolean)[]][][] = GROUPS.map((group) =>
         const re = new RegExp(`(^|\\s)${escape(term)}(\\s|$)`);
         return (n: string) => re.test(n);
       }
-      return (n: string) => n.includes(term);
+      // A whole word, which may carry و/ب/ل/ف and "ال" ("بالشارقه", "الصحار"),
+      // never part of another word ("الجبيل" isn't "جبيل", "الادبي" isn't "دبي").
+      const article = NO_ARTICLE.has(term) ? "" : "(ال)?";
+      const re = new RegExp(`(^|\\s)[وبلف]?${article}${escape(term)}(\\s|$)`, "u");
+      return (n: string) => re.test(n);
     }),
   ]),
 );

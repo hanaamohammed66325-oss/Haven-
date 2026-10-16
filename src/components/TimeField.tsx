@@ -1,6 +1,7 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
-import { X } from "lucide-react";
+import { X } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { formatTime } from "@/lib/dates";
 
@@ -72,7 +73,7 @@ export function TimeField({
       {/* AM / PM (ص / م) toggle */}
       <div className="inline-flex rounded-lg p-0.5" style={{ background: "var(--color-primary-soft)" }}>
         {([false, true] as const).map((isPm) => (
-          <button
+          <InteractionButton
             key={isPm ? "pm" : "am"}
             type="button"
             aria-pressed={pm === isPm}
@@ -85,12 +86,12 @@ export function TimeField({
             }
           >
             {isPm ? t("timePM") : t("timeAM")}
-          </button>
+          </InteractionButton>
         ))}
       </div>
 
       {value ? (
-        <button
+        <InteractionButton
           type="button"
           onClick={() => onChange(null)}
           aria-label={t("timeClear")}
@@ -98,7 +99,7 @@ export function TimeField({
           className="inline-flex items-center justify-center rounded-md p-1 transition-colors hover:bg-black/5"
         >
           <X size={12} style={{ color: "var(--color-muted)" }} />
-        </button>
+        </InteractionButton>
       ) : (
         <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>{t("timeNotSet")}</span>
       )}

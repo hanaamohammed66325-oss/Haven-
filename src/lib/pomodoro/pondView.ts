@@ -30,6 +30,7 @@ import {
   inked,
   drawLilyPad,
   drawHaviSprite,
+  drawSoloDesk,
   drawButterfly,
   drawDragonfly,
   type HaviMood,
@@ -79,7 +80,8 @@ export interface PondFrame {
   camX: number; // world x at the window's left edge
   look: number; // mouse look-around, −1..1
   pads: TrailPad[];
-  havi: { pad: number; jump: { from: number; to: number; p: number } | null; mood: HaviMood; fish: number } | null;
+  havi: { pad: number; jump: { from: number; to: number; p: number } | null; mood: HaviMood; fish: number; restSeconds?: number; cosmetics?: readonly string[] } | null;
+  desks?: number[]; // stationary furniture on its original pad
   rise: number; // 0..1 the camera rises into the clouds (opening "your lake")
   hud: PondHud | null;
 }
@@ -592,7 +594,7 @@ export class PondView {
     if (hv?.jump) {
       const [x, y, sy] = this.haviAt(hv.jump.from, hv.jump.to, hv.jump.p, cam, t);
       ctx.globalAlpha = 0.25 * Math.sin(Math.PI * hv.jump.p);
-      drawHaviSprite(ctx, x, y, HAVI_PX * u, "jumping", f.tick, 0, rm, sy);
+      drawHaviSprite(ctx, x, y, HAVI_PX * u, "jumping", f.tick, 0, rm, sy, undefined, hv.cosmetics);
     }
     ctx.globalAlpha = 1;
   }
@@ -677,19 +679,23 @@ export class PondView {
   }
 
   private drawHavi(ctx: CanvasRenderingContext2D, cam: number, f: PondFrame, t: number) {
+    const u = this.u;
+    for (const pad of f.desks ?? []) {
+      const [x,y] = this.seat(pad,cam);
+      drawSoloDesk(ctx,x,y+this.bob(pad,t),HAVI_PX*u);
+    }
     const hv = f.havi;
     if (!hv) return;
-    const u = this.u;
     const rm = this.inp.reducedMotion;
     if (hv.jump) {
       const [x, y] = this.haviAt(hv.jump.from, hv.jump.to, hv.jump.p, cam, t);
-      drawHaviSprite(ctx, x, y, HAVI_PX * u, "jumping", f.tick, 0, rm);
+      drawHaviSprite(ctx, x, y, HAVI_PX * u, "jumping", f.tick, 0, rm, undefined, undefined, hv.cosmetics);
       return;
     }
     const [x, y0] = this.seat(hv.pad, cam);
     const y = y0 + this.bob(hv.pad, t);
     if (this.pal.night) this.drawLamp(ctx, x - this.padRx(hv.pad) * 0.62, this.padY(hv.pad) + this.bob(hv.pad, t) - this.padRx(hv.pad) * 0.1, t);
-    drawHaviSprite(ctx, x, y, HAVI_PX * u, hv.mood, f.tick, hv.fish, rm);
+    drawHaviSprite(ctx, x, y, HAVI_PX * u, hv.mood, f.tick, hv.fish, rm, undefined, hv.restSeconds, hv.cosmetics);
   }
 
   // A warm lantern on Havi's pad at night.

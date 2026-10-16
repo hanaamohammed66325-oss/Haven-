@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // The pop-up shown once to a student whose university's GPA system was
 // corrected to match its official regulation (lib/schemeUpdates). Gentle by
@@ -9,7 +10,7 @@
 // it only tells us how the change landed.
 
 import { useState } from "react";
-import { Calculator } from "lucide-react";
+import { Calculator } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Modal } from "./Modal";
@@ -106,9 +107,9 @@ export function SchemeUpdateBody({ update, onDone }: { update: SchemeUpdate; onD
 
       <p className="text-sm font-semibold mt-5" style={{ color: "var(--color-ink)" }}>{t("su_question")}</p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <button type="button" className={`haven-btn ${btn}`} onClick={() => answer("yes")}>{t("su_yes")}</button>
-        <button type="button" className={btn} style={ghost} onClick={() => answer("no")}>{t("su_no")}</button>
-        <button type="button" className={btn} style={ghost} onClick={() => setEditing(true)}>{t("su_custom")}</button>
+        <InteractionButton type="button" className={`haven-btn ${btn}`} onClick={() => answer("yes")}>{t("su_yes")}</InteractionButton>
+        <InteractionButton type="button" className={btn} style={ghost} onClick={() => answer("no")}>{t("su_no")}</InteractionButton>
+        <InteractionButton type="button" className={btn} style={ghost} onClick={() => setEditing(true)}>{t("su_custom")}</InteractionButton>
       </div>
       <p className="text-[11.5px] mt-3" style={{ color: "var(--color-muted)" }}>{t("su_note")}</p>
     </>

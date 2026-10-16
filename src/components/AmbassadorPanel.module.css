@@ -1,0 +1,39 @@
+.ladder { margin: 0; padding: 0; list-style: none; }
+.rung { border-bottom: 1px solid var(--color-border); }
+.rung:last-child { border-bottom: 0; }
+.trigger {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  padding: 18px 2px; text-align: start; color: var(--color-ink);
+  border-radius: 12px; cursor: pointer; transition: background .2s ease;
+}
+.trigger:hover { background: var(--color-primary-soft); }
+.trigger:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.number {
+  flex: 0 0 38px; height: 38px; display: grid; place-items: center;
+  border: 1px solid var(--color-border); border-radius: 50%;
+  font-size: 15px; font-weight: 600; color: var(--color-primary);
+  background: var(--color-surface);
+}
+.heading { flex: 1; min-width: 0; }
+.name { display: block; font-size: 15px; font-weight: 600; line-height: 1.6; }
+.threshold { display: block; color: var(--color-muted); font-size: 12px; line-height: 1.7; }
+.chevron { flex-shrink: 0; color: var(--color-muted); transition: transform .25s ease; }
+.open .chevron { transform: rotate(180deg); }
+.content { padding: 4px 12px 24px; padding-inline: 54px 12px; }
+.visuals { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 24px; padding-block: 12px 18px; }
+.visual { min-width: 100px; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 0; }
+.art { height: 108px; display: flex; align-items: center; justify-content: center; }
+.caption { font-size: 13px; font-weight: 500; color: var(--color-ink); }
+.extras { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.extra { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 6px 10px; border-radius: 8px; background: var(--color-primary-soft); color: var(--color-ink); }
+.xp { font-size: 12px; font-weight: 500; color: var(--color-muted); margin-top: 8px; }
+.controls { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--color-border); }
+.controlHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.controlBody { padding-top: 16px; }
+.note { margin-top: 22px; color: var(--color-muted); font-size: 12px; line-height: 1.9; }
+@media (max-width: 480px) {
+  .trigger { gap: 10px; padding-block: 16px; }
+  .content { padding-inline: 0; }
+  .visuals { justify-content: center; gap: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .trigger, .chevron { transition: none; } }

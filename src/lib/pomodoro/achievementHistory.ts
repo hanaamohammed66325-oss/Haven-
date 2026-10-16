@@ -1,5 +1,6 @@
 import type { AchievementDay, AchievementHistory, AchievementPeriod, PomodoroStats, Semester } from "@/types";
 import { toISODate } from "@/lib/dates";
+import { advanceStreak } from "@/lib/streak";
 
 export type AchievementSemester = Pick<Semester, "id" | "name" | "startDate" | "endDate">;
 const inside = (date: string, p: AchievementSemester) => date >= p.startDate && date <= p.endDate;
@@ -79,7 +80,7 @@ export function achievementBuckets(period: AchievementPeriod, mode: AchievementM
 
 /** Pomodoro progress inside the current semester only (the Pomodoro badges are
  *  a progress badge for this term): completed sessions and the longest run of
- *  consecutive days with at least one session, both within the term's dates. */
+ *  active dates with the shared grace period, both within the term's dates. */
 export function semesterPomodoroProgress(stats: PomodoroStats, semester: AchievementSemester): { totalSessions: number; longestDailyStreak: number } {
   const period = prepareAchievementHistory(stats, semester).periods[achievementPeriodId(semester)];
   const days = (period?.days ?? [])
@@ -92,7 +93,7 @@ export function semesterPomodoroProgress(stats: PomodoroStats, semester: Achieve
   let run = 0;
   let prev = "";
   for (const date of days) {
-    run = prev && nextDate(prev, 1) === date ? run + 1 : 1;
+    run = advanceStreak(run, prev || null, date);
     if (run > longest) longest = run;
     prev = date;
   }

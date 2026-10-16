@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useCallback, useEffect, useState } from "react";
 import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
@@ -94,7 +95,7 @@ export function UserDetailSection({
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={onBack} style={S.btnSec}>← Users</button>
+        <InteractionButton onClick={onBack} style={S.btnSec}>← Users</InteractionButton>
         <div>
           <h1 className="text-[20px] font-semibold" style={{ color: C.text }}>{p?.email ?? "—"}</h1>
           <div className="text-[11px]" style={{ color: C.textDim }}>{userId}</div>

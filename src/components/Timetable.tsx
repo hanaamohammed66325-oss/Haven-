@@ -1,8 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarRange, MapPin, DoorOpen, Plus, Trash2 } from "lucide-react";
+import { CalendarRange, MapPin, DoorOpen, Plus, Trash2 } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
@@ -153,7 +154,7 @@ export function Timetable() {
             <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttRoom")}</span>
             <input className={fieldCls} style={border} value={room} onChange={(e) => setRoom(e.target.value)} disabled={!selKey} />
           </label>
-          <button
+          <InteractionButton
             type="button"
             data-tour="tt-apply"
             onClick={applyDetails}
@@ -161,7 +162,7 @@ export function Timetable() {
             className="haven-btn px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {t("ttApply")}
-          </button>
+          </InteractionButton>
         </div>
       </div>
 
@@ -275,17 +276,17 @@ function SessionNotes({ notes, onChange }: { notes: string[]; onChange: (n: stri
       {notes.map((n, i) => (
         <div key={i} className="flex items-start gap-1">
           <AutoGrowTextarea value={n} onChange={(v) => update(i, v)} placeholder={t("ttNotePlaceholder")} />
-          <button
+          <InteractionButton
             type="button"
             onClick={() => remove(i)}
             aria-label={t("delete")}
             className="shrink-0 mt-0.5 rounded p-1 transition-colors hover:bg-black/5"
           >
             <Trash2 size={12} style={{ color: "var(--color-muted)" }} />
-          </button>
+          </InteractionButton>
         </div>
       ))}
-      <button
+      <InteractionButton
         type="button"
         onClick={add}
         className="inline-flex items-center gap-1 self-start text-[11px] font-medium"
@@ -293,7 +294,7 @@ function SessionNotes({ notes, onChange }: { notes: string[]; onChange: (n: stri
       >
         <Plus size={12} />
         {t("ttAddNote")}
-      </button>
+      </InteractionButton>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
-import { Minus, Plus, SlidersHorizontal } from "lucide-react";
+import { Minus, Plus, SlidersHorizontal } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n/translations/en";
 import { Modal } from "@/components/Modal";
@@ -61,15 +62,15 @@ function Stepper({
         {label}
       </span>
       <div className="flex items-center gap-2">
-        <button onClick={() => set(value - 1)} disabled={value <= min} aria-label={`${label} −`} className={btn} style={btnStyle}>
+        <InteractionButton onClick={() => set(value - 1)} disabled={value <= min} aria-label={`${label} −`} className={btn} style={btnStyle}>
           <Minus size={14} />
-        </button>
+        </InteractionButton>
         <span className="min-w-[5.5rem] text-center text-sm font-semibold tabular-nums" style={{ color: "var(--color-ink)" }}>
           {shown}
         </span>
-        <button onClick={() => set(value + 1)} disabled={value >= max} aria-label={`${label} +`} className={btn} style={btnStyle}>
+        <InteractionButton onClick={() => set(value + 1)} disabled={value >= max} aria-label={`${label} +`} className={btn} style={btnStyle}>
           <Plus size={14} />
-        </button>
+        </InteractionButton>
       </div>
     </div>
   );
@@ -86,7 +87,7 @@ export function PomodoroSettings({ settings, onChange }: Props) {
 
   return (
     <>
-      <button
+      <InteractionButton
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors hover:bg-white/10"
@@ -94,14 +95,14 @@ export function PomodoroSettings({ settings, onChange }: Props) {
       >
         <SlidersHorizontal size={14} />
         {t("pom_settingsChip", { focus: dur(settings.focusMinutes), rest: dur(settings.shortBreakMinutes) })}
-      </button>
+      </InteractionButton>
 
       <Modal open={open} onClose={() => setOpen(false)} title={t("pom_settings")} variant="sheet">
         <div className="grid grid-cols-3 gap-2">
           {PRESETS.map((p) => {
             const on = settings.focusMinutes === p.focus && settings.shortBreakMinutes === p.short && settings.longBreakMinutes === p.long;
             return (
-              <button
+              <InteractionButton
                 key={p.key}
                 onClick={() => onChange({ focusMinutes: p.focus, shortBreakMinutes: p.short, longBreakMinutes: p.long })}
                 aria-pressed={on}
@@ -120,7 +121,7 @@ export function PomodoroSettings({ settings, onChange }: Props) {
                 <span className="text-[11px]" style={{ color: "var(--color-muted)" }}>
                   {t("pom_presetBreak", { rest: dur(p.short) })}
                 </span>
-              </button>
+              </InteractionButton>
             );
           })}
         </div>

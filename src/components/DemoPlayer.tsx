@@ -1,8 +1,9 @@
 "use client";
+import { acquireBodyScrollLock } from "@/components/motion/bodyScroll";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import {
   X,
   ChevronLeft,
@@ -13,7 +14,7 @@ import {
   ClipboardList,
   CalendarDays,
   Sparkles,
-} from "lucide-react";
+} from "@/components/motion/icons";
 import { Logo } from "./Logo";
 import { DemoStoreProvider } from "./DemoStore";
 import HaviMascot from "./HaviMascot";
@@ -86,10 +87,10 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+    const releaseScroll = acquireBodyScrollLock();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      releaseScroll();
     };
   }, [open, onClose]);
 
@@ -196,14 +197,14 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
         onMouseLeave={() => setPaused(false)}
       >
         {/* Close */}
-        <button
+        <InteractionButton
           onClick={onClose}
           aria-label={t("close")}
           className="absolute top-3 end-3 z-20 flex items-center justify-center h-9 w-9 rounded-full transition-colors"
           style={{ background: "var(--color-surface)", color: "var(--color-muted)", boxShadow: "var(--shadow-card)" }}
         >
           <X size={18} />
-        </button>
+        </InteractionButton>
 
         {/* Sample-data badge */}
         <div
@@ -287,20 +288,20 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
         {/* Controls */}
         <div className="shrink-0 border-t px-4 sm:px-6 py-3" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
           <div className="flex items-center gap-3">
-            <button onClick={() => go(idx - 1)} aria-label={t("demoPrev")} className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full transition-colors hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
+            <InteractionButton onClick={() => go(idx - 1)} aria-label={t("demoPrev")} className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full transition-colors hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
               <ChevronLeft size={20} className="rtl:rotate-180" />
-            </button>
+            </InteractionButton>
             <p className="flex-1 text-center text-[13px] sm:text-sm font-medium leading-snug" style={{ color: "var(--color-ink)" }}>
               {t(PAGES[idx].cap)}
             </p>
-            <button onClick={() => go(idx + 1)} aria-label={t("demoNext")} className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full transition-colors hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
+            <InteractionButton onClick={() => go(idx + 1)} aria-label={t("demoNext")} className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full transition-colors hover:bg-black/5" style={{ color: "var(--color-muted)" }}>
               <ChevronRight size={20} className="rtl:rotate-180" />
-            </button>
+            </InteractionButton>
           </div>
           <div className="mt-3 flex items-center gap-3">
             <div className="flex-1 flex items-center justify-center gap-2">
               {PAGES.map((p, i) => (
-                <button
+                <InteractionButton
                   key={p.key}
                   onClick={() => setIdx(i)}
                   aria-label={t(p.navKey)}
@@ -310,10 +311,10 @@ export function DemoPlayer({ open, onClose }: { open: boolean; onClose: () => vo
                 />
               ))}
             </div>
-            <Link href="/dashboard" className="haven-btn shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium">
+            <InteractionLink href="/dashboard" className="haven-btn shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium">
               {t("demoOpenHaven")}
               <ArrowRight size={14} className="rtl:rotate-180" />
-            </Link>
+            </InteractionLink>
           </div>
         </div>
       </div>
@@ -334,7 +335,7 @@ function DemoSidebar({ activeIdx, onPick }: { activeIdx: number; onPick: (i: num
         {PAGES.map((p, i) => {
           const active = i === activeIdx;
           return (
-            <button
+            <InteractionButton
               key={p.key}
               onClick={() => onPick(i)}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-start ${active ? "haven-nav-active text-white" : ""}`}
@@ -342,7 +343,7 @@ function DemoSidebar({ activeIdx, onPick }: { activeIdx: number; onPick: (i: num
             >
               <p.Icon size={17} style={active ? { color: "var(--color-brass)" } : undefined} />
               <span>{t(p.navKey)}</span>
-            </button>
+            </InteractionButton>
           );
         })}
       </nav>

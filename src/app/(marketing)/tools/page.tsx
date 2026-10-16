@@ -1,6 +1,8 @@
+
+import { InteractionLink } from "@/components/motion/Interaction";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Calculator, CalendarX2, ClipboardList, Percent, ArrowLeft } from "lucide-react";
+import { Calculator, CalendarX2, ClipboardList, Percent, ArrowLeft } from "@/components/motion/icons";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
 
@@ -67,15 +69,15 @@ export default function ToolsHubPage() {
   return (
     <div dir="rtl" lang="ar" className="min-h-dvh flex flex-col">
       <header className="mx-auto w-full max-w-[760px] px-5 flex items-center justify-between py-6">
-        <Link href="/" className="flex items-center gap-2.5">
+        <InteractionLink href="/" className="flex items-center gap-2.5">
           <Logo size={30} mono />
           <span className="font-display text-xl" style={{ color: "var(--color-ink)" }}>
             Haven
           </span>
-        </Link>
-        <Link href="/signup/" className="haven-btn inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold">
+        </InteractionLink>
+        <InteractionLink href="/signup/" className="haven-btn inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold">
           ابدأ مجاناً
-        </Link>
+        </InteractionLink>
       </header>
 
       <main className="mx-auto w-full max-w-[760px] px-5 flex-1 pb-16">

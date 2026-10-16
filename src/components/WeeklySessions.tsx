@@ -1,11 +1,12 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // A course's weekly sessions (day + length). They feed the weekly timetable and
 // lecture reminders as well as absence logging, so they stay visible even when
 // attendance tracking is off (Hanaa, 2026-10-13). Moved out of AttendanceSection.
 
 import { useState } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown } from "@/components/motion/icons";
 import { useStore, type MutationResult } from "@/store";
 import { useT } from "@/i18n";
 import { useUndo } from "./UndoManager";
@@ -47,15 +48,15 @@ function NumberStepper({
         style={{ color: "var(--color-ink)" }}
       />
       <div className="flex flex-col border-s" style={border}>
-        <button
+        <InteractionButton
           type="button"
           onClick={() => onChange(clamp(value + 1))}
           aria-label={`${ariaLabel} +1`}
           className={btnCls}
         >
           <ChevronUp size={10} style={{ color: "var(--color-muted)" }} />
-        </button>
-        <button
+        </InteractionButton>
+        <InteractionButton
           type="button"
           onClick={() => onChange(clamp(value - 1))}
           aria-label={`${ariaLabel} -1`}
@@ -63,7 +64,7 @@ function NumberStepper({
           style={border}
         >
           <ChevronDown size={10} style={{ color: "var(--color-muted)" }} />
-        </button>
+        </InteractionButton>
       </div>
     </div>
   );
@@ -92,7 +93,7 @@ export function WeeklySessions({ course }: { course: Course }) {
           <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
             {t("weeklySessionsLabel")}
           </span>
-          <button
+          <InteractionButton
             data-tour="add-session"
             onClick={() => runAdd(addSession(course.id, { day: 0, minutes: 60 }))}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
@@ -100,7 +101,7 @@ export function WeeklySessions({ course }: { course: Course }) {
           >
             <Plus size={13} />
             {t("addSession")}
-          </button>
+          </InteractionButton>
         </div>
         {addError && (
           <span className="block mb-2 text-xs" style={{ color: "var(--color-danger)" }}>{addError}</span>
@@ -145,7 +146,7 @@ export function WeeklySessions({ course }: { course: Course }) {
                     />
                     <span className="text-xs" style={{ color: "var(--color-muted)" }}>{mUnit}</span>
                   </div>
-                  <button
+                  <InteractionButton
                     onClick={() => {
                       const removed = softDeleteSession(course.id, s.id);
                       if (!removed) return;
@@ -159,7 +160,7 @@ export function WeeklySessions({ course }: { course: Course }) {
                     aria-label={t("delete")}
                   >
                     <Trash2 size={14} style={{ color: "var(--color-muted)" }} />
-                  </button>
+                  </InteractionButton>
                 </div>
               );
             })}

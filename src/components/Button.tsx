@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { ButtonHTMLAttributes } from "react";
 
@@ -9,10 +10,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles = {
-  primary: "text-white font-medium transition-all active:scale-95",
-  secondary: "font-medium border transition-all active:scale-95",
-  ghost: "font-medium transition-all active:scale-95",
-  danger: "text-white font-medium transition-all active:scale-95",
+  primary: "text-white font-medium transition-all ",
+  secondary: "font-medium border transition-all ",
+  ghost: "font-medium transition-all ",
+  danger: "text-white font-medium transition-all ",
 };
 
 const variantColors = {
@@ -51,7 +52,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   return (
-    <button
+    <InteractionButton
       className={`
         inline-flex items-center justify-center gap-2
         ${variantStyles[variant]}
@@ -64,6 +65,6 @@ export function Button({
       {...props}
     >
       {children}
-    </button>
+    </InteractionButton>
   );
 }

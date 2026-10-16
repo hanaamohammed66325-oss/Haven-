@@ -1,4 +1,5 @@
-import Link from "next/link";
+
+import { InteractionLink } from "@/components/motion/Interaction";
 
 export default function NotFound() {
   return (
@@ -9,12 +10,12 @@ export default function NotFound() {
       <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
         This page could not be found.
       </p>
-      <Link
+      <InteractionLink
         href="/dashboard"
         className="haven-btn px-5 py-2.5 rounded-xl text-sm font-medium"
       >
         Back to dashboard
-      </Link>
+      </InteractionLink>
     </div>
   );
 }

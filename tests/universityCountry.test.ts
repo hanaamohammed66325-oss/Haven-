@@ -175,6 +175,15 @@ describe("a university whose own calendar we hold", () => {
     assert.equal(holidayCalendar(typed("جامعة الملك سعود")), "SA");
   });
 
+  test("a place name counts only as a whole word", () => {
+    assert.equal(countryFromName("معهد الجبيل التقني"), null); // Jubail, not Byblos (جبيل)
+    assert.equal(countryFromName("جامعة جبيل"), "LB");
+    assert.equal(countryFromName("جامعة الصحار"), "OM");
+    assert.equal(countryFromName("كلية بدبي"), "AE");
+    assert.equal(countryFromName("القسم الادبي"), null); // "دبي" inside a word
+    assert.equal(countryFromName("Al-Madinah International"), "MY");
+  });
+
   test("the catalogue places a university the name lists don't", () => {
     assert.equal(countryFromName("جامعة ايرلانجا"), "ID");
     assert.equal(countryFromName("Airlangga University"), "ID");

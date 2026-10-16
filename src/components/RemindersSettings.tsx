@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // ---------------------------------------------------------------------------
 // Reminders — customizable notification preferences (profiles.preferences.
@@ -15,6 +16,7 @@ import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import type { NotifPrefs } from "@/types";
+import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
 import {
   EXAM_DAYS_MIN,
   EXAM_DAYS_MAX,
@@ -44,7 +46,7 @@ export function Toggle({
   // Travel = track (44) − padding (4) − knob (20) = 20px, toward the inline-end.
   const travel = dir === "rtl" ? -20 : 20;
   return (
-    <button
+    <InteractionButton
       type="button"
       role="switch"
       aria-checked={checked}
@@ -60,7 +62,7 @@ export function Toggle({
           boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
         }}
       />
-    </button>
+    </InteractionButton>
   );
 }
 
@@ -416,6 +418,13 @@ export function RemindersSettings() {
       </div>
 
       {/* 4) Attendance alerts (no timing to customize) */}
+      {GROUP_STUDY_ENABLED && <div className={rowCls} style={border}>
+        <div className="flex items-center justify-between gap-4">
+          <span className={titleCls}>{t("study_pushTitle")}</span>
+          <Toggle checked={np.groups.enabled} onChange={(v) => update({ groups: { enabled: v } })} label={t("study_pushTitle")} />
+        </div>
+        <p className={helpCls} style={{ color: "var(--color-muted)" }}>{t("study_pushHelp")}</p>
+      </div>}
       {!ATTENDANCE_CALC_SUSPENDED && <div className={rowCls} style={border}>
         <div className="flex items-center justify-between gap-4">
           <span className={titleCls} style={{ color: "var(--color-ink)" }}>

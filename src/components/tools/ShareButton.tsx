@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
-import { Share2, Check } from "lucide-react";
+import { Share2, Check } from "@/components/motion/icons";
 
 // Share the free tool. Distribution is the fastest customer channel for these
 // pages (Saudi students pass links around X / Telegram / WhatsApp groups), and
@@ -32,7 +33,7 @@ export function ShareButton({ title, path }: { title: string; path: string }) {
   };
 
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={onShare}
       className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-primary-soft)]"
@@ -40,6 +41,6 @@ export function ShareButton({ title, path }: { title: string; path: string }) {
     >
       {copied ? <Check size={15} style={{ color: "var(--color-success)" }} /> : <Share2 size={15} />}
       {copied ? "تم نسخ الرابط" : "شارك"}
-    </button>
+    </InteractionButton>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, X, Trees, Check, BarChart3, Maximize2, Minimize2 } from "lucide-react";
+import { Bell, X, Trees, Check, BarChart3, Maximize2, Minimize2 } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
@@ -12,6 +13,9 @@ import { TimerControls } from "@/components/pomodoro/TimerControls";
 import { TaskPicker } from "@/components/pomodoro/TaskPicker";
 import { PomodoroSettings } from "@/components/pomodoro/PomodoroSettings";
 import { PomodoroStats } from "@/components/pomodoro/PomodoroStats";
+import type { AchievementSemester } from "@/lib/pomodoro/achievementHistory";
+import { StudyAudioControls } from "@/components/pomodoro/StudyAudioControls";
+import { useStudyAudio } from "@/components/pomodoro/useStudyAudio";
 import { Modal } from "@/components/Modal";
 import { GLASS, ACTION } from "@/components/pomodoro/glass";
 import type { HudBox } from "@/lib/pomodoro/pondView";
@@ -30,38 +34,16 @@ import {
 } from "@/lib/pomodoro/timerEngine";
 import type { PomodoroSettings as PomSettings } from "@/types";
 import { focusTasks, isTaskKey, plannerIdOf, type FocusTask, type FocusTaskKind } from "@/lib/pomodoro/focusTasks";
-import { hashString } from "@/lib/pomodoro/math";
+import { fallbackColor } from "@/lib/pomodoro/colors";
 import type { TranslationKey } from "@/i18n/translations/en";
 import { semesterProgress } from "@/lib/grades";
 import { spokenDuration } from "@/lib/format";
 import { toISODate } from "@/lib/dates";
-import { POMODORO_ENABLED } from "@/lib/featureFlags";
-import { ComingSoon } from "@/components/ComingSoon";
+import { POMODORO_ENABLED, GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
+import { StudyGroupsMenu } from "@/components/study/StudyGroupsMenu";
 
-function playChime() {
-  try {
-    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new AC();
-    const notes = [660, 880];
-    notes.forEach((f, i) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = "sine";
-      o.frequency.value = f;
-      o.connect(g);
-      g.connect(ctx.destination);
-      const start = ctx.currentTime + i * 0.18;
-      g.gain.setValueAtTime(0.0001, start);
-      g.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
-      o.start(start);
-      o.stop(start + 0.42);
-    });
-    setTimeout(() => ctx.close(), 1200);
-  } catch {
-    // audio unavailable — ignore
-  }
-}
+import { setSoloStudyActive } from "@/lib/study/solo";
+import { ComingSoon } from "@/components/ComingSoon";
 
 function fireNotif(title: string, body: string, tag: string) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -85,12 +67,10 @@ const ASK: Record<FocusTaskKind, { q: TranslationKey; yes: TranslationKey; later
 
 // Deterministic per-course identity: a stable hash → fallback bloom colour, plus
 // the pad species + flower type (so every subject always grows the same plant).
-const BLOOM_FALLBACK = ["#e86f9e", "#f2c14e", "#7db6f0", "#c48be0", "#5fce9e", "#ef8f4b", "#e0576b", "#8fd0ff"];
-function fallbackColor(id: string): string {
-  return BLOOM_FALLBACK[hashString(id) % BLOOM_FALLBACK.length];
-}
 
 export default function PomodoroPage() {
+  const audio = useStudyAudio();
+  const [groupsOpen, setGroupsOpen] = useState(false);
   const store = useStore();
   const {
     hydrated,
@@ -112,6 +92,10 @@ export default function PomodoroPage() {
 
   const [timer, setTimer] = useState<TimerState>(createInitialTimer);
   const { idle, onBreak, running, pausedFocus, breakWaiting, inSession } = phaseOf(timer);
+  useEffect(() => {
+    setSoloStudyActive(inSession);
+    return () => setSoloStudyActive(false);
+  }, [inSession]);
   // the time left shows in the browser tab while a session or break is on
   usePageTitle("nav_pomodoro", { prefix: idle ? null : formatClock(timer.secondsRemaining) });
   const [celebrateSignal, setCelebrateSignal] = useState(0);
@@ -191,6 +175,9 @@ export default function PomodoroPage() {
   const deadlineRef = useRef<number | null>(null);
   const settingsRef = useRef<PomSettings>(pomodoroSettings);
   settingsRef.current = pomodoroSettings;
+  const semesterRef = useRef(semester);
+  semesterRef.current = semester;
+  const earnedSemesterRef = useRef<AchievementSemester | undefined>(undefined);
   const timerRef = useRef<TimerState>(timer);
   timerRef.current = timer;
 
@@ -272,10 +259,10 @@ export default function PomodoroPage() {
 
   const handleFocusComplete = useCallback(() => {
     const s = settingsRef.current;
-    if (s.soundEnabled) playChime();
+    if (s.soundEnabled) audio.player.notify("study");
     fireNotif(t("pom_title"), t("pom_notifFocusDone"), "pom-focus-done");
     const { courseId, task } = focusRef.current;
-    recordPomodoroComplete(courseId, task);
+    recordPomodoroComplete(courseId, task, earnedSemesterRef.current);
     if (task) setAsk(task);
     setCelebrateSignal((n) => n + 1);
     setTimer((prev) => {
@@ -288,7 +275,7 @@ export default function PomodoroPage() {
       deadlineRef.current = null;
       return { ...withBreak, phase: "paused", pausedPhase: withBreak.phase as "shortBreak" | "longBreak" };
     });
-  }, [recordPomodoroComplete, t]);
+  }, [recordPomodoroComplete, t, audio.player]);
 
   // A break ends (or is skipped): straight into the next session when that's
   // switched on, else back to the start.
@@ -296,6 +283,7 @@ export default function PomodoroPage() {
     const s = settingsRef.current;
     setTimer((prev) => {
       if (s.autoStartFocus) {
+        earnedSemesterRef.current = { ...semesterRef.current };
         const f = startFocus(prev, s);
         deadlineRef.current = Date.now() + f.secondsRemaining * 1000;
         return f;
@@ -306,11 +294,11 @@ export default function PomodoroPage() {
   }, []);
 
   const handleBreakComplete = useCallback(() => {
-    if (settingsRef.current.soundEnabled) playChime();
+    if (settingsRef.current.soundEnabled) audio.player.notify("break");
     const wasLong = timerRef.current.phase === "longBreak";
     fireNotif(t("pom_title"), wasLong ? t("pom_notifLongBreakDone") : t("pom_notifBreakDone"), "pom-break-done");
     endBreak();
-  }, [t, endBreak]);
+  }, [t, endBreak, audio.player]);
 
   // Countdown driven by an absolute deadline so a backgrounded tab catches up
   // the moment it becomes visible again (setInterval throttles in the background,
@@ -346,6 +334,7 @@ export default function PomodoroPage() {
   }, [running, handleFocusComplete, handleBreakComplete]);
 
   const onStart = () => {
+    earnedSemesterRef.current = { ...semesterRef.current };
     setAsk(null);
     setDoneNote(null);
     setTimer((prev) => {
@@ -471,9 +460,11 @@ export default function PomodoroPage() {
         style={{ cursor: quiet ? "none" : undefined }}
       >
         <PondScene
+          cosmetics={store.haviCosmetics}
           lilyPadCount={pomodoroStats.lilyPadCount}
           padSpecs={padSpecs}
           baseMood={baseMood}
+          longBreak={timer.phase === "longBreak" || (timer.phase === "paused" && timer.pausedPhase === "longBreak")}
           focusProgress={focusProgress}
           focusColor={accent}
           showHavi={showHavi}
@@ -495,7 +486,9 @@ export default function PomodoroPage() {
             className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 px-3 sm:px-5"
             style={{ paddingTop: immersive ? "max(14px, env(safe-area-inset-top))" : 14 }}
           >
-            <button
+            <div className="flex items-center gap-2">
+            <StudyGroupsMenu soon={!GROUP_STUDY_ENABLED} open={groupsOpen} onToggle={() => setGroupsOpen((v) => !v)} onClose={() => setGroupsOpen(false)} disabled={inSession} />
+            <InteractionButton
               data-tour="pom-grove"
               onClick={() => setLifted(true)}
               className={`pointer-events-auto flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors hover:bg-white/10 ${show(!inSession)}`}
@@ -504,16 +497,20 @@ export default function PomodoroPage() {
             >
               <Trees size={16} />
               {t("pom_grove")}
-            </button>
+            </InteractionButton>
+            </div>
             <div className="flex items-center gap-2">
+              <StudyAudioControls player={audio.player} state={audio.state} className={`${glassBtn} ${show(!quiet)}`}
+                alertsEnabled={pomodoroSettings.soundEnabled && audio.state.alerts}
+                onAlertsChange={(enabled) => setPomodoroSettings({ soundEnabled: enabled })} />
               <div className={`flex items-center gap-2 ${show(!inSession)}`} inert={inSession}>
                 {notifBanner && (
-                  <button onClick={requestNotif} aria-label={t("pom_notifEnable")} title={t("pom_notifEnable")} className={`${glassBtn} relative`} style={GLASS}>
+                  <InteractionButton onClick={requestNotif} aria-label={t("pom_notifEnable")} title={t("pom_notifEnable")} className={`${glassBtn} relative`} style={GLASS}>
                     <Bell size={17} />
                     <span className="absolute end-2.5 top-2.5 h-1.5 w-1.5 rounded-full" style={{ background: "#f4c74e" }} />
-                  </button>
+                  </InteractionButton>
                 )}
-                <button
+                <InteractionButton
                   onClick={() => setStatsOpen(true)}
                   aria-label={t("pom_stats")}
                   className="pointer-events-auto flex h-10 items-center gap-2 rounded-full px-3 text-sm font-medium transition-colors hover:bg-white/10 sm:px-4"
@@ -521,9 +518,9 @@ export default function PomodoroPage() {
                 >
                   <BarChart3 size={17} />
                   <span className="hidden sm:inline">{t("pom_stats")}</span>
-                </button>
+                </InteractionButton>
               </div>
-              <button
+              <InteractionButton
                 onClick={toggleImmersive}
                 aria-label={t(immersive ? "pom_fullscreenExit" : "pom_fullscreen")}
                 title={t(immersive ? "pom_fullscreenExit" : "pom_fullscreen")}
@@ -531,7 +528,7 @@ export default function PomodoroPage() {
                 style={GLASS}
               >
                 {immersive ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-              </button>
+              </InteractionButton>
             </div>
           </div>
 
@@ -549,20 +546,20 @@ export default function PomodoroPage() {
                   {t(ASK[askTask.kind].q, { name: `⁨${askTask.name}⁩` })}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                  <button
+                  <InteractionButton
                     onClick={() => markDone(askTask)}
                     className="rounded-full px-5 py-2 text-sm font-semibold"
                     style={ACTION}
                   >
                     {t(ASK[askTask.kind].yes)}
-                  </button>
-                  <button
+                  </InteractionButton>
+                  <InteractionButton
                     onClick={() => setAsk(null)}
                     className="rounded-full px-5 py-2 text-sm font-medium transition-colors hover:bg-white/10"
                     style={{ border: "1px solid rgba(255,255,255,0.22)" }}
                   >
                     {t(ASK[askTask.kind].later)}
-                  </button>
+                  </InteractionButton>
                 </div>
               </div>
             ) : doneNote ? (
@@ -577,12 +574,12 @@ export default function PomodoroPage() {
                       ? t("pom_doneTotal", { actual: dur(doneNote.actual) })
                       : null}
                 </span>
-                <button onClick={() => undoDone(doneNote.task)} className="shrink-0 font-semibold" style={{ color: "#f4d58a" }}>
+                <InteractionButton onClick={() => undoDone(doneNote.task)} className="shrink-0 font-semibold" style={{ color: "#f4d58a" }}>
                   {t("undo")}
-                </button>
-                <button onClick={() => setDoneNote(null)} aria-label={t("close")} className="shrink-0" style={{ opacity: 0.7 }}>
+                </InteractionButton>
+                <InteractionButton onClick={() => setDoneNote(null)} aria-label={t("close")} className="shrink-0" style={{ opacity: 0.7 }}>
                   <X size={16} />
-                </button>
+                </InteractionButton>
               </div>
             ) : (
               <div className="pointer-events-auto flex max-w-full justify-center">
@@ -621,7 +618,10 @@ export default function PomodoroPage() {
             </div>
             {idle && (
               <div className="pointer-events-auto flex flex-col items-center gap-2">
-                <PomodoroSettings settings={pomodoroSettings} onChange={setPomodoroSettings} />
+                <PomodoroSettings settings={{ ...pomodoroSettings, soundEnabled: pomodoroSettings.soundEnabled && audio.state.alerts }} onChange={(patch) => {
+                  if (patch.soundEnabled !== undefined) audio.player.preferences({ alerts: patch.soundEnabled });
+                  setPomodoroSettings(patch);
+                }} />
                 {!showHavi && (
                   <p className="rounded-full px-3 py-1 text-xs" style={GLASS}>
                     {t("pom_haviPremium")}
@@ -634,6 +634,8 @@ export default function PomodoroPage() {
       </div>
 
       <GroveModal
+        cosmetics={store.haviCosmetics}
+        onGroups={!inSession ? () => { setGroveOpen(false); setLifted(false); setGroupsOpen(true); } : undefined}
         open={groveOpen}
         onClose={() => {
           setGroveOpen(false);
@@ -647,7 +649,7 @@ export default function PomodoroPage() {
       />
 
       <Modal open={statsOpen} onClose={() => setStatsOpen(false)} title={t("pom_stats")} variant="sheet">
-        <PomodoroStats stats={pomodoroStats} />
+        <PomodoroStats stats={pomodoroStats} semester={semester} />
       </Modal>
     </div>
   );

@@ -1,8 +1,11 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { EXIT, SURFACE } from "@/components/motion/springs";
+import { Bell, X } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { formatTime } from "@/lib/dates";
@@ -67,7 +70,7 @@ export function ReminderToast() {
     []
   );
 
-  if (!mounted || !lines) return null;
+  if (!mounted) return null;
 
   const close = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -75,7 +78,7 @@ export function ReminderToast() {
   };
 
   return createPortal(
-    <div
+    <AnimatePresence>{lines && <motion.div key="toast" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6, transition: EXIT }} transition={SURFACE}
       role="status"
       aria-live="polite"
       className="surface-card fixed bottom-5 end-5 z-[70] w-[320px] max-w-[calc(100vw-2.5rem)] rounded-2xl p-4"
@@ -88,14 +91,14 @@ export function ReminderToast() {
             {t("reminderToastTitle")}
           </span>
         </div>
-        <button
+        <InteractionButton
           type="button"
           onClick={close}
           aria-label={t("close")}
           className="rounded-lg p-1 -m-1 transition-colors hover:bg-black/5"
         >
           <X size={15} style={{ color: "var(--color-muted)" }} />
-        </button>
+        </InteractionButton>
       </div>
       <ul className="flex flex-col gap-1.5">
         {lines.map((line, i) => (
@@ -104,7 +107,7 @@ export function ReminderToast() {
           </li>
         ))}
       </ul>
-    </div>,
+    </motion.div>}</AnimatePresence>,
     document.body
   );
 }

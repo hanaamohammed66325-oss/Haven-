@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -72,7 +73,7 @@ export function PaymentsSection({
 
       <div className="flex flex-wrap gap-2 mb-4">
         {filters.map((f) => (
-          <button
+          <InteractionButton
             key={f.id}
             onClick={() => { setStatus(f.id); setOffset(0); }}
             className="rounded-full px-3 py-1 text-[12px] font-medium"
@@ -83,7 +84,7 @@ export function PaymentsSection({
             }}
           >
             {f.label}
-          </button>
+          </InteractionButton>
         ))}
       </div>
 
@@ -129,8 +130,8 @@ export function PaymentsSection({
         <div className="flex items-center justify-between mt-4">
           <span className="text-[12px]" style={{ color: C.textDim }}>Showing {offset + 1}–{Math.min(offset + pageSize, total)} of {total.toLocaleString()}</span>
           <div className="flex gap-2">
-            <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))} style={{ ...S.btnSec, opacity: offset === 0 ? 0.5 : 1 }}>← Prev</button>
-            <button disabled={offset + pageSize >= total} onClick={() => setOffset(offset + pageSize)} style={{ ...S.btnSec, opacity: offset + pageSize >= total ? 0.5 : 1 }}>Next →</button>
+            <InteractionButton disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))} style={{ ...S.btnSec, opacity: offset === 0 ? 0.5 : 1 }}>← Prev</InteractionButton>
+            <InteractionButton disabled={offset + pageSize >= total} onClick={() => setOffset(offset + pageSize)} style={{ ...S.btnSec, opacity: offset + pageSize >= total ? 0.5 : 1 }}>Next →</InteractionButton>
           </div>
         </div>
       )}

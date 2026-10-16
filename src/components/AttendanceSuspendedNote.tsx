@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { AttendanceContributeModal } from "./AttendanceContributeModal";
 
@@ -21,9 +22,9 @@ export function AttendanceSuspendedNote({
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const cta = (
-    <button type="button" onClick={() => setOpen(true)} className="font-semibold underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
+    <InteractionButton type="button" onClick={() => setOpen(true)} className="font-semibold underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
       {t("attContrib_cta")}
-    </button>
+    </InteractionButton>
   );
   const modal = <AttendanceContributeModal open={open} onClose={() => setOpen(false)} courseId={courseId} />;
 

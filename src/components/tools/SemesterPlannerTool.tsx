@@ -1,8 +1,8 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Trash2, ClipboardList, ArrowLeft } from "lucide-react";
+import { Trash2, ClipboardList, ArrowLeft } from "@/components/motion/icons";
 
 // Standalone, no-login semester planner for /tools/planner — a public, simplified
 // version of the in-app Planner (المخطط). Weeks + tagged items (exam / quiz /
@@ -86,7 +86,7 @@ export function SemesterPlannerTool() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium" style={{ color: "var(--color-muted)" }}>النوع:</span>
           {TAGS.map((t) => (
-            <button
+            <InteractionButton
               key={t.key}
               type="button"
               onClick={() => setActiveTag(t.key)}
@@ -100,7 +100,7 @@ export function SemesterPlannerTool() {
             >
               <span className="w-2 h-2 rounded-full" style={{ background: t.color }} />
               {t.label}
-            </button>
+            </InteractionButton>
           ))}
         </div>
         <label className="flex items-center gap-2 text-sm ms-auto" style={{ color: "var(--color-muted)" }}>
@@ -134,7 +134,7 @@ export function SemesterPlannerTool() {
                       {it.text}
                     </span>
                     <span className="text-[10px] shrink-0" style={{ color: colorOf(it.tag) }}>{labelOf(it.tag)}</span>
-                    <button
+                    <InteractionButton
                       type="button"
                       onClick={() => remove(it.id)}
                       aria-label="حذف"
@@ -142,7 +142,7 @@ export function SemesterPlannerTool() {
                       style={{ color: "var(--color-muted)" }}
                     >
                       <Trash2 size={13} />
-                    </button>
+                    </InteractionButton>
                   </div>
                 ))}
               </div>
@@ -175,10 +175,10 @@ export function SemesterPlannerTool() {
             </div>
           </div>
         </div>
-        <Link href="/signup/" className="haven-btn shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold">
+        <InteractionLink href="/signup/" className="haven-btn shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold">
           ابدأ مجاناً
           <ArrowLeft size={16} />
-        </Link>
+        </InteractionLink>
       </div>
     </div>
   );

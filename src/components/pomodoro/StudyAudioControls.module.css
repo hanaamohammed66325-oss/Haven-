@@ -1,0 +1,26 @@
+.dialog { position:fixed; inset:0; margin:auto; width:min(380px, calc(100vw - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)))); max-height:calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom))); border:1px solid var(--color-border); border-radius:24px; padding:0; background:var(--color-surface); color:var(--color-ink); box-shadow:0 20px 60px #0005; overflow:hidden; }
+.dialog[open] { display:flex; flex-direction:column; }
+.dialog::backdrop { background:#10271f88; backdrop-filter:blur(5px); }
+.dialog[data-state=open]::backdrop { animation:audioBackdropIn 220ms ease-out backwards; }
+.dialog[data-state=closing]::backdrop { animation:audioBackdropOut 180ms ease-in forwards; }
+@keyframes audioBackdropIn { from { opacity:0; } to { opacity:1; } }
+@keyframes audioBackdropOut { to { opacity:0; } }
+.header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-bottom:1px solid var(--color-border); flex-shrink:0; }
+.body { overflow-y:auto; overscroll-behavior:contain; min-height:0; padding:14px 18px; }
+.row { display:flex; align-items:center; gap:8px; margin-block:6px; }
+.dialog[data-state=open] .row { animation:audioRowIn 240ms cubic-bezier(.22,1,.36,1) backwards; }
+.dialog[data-state=open] .row:nth-child(3) { animation-delay:25ms; }
+.dialog[data-state=open] .row:nth-child(n+4) { animation-delay:50ms; }
+@keyframes audioRowIn { from { opacity:0; translate:0 5px; } to { opacity:1; translate:0 0; } }
+.track { flex:1; min-width:0; display:flex; align-items:center; gap:10px; text-align:start; padding:10px 12px; border:1px solid var(--color-border); border-radius:14px; }
+.track[aria-pressed=true] { background:var(--color-primary-soft); border-color:var(--color-primary); }
+.icon { display:grid; place-items:center; flex-shrink:0; width:36px; height:36px; border-radius:50%; }
+.footer { padding:12px 18px; border-top:1px solid var(--color-border); display:flex; flex-direction:column; gap:10px; flex-shrink:0; }
+.options { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; font-size:12px; }
+@media (max-height:500px) {
+ .header { padding-block:8px; }
+ .body { padding-block:8px; }
+ .track { padding-block:6px; }
+ .footer { padding-block:8px; gap:6px; }
+}
+@media (prefers-reduced-motion:reduce) { .dialog[open], .dialog[data-state]::backdrop, .dialog[data-state=open] .row { animation:none; } }

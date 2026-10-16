@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 
 const DISMISSED_KEY = "haven-early-access-dismissed";
@@ -36,13 +37,13 @@ export function EarlyAccessBanner() {
       <span className="flex-1 min-w-0">
         {t("earlyAccess")}
       </span>
-      <button
+      <InteractionButton
         type="button"
         onClick={dismiss}
         className="shrink-0 rounded-full p-1 transition-colors hover:bg-black/5"
       >
         <X size={15} style={{ color: "var(--color-muted)" }} />
-      </button>
+      </InteractionButton>
     </div>
   );
 }

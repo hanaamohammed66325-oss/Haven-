@@ -1,11 +1,16 @@
 "use client";
+import { InteractionButton, InteractionAnchor } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Trash2, Check, Lock, LogOut } from "lucide-react";
+import { Sparkles, Trash2, Check, Lock, LogOut } from "@/components/motion/icons";
+import { canUseReferralReward, referralUnlockHint } from "@/lib/referralRewards";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
+import { RewardThemeMotion, isRewardTheme } from "@/components/RewardThemeMotion";
+import { RewardMotionPicker } from "@/components/RewardMotionPicker";
+import { hasRewardMotions, selectedRewardMotion } from "@/lib/rewardMotions";
 import { CollapseBody, CollapseToggle, expandCard, useCardCollapse } from "@/components/Collapsible";
 import { Modal } from "@/components/Modal";
 import { DateField } from "@/components/DateField";
@@ -24,7 +29,7 @@ import { SUPPORT_EMAIL, contactChannels } from "@/lib/contact";
 import { policyKind } from "@/lib/attendancePolicy";
 import { DEFAULT_SEMESTER_NAME } from "@/lib/db";
 import { TermCheckCard } from "@/components/TermCheckCard";
-import type { CalendarType, ThemeId } from "@/types";
+import type { CalendarType, ThemeId, RewardMotionId } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
 interface ThemeMeta {
@@ -50,6 +55,10 @@ const THEMES: ThemeMeta[] = [
   { id: "forest", nameKey: "theme_forest", free: false, surface: "#fcfdfb", sidebar: "#1c3528", primary: "#3f7d5a", brass: "#b8975a" },
   { id: "ocean", nameKey: "theme_ocean", free: false, surface: "#fbfdfe", sidebar: "#14304a", primary: "#3a6ea5", brass: "#b8975a" },
   { id: "mono", nameKey: "theme_mono", free: false, surface: "#fdfdfd", sidebar: "#26282b", primary: "#4a4f54", brass: "#8f8f8f" },
+  // Exclusive ambassador-reward themes (unlocked only via referrals).
+  { id: "aurora", nameKey: "theme_aurora", free: false, surface: "#fafbfd", sidebar: "#d0d6df", primary: "#34465f", brass: "#82745f" },
+  { id: "coral", nameKey: "theme_coral", free: false, surface: "#ffffff", sidebar: "#4b5377", primary: "#4d557a", brass: "#f39a8d" },
+  { id: "ambassador", nameKey: "theme_ambassador", free: false, surface: "#fbf9f4", sidebar: "#14110c", primary: "#b8934a", brass: "#e3c063" },
 ];
 
 const fieldClass =
@@ -234,6 +243,7 @@ export default function SettingsPage() {
   };
 
   const pickTheme = (tm: ThemeMeta) => {
+    if (!canUseReferralReward(store.referralProgram.profile, "theme", tm.id)) return;
     if (canUseTheme(profile, sub, tm.id)) setTheme(tm.id);
     else setPremiumOpen(true);
   };
@@ -280,14 +290,14 @@ export default function SettingsPage() {
         <p className="text-[13px] mb-4 -mt-1" style={{ color: "var(--color-muted)" }}>
           {t("ob_settings_desc")}
         </p>
-        <button
+        <InteractionButton
           type="button"
           data-tour="set-guide"
           onClick={() => window.dispatchEvent(new Event("haven:onboarding"))}
           className="haven-btn rounded-xl px-5 py-2.5 text-sm font-semibold"
         >
           {t("ob_settings_btn")}
-        </button>
+        </InteractionButton>
       </Section>
 
       {/* Preferences */}
@@ -296,7 +306,7 @@ export default function SettingsPage() {
           <Row label={t("languageLabel")}>
             <div className="inline-flex rounded-xl p-1 w-full" style={{ background: "var(--color-primary-soft)" }}>
               {(["en", "ar"] as const).map((lng) => (
-                <button
+                <InteractionButton
                   key={lng}
                   onClick={() => setLanguage(lng)}
                   className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
@@ -307,7 +317,7 @@ export default function SettingsPage() {
                   }
                 >
                   {lng === "en" ? t("english") : t("arabic")}
-                </button>
+                </InteractionButton>
               ))}
             </div>
           </Row>
@@ -332,9 +342,12 @@ export default function SettingsPage() {
         </p>
         <div data-tour="set-theme" className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {THEMES.map((tm) => (
-            <ThemeCard key={tm.id} theme={tm} active={theme === tm.id} locked={!canUseTheme(profile, sub, tm.id)} onSelect={() => pickTheme(tm)} />
+            <ThemeCard key={tm.id} theme={tm} motion={selectedRewardMotion(tm.id, store.rewardMotionChoices)} active={theme === tm.id} locked={!canUseTheme(profile, sub, tm.id) || !canUseReferralReward(store.referralProgram.profile, "theme", tm.id)} lockHint={!canUseReferralReward(store.referralProgram.profile, "theme", tm.id) ? referralUnlockHint("theme", tm.id, language === "ar") : undefined} onSelect={() => pickTheme(tm)} />
           ))}
         </div>
+        {hasRewardMotions(theme) && canUseTheme(profile, sub, theme) && canUseReferralReward(store.referralProgram.profile, "theme", theme) && (
+          <RewardMotionPicker theme={theme} selected={selectedRewardMotion(theme, store.rewardMotionChoices)!} onSelect={motion => store.setRewardMotion(theme, motion)} />
+        )}
       </Section>
 
       {/* Semester */}
@@ -442,14 +455,14 @@ export default function SettingsPage() {
                           : "attSystemRuleNone"
                   )}
                 </span>
-                <button
+                <InteractionButton
                   type="button"
                   onClick={() => setRuleOpen(true)}
                   className="rounded-lg px-3.5 py-2 text-sm font-medium shrink-0"
                   style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
                 >
                   {t("attSystemChange")}
-                </button>
+                </InteractionButton>
               </div>
               <AttendanceRuleModal open={ruleOpen} onClose={() => setRuleOpen(false)} />
             </Row>
@@ -468,7 +481,7 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 {datesWeeks != null && datesWeeks <= 40 && (
-                  <button
+                  <InteractionButton
                     onClick={() => setSemester({ weeks: datesWeeks })}
                     title={t("weeksFromDates", { n: datesWeeks })}
                     className="rounded-lg px-3.5 py-2 text-sm font-medium transition-colors shrink-0"
@@ -479,7 +492,7 @@ export default function SettingsPage() {
                     }
                   >
                     {t("weeksFromDates", { n: datesWeeks })}
-                  </button>
+                  </InteractionButton>
                 )}
                 <ClampedNumberField
                   value={semester.weeks}
@@ -527,28 +540,28 @@ export default function SettingsPage() {
               <div className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{t("demoTitle")}</div>
               <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{t("demoDesc")}</div>
             </div>
-            <button
+            <InteractionButton
               onClick={() => setDemoOpen(true)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shrink-0 transition-colors"
               style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
             >
               <Sparkles size={16} />
               {t("loadDemo")}
-            </button>
+            </InteractionButton>
           </div>
           <div className="flex items-center justify-between gap-4 py-3 last:pb-0">
             <div>
               <div className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{t("resetTitle")}</div>
               <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{t("resetDesc")}</div>
             </div>
-            <button
+            <InteractionButton
               onClick={() => setConfirmReset(true)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shrink-0 transition-colors"
               style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
             >
               <Trash2 size={16} />
               {t("resetData")}
-            </button>
+            </InteractionButton>
           </div>
         </div>
       </Section>
@@ -563,7 +576,7 @@ export default function SettingsPage() {
           {contactChannels.map((c) => {
             const isEmail = c.label === "Email";
             return (
-              <a
+              <InteractionAnchor
                 key={c.label}
                 href={c.href}
                 aria-label={c.label}
@@ -573,7 +586,7 @@ export default function SettingsPage() {
               >
                 <span className="shrink-0">{c.svg}</span>
                 <span dir={isEmail ? "ltr" : undefined}>{isEmail ? SUPPORT_EMAIL : c.label}</span>
-              </a>
+              </InteractionAnchor>
             );
           })}
         </div>
@@ -581,22 +594,22 @@ export default function SettingsPage() {
 
       {/* Sign out / Delete account */}
       <div className="mt-12 pt-8 border-t flex flex-col gap-3 sm:flex-row sm:items-center" style={{ borderColor: "var(--color-border)" }}>
-        <button
+        <InteractionButton
           onClick={signOut}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-medium transition-colors hover:bg-[var(--color-primary-soft)] sm:w-auto"
           style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
         >
           <LogOut size={16} className="rtl:rotate-180" />
           {t("signOut")}
-        </button>
-        <button
+        </InteractionButton>
+        <InteractionButton
           onClick={() => setConfirmDelete(true)}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors sm:w-auto"
           style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
         >
           <Trash2 size={16} />
           {t("deleteAccount")}
-        </button>
+        </InteractionButton>
       </div>
       </div>
 
@@ -605,20 +618,20 @@ export default function SettingsPage() {
           {t("resetConfirm")}
         </p>
         <div className="flex justify-end gap-3">
-          <button
+          <InteractionButton
             onClick={() => setConfirmReset(false)}
             className="px-4 py-2 rounded-xl text-sm font-medium border"
             style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
           >
             {t("cancel")}
-          </button>
-          <button
+          </InteractionButton>
+          <InteractionButton
             onClick={() => { resetData(); setConfirmReset(false); }}
             className="px-4 py-2 rounded-xl text-sm font-medium text-white"
             style={{ background: "var(--color-danger)" }}
           >
             {t("resetData")}
-          </button>
+          </InteractionButton>
         </div>
       </Modal>
 
@@ -632,22 +645,22 @@ export default function SettingsPage() {
           </p>
         )}
         <div className="flex justify-end gap-3">
-          <button
+          <InteractionButton
             onClick={closeDelete}
             disabled={deleting}
             className="px-4 py-2 rounded-xl text-sm font-medium border disabled:opacity-60"
             style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
           >
             {t("cancel")}
-          </button>
-          <button
+          </InteractionButton>
+          <InteractionButton
             onClick={deleteAccount}
             disabled={deleting}
             className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-70"
             style={{ background: "var(--color-danger)" }}
           >
             {deleting ? t("deleteAccountLoading") : t("deleteAccountConfirm")}
-          </button>
+          </InteractionButton>
         </div>
       </Modal>
 
@@ -658,14 +671,24 @@ export default function SettingsPage() {
   );
 }
 
-function ThemeCard({ theme, active, locked, onSelect }: { theme: ThemeMeta; active: boolean; locked: boolean; onSelect: () => void }) {
+function ThemeCard({ theme, motion, active, locked, lockHint, onSelect }: { theme: ThemeMeta; motion?: RewardMotionId | null; active: boolean; locked: boolean; lockHint?: string; onSelect: () => void }) {
   const { t } = useT();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const exclusive = isRewardTheme(theme.id);
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={onSelect}
+      onPointerEnter={(event) => { if (event.pointerType !== "touch") setHovered(true); }}
+      onPointerLeave={() => setHovered(false)}
+      onTouchStart={() => setHovered(true)}
+      onTouchEnd={() => setHovered(false)}
+      onTouchCancel={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       aria-pressed={active}
-      className="group relative text-start rounded-2xl border p-2.5 transition-all hover:-translate-y-0.5"
+      className="group relative text-start rounded-2xl border p-2 transition-all hover:-translate-y-0.5"
       style={{
         borderColor: active ? "var(--color-primary)" : "var(--color-border)",
         boxShadow: active ? "0 0 0 2px var(--color-primary)" : "var(--shadow-card)",
@@ -674,10 +697,12 @@ function ThemeCard({ theme, active, locked, onSelect }: { theme: ThemeMeta; acti
     >
       {/* mini app preview */}
       <div
-        className="relative h-16 rounded-xl overflow-hidden flex"
+        className="relative h-12 rounded-xl overflow-hidden flex"
         style={{ background: theme.surface, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06)" }}
       >
-        <div style={{ width: 26, background: theme.sidebar }} />
+        <div className="relative shrink-0" style={{ width: exclusive ? 48 : 22, background: theme.id === "aurora" ? "linear-gradient(115deg, #e5e9ef, #c8cfd9, #edf0f5)" : theme.id === "coral" ? "linear-gradient(155deg, #4b5377, #665574, #88586d)" : theme.sidebar }}>
+          {exclusive && <RewardThemeMotion theme={theme.id} motion={motion} preview active={hovered || focused} />}
+        </div>
         <div className="flex-1 flex items-center gap-1.5 px-2.5">
           <span className="h-5 w-5 rounded-full shrink-0" style={{ background: theme.primary }} />
           <span className="h-3.5 w-3.5 rounded-full shrink-0" style={{ background: theme.brass }} />
@@ -685,7 +710,7 @@ function ThemeCard({ theme, active, locked, onSelect }: { theme: ThemeMeta; acti
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 mt-2.5">
+      <div className="flex items-center justify-between gap-2 mt-2">
         <span className="text-sm font-medium truncate" style={{ color: "var(--color-ink)" }}>{t(theme.nameKey)}</span>
         {active ? (
           <span className="flex items-center justify-center h-5 w-5 rounded-full shrink-0" style={{ background: "var(--color-primary)", color: "#fff" }}>
@@ -695,9 +720,14 @@ function ThemeCard({ theme, active, locked, onSelect }: { theme: ThemeMeta; acti
           <Lock size={13} className="shrink-0" style={{ color: "var(--color-brass)" }} />
         ) : null}
       </div>
+      {exclusive && (
+        <span className="mt-1.5 block text-xs font-medium leading-relaxed" style={{ color: "var(--color-muted)" }}>
+          {lockHint || t("theme_referral_exclusive")}
+        </span>
+      )}
       {/* No free/premium text label. Users with active access are never `locked`
           (canUseTheme → true for all), so they see nothing. Users without access
           get the 🔒 above on premium (locked) themes and nothing on free ones. */}
-    </button>
+    </InteractionButton>
   );
 }

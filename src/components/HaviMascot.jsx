@@ -22,6 +22,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useSubscription } from "@/lib/subscription";
 import { canUseHavi } from "@/lib/premium";
 import { useStore } from "@/store";
+import { COSMETICS, orderedCosmetics } from "@/lib/haviCosmetics";
+import { canUseReferralReward } from "@/lib/referralRewards";
 
 /* ================================================================== */
 /*  PIXEL ART                                                          */
@@ -94,6 +96,16 @@ function paintBody(ctx, s) {
   }
 }
 
+function drawBlanket(ctx, s) {
+  const by = 15;
+  px(ctx, s, 1, by + 1, 23, 5, COL.blanket);
+  for (let x = 1; x < 24; x += 2) px(ctx, s, x, by, 1, 1, COL.blanket);
+  px(ctx, s, 1, by + 1, 23, 1, COL.blanketHi);
+  px(ctx, s, 6, by + 3, 1, 2, COL.blanketSh);
+  px(ctx, s, 14, by + 3, 1, 2, COL.blanketSh);
+  px(ctx, s, 19, by + 3, 1, 2, COL.blanketSh);
+}
+
 /**
  * Draw one frame.
  * @param extra { clipRow?: number }  hide everything below this grid row,
@@ -105,6 +117,11 @@ function drawFrame(canvas, activity, t, extra) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.imageSmoothingEnabled = false;
 
+  // Support one or many equipped cosmetics (worn together when they don't clash).
+  const cosIds = extra && extra.cosmetics ? extra.cosmetics : [];
+  const cosList = cosIds.map((id) => COSMETICS[id]).filter(Boolean);
+  for (const c of cosList) if (c.back) c.back(ctx, s); // e.g. a cloak drapes BEHIND him
+
   paintBody(ctx, s);
 
   switch (activity) {
@@ -113,13 +130,8 @@ function drawFrame(canvas, activity, t, extra) {
       px(ctx, s, 17, 10, 4, 1, COL.k);
       if (t % 12 < 6) px(ctx, s, 12, 13, 4, 2, COL.k);
       else px(ctx, s, 12, 13, 4, 1, COL.k);
-      const by = 15; // blanket
-      px(ctx, s, 1, by + 1, 23, 5, COL.blanket);
-      for (let x = 1; x < 24; x += 2) px(ctx, s, x, by, 1, 1, COL.blanket);
-      px(ctx, s, 1, by + 1, 23, 1, COL.blanketHi);
-      px(ctx, s, 6, by + 3, 1, 2, COL.blanketSh);
-      px(ctx, s, 14, by + 3, 1, 2, COL.blanketSh);
-      px(ctx, s, 19, by + 3, 1, 2, COL.blanketSh);
+      // The blanket for sleep is drawn LAST (after cosmetics) so any outfit worn
+      // on the lower body (scarf, bow tie, cloak) is tucked UNDER it. See below.
       px(ctx, s, 20, 12, 1 + (t % 12 < 6 ? 1 : 0), 1 + (t % 12 < 6 ? 1 : 0), COL.snore);
       ctx.fillStyle = COL.zzz;
       ctx.font = `${Math.round(s * 2.2)}px sans-serif`;
@@ -220,7 +232,6 @@ function drawFrame(canvas, activity, t, extra) {
       px(ctx, s, 12, 13, 4, 1, COL.k);
       px(ctx, s, 7, 15, 2, 1, COL.G);
       px(ctx, s, 19, 15, 2, 1, COL.G);
-      ctx.clearRect(0, 16 * s, canvas.width, canvas.height);
       break;
     }
     case "books": {
@@ -259,12 +270,27 @@ function drawFrame(canvas, activity, t, extra) {
     }
   }
 
-  // Emerging from behind a card: erase everything below the card's real edge.
-  if (extra && typeof extra.clipRow === "number") {
-    const cut = Math.max(0, extra.clipRow) * s;
-    if (cut < canvas.height) ctx.clearRect(0, cut, canvas.width, canvas.height);
-  }
+  for (const c of cosList) if (c.front) c.front(ctx, s); // worn-on-top layers (crown, glasses…)
+
+  // While he sleeps, the blanket is drawn on top so whatever outfit sits on his
+  // lower body (scarf / bow tie / royal cloak) is tucked UNDER it — only head
+  // pieces (crown, glasses) stay above the blanket and remain visible.
+  if (activity === "sleep") drawBlanket(ctx, s);
+
+  // Body, outfit and props share one final mask, including the held peek pose.
+  const peekCut = activity === "peek" ? 16 : Infinity;
+  const cardCut = extra && typeof extra.clipRow === "number" ? Math.max(0, extra.clipRow) : Infinity;
+  const cut = Math.min(peekCut, cardCut) * s;
+  if (cut < canvas.height) ctx.clearRect(0, cut, canvas.width, canvas.height);
 }
+
+// Draw a single STILL Havi (body + face + any cosmetics) into a canvas, for the
+// ambassador reward showcase. No animation loop — just one representative frame.
+export function drawHaviStill(canvas, cosmetics = [], activity = "celebrate") {
+  drawFrame(canvas, activity, 0, { cosmetics: orderedCosmetics(cosmetics) });
+}
+export const HAVI_GRID_W = GRID_W;
+export const HAVI_DRAW_H = DRAW_H;
 
 function bobFor(activity, t) {
   switch (activity) {
@@ -310,6 +336,19 @@ function offsetFor(activity) {
   return 0;
 }
 
+/**
+ * Havi on a stage of his own, outside the roaming mascot (the landing page):
+ * one frame of `activity` at tick `t` (ticks run ~8 a second), and the bob and
+ * tilt that go with it, in CSS px and degrees.
+ */
+export function drawHaviFrame(canvas, activity, t) {
+  drawFrame(canvas, activity, t);
+}
+export function haviMotion(activity, t) {
+  return { y: Math.max(-6, Math.min(6, bobFor(activity, t))), rotate: rotFor(activity, t) };
+}
+export const HAVI_SIZE = { w: GRID_W, h: DRAW_H };
+
 /** Order used when the user clicks him 3x to switch animation */
 const CYCLE_ACTS = ["sleep", "watch", "hang", "books", "peek", "write"];
 
@@ -349,7 +388,9 @@ export default function HaviMascot({
   // allows "havi"; while the subscription row is still loading we render nothing
   // (handled at the return below) so he never flashes in then out.
   const { sub, profile, loading: subLoading } = useSubscription();
-  const { haviName } = useStore();
+  const { haviName, haviCosmetics, referralProgram } = useStore();
+  // The equipped outfits, as an ordered array of ids.
+  const activeCosmetics = orderedCosmetics((haviCosmetics || []).filter(id => canUseReferralReward(referralProgram?.profile, "outfit", id)));
 
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -365,6 +406,18 @@ export default function HaviMascot({
   const [tourActive, setTourActive] = useState(false);
   const [showName, setShowName] = useState(false);
   const nameTimerRef = useRef(null);
+  // read by the draw loop, so equipping/removing an outfit shows at once
+  const cosmeticRef = useRef(activeCosmetics);
+  cosmeticRef.current = activeCosmetics;
+
+  // Broadcast Havi's current behaviour so his companions (the fox/tiger) can
+  // imitate him out of loyalty — they nap when he naps and watch when he watches.
+  useEffect(() => {
+    if (demoMode) return;
+    try {
+      window.dispatchEvent(new CustomEvent("havi:activity", { detail: { activity } }));
+    } catch (e) {}
+  }, [activity, demoMode]);
 
   const tRef = useRef(0);
   const posRef = useRef({ top: -9999, left: -9999 });
@@ -866,6 +919,8 @@ export default function HaviMascot({
   const poke = useCallback(() => {
     if (squishRef.current) return; // already squishing
     flashName();
+    // tell the companions to come out and play when their owner is tapped
+    try { window.dispatchEvent(new CustomEvent("havi:poke")); } catch (e) {}
 
     /* count clicks — every 3rd one switches to the next animation */
     clickCountRef.current += 1;
@@ -1043,6 +1098,8 @@ export default function HaviMascot({
 
     const onNavigate = () => {
       reset();
+      // tell the companions the page changed so they re-appear here too
+      try { window.dispatchEvent(new CustomEvent("havi:navigate")); } catch (e) {}
       // let the new page paint, then he rises from behind a card
       setTimeout(() => enterRef2.current?.(), 420);
     };
@@ -1107,6 +1164,9 @@ export default function HaviMascot({
       ],
       celebrate,
       poke,
+      // Companions read this to avoid sitting behind him.
+      currentCard: () => targetElRef.current,
+      bounds: () => canvasRef.current?.getBoundingClientRect() || null,
       goTo: (elOrSelector) => {
         const el =
           typeof elOrSelector === "string"
@@ -1348,14 +1408,14 @@ export default function HaviMascot({
 
       /* --- draw --- */
       if (reduced) {
-        drawFrame(canvas, activity, 0, { clipRow });
+        drawFrame(canvas, activity, 0, { clipRow, cosmetics: cosmeticRef.current });
         if (wrapRef.current) wrapRef.current.style.transform = "none";
         return;
       }
       if (ts - last < 120) return;
       last = ts;
       tRef.current++;
-      drawFrame(canvas, activity, tRef.current, { clipRow });
+      drawFrame(canvas, activity, tRef.current, { clipRow, cosmetics: cosmeticRef.current });
       if (wrapRef.current && !emergeRef.current && !squishRef.current) {
         const t = tRef.current;
         // clamp the bob so it can never look like a glitch

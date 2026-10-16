@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Drill-down: click a count card anywhere in the admin to see the users behind
 // the number. A request either names a card for the guarded
@@ -111,9 +112,9 @@ function DrillPanel({
               {users ? `${fmtNum(users.length)} users` : error ? "" : "Loading…"}
             </div>
           </div>
-          <button onClick={onClose} aria-label="Close" className="rounded-lg px-2.5 py-1 text-[14px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
+          <InteractionButton onClick={onClose} aria-label="Close" className="rounded-lg px-2.5 py-1 text-[14px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
             ✕
-          </button>
+          </InteractionButton>
         </div>
 
         <div className="px-5 pt-4">
@@ -126,7 +127,7 @@ function DrillPanel({
           ) : !shown ? null : shown.length === 0 ? (
             <p className="px-2 py-8 text-center text-[13px]" style={{ color: C.textFaint }}>No users.</p>
           ) : shown.map((u) => (
-            <button
+            <InteractionButton
               key={u.user_id}
               onClick={() => onOpenUser(u.user_id)}
               className="admin-hover-row w-full text-start flex items-center justify-between gap-3 rounded-lg px-3 py-2.5"
@@ -144,7 +145,7 @@ function DrillPanel({
                 )}
                 <span className="text-[11px] tabular-nums" style={{ color: C.textFaint }}>{timeAgo(u.last_active_at)}</span>
               </div>
-            </button>
+            </InteractionButton>
           ))}
         </div>
       </div>

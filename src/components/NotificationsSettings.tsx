@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // ---------------------------------------------------------------------------
 // Notifications — Web Push subscribe / unsubscribe (Phase 1: storage only).
@@ -13,7 +14,7 @@
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell, Loader2 } from "@/components/motion/icons";
 import { supabase, sessionUserId } from "@/lib/supabase";
 import { useT } from "@/i18n";
 import { useInTour } from "./tour/TourContext";
@@ -312,14 +313,14 @@ export function NotificationsSettings() {
       )}
 
       {state === "enable" && (
-        <button
+        <InteractionButton
           onClick={enable}
           disabled={busy}
           className="haven-btn inline-flex items-center gap-2 self-start px-5 py-2.5 rounded-xl text-sm font-medium disabled:opacity-60"
         >
           <Bell size={16} />
           {busy ? t("notifEnabling") : t("notifEnable")}
-        </button>
+        </InteractionButton>
       )}
 
       {state === "on" && (
@@ -327,24 +328,24 @@ export function NotificationsSettings() {
           <p className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>
             {t("notifOn")}
           </p>
-          <button
+          <InteractionButton
             onClick={disable}
             disabled={busy || testing}
             className="inline-flex items-center gap-2 self-start px-4 py-2 rounded-xl text-sm font-medium border transition-colors disabled:opacity-60"
             style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
           >
             {busy ? t("notifDisabling") : t("notifDisable")}
-          </button>
+          </InteractionButton>
 
           {/* Secondary/muted action — deliberately less prominent than Disable. */}
-          <button
+          <InteractionButton
             onClick={sendTest}
             disabled={testing || busy}
             className="self-start text-xs font-medium underline underline-offset-2 transition-colors disabled:opacity-60"
             style={{ color: "var(--color-muted)" }}
           >
             {testing ? t("notifSending") : t("notifSendTest")}
-          </button>
+          </InteractionButton>
           {testMsg && (
             <p className="text-xs" style={{ color: "var(--color-primary)" }}>
               {testMsg}

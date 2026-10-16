@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // The student's side of the university points-table catalogue:
 //   • a table detected from the unverified catalogue is shown for the student
@@ -10,7 +11,7 @@
 // Used in the Profile page's academic settings and in the SetupCheck window.
 
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { universityBySlug } from "@/lib/tools/universities";
@@ -79,14 +80,14 @@ export function SchemeChips({ scheme, onSurface = false }: { scheme: GradeScheme
 
 function Btn({ children, onClick, primary }: { children: React.ReactNode; onClick: () => void; primary?: boolean }) {
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={onClick}
       className={primary ? "haven-btn rounded-xl px-4 py-2 text-sm font-semibold" : "rounded-xl px-4 py-2 text-sm font-medium border"}
       style={primary ? undefined : { borderColor: "var(--color-border)", color: "var(--color-ink)", background: "var(--color-surface)" }}
     >
       {children}
-    </button>
+    </InteractionButton>
   );
 }
 
@@ -187,9 +188,9 @@ export function GradeTableStatusCard({ onEdit, inSetup = false }: { onEdit: () =
     return (
       <p className="text-xs flex flex-wrap items-center gap-x-2" style={{ color: "var(--color-muted)" }}>
         <span>{t("gt_customActive", { max: d.scheme.max })}</span>
-        <button type="button" onClick={onEdit} className="font-medium underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
+        <InteractionButton type="button" onClick={onEdit} className="font-medium underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
           {t("gt_editTable")}
-        </button>
+        </InteractionButton>
       </p>
     );
   }
@@ -199,14 +200,14 @@ export function GradeTableStatusCard({ onEdit, inSetup = false }: { onEdit: () =
     return (
       <p className="text-xs flex flex-wrap items-center gap-x-2" style={{ color: "var(--color-success)" }}>
         <span>{t("gt_confirmed")}</span>
-        <button
+        <InteractionButton
           type="button"
           onClick={() => setAcademic({ gradeCheck: undefined })}
           className="font-medium underline underline-offset-2"
           style={{ color: "var(--color-muted)" }}
         >
           {t("gt_change")}
-        </button>
+        </InteractionButton>
       </p>
     );
   }
@@ -364,7 +365,7 @@ export function GradeTableForm({ onDone }: { onDone: (saved: boolean) => void })
               onChange={(e) => edit(i, { min: e.target.value })}
               aria-label={t("gt_formMin")}
             />
-            <button
+            <InteractionButton
               type="button"
               onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
               className="inline-flex items-center justify-center rounded-lg h-8 w-8"
@@ -372,11 +373,11 @@ export function GradeTableForm({ onDone }: { onDone: (saved: boolean) => void })
               aria-label={t("gt_formRemove")}
             >
               <X size={15} />
-            </button>
+            </InteractionButton>
           </div>
         ))}
       </div>
-      <button
+      <InteractionButton
         type="button"
         onClick={() => setRows((rs) => [...rs, { letter: "", points: "", min: "" }])}
         className="mt-2 inline-flex items-center gap-1 text-xs font-medium"
@@ -384,7 +385,7 @@ export function GradeTableForm({ onDone }: { onDone: (saved: boolean) => void })
       >
         <Plus size={14} />
         {t("gt_formAddRow")}
-      </button>
+      </InteractionButton>
 
       <p className="text-[11.5px] mt-3" style={{ color: "var(--color-muted)" }}>
         {t("gt_formShareNote")}

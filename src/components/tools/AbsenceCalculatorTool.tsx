@@ -1,8 +1,8 @@
 "use client";
+import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { ShieldCheck, AlertTriangle, XCircle, CalendarX2, ArrowLeft } from "lucide-react";
+import { ShieldCheck, AlertTriangle, XCircle, CalendarX2, ArrowLeft } from "@/components/motion/icons";
 import { fmtPct } from "@/lib/format";
 
 // Standalone, no-login absence / حرمان calculator for /tools/absence-calculator.
@@ -89,7 +89,7 @@ export function AbsenceCalculatorTool() {
         </span>
         <div className="inline-flex rounded-xl p-1" style={{ background: "var(--color-primary-soft)" }}>
           {(["25", "20", "custom"] as const).map((p) => (
-            <button
+            <InteractionButton
               key={p}
               type="button"
               onClick={() => setPreset(p)}
@@ -102,7 +102,7 @@ export function AbsenceCalculatorTool() {
               }
             >
               {p === "custom" ? "أخرى" : `${p}٪`}
-            </button>
+            </InteractionButton>
           ))}
         </div>
         {preset === "custom" && (
@@ -165,13 +165,13 @@ export function AbsenceCalculatorTool() {
             </div>
           </div>
         </div>
-        <Link
+        <InteractionLink
           href="/signup/"
           className="haven-btn shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold"
         >
           ابدأ مجاناً
           <ArrowLeft size={16} />
-        </Link>
+        </InteractionLink>
       </div>
     </div>
   );

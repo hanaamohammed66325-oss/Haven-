@@ -1,8 +1,10 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { PopoverPanel } from "@/components/motion/PopoverPanel";
+import { Calendar, ChevronLeft, ChevronRight } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import {
   addDays,
@@ -127,7 +129,7 @@ function HijriField({
 
   return (
     <>
-      <button
+      <InteractionButton
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -138,20 +140,18 @@ function HijriField({
           {value ? formatLongDate(value, lang, "hijri") : "—"}
         </span>
         <Calendar size={15} style={{ color: "var(--color-muted)" }} />
-      </button>
+      </InteractionButton>
 
-      {open &&
-        pos &&
-        typeof document !== "undefined" &&
+      {typeof document !== "undefined" &&
         createPortal(
-          <div
+          <PopoverPanel open={open && !!pos}
             ref={popRef}
             role="dialog"
             className="haven-pop fixed z-[100] rounded-2xl p-4"
             style={{
-              top: pos.top,
-              left: pos.left,
-              width: pos.width,
+              top: pos?.top,
+              left: pos?.left,
+              width: pos?.width,
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
               boxShadow: "var(--shadow-card-hover)",
@@ -160,22 +160,22 @@ function HijriField({
             <div className="flex items-center justify-between mb-3">
               <span className="font-display text-sm" style={{ color: "var(--color-ink)" }}>{monthLabel}</span>
               <div className="flex items-center gap-1">
-                <button
+                <InteractionButton
                   type="button"
                   onClick={() => setMonthStart((m) => hijriMonthStart(addDays(m, -1)))}
                   className="rounded-lg p-1.5 transition-colors hover:bg-black/5"
                   aria-label="Previous month"
                 >
                   <ChevronLeft size={16} className="rtl:rotate-180" style={{ color: "var(--color-muted)" }} />
-                </button>
-                <button
+                </InteractionButton>
+                <InteractionButton
                   type="button"
                   onClick={() => setMonthStart((m) => addDays(m, hijriDaysInMonth(m)))}
                   className="rounded-lg p-1.5 transition-colors hover:bg-black/5"
                   aria-label="Next month"
                 >
                   <ChevronRight size={16} className="rtl:rotate-180" style={{ color: "var(--color-muted)" }} />
-                </button>
+                </InteractionButton>
               </div>
             </div>
 
@@ -190,7 +190,7 @@ function HijriField({
                     {d == null ? (
                       <span />
                     ) : (
-                      <button
+                      <InteractionButton
                         type="button"
                         onClick={() => pick(d)}
                         className="flex items-center justify-center text-[13px] rounded-full transition-colors hover:bg-[var(--color-primary-soft)]"
@@ -203,13 +203,13 @@ function HijriField({
                         }}
                       >
                         {d}
-                      </button>
+                      </InteractionButton>
                     )}
                   </div>
                 );
               })}
             </div>
-          </div>,
+          </PopoverPanel>,
           document.body
         )}
     </>

@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
@@ -125,7 +126,7 @@ export function AttendanceRuleModal({ open, onClose, courseId }: { open: boolean
     <span className="block text-xs font-medium mb-1.5" style={{ color: "var(--color-ink)" }}>{t(k)}</span>
   );
   const choice = <T extends string>(value: T, current: T, set: (v: T) => void, text: string) => (
-    <button
+    <InteractionButton
       type="button"
       onClick={() => set(value)}
       aria-pressed={current === value}
@@ -137,7 +138,7 @@ export function AttendanceRuleModal({ open, onClose, courseId }: { open: boolean
       }
     >
       {text}
-    </button>
+    </InteractionButton>
   );
 
   return (
@@ -148,7 +149,7 @@ export function AttendanceRuleModal({ open, onClose, courseId }: { open: boolean
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
           {personalAttendanceRule && scope === "university" ? (
-            <button
+            <InteractionButton
               type="button"
               onClick={() => {
                 setPersonalAttendanceRule(null);
@@ -158,7 +159,7 @@ export function AttendanceRuleModal({ open, onClose, courseId }: { open: boolean
               style={{ color: "var(--color-muted)" }}
             >
               {universityPolicy ? t("ruleFormUseUniversity") : t("ruleFormClear")}
-            </button>
+            </InteractionButton>
           ) : (
             <span />
           )}

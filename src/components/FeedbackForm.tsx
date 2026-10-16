@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
-import { Send, Check } from "lucide-react";
+import { Send, Check } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { submitFeedback } from "@/lib/feedback";
 
@@ -47,13 +48,13 @@ export function FeedbackForm() {
           <Check size={24} />
         </div>
         <p className="text-[15px] font-medium" style={{ color: "var(--color-ink)" }}>{t("feedbackThanks")}</p>
-        <button
+        <InteractionButton
           onClick={() => setStatus("idle")}
           className="mt-4 text-sm font-medium"
           style={{ color: "var(--color-primary)" }}
         >
           {t("feedbackSend")}
-        </button>
+        </InteractionButton>
       </div>
     );
   }
@@ -93,14 +94,14 @@ export function FeedbackForm() {
           {message.trim() ? t("feedbackError") : t("feedbackEmptyError")}
         </p>
       )}
-      <button
+      <InteractionButton
         type="submit"
         disabled={status === "sending"}
         className="haven-btn inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium self-start disabled:opacity-60"
       >
         <Send size={16} className="rtl:rotate-180" />
         {status === "sending" ? t("feedbackSending") : t("feedbackSend")}
-      </button>
+      </InteractionButton>
     </form>
   );
 }

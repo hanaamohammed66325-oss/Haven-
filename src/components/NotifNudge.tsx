@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // NotifNudge — a small, obvious bell button that sits next to "Add course" on
 // the dashboard and shows ONLY to users who haven't turned notifications on.
@@ -14,7 +15,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { PUSH_ENABLED_KEY } from "@/lib/pushHealthCheck";
 
@@ -55,7 +56,7 @@ export function NotifNudge() {
   if (enabled !== false) return null;
 
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={goToNotifications}
       aria-label={t("notifNudge_button")}
@@ -76,6 +77,6 @@ export function NotifNudge() {
         className="absolute top-2 end-2 w-2.5 h-2.5 rounded-full"
         style={{ background: "var(--color-brass)" }}
       />
-    </button>
+    </InteractionButton>
   );
 }

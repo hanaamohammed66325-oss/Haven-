@@ -16,6 +16,7 @@
     "@tailwindcss/postcss": "^4.3.1",
     "autoprefixer": "^10.5.0",
     "lucide-react": "^1.20.0",
+    "motion": "13.4.4",
     "next": "^16.2.9",
     "postcss": "^8.5.15",
     "react": "^19.2.7",
@@ -29,5 +30,10 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.9",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "framer-motion": "13.4.4",
+    "motion-dom": "13.4.4",
+    "motion-utils": "13.3.0"
   }
 }

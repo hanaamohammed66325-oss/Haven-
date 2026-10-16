@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 /**
  * InstallPrompt — "ثبّت Haven" button + platform-aware instructions.
@@ -110,17 +111,17 @@ export default function InstallPrompt({ variant = "floating" }) {
     <>
       {variant === "floating" ? (
         <div style={S.pill} dir="rtl">
-          <button onClick={install} style={S.pillBtn}>
+          <InteractionButton onClick={install} style={S.pillBtn}>
             ثبّت Haven على جهازك
-          </button>
-          <button onClick={dismiss} style={S.pillX} aria-label="إخفاء">
+          </InteractionButton>
+          <InteractionButton onClick={dismiss} style={S.pillX} aria-label="إخفاء">
             ✕
-          </button>
+          </InteractionButton>
         </div>
       ) : (
-        <button onClick={install} style={S.inlineBtn} dir="rtl">
+        <InteractionButton onClick={install} style={S.inlineBtn} dir="rtl">
           ثبّت Haven على جهازك
-        </button>
+        </InteractionButton>
       )}
 
       {showSheet && (
@@ -175,9 +176,9 @@ export default function InstallPrompt({ variant = "floating" }) {
               </ol>
             )}
 
-            <button onClick={dismiss} style={S.close}>
+            <InteractionButton onClick={dismiss} style={S.close}>
               تمام
-            </button>
+            </InteractionButton>
           </div>
         </div>
       )}

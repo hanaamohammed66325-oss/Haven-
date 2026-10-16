@@ -17,6 +17,7 @@ import type {
   GradeCheck,
   HolidayCheck,
   SetupConfirmed,
+  CompanionKind,
   Course,
   CourseSession,
   CustomHoliday,
@@ -27,6 +28,8 @@ import type {
   PlannerNote,
   Semester,
   ThemeId,
+  RewardMotionId,
+  RewardMotionTheme,
   GpaMode,
   PomodoroSettings,
   PomodoroStats,
@@ -38,7 +41,19 @@ import type {
   AttendanceRule,
   PersonalAttendanceRule,
 } from "@/types";
+import { COMPANION_KINDS, isCompanionKind } from "@/types";
+import { useReferralSession } from "@/lib/useReferralSession";
+import type { ReferralProgram } from "@/lib/referrals";
+import { canUseReferralReward, filterReferralPreferences } from "@/lib/referralRewards";
 import { DEFAULT_NOTIF_PREFS, normalizeNotifPrefs } from "@/lib/notifPrefs";
+import { DEFAULT_REWARD_MOTIONS, normalizeRewardMotions, isAllowedRewardMotion } from "@/lib/rewardMotions";
+import { clearStudyDestination } from "@/lib/study/destination";
+import { GROUP_STUDY_AWARDS_ENABLED } from "@/lib/featureFlags";
+import { pendingStudyAwards, applyStudyAwardProjection } from "@/lib/study/client";
+import { addStudyAwards } from "@/lib/study/awards";
+import { activeStreak, advanceStreak } from "@/lib/streak";
+import { appendAchievement, prepareAchievementHistory, semesterPomodoroProgress, type AchievementSemester } from "@/lib/pomodoro/achievementHistory";
+import { syncEarnedAwards } from "@/lib/study/awardSync";
 import { supabase, hasStoredSession } from "@/lib/supabase";
 import { toISODate, addDays } from "@/lib/dates";
 import { addMinutesToTime } from "@/lib/format";
@@ -47,6 +62,7 @@ import { fetchUniversityPolicies, isStudentAlternative, policyAckKey, submitVote
 import { loadPublishedCalendar, mayHavePublishedCalendar } from "@/lib/publishedCalendars";
 import {
   defaultGamification,
+  totalGamificationXp,
   updateStreak,
   checkIn as gamCheckIn,
   awardXP,
@@ -56,8 +72,8 @@ import {
   XP_REWARDS,
   MAX_TIER,
 } from "@/lib/gamification";
-import { semesterPomodoroProgress } from "@/lib/pomodoro/achievementHistory";
 import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
+import { preserveEarnedBadges } from "@/lib/badgeProgress";
 import { ruleMode, semesterGPA } from "@/lib/grades";
 import { resolveScheme, setLearnedCutoffs, SCHEMES, type LearnedCutoffs } from "@/lib/gradeSchemes";
 import { readPastTerms, readTermCheck, withOfficial } from "@/lib/termCheck";
@@ -78,7 +94,7 @@ import { releaseUniversityHolidays } from "@/lib/universityFacts";
 //     between accounts on a shared device. Course identity + grade components
 //     live in Supabase too — see src/lib/db.ts.
 // localStorage is device-scoped, so it is wiped on account switch / sign out.
-import { readWhatsNewSeen, whatsNewPrefKey, saveWhatsNewSeen } from "@/lib/whatsNew";
+import { readWhatsNewSeen, whatsNewPrefKey, saveWhatsNewSeen, WHATS_NEW_VERSION } from "@/lib/whatsNew";
 
 const STORAGE_KEY = "haven-data";
 // Tiny pre-paint cache: the last-applied theme + language, mirrored to
@@ -113,6 +129,9 @@ const THEME_IDS: ThemeId[] = [
   "forest",
   "ocean",
   "mono",
+  "aurora",
+  "coral",
+  "ambassador",
 ];
 
 // Fallback semester shown before the cloud has answered (initial render) and
@@ -369,14 +388,15 @@ function readGamification(raw: unknown): GamificationState {
   };
 }
 
-function readPomodoroStats(raw: unknown): PomodoroStats {
+function readPomodoroStats(raw: unknown, semester?: AchievementSemester): PomodoroStats {
   const p = (raw && typeof raw === "object" ? raw : {}) as Partial<PomodoroStats>;
-  return {
+  const stats: PomodoroStats = {
     ...defaultPomodoroStats,
     ...p,
     recentDays: Array.isArray(p.recentDays) ? p.recentDays.slice(-POMODORO_HISTORY_LIMIT) : [],
     pads: Array.isArray(p.pads) ? p.pads.slice(-POMODORO_PAD_LIMIT) : [],
   };
+  return semester ? { ...stats, achievementHistory: prepareAchievementHistory(stats, semester) } : stats;
 }
 
 // The server's progress has moved on from what this screen holds (another
@@ -386,6 +406,7 @@ function gamificationAhead(server: GamificationState, local: GamificationState):
     server.xp > local.xp ||
     server.totalCheckIns > local.totalCheckIns ||
     server.badgeTier > local.badgeTier ||
+    (server.badgeTier === local.badgeTier && server.badges.some((id) => !local.badges.includes(id))) ||
     (server.streak.lastActiveDate ?? "") > (local.streak.lastActiveDate ?? "")
   );
 }
@@ -410,6 +431,7 @@ const initialData: AppData = {
   gpaGoal: 4.5,
   language: "ar",
   theme: "haven",
+  rewardMotionChoices: DEFAULT_REWARD_MOTIONS,
   semester: defaultSemester,
   courses: [],
   planner: emptyPlanner,
@@ -420,6 +442,8 @@ const initialData: AppData = {
   cumulativeHours: 0,
   notifPrefs: DEFAULT_NOTIF_PREFS,
   haviName: "Havi",
+  haviCosmetics: [],
+  haviCompanions: [],
   onboardingSeen: false,
   setupConfirmed: {},
   attendanceEnabled: false,
@@ -568,6 +592,9 @@ export type TermCheckEvent =
 export type AuthStatus = "pending" | "signedIn" | "signedOut";
 
 export interface StoreValue extends AppData {
+  /** Account-bound, transient server rewards; never persisted in AppData. */
+  referralProgram: ReferralProgram;
+  displayXp: number;
   hydrated: boolean;
   loadFailed: boolean;
   /** Who is signed in, decided once here for the whole app: "pending" until
@@ -577,7 +604,7 @@ export interface StoreValue extends AppData {
   /** The account whose data the store holds, once it has fully loaded; null
    *  before that, signed out, or in the demo. */
   accountId?: string | null;
-  markWhatsNewSeen: (version: number) => Promise<boolean>;
+  markWhatsNewSeen: (version: number, page?: string) => Promise<boolean>;
   setProfileName: (name: string) => void;
   setEmail: (email: string) => void;
   /** Update the student's academic info (university/major/level); persisted per
@@ -620,6 +647,7 @@ export interface StoreValue extends AppData {
   setPlannerWeekDone: (key: string, color: string | null) => void;
   setLanguage: (lang: "en" | "ar") => void;
   setTheme: (theme: ThemeId) => void;
+  setRewardMotion: (theme: RewardMotionTheme, motion: RewardMotionId) => void;
   /** Set the Tasks page section order and persist it to the cloud per account
    *  (profiles.preferences.taskOrder). Drives the Tasks page drag-to-reorder. */
   setTaskOrder: (order: string[]) => void;
@@ -633,6 +661,10 @@ export interface StoreValue extends AppData {
   setNotifPrefs: (next: NotifPrefs) => void;
   /** Custom name for Havi mascot; persisted to preferences.haviName. */
   setHaviName: (name: string) => void;
+  /** Equipped Havi outfit ids; persisted to preferences.haviCosmetics. */
+  setHaviCosmetics: (ids: string[]) => void;
+  /** Which companion pets roam beside Havi; persisted to preferences.haviCompanions. */
+  setHaviCompanions: (ids: CompanionKind[]) => void;
   /** Mark the first-run onboarding walkthrough as completed/skipped. */
   completeOnboarding: () => void;
   /** Record essential-setup answers; persisted to preferences.setupConfirmed. */
@@ -711,7 +743,8 @@ export interface StoreValue extends AppData {
   setPomodoroSettings: (patch: Partial<PomodoroSettings>) => void;
   /** Record a completed focus session (stats + XP + challenges + a new lily pad),
    *  and the focus on its task when it was spent on one. */
-  recordPomodoroComplete: (courseId?: string | null, task?: string | null) => { xpEarned: number; lilyPadCount: number };
+  recordPomodoroComplete: (courseId?: string | null, task?: string | null, semester?: AchievementSemester) => { xpEarned: number; lilyPadCount: number };
+  syncStudyAwards: () => Promise<boolean>;
   /** Set a task's estimate / done (preferences.taskFocus). */
   setTaskFocus: (key: string, patch: Partial<Pick<TaskFocus, "estimate" | "done" | "doneAt">>) => void;
   /** Record an abandoned focus session (withers a lily pad). */
@@ -730,9 +763,11 @@ export function badgeContext({
   academic,
   semester,
   pomodoroStats,
-}: Pick<AppData, "courses" | "planner" | "academic" | "semester"> & Partial<Pick<AppData, "pomodoroStats">>): BadgeContext {
+  displayXp,
+}: Pick<AppData, "courses" | "planner" | "academic" | "semester"> & Partial<Pick<AppData, "pomodoroStats">> & { displayXp?: number }): BadgeContext {
   const scheme = resolveScheme(academic);
   return {
+    displayXp,
     courses,
     planner,
     semesterGpa: semesterGPA(courses, scheme),
@@ -748,6 +783,33 @@ export function badgeContext({
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
+  const [streakToday, setStreakToday] = useState(() => toISODate(new Date()));
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = () => {
+      clearTimeout(timer);
+      const now = new Date();
+      setStreakToday(toISODate(now));
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      timer = setTimeout(refresh, midnight.getTime() - now.getTime() + 50);
+    };
+    refresh();
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+  // Expiration is a read-time projection, preserving dates and earned records
+  // for delayed awards and device sync. No server write is needed on a timer.
+  const visibleGamification = useMemo(() => ({ ...data.gamification,
+    streak: { ...data.gamification.streak, current: activeStreak(data.gamification.streak.current, data.gamification.streak.lastActiveDate, streakToday) },
+  }), [data.gamification, streakToday]);
+  const visiblePomodoroStats = useMemo(() => ({ ...data.pomodoroStats,
+    currentDailyStreak: activeStreak(data.pomodoroStats.currentDailyStreak, data.pomodoroStats.lastSessionDate, streakToday),
+  }), [data.pomodoroStats, streakToday]);
   // The latest data for callbacks that must save what they computed: a setData
   // updater can run later (during the next render), so a value assigned inside
   // one isn't there yet when the call returns.
@@ -778,10 +840,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // start-up state (the dashboard counting today's visit) would save it over
   // the real data. That is how signing in wiped streaks, XP and check-ins.
   const readyUidRef = useRef<string | null>(null);
+  const studyAwardEpoch = useRef(0);
+  const pendingPreferenceSaves = useRef(new Set<Promise<void>>());
   // The same account as state, for the context: whose data is on screen (null
   // until it has loaded). Server writes that must never land on another
   // account carry it (NotifScheduler's absence alerts).
   const [accountId, setAccountId] = useState<string | null>(null);
+  const referralProgram = useReferralSession(hydrated && authStatus === "signedIn" ? accountId : null);
+  const referralProfile = referralProgram.profile?.accountId === accountId ? referralProgram.profile : null;
+  const referralProfileRef = useRef(referralProfile);
+  referralProfileRef.current = referralProfile;
+  const visibleRewards = filterReferralPreferences(data, referralProfile);
+  const visibleTheme = visibleRewards.theme;
+  const displayXp = totalGamificationXp(data.gamification.xp, referralProfile?.earnedXp ?? 0);
+  useEffect(() => {
+    if (!referralProfile) return;
+    setData(previous => {
+      const clean = filterReferralPreferences(previous, referralProfile);
+      if (previous.theme === clean.theme && JSON.stringify(previous.haviCosmetics) === JSON.stringify(clean.haviCosmetics) && JSON.stringify(previous.haviCompanions) === JSON.stringify(clean.haviCompanions)) return previous;
+      return { ...previous, ...clean };
+    });
+  }, [referralProfile]);
   // Course cutoffs (preferences.curves) are saved one request at a time, in
   // order, and a failed save puts back what the account holds (lib/curves).
   const [curveSaves] = useState(() =>
@@ -862,6 +941,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...initialData,
         ...local,
         theme: THEME_IDS.includes(local.theme as ThemeId) ? (local.theme as ThemeId) : "haven",
+        rewardMotionChoices: normalizeRewardMotions(local.rewardMotionChoices),
         semester: { ...defaultSemester, ...(local.semester ?? {}) },
         notifPrefs: normalizeNotifPrefs(local.notifPrefs),
         planner: emptyPlanner,
@@ -1022,6 +1102,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           gpaGoal: num(prefs.gpaGoal, initialData.gpaGoal),
           language: prefs.language === "en" ? "en" : "ar",
           theme: THEME_IDS.includes(prefs.theme as ThemeId) ? (prefs.theme as ThemeId) : "haven",
+          rewardMotionChoices: normalizeRewardMotions({ aurora: prefs.theme_motion_aurora, coral: prefs.theme_motion_coral, ambassador: prefs.theme_motion_ambassador }),
           planner: buildPlanner(cloudPlanner, prefs.plannerAutoEdits, prefs.plannerCompletedWeeks, prefs.plannerWeekIcons, prefs.plannerWeekStrikes),
           taskOrder: Array.isArray(prefs.taskOrder)
             ? (prefs.taskOrder as unknown[]).filter((id): id is string => typeof id === "string")
@@ -1036,6 +1117,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // notifPrefs supersedes the legacy `reminderDays`; missing → defaults.
           notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
           haviName: str(prefs.haviName, "Havi") || "Havi",
+          // New shape is an array; migrate the legacy single `haviCosmetic` string.
+          haviCosmetics: Array.isArray(prefs.haviCosmetics)
+            ? (prefs.haviCosmetics as unknown[]).filter(
+                (c): c is string => typeof c === "string" && c !== "none"
+              )
+            : prefs.haviCosmetic && prefs.haviCosmetic !== "none"
+              ? [String(prefs.haviCosmetic)]
+              : [],
+          // Missing companion preferences start empty; earned choices are projected below.
+          haviCompanions: Array.isArray(prefs.haviCompanions)
+            ? (prefs.haviCompanions as unknown[]).filter(isCompanionKind)
+            : [],
           onboardingSeen: prefs.onboardingSeen === true,
           whatsNewSeen: readWhatsNewSeen(prefs),
           // Off unless the account turned it on. Accounts that existed before the
@@ -1055,11 +1148,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...defaultPomodoroSettings,
             ...((prefs.pomodoroSettings as Partial<PomodoroSettings>) ?? {}),
           },
-          pomodoroStats: readPomodoroStats(prefs.pomodoroStats),
+          pomodoroStats: readPomodoroStats(prefs.pomodoroStats, { id: sem.id, name: sem.name, startDate: str(sem.startDate, str(prefs.startDate, defaultSemester.startDate)), endDate: str(sem.endDate, str(prefs.endDate, defaultSemester.endDate)) }),
           taskFocus: readTaskFocus(prefs.taskFocus),
           gamification: readGamification(prefs.gamification),
           semester: {
             ...defaultSemester,
+            id: sem.id,
             name: sem.name,
             // weeks/finalsWeeks/startDate/endDate: `sem` (the semesters table
             // row) is written via plain atomic column UPDATEs and is always
@@ -1145,6 +1239,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
 
       if (event === "SIGNED_OUT") {
+        studyAwardEpoch.current++;
+        pendingPreferenceSaves.current = new Set();
+        clearStudyDestination();
         setAuthStatus("signedOut");
         currentUidRef.current = null;
         readyUidRef.current = null;
@@ -1172,6 +1269,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const prev = currentUidRef.current;
       if ((loadedOnceRef.current || loadingRef.current) && uid === prev) return;
       if (prev !== uid) {
+        studyAwardEpoch.current++;
+        pendingPreferenceSaves.current = new Set();
         // A different account, or signing in after being signed out: drop what
         // the store holds and show the loader until this account's own data has
         // loaded. `hydrated` used to stay true over the empty signed-out state
@@ -1216,6 +1315,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         gpaGoal: data.gpaGoal,
         language: data.language,
         theme: data.theme,
+        rewardMotionChoices: data.rewardMotionChoices,
         semester: data.semester,
         notifPrefs: data.notifPrefs,
       };
@@ -1235,16 +1335,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // fixing. Once hydrated, `data` holds the real values, so we apply + cache them.
   useEffect(() => {
     if (!hydrated) return;
-    document.documentElement.setAttribute("data-theme", data.theme);
+    document.documentElement.setAttribute("data-theme", visibleTheme);
     try {
       window.localStorage.setItem(
         BOOT_CACHE_KEY,
-        JSON.stringify({ theme: data.theme, lang: data.language })
+        JSON.stringify({ theme: visibleTheme, lang: data.language })
       );
     } catch {
       // storage full / unavailable — ignore
     }
-  }, [data.theme, data.language, hydrated]);
+  }, [visibleTheme, data.language, hydrated]);
 
   // Persist a per-account preference patch to the cloud. No-op when signed out
   // (anonymous prefs are written to localStorage by the persist effect above).
@@ -1255,9 +1355,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       console.warn("Haven: not saved, the account hasn't loaded yet", Object.keys(patch));
       return;
     }
-    db.savePreferences(patch).catch((e) =>
-      console.error("Haven: failed to save preferences", e)
-    );
+    const save = db.savePreferences(patch);
+    pendingPreferenceSaves.current.add(save);
+    void save.then(() => pendingPreferenceSaves.current.delete(save), (e) => {
+      pendingPreferenceSaves.current.delete(save);
+      console.error("Haven: failed to save preferences", e);
+    });
   }, []);
 
   // Change store fields and have the new values right away. A setData updater
@@ -1301,7 +1404,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const r = gamCheckIn(d.gamification);
     if (r.alreadyDone) return { xpEarned: 0, alreadyDone: true, newBadges: [] as string[], tierAdvanced: false };
     db.logEvent("check_in"); // per-user activity tracking
-    const br = checkBadges(r.state, badgeContext({ ...d, ...viewRef.current }));
+    const br = checkBadges(r.state, badgeContext({ ...d, ...viewRef.current, displayXp: totalGamificationXp(r.state.xp, referralProfileRef.current?.earnedXp ?? 0) }));
     commit({ gamification: br.state });
     emitAchievement(br.newBadges, br.tierAdvanced, br.state.badgeTier + (br.tierAdvanced ? 1 : 0));
     persistGamification(br.state);
@@ -1313,7 +1416,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       db.logEvent(reason, { xp: amount }); // per-user activity tracking (fire-and-forget)
       const d = dataRef.current;
       const next = awardXP(d.gamification, amount);
-      const br = checkBadges(next, badgeContext({ ...d, ...viewRef.current }));
+      const br = checkBadges(next, badgeContext({ ...d, ...viewRef.current, displayXp: totalGamificationXp(next.xp, referralProfileRef.current?.earnedXp ?? 0) }));
       commit({ gamification: br.state });
       emitAchievement(br.newBadges, br.tierAdvanced, next.badgeTier + (br.tierAdvanced ? 1 : 0));
       persistGamification(br.state);
@@ -1351,7 +1454,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!hydrated || !recheckTierRef.current) return;
     recheckTierRef.current = false;
     const d = dataRef.current;
-    const ctx = badgeContext({ ...d, ...viewRef.current });
+    const ctx = badgeContext({ ...d, ...viewRef.current, displayXp: totalGamificationXp(d.gamification.xp, referralProfileRef.current?.earnedXp ?? 0) });
     let g = d.gamification;
     for (let i = 0; i < MAX_TIER; i++) {
       const r = checkBadges(g, ctx);
@@ -1390,7 +1493,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const d = dataRef.current;
       const patch: Partial<AppData> = {};
       const g = readGamification(prefs.gamification);
-      if (gamificationAhead(g, d.gamification)) patch.gamification = g;
+      if (gamificationAhead(g, d.gamification)) {
+        patch.gamification = preserveEarnedBadges(d.gamification, g);
+      }
       const p = readPomodoroStats(prefs.pomodoroStats);
       if (p.totalSessions > d.pomodoroStats.totalSessions) patch.pomodoroStats = p;
       if (Object.keys(patch).length) commit(patch);
@@ -1410,10 +1515,54 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [commit, persistPref]
   );
 
+  const studyAwardRequest = useRef<{ uid: string; epoch: number; promise: Promise<boolean> } | null>(null);
+  const syncStudyAwards = useCallback((): Promise<boolean> => {
+    const uid = readyUidRef.current;
+    if (!GROUP_STUDY_AWARDS_ENABLED || !uid || uid !== currentUidRef.current) return Promise.resolve(false);
+    const epoch = studyAwardEpoch.current;
+    if (studyAwardRequest.current?.uid === uid && studyAwardRequest.current.epoch === epoch) return studyAwardRequest.current.promise;
+    const sameAccount = () => studyAwardEpoch.current === epoch && readyUidRef.current === uid && currentUidRef.current === uid;
+    let before = dataRef.current;
+    const promise = syncEarnedAwards({
+      active: sameAccount,
+      pending: pendingStudyAwards,
+      read: async () => {
+        await Promise.all([...pendingPreferenceSaves.current]);
+        if (!sameAccount()) throw new Error("account_changed");
+        const prefs = await db.getPreferences();
+        const remoteStats = readPomodoroStats(prefs.pomodoroStats), remoteGame = readGamification(prefs.gamification);
+        // A local save that failed must not be overwritten by an older cloud base.
+        if (remoteStats.totalSessions < dataRef.current.pomodoroStats.totalSessions || remoteGame.xp < dataRef.current.gamification.xp) throw new Error("local_progress_not_saved");
+        return prefs;
+      },
+      project: (prefs, awards) => {
+        before = dataRef.current;
+        const stats = addStudyAwards(readPomodoroStats(prefs.pomodoroStats), awards, dataRef.current.semester);
+        const credited = awardXP(readGamification(prefs.gamification), awards.length * XP_REWARDS.COMPLETE_POMODORO);
+        const game = checkBadges(credited, badgeContext({ ...dataRef.current, ...viewRef.current, displayXp: totalGamificationXp(credited.xp, referralProfileRef.current?.earnedXp ?? 0) })).state;
+        return { pomodoroStats: stats, gamification: game };
+      },
+      apply: (ids, expected, projection) => applyStudyAwardProjection(uid, ids, expected, projection),
+      accept: (prefs) => {
+        const remoteStats = readPomodoroStats(prefs.pomodoroStats), remoteGame = readGamification(prefs.gamification);
+        const patch: Partial<AppData> = {};
+        if (dataRef.current.pomodoroStats === before.pomodoroStats || remoteStats.totalSessions > dataRef.current.pomodoroStats.totalSessions) patch.pomodoroStats = remoteStats;
+        if (dataRef.current.gamification === before.gamification || gamificationAhead(remoteGame, dataRef.current.gamification)) patch.gamification = preserveEarnedBadges(dataRef.current.gamification, remoteGame);
+        // The server adds task time from the same durable group-award ledger.
+        if (prefs.taskFocus && dataRef.current.taskFocus === before.taskFocus) patch.taskFocus = readTaskFocus(prefs.taskFocus);
+        commit(patch);
+        refreshGamChallenges();
+      },
+    });
+    studyAwardRequest.current = { uid, epoch, promise };
+    void promise.finally(() => { if (studyAwardRequest.current?.promise === promise) studyAwardRequest.current = null; });
+    return promise;
+  }, [commit, refreshGamChallenges]);
+
   // A focus session finished. Bump lifetime + today's counters, roll the daily
   // streak, add a lily pad, add the session to its task's focus, then hand off
   // to the XP/challenge systems.
-  const recordPomodoroComplete = useCallback((courseId: string | null = null, task: string | null = null) => {
+  const recordPomodoroComplete = useCallback((courseId: string | null = null, task: string | null = null, earnedSemester?: AchievementSemester) => {
     {
       const d = dataRef.current;
       const today = toISODate(new Date());
@@ -1433,16 +1582,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       while (recentDays.length > POMODORO_HISTORY_LIMIT) recentDays.shift();
 
-      // daily streak: same day keeps it, yesterday extends, a gap resets to 1.
+      // Active days extend within the grace period; missing dates earn no credit.
       let current = prev.currentDailyStreak;
       const last = prev.lastSessionDate;
       if (last === today) {
         current = Math.max(1, current);
       } else if (last) {
-        const gap = Math.round(
-          (new Date(today + "T00:00:00").getTime() - new Date(last + "T00:00:00").getTime()) / 86400000
-        );
-        current = gap === 1 ? current + 1 : 1;
+        current = advanceStreak(current, last, today);
       } else {
         current = 1;
       }
@@ -1459,6 +1605,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         recentDays,
         lilyPadCount: prev.lilyPadCount + 1,
         pads,
+        achievementHistory: appendAchievement(prepareAchievementHistory(prev, earnedSemester ?? d.semester), earnedSemester ?? d.semester, today, focusMin, current),
       };
       const patch: Partial<AppData> = { pomodoroStats: stats };
       if (task) {
@@ -1693,12 +1840,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [persistPref]
   );
 
-  const markWhatsNewSeen = useCallback(async (version: number): Promise<boolean> => {
+  const markWhatsNewSeen = useCallback(async (version: number, page?: string): Promise<boolean> => {
     const uid = readyUidRef.current;
     const saved = await saveWhatsNewSeen(version, uid,
-      () => readyUidRef.current === currentUidRef.current ? readyUidRef.current : null, db.savePreferences);
+      () => readyUidRef.current === currentUidRef.current ? readyUidRef.current : null, db.savePreferences, page);
     if (!saved) return false;
-    commit({ whatsNewSeen: { ...dataRef.current.whatsNewSeen, [whatsNewPrefKey(version)]: true } });
+    commit({ whatsNewSeen: { ...dataRef.current.whatsNewSeen, [whatsNewPrefKey(version, page)]: true } });
     return true;
   }, [commit]);
 
@@ -1737,11 +1884,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback(
     (theme: ThemeId) => {
+      if (!canUseReferralReward(referralProfileRef.current, "theme", theme)) return;
       setData((d) => ({ ...d, theme }));
       persistPref({ theme });
     },
     [persistPref]
   );
+
+  const setRewardMotion = useCallback((theme: RewardMotionTheme, motion: RewardMotionId) => {
+    if (!isAllowedRewardMotion(theme, motion)) return;
+    const choices = normalizeRewardMotions(dataRef.current.rewardMotionChoices);
+    commit({ rewardMotionChoices: { ...choices, [theme]: motion } });
+    // Independent top-level keys preserve another theme's choice during a merge.
+    persistPref({ [`theme_motion_${theme}`]: motion });
+  }, [commit, persistPref]);
 
   // Set the Tasks page section order and persist it to the cloud per account
   // (profiles.preferences.taskOrder). No localStorage — so it syncs across
@@ -1797,10 +1953,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setPref]
   );
 
+  const setHaviCosmetics = useCallback(
+    (ids: string[]) => setPref("haviCosmetics", (ids || []).filter((id) => id && id !== "none" && canUseReferralReward(referralProfileRef.current, "outfit", id))),
+    [setPref]
+  );
+
+  const setHaviCompanions = useCallback(
+    (ids: CompanionKind[]) => setPref("haviCompanions", (ids || []).filter((id, i, a) => isCompanionKind(id) && a.indexOf(id) === i && canUseReferralReward(referralProfileRef.current, "companion", id))),
+    [setPref]
+  );
+
   const completeOnboarding = useCallback(() => {
-    setData((d) => (d.onboardingSeen ? d : { ...d, onboardingSeen: true }));
-    persistPref({ onboardingSeen: true });
-  }, [persistPref]);
+    if (dataRef.current.onboardingSeen) return;
+    const key = whatsNewPrefKey(WHATS_NEW_VERSION);
+    // A first-time student starts with today's app, not its release history.
+    commit({ onboardingSeen: true, whatsNewSeen: { ...dataRef.current.whatsNewSeen, [key]: true } });
+    persistPref({ onboardingSeen: true, [key]: true });
+  }, [commit, persistPref]);
 
   const confirmSetup = useCallback(
     (patch: Partial<SetupConfirmed>) => {
@@ -2632,6 +2801,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value: StoreValue = {
     ...data,
+    gamification: visibleGamification,
+    pomodoroStats: visiblePomodoroStats,
+    ...visibleRewards,
+    referralProgram,
+    displayXp,
     semester: semesterView,
     universityPolicy,
     policyOptions,
@@ -2667,12 +2841,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setPlannerWeekStrike,
     setLanguage,
     setTheme,
+    setRewardMotion,
     setTaskOrder,
     setGpaMode,
     setCumulativeGpa,
     setCumulativeHours,
     setNotifPrefs,
     setHaviName,
+    setHaviCosmetics,
+    setHaviCompanions,
     completeOnboarding,
     confirmSetup,
     recordAppOpen,
@@ -2681,6 +2858,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     refreshGamChallenges,
     setPomodoroSettings,
     recordPomodoroComplete,
+    syncStudyAwards,
     recordPomodoroAbandon,
     setTaskFocus,
     setSemester,

@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Collapsible cards — the small arrow on Settings / Profile cards. A student can
 // fold away a card they don't need; the choice is remembered on this device
@@ -8,7 +9,8 @@
 // open (NoCollapse), so the guide never points at a folded card.
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { ChevronDown } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 
 const STORAGE_KEY = "haven-collapsed-cards";
@@ -79,7 +81,7 @@ export function useCardCollapse(id: string, anchor?: string, defaultOpen = true)
 export function CollapseToggle({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
   const { t } = useT();
   return (
-    <button
+    <InteractionButton
       type="button"
       onClick={onToggle}
       aria-expanded={open}
@@ -92,13 +94,14 @@ export function CollapseToggle({ open, onToggle, label }: { open: boolean; onTog
         size={17}
         style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.3s cubic-bezier(0.22,1,0.36,1)" }}
       />
-    </button>
+    </InteractionButton>
   );
 }
 
 /** The foldable part, with a height animation (the global reduced-motion rule
  *  snaps it). Folded content is inert, so it can't be tabbed into. */
 export function CollapseBody({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const reduced = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   // Clip only while folding/unfolding, so date pickers and popovers inside an
   // open card are never cut off.
@@ -115,18 +118,18 @@ export function CollapseBody({ open, children }: { open: boolean; children: Reac
     return () => window.clearTimeout(id);
   }, [open]);
   return (
-    <div
+    <motion.div
       ref={ref}
+      initial={false}
+      animate={{ gridTemplateRows: open ? "1fr" : "0fr", opacity: open ? 1 : 0 }}
+      transition={{ duration: reduced ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
       aria-hidden={!open}
       style={{
         display: "grid",
-        gridTemplateRows: open ? "1fr" : "0fr",
-        opacity: open ? 1 : 0,
-        transition: "grid-template-rows 0.35s cubic-bezier(0.22,1,0.36,1), opacity 0.25s ease",
       }}
     >
       <div style={{ overflow: open && settled ? "visible" : "hidden", minHeight: 0 }}>{children}</div>
-    </div>
+    </motion.div>
   );
 }
 

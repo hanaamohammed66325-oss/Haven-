@@ -1,8 +1,9 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useState } from "react";
 import Link from "next/link";
-import { Info, AlertTriangle, ScrollText } from "lucide-react";
+import { Info, AlertTriangle, ScrollText } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { logEvent } from "@/lib/db";
@@ -34,9 +35,9 @@ export function AttendanceApproxNote({ className = "", compact = false }: { clas
   const rule = semester.attendanceRule;
   const modal = <AttendanceRuleModal open={formOpen} onClose={() => setFormOpen(false)} />;
   const link = (text: string, onClick: () => void) => (
-    <button type="button" onClick={onClick} className="font-semibold underline underline-offset-2">
+    <InteractionButton type="button" onClick={onClick} className="font-semibold underline underline-offset-2">
       {text}
-    </button>
+    </InteractionButton>
   );
   const card = (children: React.ReactNode) => (
     <div className={`rounded-xl border px-4 py-3.5 text-sm leading-relaxed ${className}`} style={{ borderColor: "var(--color-border)", background: "var(--color-primary-soft)" }}>
@@ -87,13 +88,13 @@ export function AttendanceApproxNote({ className = "", compact = false }: { clas
             </p>
             {rules(policy)}
             <div className="flex flex-wrap gap-2 mt-3">
-              <button type="button" onClick={() => ackAttendancePolicy(policy)} className="rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white" style={{ background: "var(--color-primary)" }}>
+              <InteractionButton type="button" onClick={() => ackAttendancePolicy(policy)} className="rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white" style={{ background: "var(--color-primary)" }}>
                 {t("attRuleYes")}
-              </button>
+              </InteractionButton>
               {!others.length && (
-                <button type="button" onClick={sayNo} className="rounded-lg px-3.5 py-1.5 text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
+                <InteractionButton type="button" onClick={sayNo} className="rounded-lg px-3.5 py-1.5 text-sm font-medium border" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>
                   {t("attRuleNo")}
-                </button>
+                </InteractionButton>
               )}
             </div>
             {others.map((alt) => (
@@ -105,20 +106,20 @@ export function AttendanceApproxNote({ className = "", compact = false }: { clas
                   {t("attRuleAltBody")}
                 </p>
                 {rules(alt)}
-                <button
+                <InteractionButton
                   type="button"
                   onClick={() => ackAttendancePolicy(alt)}
                   className="mt-1 rounded-lg px-3.5 py-1.5 text-sm font-semibold border"
                   style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
                 >
                   {t("attRuleAltYes")}
-                </button>
+                </InteractionButton>
               </div>
             ))}
             {others.length > 0 && (
-              <button type="button" onClick={sayNo} className="mt-3 text-xs font-semibold underline underline-offset-2" style={{ color: "var(--color-muted)" }}>
+              <InteractionButton type="button" onClick={sayNo} className="mt-3 text-xs font-semibold underline underline-offset-2" style={{ color: "var(--color-muted)" }}>
                 {t("attRuleAltNeither")}
-              </button>
+              </InteractionButton>
             )}
             <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>{t("attRuleUntilConfirmed")}</p>
             <p className="text-[11px] mt-2.5 leading-relaxed" style={{ color: "var(--color-muted)" }}>{t(others.length ? "attRuleResponsibilityPick" : "attRuleResponsibility")}</p>
@@ -153,14 +154,14 @@ export function AttendanceApproxNote({ className = "", compact = false }: { clas
               {t("attRuleUnknownTitle")}
             </div>
             <p style={{ color: "var(--color-muted)" }}>{t("attRuleUnknownBody")}</p>
-            <button
+            <InteractionButton
               type="button"
               onClick={() => setFormOpen(true)}
               className="mt-3 rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white"
               style={{ background: "var(--color-primary)" }}
             >
               {t("attRuleShare")}
-            </button>
+            </InteractionButton>
           </>
         )}
         {modal}

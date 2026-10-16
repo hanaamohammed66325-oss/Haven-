@@ -1,8 +1,11 @@
 "use client";
+import { InteractionLink } from "@/components/motion/Interaction";
+import { motion } from "motion/react";
+import { GLIDE } from "@/components/motion/springs";
+
 
 import { useMemo } from "react";
-import Link from "next/link";
-import { ClipboardList, ChevronRight, GripVertical, Timer, Check } from "lucide-react";
+import { ClipboardList, ChevronRight, GripVertical, Timer, Check } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT, usePageTitle } from "@/i18n";
 import { Card } from "@/components/Card";
@@ -151,9 +154,10 @@ function CourseSection({
     .sort((a, b) => (a.date ? +new Date(a.date) : Infinity) - (b.date ? +new Date(b.date) : Infinity));
 
   return (
-    <section
+    <motion.section layout="position" initial={false}
+      animate={{ opacity: dragging ? 0.7 : 1 }} transition={GLIDE}
       ref={(el) => registerEl(course.id, el)}
-      style={{ opacity: dragging ? 0.5 : 1 }}
+      style={{ position: "relative", zIndex: dragging ? 1 : undefined }}
     >
       <Card
         padding="p-0"
@@ -209,7 +213,7 @@ function CourseSection({
             const focused = focusTime(r.id);
             return (
               <div key={r.id} className="flex items-center transition-colors hover:bg-[var(--color-primary-soft)]/40">
-                <Link
+                <InteractionLink
                   href={`/courses#${course.id}`}
                   className={`flex-1 min-w-0 block ps-6 py-3.5 ${endPad}`}
                 >
@@ -253,11 +257,11 @@ function CourseSection({
                       )}
                     </div>
                   </div>
-                </Link>
+                </InteractionLink>
                 {focusable && (
                   <div className={focusSlot}>
                     {focusable.has(key) && (
-                      <Link
+                      <InteractionLink
                         href={`/pomodoro?task=${encodeURIComponent(key)}`}
                         aria-label={`${t("pom_focusOnIt")}: ${r.name}`}
                         title={t("pom_focusOnIt")}
@@ -265,7 +269,7 @@ function CourseSection({
                         style={{ color: "var(--color-primary)" }}
                       >
                         <Timer size={17} />
-                      </Link>
+                      </InteractionLink>
                     )}
                   </div>
                 )}
@@ -274,7 +278,7 @@ function CourseSection({
           })}
         </div>
       </Card>
-    </section>
+    </motion.section>
   );
 }
 

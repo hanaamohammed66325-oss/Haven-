@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Attendance audit — every attendance % the app shows, with ALL the inputs that
 // produced it, so the maths can be checked by hand. admin_attendance_audit()
@@ -200,9 +201,9 @@ export function AttendanceAuditSection({ onOpenUser }: { onOpenUser: (id: string
       <SectionHeader
         title="Attendance audit"
         action={
-          <button onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
+          <InteractionButton onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
       {error && <ErrorBanner message={error} onRetry={load} />}
@@ -284,9 +285,9 @@ export function AttendanceAuditView({
                   <td colSpan={cols.length} style={{ ...S.tableCell, paddingTop: 10, paddingBottom: 10 }}>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                       {onOpenUser ? (
-                        <button onClick={() => onOpenUser(rec.user_id)} className="font-semibold underline-offset-2 hover:underline" style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                        <InteractionButton onClick={() => onOpenUser(rec.user_id)} className="font-semibold underline-offset-2 hover:underline" style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                           {rec.email ?? "—"}
-                        </button>
+                        </InteractionButton>
                       ) : (
                         <span className="font-semibold" style={{ color: C.text }}>Semester inputs</span>
                       )}

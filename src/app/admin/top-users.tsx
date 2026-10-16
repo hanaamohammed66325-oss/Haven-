@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Top users — who uses Haven the most. Reads the guarded admin_top_users()
 // directly via supabase.rpc (one row per user with any app_open), and ranks
@@ -80,9 +81,9 @@ export function TopUsersSection({ onOpenUser }: { onOpenUser: (id: string) => vo
       <SectionHeader
         title="Top users"
         action={
-          <button onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
+          <InteractionButton onClick={() => void load()} className="rounded-lg px-3 py-1.5 text-[12px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
       {error && <ErrorBanner message={error} onRetry={load} />}
@@ -92,14 +93,14 @@ export function TopUsersSection({ onOpenUser }: { onOpenUser: (id: string) => vo
           <div className="flex flex-wrap items-center gap-2 rounded-xl border p-3" style={{ borderColor: C.border, background: C.panel }}>
             <span className="text-[11px] font-semibold uppercase tracking-wide me-1" style={{ color: C.textDim }}>Rank by</span>
             {RANKS.map((r) => (
-              <button
+              <InteractionButton
                 key={r.key}
                 onClick={() => { setRank(r.key); setLimit(25); }}
                 className="rounded-full px-3 py-1 text-[12px] font-medium"
                 style={{ background: rank === r.key ? C.primary : C.border, color: rank === r.key ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}
               >
                 {r.label}
-              </button>
+              </InteractionButton>
             ))}
             <span className="text-[11px] ms-1" style={{ color: C.textFaint }}>· {current.hint}</span>
           </div>
@@ -107,7 +108,7 @@ export function TopUsersSection({ onOpenUser }: { onOpenUser: (id: string) => vo
           {/* Podium — the top three at a glance */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {ranked.slice(0, 3).map((u) => (
-              <button
+              <InteractionButton
                 key={u.user_id}
                 onClick={() => onOpenUser(u.user_id)}
                 className="rounded-xl border p-5 text-start transition-shadow hover:shadow-md"
@@ -119,7 +120,7 @@ export function TopUsersSection({ onOpenUser }: { onOpenUser: (id: string) => vo
                   {fmtNum(score(u, rank))}
                 </div>
                 <div className="text-[12px] mt-1" style={{ color: C.textDim }}>{current.label.toLowerCase()}</div>
-              </button>
+              </InteractionButton>
             ))}
           </div>
 
@@ -151,13 +152,13 @@ export function TopUsersSection({ onOpenUser }: { onOpenUser: (id: string) => vo
             </table>
           </div>
           {filtered.length > limit && (
-            <button
+            <InteractionButton
               onClick={() => setLimit((l) => l + 50)}
               className="self-start rounded-lg px-4 py-2 text-[12px] font-medium"
               style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
             >
               Show more ({fmtNum(filtered.length - limit)} left)
-            </button>
+            </InteractionButton>
           )}
         </div>
       )}

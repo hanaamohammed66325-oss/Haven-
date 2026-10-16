@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // SetupCheck — the windows that follow the onboarding tour, in this order:
 //   1. "Complete your academic profile" — university, major, level.
@@ -15,7 +16,7 @@
 // go through the store, so they persist per account like every other setting.
 
 import { useEffect, useRef, useState } from "react";
-import { GraduationCap, CalendarRange, AlertTriangle, Calculator } from "lucide-react";
+import { GraduationCap, CalendarRange, AlertTriangle, Calculator } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { Modal } from "./Modal";
@@ -34,7 +35,7 @@ import {
 } from "@/lib/universityFacts";
 import { termToApply, termToRelease } from "@/lib/universityTerms";
 import { useTermPlan } from "./TermCheckCard";
-import { hasSeenWhatsNew } from "@/lib/whatsNew";
+import { useWhatsNewReady } from "./useWhatsNewReady";
 import type { AcademicInfo, Semester, SetupConfirmed } from "@/types";
 
 export type SetupStep = "profile" | "grades" | "scheme" | "basics";
@@ -108,6 +109,7 @@ const fieldStyle: React.CSSProperties = {
 export function SetupCheck() {
   const store = useStore();
   const { hydrated, onboardingSeen } = store;
+  const whatsNewReady = useWhatsNewReady(store.accountId, store.whatsNewSeen ?? {});
   const { t, lang } = useT();
   // Frozen when the window opens, so filling the profile doesn't reshuffle the
   // steps mid-edit; each step has its own button to move on.
@@ -175,13 +177,13 @@ export function SetupCheck() {
       }
     };
     // Wait for the What's-New popup to be dismissed so the two never stack.
-    if (!hasSeenWhatsNew(store.whatsNewSeen ?? {})) return;
+    if (!whatsNewReady) return;
     const id = window.setTimeout(open, 900);
     return () => window.clearTimeout(id);
     // Evaluated when the app is ready (and right after the tour ends) — not on
     // every store change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, onboardingSeen, store.accountId, store.whatsNewSeen]);
+  }, [hydrated, onboardingSeen, store.accountId, store.whatsNewSeen, whatsNewReady]);
 
   if (!steps) return null;
   const step = steps[index];
@@ -260,22 +262,22 @@ function Actions({
   const { t } = useT();
   return (
     <div className="mt-6 flex justify-end gap-3">
-      <button
+      <InteractionButton
         type="button"
         onClick={onLater}
         className="rounded-xl px-4 py-2 text-sm font-medium"
         style={{ color: "var(--color-muted)" }}
       >
         {t("setup_later")}
-      </button>
-      <button
+      </InteractionButton>
+      <InteractionButton
         type="button"
         onClick={onPrimary}
         disabled={disabled}
         className="haven-btn rounded-xl px-5 py-2 text-sm font-semibold disabled:opacity-50"
       >
         {primaryLabel}
-      </button>
+      </InteractionButton>
     </div>
   );
 }

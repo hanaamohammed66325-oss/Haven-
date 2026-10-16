@@ -5,6 +5,8 @@
 // both draw with these.
 
 import { mixColor } from "./math";
+import { drawSoloRest } from "./soloRest";
+import { drawHaviOutfitLayer } from "@/lib/haviOutfit";
 
 const PS = 3; // pixel size for Havi sprites (small frog on a big pad)
 
@@ -214,11 +216,14 @@ function drawBody(px: ReturnType<typeof pxFn>, ox: number, oy: number, rows = BO
 }
 
 // Havi reeling a little desk up out of the water.
-function drawFishing(px: ReturnType<typeof pxFn>, ox: number, oy: number, t: number, prog: number) {
+function drawFishing(px: ReturnType<typeof pxFn>, ox: number, oy: number, t: number, prog: number, cosmetics: readonly string[]) {
+  const outfitPixel = (x: number, y: number, w: number, h: number, c: string) => px(ox + x, oy + y, w, h, c);
+  drawHaviOutfitLayer(cosmetics, "back", outfitPixel);
   drawBody(px, ox, oy);
   px(ox + 8, oy + 10, 2, 2, COL.k);
   px(ox + 18, oy + 10, 2, 2, COL.k);
   px(ox + 12, oy + 13, 4, 1, COL.k);
+  drawHaviOutfitLayer(cosmetics, "front", outfitPixel);
   for (let i = 0; i < 10; i++) px(Math.round(ox + 22 + i * 0.4), Math.round(oy + 14 - i), 1, 1, "#8B6535");
   for (let i = 0; i < 14; i++) px(Math.round(ox + 26 + i * 0.6), Math.round(oy + 5 + i * 1.7 + Math.sin(t * 0.07 + i) * 0.4), 1, 1, "#99aabb");
   px(ox + 22, oy + 14, 3, 2, COL.G);
@@ -235,13 +240,33 @@ function drawFishing(px: ReturnType<typeof pxFn>, ox: number, oy: number, t: num
   }
 }
 
-function drawStudying(px: ReturnType<typeof pxFn>, ox: number, oy: number, t: number) {
+// Original solo furniture; rest poses and unattended desks share this geometry.
+function soloFurniture(ctx: CanvasRenderingContext2D, behind: boolean) {
+  const px = (x:number,y:number,w:number,h:number,c:string) => {ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
+  const ox = -14, oy = 0;
+  if (behind) {
+  px(ox+9,oy+20,2,4,"#8B6535"); px(ox+17,oy+20,2,4,"#8B6535");
+  px(ox+8,oy+19,12,2,"#A0753F"); px(ox+8,oy+12,2,8,"#8B6535");
+  px(ox+18,oy+12,2,8,"#8B6535"); px(ox+8,oy+12,12,2,"#A0753F");
+  return;
+  }
+  px(ox-4,oy+18,36,2,"#6B4226"); px(ox-4,oy+20,2,6,"#5A3520");
+  px(ox+30,oy+20,2,6,"#5A3520"); px(ox-4,oy+18,36,1,"#7B5236");
+}
+export function drawSoloDesk(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  ctx.save();ctx.translate(x,y);ctx.scale(size,size);ctx.translate(0,-23);
+  soloFurniture(ctx,true);soloFurniture(ctx,false);ctx.restore();
+}
+
+function drawStudying(px: ReturnType<typeof pxFn>, ox: number, oy: number, t: number, cosmetics: readonly string[]) {
   px(ox + 9, oy + 20, 2, 4, "#8B6535");
   px(ox + 17, oy + 20, 2, 4, "#8B6535");
   px(ox + 8, oy + 19, 12, 2, "#A0753F");
   px(ox + 8, oy + 12, 2, 8, "#8B6535");
   px(ox + 18, oy + 12, 2, 8, "#8B6535");
   px(ox + 8, oy + 12, 12, 2, "#A0753F");
+  const outfitPixel = (x: number, y: number, w: number, h: number, c: string) => px(ox + x, oy + y, w, h, c);
+  drawHaviOutfitLayer(cosmetics, "back", outfitPixel);
   drawBody(px, ox, oy, 18);
   px(ox + 9, oy + 18, 3, 4, COL.G);
   px(ox + 9, oy + 22, 3, 1, COL.d);
@@ -250,6 +275,7 @@ function drawStudying(px: ReturnType<typeof pxFn>, ox: number, oy: number, t: nu
   px(ox + 8, oy + 9, 2, 3, COL.k);
   px(ox + 18, oy + 9, 2, 3, COL.k);
   px(ox + 13, oy + 13, 2, 1, COL.k);
+  drawHaviOutfitLayer(cosmetics, "front", outfitPixel);
   const dY = oy + 18;
   px(ox - 4, dY, 36, 2, "#6B4226");
   px(ox - 4, dY + 2, 2, 6, "#5A3520");
@@ -348,6 +374,8 @@ export function drawHaviSprite(
   fish: number,
   reduced: boolean,
   mirrorY?: number,
+  restSeconds?: number,
+  cosmetics: readonly string[] = [],
 ) {
   const m = ctx.getTransform();
   const cell = Math.max(1, Math.round(size * Math.abs(m.a)));
@@ -365,11 +393,15 @@ export function drawHaviSprite(
   // the sprite is 28×21 cells; cell (14, 19) sits on the pad
   const ox = -14;
   const oy = Math.round(-19 + bob);
-  if (mood === "fishing") drawFishing(px, ox, oy, tick, fish);
-  else if (mood === "studying") drawStudying(px, ox, oy - 4, tick);
+  if (mood === "resting") drawSoloRest(ctx, 0, -23 * PS, PS, tick / 15, restSeconds ?? tick / 15, reduced, soloFurniture, cosmetics);
+  else if (mood === "fishing") drawFishing(px, ox, oy, tick, fish, cosmetics);
+  else if (mood === "studying") drawStudying(px, ox, oy - 4, tick, cosmetics);
   else {
+    const outfitPixel = (x: number, y: number, w: number, h: number, c: string) => px(ox + x, oy + y, w, h, c);
+    drawHaviOutfitLayer(cosmetics, "back", outfitPixel);
     drawBody(px, ox, oy);
     drawFace(px, ctx, ox, oy, mood, tick);
+    drawHaviOutfitLayer(cosmetics, "front", outfitPixel);
   }
   ctx.restore();
 }
@@ -388,13 +420,16 @@ export const PAD_FLOWERS = 4;
 
 // A small lotus bloom seen from above (two rings of petals + a gold centre), in
 // the given base colour — one course's signature colour per pad.
-function drawLotus(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, base = "#efa7c4") {
+function drawLotus(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, base = "#efa7c4", palette?: readonly string[]) {
   const outer = base;
   const inner = mixColor(base, "#ffffff", 0.42);
   const edge = mixColor(base, "#3a1030", 0.5);
-  const ring = (rr: number, scale: number, col: string, rot: number) => {
-    for (let i = 0; i < 5; i++) {
-      const a = rot + i * (Math.PI * 2 / 5);
+  const total = palette?.length ? palette.length * Math.ceil(10 / palette.length) : 10;
+  const petals = total / 2;
+  const ring = (rr: number, scale: number, col: string, rot: number, offset: number) => {
+    for (let i = 0; i < petals; i++) {
+      const a = rot + i * (Math.PI * 2 / petals);
+      const petalBase = palette?.length ? palette[Math.floor((i * 2 + offset) * palette.length / total)] : base;
       const px = x + Math.cos(a) * rr;
       const py = y + Math.sin(a) * rr * 0.86;
       ctx.save();
@@ -402,20 +437,26 @@ function drawLotus(ctx: CanvasRenderingContext2D, x: number, y: number, r: numbe
       ctx.rotate(a + Math.PI / 2);
       ctx.beginPath();
       ctx.ellipse(0, -r * 0.16 * scale, r * 0.24 * scale, r * 0.44 * scale, 0, 0, Math.PI * 2);
-      ctx.fillStyle = col;
+      ctx.fillStyle = palette?.length ? (offset ? mixColor(petalBase, "#ffffff", 0.42) : petalBase) : col;
       ctx.fill();
-      ctx.strokeStyle = edge;
+      ctx.strokeStyle = palette?.length ? mixColor(petalBase, "#3a1030", 0.5) : edge;
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.restore();
     }
   };
-  ring(r * 0.42, 1, outer, 0);
-  ring(r * 0.26, 0.8, inner, Math.PI / 5);
+  ring(r * 0.42, 1, outer, 0, 0);
+  ring(r * 0.26, 0.8, inner, Math.PI / petals, 1);
   ctx.fillStyle = "#f6d84a";
   ctx.beginPath();
   ctx.arc(x, y, r * 0.14, 0, Math.PI * 2);
   ctx.fill();
+}
+
+/** Whole native petals, equally allocated; increase their count when needed. */
+export function drawGroupLotus(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, colors: readonly string[]) {
+  if (colors.length < 2) { drawLotus(ctx, x, y, r, colors[0] ?? "#efa7c4"); return; }
+  drawLotus(ctx, x, y, r, colors[0], colors);
 }
 
 // ── Lily-pad species ─────────────────────────────────────────────────────────
@@ -742,7 +783,7 @@ export function drawDragonfly(ctx: CanvasRenderingContext2D, x: number, y: numbe
 
 // Havi centred at (x, y), scaled small to suit the pond. `mood` is "idle" (calmly
 // watching) or "celebrating" (a happy bounce + confetti when the user taps him).
-export function drawGroveHavi(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, tick: number, mood: HaviMood) {
+export function drawGroveHavi(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, tick: number, mood: HaviMood, cosmetics: readonly string[] = []) {
   const bob = mood === "celebrating"
     ? -Math.round(Math.abs(Math.sin(tick * 0.3)) * 4)
     : Math.round(Math.sin(tick * 0.04) * 1);
@@ -753,7 +794,9 @@ export function drawGroveHavi(ctx: CanvasRenderingContext2D, x: number, y: numbe
     ctx.fillStyle = c;
     ctx.fillRect(Math.round((cxp - 14) * PS), Math.round((cyp - 19 + bob) * PS), Math.ceil(wq * PS), Math.ceil(hq * PS));
   };
+  drawHaviOutfitLayer(cosmetics, "back", px);
   drawBody(px, 0, 0);
   drawFace(px, ctx, 0, 0, mood, tick);
+  drawHaviOutfitLayer(cosmetics, "front", px);
   ctx.restore();
 }

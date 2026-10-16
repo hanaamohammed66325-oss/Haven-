@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -13,7 +14,7 @@ import { formatDuration } from "@/lib/format";
 import { toISODate, formatLongDate } from "@/lib/dates";
 import { resolveHolidaysForSemester } from "@/lib/holidays";
 import { TARDINESS_RULES, DEFAULT_RULE_ID } from "@/lib/tardiness";
-import { Shield, Clock, CalendarOff, ChevronDown, ChevronUp, CheckCircle, XCircle, Trash2, Pencil } from "lucide-react";
+import { Shield, Clock, CalendarOff, ChevronDown, ChevronUp, CheckCircle, XCircle, Trash2, Pencil } from "@/components/motion/icons";
 import type { Course } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 import { holidayCalendar } from "@/lib/universityCountry";
@@ -232,7 +233,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
         )}
 
         {/* Expand/collapse absences */}
-        <button
+        <InteractionButton
           data-tour="att-expand"
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-1.5 text-[12px] font-medium transition-colors hover:opacity-80 mt-1"
@@ -241,7 +242,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           {t("missedListLabel")} ({unexcusedCount} {t("unexcused")}
           {excusedCount > 0 ? `, ${excusedCount} ${t("excused")}` : ""})
-        </button>
+        </InteractionButton>
 
         {expanded && (
           <div className="mt-3">
@@ -289,24 +290,24 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                           className="rounded border px-1.5 py-0.5 text-[11px]"
                           style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
                         />
-                        <button
+                        <InteractionButton
                           disabled={dateSaving || !editDateVal || editDateVal > toISODate(new Date())}
                           onClick={() => void saveDate(course.id, m.id, m.date)}
                           className="text-[10px] px-1.5 py-0.5 rounded font-medium disabled:opacity-50"
                           style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
-                        >{t("save")}</button>
+                        >{t("save")}</InteractionButton>
                         {dateError === m.id && (
                           <span className="text-[10px]" style={{ color: "var(--color-danger)" }}>{t("saveError")}</span>
                         )}
-                        <button
+                        <InteractionButton
                           onClick={() => { setEditDateId(null); setDateError(null); }}
                           aria-label={t("cancel")}
                           className="text-[10px] px-1.5 py-0.5 rounded font-medium"
                           style={{ color: "var(--color-muted)" }}
-                        >{t("cancel")}</button>
+                        >{t("cancel")}</InteractionButton>
                       </span>
                     ) : (
-                      <button
+                      <InteractionButton
                         onClick={() => { setEditDateId(m.id); setEditDateVal(m.date ?? ""); setDateError(null); }}
                         title={t("editAbsenceDate")}
                         aria-label={t("editAbsenceDate")}
@@ -315,7 +316,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                       >
                         {m.date ? formatLongDate(`${m.date}T00:00:00`, lang, semester.calendarType) : t("addAbsenceDate")}
                         <Pencil size={11} />
-                      </button>
+                      </InteractionButton>
                     )}
                     {isTardy(m) && (
                       <>
@@ -351,7 +352,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                             }
                           }}
                         />
-                        <button
+                        <InteractionButton
                           onClick={() => {
                             const val = Number(editTardinessVal);
                             if (val > 0) updateMissedSession(course.id, m.id, { tardiness: val });
@@ -359,10 +360,10 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                           }}
                           className="text-[10px] px-1.5 py-0.5 rounded font-medium"
                           style={{ background: "#C77E2E20", color: "#C77E2E" }}
-                        >{t("save")}</button>
+                        >{t("save")}</InteractionButton>
                       </span>
                     ) : (
-                      <button
+                      <InteractionButton
                         onClick={() => {
                           if (isTardy(m)) {
                             updateMissedSession(course.id, m.id, { tardiness: null });
@@ -382,9 +383,9 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                         }}
                       >
                         {isTardy(m) ? t("fullAbsence") : t("lateArrival")}
-                      </button>
+                      </InteractionButton>
                     )}
-                    <button
+                    <InteractionButton
                       onClick={() =>
                         updateMissedSession(course.id, m.id, { excused: !m.excused })
                       }
@@ -397,15 +398,15 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                       }}
                     >
                       {m.excused ? t("markUnexcused") : t("markExcused")}
-                    </button>
-                    <button
+                    </InteractionButton>
+                    <InteractionButton
                       onClick={() => removeMissedSession(course.id, m.id)}
                       className="p-1 rounded transition-colors hover:opacity-70"
                       style={{ color: "var(--color-muted)" }}
                       title={t("delete")}
                     >
                       <Trash2 size={13} />
-                    </button>
+                    </InteractionButton>
                   </div>
                 ))}
               </div>
@@ -413,14 +414,14 @@ function CourseAttendanceCard({ course }: { course: Course }) {
 
             {/* Log new absence (needs a weekly session to log against) */}
             {course.sessions.length === 0 ? null : !addingAbsence ? (
-              <button
+              <InteractionButton
                 data-tour="att-log"
                 onClick={() => { setAddingAbsence(true); setAddDate(toISODate(new Date())); setAddSession(course.sessions[0]?.id ?? ""); }}
                 className="mt-3 text-[12px] font-medium px-3 py-1.5 rounded-lg border border-dashed transition-colors hover:opacity-80"
                 style={{ borderColor: "var(--color-border)", color: "var(--color-primary)" }}
               >
                 + {t("logAbsence")}
-              </button>
+              </InteractionButton>
             ) : (
               <div
                 className="mt-3 rounded-lg border p-3 flex flex-wrap items-center gap-2"
@@ -445,7 +446,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                   ))}
                 </select>
                 <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: "var(--color-border)" }}>
-                  <button
+                  <InteractionButton
                     onClick={() => setAddType("full")}
                     className="text-[11px] px-2.5 py-1 font-medium"
                     style={{
@@ -454,8 +455,8 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                     }}
                   >
                     {t("fullAbsence")}
-                  </button>
-                  <button
+                  </InteractionButton>
+                  <InteractionButton
                     onClick={() => setAddType("late")}
                     className="text-[11px] px-2.5 py-1 font-medium"
                     style={{
@@ -464,7 +465,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                     }}
                   >
                     {t("lateArrival")}
-                  </button>
+                  </InteractionButton>
                 </div>
                 {addType === "late" && (
                   <input
@@ -478,7 +479,7 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                     style={{ borderColor: "var(--color-border)" }}
                   />
                 )}
-                <button
+                <InteractionButton
                   data-tour="att-save"
                   disabled={!addSession || !addDate || addDate > toISODate(new Date())}
                   onClick={async () => {
@@ -498,14 +499,14 @@ function CourseAttendanceCard({ course }: { course: Course }) {
                   style={{ background: "var(--color-primary)", color: "#fff" }}
                 >
                   {t("save")}
-                </button>
-                <button
+                </InteractionButton>
+                <InteractionButton
                   onClick={() => setAddingAbsence(false)}
                   className="text-[11px] px-2 py-1 rounded-md"
                   style={{ color: "var(--color-muted)" }}
                 >
                   {t("cancel")}
-                </button>
+                </InteractionButton>
               </div>
             )}
           </div>

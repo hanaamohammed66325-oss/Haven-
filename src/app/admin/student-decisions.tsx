@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Student choices — what each student chose or answered about the things that
 // decide their numbers: GPA system, absence rule, term dates, holidays, the
@@ -389,7 +390,7 @@ export function InsightsChoices() {
             <p className="px-5 py-6 text-[13px]" style={{ color: C.textFaint }}>Nothing to follow up.</p>
           ) : (
             actions.map((a, i) => (
-              <button
+              <InteractionButton
                 key={`${a.topic.key}:${a.key}`}
                 type="button"
                 onClick={() => open(`${a.topic.title} — ${a.cat.label}`, a.list, a.topic.key)}
@@ -404,7 +405,7 @@ export function InsightsChoices() {
                   {a.cat.hint && <span className="block text-[11px]" style={{ color: C.textDim }}>{a.cat.hint}</span>}
                 </span>
                 <span className="text-[11px]" style={{ color: C.textDim }}>→</span>
-              </button>
+              </InteractionButton>
             ))
           )}
         </div>
@@ -428,7 +429,7 @@ export function InsightsChoices() {
                   {counts.map(({ key, cat, list }) => {
                     const tone = toneColor(C, cat.tone);
                     return (
-                      <button
+                      <InteractionButton
                         key={key}
                         type="button"
                         onClick={() => open(`${t.title} — ${cat.label}`, list, t.key)}
@@ -442,7 +443,7 @@ export function InsightsChoices() {
                         <div className="mt-1 rounded-full overflow-hidden" style={{ background: C.border, height: 6 }}>
                           <div className="h-full rounded-full" style={{ width: `${(list.length / max) * 100}%`, background: tone.fg }} />
                         </div>
-                      </button>
+                      </InteractionButton>
                     );
                   })}
                 </div>
@@ -553,9 +554,9 @@ export function StudentSummaryCard({ userId }: { userId: string }) {
             </div>
           ))}
           {row.decisions.length > 12 && (
-            <button type="button" onClick={() => setShowAll((v) => !v)} className="self-start text-[12px] mt-1 underline" style={{ color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>
+            <InteractionButton type="button" onClick={() => setShowAll((v) => !v)} className="self-start text-[12px] mt-1 underline" style={{ color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>
               {showAll ? "Show fewer" : `Show all ${row.decisions.length}`}
-            </button>
+            </InteractionButton>
           )}
         </div>
       )}

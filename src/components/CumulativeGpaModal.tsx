@@ -1,7 +1,8 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info } from "@/components/motion/icons";
 import { Modal } from "./Modal";
 import { InfoPopover } from "./InfoPopover";
 import { useStore, useScheme } from "@/store";
@@ -114,17 +115,17 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
       title={t("cumGpaTitle")}
       footer={
         <div className="flex justify-between gap-3">
-          <button
+          <InteractionButton
             type="button"
             onClick={reset}
             className="px-4 py-2 rounded-xl text-sm font-medium border"
             style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
           >
             {t("reset")}
-          </button>
-          <button type="button" onClick={onClose} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium">
+          </InteractionButton>
+          <InteractionButton type="button" onClick={onClose} className="haven-btn px-5 py-2 rounded-xl text-sm font-medium">
             {t("close")}
-          </button>
+          </InteractionButton>
         </div>
       }
     >
@@ -132,7 +133,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
         {/* Tabs */}
         <div className="flex w-full rounded-xl p-1" style={{ background: "var(--color-primary-soft)" }}>
           {tabs.map((tb) => (
-            <button
+            <InteractionButton
               key={tb.key}
               type="button"
               onClick={() => setMode(tb.key)}
@@ -145,7 +146,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
               }
             >
               {tb.label}
-            </button>
+            </InteractionButton>
           ))}
         </div>
 
@@ -254,19 +255,19 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
                   >
                     {gradeOptions}
                   </select>
-                  <button
+                  <InteractionButton
                     type="button"
                     onClick={() => deleteRow(r.id)}
                     aria-label={t("delete")}
                     className="shrink-0 rounded-lg p-1.5 transition-colors hover:bg-black/5"
                   >
                     <Trash2 size={15} style={{ color: "var(--color-muted)" }} />
-                  </button>
+                  </InteractionButton>
                 </div>
               ))}
             </div>
             <div className="flex items-center justify-between mt-3">
-              <button
+              <InteractionButton
                 type="button"
                 onClick={addRow}
                 className="inline-flex items-center gap-1.5 text-sm font-medium"
@@ -274,15 +275,15 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
               >
                 <Plus size={15} />
                 {t("cumAddRow")}
-              </button>
-              <button
+              </InteractionButton>
+              <InteractionButton
                 type="button"
                 onClick={clearRows}
                 className="text-sm font-medium"
                 style={{ color: "var(--color-muted)" }}
               >
                 {t("cumClearAll")}
-              </button>
+              </InteractionButton>
             </div>
           </section>
         )}

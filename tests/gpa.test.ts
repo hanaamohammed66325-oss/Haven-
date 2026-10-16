@@ -548,6 +548,19 @@ describe("university catalogue", () => {
     // …nor does one shared generic word pull it onto a Saudi college.
     assert.equal(gradeTableStatus(acad({ universityName: "جامعة النجوم الأهلية" })), "unknown");
     assert.equal(matchUniversityByName("جامعة طيبة المدينة")?.slug, "taibah");
+    // Typed names that once landed on the wrong listed university (2026-10-15).
+    assert.equal(matchUniversityByName("Sudan University of Science and Technology"), undefined); // not KAUST
+    assert.equal(matchUniversityByName("جامعة الامير مساعد بن عبدالرحمن"), undefined); // not Prince Sattam
+    assert.equal(matchUniversityByName("كلية الموسى للعلوم الصحية"), undefined); // not KSAU-HS
+    assert.equal(matchUniversityByName("كلية التقتية التطبيقية"), undefined); // not Alghad
+    assert.equal(matchUniversityByName("كلية التقنيه الرياض"), undefined); // not Riyadh Arts
+    assert.equal(matchUniversityByName("Al-Madinah International"), undefined); // Malaysia, not Islamic Univ. of Madinah
+    // …while real short forms still match.
+    assert.equal(matchUniversityByName("جامعة الرياض للفنون")?.slug, "riyadh-arts");
+    assert.equal(matchUniversityByName("حفر الباطن")?.slug, "hafr-albatin");
+    assert.equal(matchUniversityByName("جامعه الملك خالد")?.slug, "king-khalid");
+    assert.equal(matchUniversityByName("جامعه البترول")?.slug, "kfupm");
+    assert.equal(matchUniversityByName("جامعة الإمام عبدالرحمن بن فيصل")?.slug, "imam-abdulrahman");
     assert.equal(gradeTableStatus(acad({ universityName: "جامعة زحل" })), "unknown");
     assert.ok(CATALOG_UNIVERSITIES.length > 400);
   });

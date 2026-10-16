@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // GPA systems — what students told us about their university's points table.
 // Shown at the top of the admin GPA page (gpa-checks.tsx).
@@ -221,13 +222,13 @@ export function GradeTablesPanel({ reloadKey, onOpenUser }: { reloadKey: number;
                           out of {r.custom_scheme!.max}
                           {r.custom_scheme!.percent ? " (percentage)" : ""}
                         </span>
-                        <button
+                        <InteractionButton
                           onClick={() => onOpenUser(r.user_id)}
                           className="text-[11px] underline-offset-2 hover:underline ms-auto"
                           style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0 }}
                         >
                           {r.email ?? "user"}
-                        </button>
+                        </InteractionButton>
                       </div>
                       <div className="grid gap-1.5 md:grid-cols-[7rem_1fr] items-center">
                         <span className="text-[11px]" style={{ color: C.textFaint }}>Student&apos;s table</span>
@@ -259,7 +260,7 @@ export function GradeTablesPanel({ reloadKey, onOpenUser }: { reloadKey: number;
                 byUni.map((g, i) => {
                   const n = (k: Kind) => g.list.filter((r) => r.kind === k).length;
                   return (
-                    <button
+                    <InteractionButton
                       key={g.uni + i}
                       onClick={() => open(g.uni, g.list)}
                       className="admin-hover-row w-full text-start flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3"
@@ -282,7 +283,7 @@ export function GradeTablesPanel({ reloadKey, onOpenUser }: { reloadKey: number;
                       <span className="text-[12px]" style={{ color: C.textFaint }}>
                         →
                       </span>
-                    </button>
+                    </InteractionButton>
                   );
                 })
               )}

@@ -1,21 +1,25 @@
 "use client";
+import { acquireBodyScrollLock } from "@/components/motion/bodyScroll";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Sun, Moon, Clock, Palette, Plus, Minus, LocateFixed, Eye, EyeOff } from "lucide-react";
+import { X, Sun, Moon, Clock, Palette, Plus, Minus, LocateFixed, Eye, EyeOff } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import type { TranslationKey } from "@/i18n/translations/en";
 import type { GrovePadSpec } from "@/lib/pomodoro/pondRenderer";
 import { LakeWorld, Sky, ZOOM_MS, type Camera, type LakeInput } from "@/lib/pomodoro/lakeWorld";
 import { getTimeOfDay, type TimeOfDay } from "@/lib/pomodoro/timeOfDay";
-import { clamp, lerp, smooth, easeInOut } from "@/lib/pomodoro/math";
+import { lakeCameraFrame, lakeZoomTarget, type Flight } from "@/lib/pomodoro/lakeCamera";
 import { GLASS } from "./glass";
 
 interface LegendEntry { key: string; name: string; color: string; count: number }
 
 interface Props {
+  cosmetics?: readonly string[];
   open: boolean;
   onClose: () => void;
+  onGroups?: () => void;
   /** earned lily pads — one per completed focus session */
   lilyPadCount: number;
   showHavi: boolean;
@@ -44,11 +48,9 @@ const SHORT_ROW = "[@media(max-height:500px)]:flex-row";
 const todFor = (view: View): TimeOfDay =>
   view === "day" ? "afternoon" : view === "night" ? "night" : getTimeOfDay();
 
-const settle = (q: number) => Math.sin(Math.PI * smooth(0.62, 1, q));
 
 // A camera move between zoom levels (or back to Havi): the camera rises or comes
 // down along a log-scale zoom, turns a little on the way and settles.
-interface Flight { x0: number; y0: number; s0: number; r0: number; x1: number; y1: number; s1: number; t0: number; dur: number; dir: number }
 interface ZoomUi { level: number; count: number; away: boolean }
 
 /**
@@ -59,7 +61,7 @@ interface ZoomUi { level: number; count: number; away: boolean }
  * of trees in its colour. The pads can be filtered to one subject, recoloured
  * per subject, and the world viewed by day or night.
  */
-export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, legend, onSetColor }: Props) {
+export function GroveModal({ open, onClose, onGroups, lilyPadCount, showHavi, padSpecs, legend, onSetColor, cosmetics }: Props) {
   const { t } = useT();
   const [mounted, setMounted] = useState(false);
   const [filterKey, setFilterKey] = useState<string | null>(null);
@@ -72,8 +74,8 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
 
   // Read by the render loop without restarting it (a restart would replay the dive),
   // and by the Escape key without re-binding it each time the page re-renders.
-  const live = useRef({ padSpecs, filterKey, view, count: lilyPadCount, showHavi, onClose });
-  live.current = { padSpecs, filterKey, view, count: lilyPadCount, showHavi, onClose };
+  const live = useRef({ padSpecs, filterKey, view, count: lilyPadCount, showHavi, onClose, onGroups, cosmetics });
+  live.current = { padSpecs, filterKey, view, count: lilyPadCount, showHavi, onClose, onGroups, cosmetics };
   const rebuildRef = useRef<() => void>(() => {});
   const controls = useRef({ zoom: (_dir: 1 | -1) => {}, home: () => {} });
 
@@ -85,10 +87,10 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
       if (e.key === "Escape") live.current.onClose();
     };
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+    const releaseScroll = acquireBodyScrollLock();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      releaseScroll();
       setLanded(false);
       setColorsOpen(false);
       setClean(false);
@@ -127,6 +129,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
     let level = 0;
     const base = { x: 0, y: 0 };
     let flight: Flight | null = null;
+    let leavingByRiver = false;
     const vel = { x: 0, y: 0 };
     let dragging = false;
     let ui: ZoomUi = { level: -1, count: -1, away: false };
@@ -186,15 +189,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
       const next = level - dir;
       if (next < 0 || next >= world.levels.length) return;
       const s1 = world.levels[next];
-      let x1 = flight ? flight.x1 : base.x;
-      let y1 = flight ? flight.y1 : base.y;
-      if (at) {
-        // keep the spot under the finger / cursor where it is
-        const ox = at.x - size.w / 2;
-        const oy = at.y - size.h / 2;
-        x1 = cam.x + ox / cam.s - ox / s1;
-        y1 = cam.y + oy / cam.s - oy / s1;
-      }
+      const { x: x1, y: y1 } = lakeZoomTarget(cam, base, flight, s1, size.w, size.h, at);
       fly(x1, y1, next, dir);
     };
     const flyHome = () => {
@@ -237,55 +232,15 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
           if (!reduced) world.greet(now);
           setLanded(true);
         }
-        if (flight) {
-          const f = flight;
-          const q = f.dur > 0 ? clamp((now - f.t0) / f.dur, 0, 1) : 1;
-          const e = easeInOut(q);
-          const s = Math.exp(lerp(Math.log(f.s0), Math.log(f.s1), e)) * (1 + f.dir * 0.022 * settle(q));
-          cam = { x: lerp(f.x0, f.x1, e), y: lerp(f.y0, f.y1, e), s, rot: f.r0 * (1 - e) - f.dir * 0.05 * Math.sin(Math.PI * q) };
-          world.plan([{ x: f.x1, y: f.y1, s: f.s1, rot: 0 }], true);
-          if (q >= 1) {
-            base.x = f.x1;
-            base.y = f.y1;
-            flight = null;
-          }
-        } else {
-          const s = world.levels[level];
-          if (!dragging && gliding) {
-            base.x += vel.x * dt;
-            base.y += vel.y * dt;
-            const k = 0.92 ** (dt / 16);
-            vel.x *= k;
-            vel.y *= k;
-          }
-          const [cx, cy] = world.clampCam(base.x, base.y, s);
-          if (cx !== base.x) vel.x = 0;
-          if (cy !== base.y) vel.y = 0;
-          base.x = cx;
-          base.y = cy;
-          pointer.x += (pointer.tx - pointer.x) * 0.08;
-          pointer.y += (pointer.ty - pointer.y) * 0.08;
-          const drift = reduced ? 0 : 1;
-          cam = {
-            x: base.x + (pointer.x * 22 + Math.sin(now * 0.00031) * 3 * drift) / s,
-            y: base.y + (pointer.y * 16 + Math.cos(now * 0.00027) * 2.4 * drift) / s,
-            s,
-            rot: 0,
-          };
-          // get the next levels up and down ready, so a zoom never waits
-          const near: Camera[] = [];
-          for (const l of [level + 1, level - 1]) {
-            if (l < 0 || l >= world.levels.length) continue;
-            const [x, y] = world.clampCam(base.x, base.y, world.levels[l]);
-            near.push({ x, y, s: world.levels[l], rot: 0 });
-          }
-          world.plan(near, false);
-        }
+        const frame = lakeCameraFrame(world, level, base, vel, pointer, dragging, reduced, now, dt, flight);
+        cam = frame.camera;
+        flight = frame.flight;
+        if (leavingByRiver && !flight) { leavingByRiver = false; live.current.onGroups?.(); }
         pushUi();
       }
       const budget = burst ? 250 : moving ? 4 : 8;
       burst = false;
-      world.draw(ctx, cam, now, live.current.showHavi, budget);
+      world.draw(ctx, cam, now, live.current.showHavi, budget, false, live.current.cosmetics);
       world.drawHaze(ctx, world.hazeAlpha(cam, diving));
       if (diving) sky.drawDive(ctx, size.w, size.h, size.dpr, cam, p);
       else sky.drawWisps(ctx, size.w, size.h, size.dpr, cam, reduced ? 0 : now);
@@ -325,7 +280,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
     };
     const onDown = (e: PointerEvent) => {
       const now = performance.now();
-      if (!ready) return;
+      if (!ready || leavingByRiver) return;
       if (progress(now) < 1) {
         if (skipAt < 0) {
           skipFrom = progress(now);
@@ -394,7 +349,12 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
           zoomStep(1, q);
           lastTap = { t: -1e9, x: 0, y: 0 };
         } else {
-          world.tap(q.x, q.y, cam, now);
+          if (live.current.onGroups && world.hitRiver(q.x, q.y, cam)) {
+            leavingByRiver = true;
+            const [x, y] = world.riverExit();
+            fly(x, y, level, 0, 750);
+          }
+          else world.tap(q.x, q.y, cam, now);
           lastTap = { t: now, x: q.x, y: q.y };
         }
       }
@@ -486,7 +446,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
   const night = todFor(view) === "night";
 
   const viewBtn = (v: View) => (
-    <button
+    <InteractionButton
       key={v}
       onClick={() => setView(v)}
       aria-label={t(VIEW_META[v].label)}
@@ -496,7 +456,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
       style={{ background: view === v ? "rgba(255,255,255,0.22)" : "transparent" }}
     >
       {VIEW_META[v].icon}
-    </button>
+    </InteractionButton>
   );
 
   const chip = (active: boolean): React.CSSProperties => ({
@@ -552,7 +512,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
               {VIEWS.map((v) => viewBtn(v))}
             </div>
             {/* phones: one button that cycles auto → day → night */}
-            <button
+            <InteractionButton
               onClick={() => setView(VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length])}
               aria-label={t(VIEW_META[view].label)}
               title={t(VIEW_META[view].label)}
@@ -560,15 +520,15 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
               style={GLASS}
             >
               {VIEW_META[view].icon}
-            </button>
-            <button
+            </InteractionButton>
+            <InteractionButton
               onClick={onClose}
               aria-label={t("close")}
-              className={`grid place-items-center rounded-full w-10 h-10 active:scale-95 ${fade(!clean)}`}
+              className={`grid place-items-center rounded-full w-10 h-10  ${fade(!clean)}`}
               style={GLASS}
             >
               <X size={18} />
-            </button>
+            </InteractionButton>
           </div>
         </div>
 
@@ -578,7 +538,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
           <div className={`absolute end-3 sm:end-5 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 ${SHORT_ROW}`}>
             {zoomUi.count > 1 && (
               <div className={`flex flex-col items-center gap-1 rounded-full p-1 ${SHORT_ROW} ${hud}`} style={GLASS}>
-                <button
+                <InteractionButton
                   onClick={() => controls.current.zoom(1)}
                   disabled={zoomUi.level === 0}
                   aria-label={t("pom_zoomIn")}
@@ -586,7 +546,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
                   className="grid place-items-center rounded-full w-9 h-9 transition-opacity disabled:opacity-35"
                 >
                   <Plus size={17} />
-                </button>
+                </InteractionButton>
                 <div className={`flex flex-col items-center gap-1 p-0.5 ${SHORT_ROW}`} aria-hidden>
                   {Array.from({ length: zoomUi.count }, (_, i) => (
                     <span
@@ -600,7 +560,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
                     />
                   ))}
                 </div>
-                <button
+                <InteractionButton
                   onClick={() => controls.current.zoom(-1)}
                   disabled={zoomUi.level === zoomUi.count - 1}
                   aria-label={t("pom_zoomOut")}
@@ -608,11 +568,11 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
                   className="grid place-items-center rounded-full w-9 h-9 transition-opacity disabled:opacity-35"
                 >
                   <Minus size={17} />
-                </button>
+                </InteractionButton>
               </div>
             )}
             {zoomUi.away && (
-              <button
+              <InteractionButton
                 onClick={() => controls.current.home()}
                 aria-label={t("pom_backToHavi")}
                 title={t("pom_backToHavi")}
@@ -620,20 +580,20 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
                 style={GLASS}
               >
                 <LocateFixed size={18} />
-              </button>
+              </InteractionButton>
             )}
-            <button
+            <InteractionButton
               onClick={() => setClean((c) => !c)}
               aria-label={clean ? t("pom_showHud") : t("pom_hideHud")}
               aria-pressed={clean}
               title={clean ? t("pom_showHud") : t("pom_hideHud")}
-              className={`grid place-items-center rounded-full w-10 h-10 transition-all duration-500 active:scale-95 ${
+              className={`grid place-items-center rounded-full w-10 h-10 transition-all duration-500  ${
                 !landed ? "opacity-0 pointer-events-none" : clean ? "opacity-60 hover:opacity-100 pointer-events-auto" : "opacity-100 pointer-events-auto"
               }`}
               style={GLASS}
             >
               {clean ? <Eye size={17} /> : <EyeOff size={17} />}
-            </button>
+            </InteractionButton>
           </div>
         </div>
 
@@ -646,15 +606,15 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
                   <span className="text-[11px] shrink-0 px-1.5" style={{ opacity: 0.75 }}>
                     {t("pom_filterSubject")}
                   </span>
-                  <button
+                  <InteractionButton
                     onClick={() => setFilterKey(null)}
                     className="shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors"
                     style={chip(filterKey === null)}
                   >
                     {t("pom_allSubjects")}
-                  </button>
+                  </InteractionButton>
                   {legend.map((s) => (
-                    <button
+                    <InteractionButton
                       key={s.key}
                       onClick={() => setFilterKey((k) => (k === s.key ? null : s.key))}
                       className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors"
@@ -663,10 +623,10 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
                       <span className="inline-block rounded-full" style={{ width: 10, height: 10, background: s.color }} />
                       {s.name}
                       <span style={{ opacity: 0.7, fontVariantNumeric: "tabular-nums" }}>{s.count}</span>
-                    </button>
+                    </InteractionButton>
                   ))}
                 </div>
-                <button
+                <InteractionButton
                   onClick={() => setColorsOpen((o) => !o)}
                   aria-label={t("pom_customizePlant")}
                   aria-expanded={colorsOpen}
@@ -675,7 +635,7 @@ export function GroveModal({ open, onClose, lilyPadCount, showHavi, padSpecs, le
                   style={chip(colorsOpen)}
                 >
                   <Palette size={15} />
-                </button>
+                </InteractionButton>
               </div>
 
               {colorsOpen && (

@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/store";
@@ -233,7 +234,7 @@ function SameNameChoice() {
           const name = lang === "en" ? c.en : c.ar;
           const country = COUNTRY_LABEL[c.country]?.[lang] ?? c.country;
           return (
-            <button
+            <InteractionButton
               key={`${c.ar}|${c.country}`}
               type="button"
               onClick={() => setAcademic(universityPatch(academic, { universityName: withCountry(name, c.country, lang) }))}
@@ -242,7 +243,7 @@ function SameNameChoice() {
             >
               <span className="font-medium">{name}</span>
               <span style={{ color: "var(--color-muted)" }}> · {t("uniSameNameIn", { country })}</span>
-            </button>
+            </InteractionButton>
           );
         })}
       </div>
@@ -324,9 +325,9 @@ export function SchemePicker({ onCustom }: { onCustom: () => void }) {
               {source !== "custom" && (
                 <p className="mt-1.5 text-xs flex flex-wrap items-center gap-x-2" style={{ color: "var(--color-muted)" }}>
                   <span>{t("gpaSchemeTableDiffers")}</span>
-                  <button type="button" onClick={onCustom} className="font-medium underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
+                  <InteractionButton type="button" onClick={onCustom} className="font-medium underline underline-offset-2" style={{ color: "var(--color-primary)" }}>
                     {t("gt_editTable")}
-                  </button>
+                  </InteractionButton>
                 </p>
               )}
             </div>

@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // Term dates students set — students whose university has no calendar on
 // record get a note in the app that term dates differ between universities
@@ -50,9 +51,9 @@ export function TermDatesSection() {
       <SectionHeader
         title="Term dates students set"
         action={
-          <button onClick={() => void load()} style={S.btnSec}>
+          <InteractionButton onClick={() => void load()} style={S.btnSec}>
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
       {error && <ErrorBanner message={error} onRetry={load} />}
@@ -83,7 +84,7 @@ export function TermDatesSection() {
                 const defaults = g.students.filter((s) => s.placeholder).length;
                 return (
                   <div key={g.key} style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <button
+                    <InteractionButton
                       onClick={() => setOpen(isOpen ? null : g.key)}
                       className="w-full flex items-center justify-between gap-3 px-4 py-3 text-start"
                       style={{ background: "none", border: "none", cursor: "pointer", color: C.text }}
@@ -95,7 +96,7 @@ export function TermDatesSection() {
                       <div className="text-[12px] whitespace-nowrap" style={{ color: C.textMuted }}>
                         {g.students.length} students · {n} confirmed{defaults ? ` · ${defaults} sign-up default` : ""}
                       </div>
-                    </button>
+                    </InteractionButton>
                     {isOpen && (
                       <div className="px-4 pb-4">
                         {g.dates.length === 0 ? (

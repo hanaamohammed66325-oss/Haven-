@@ -1,7 +1,7 @@
 "use client";
+import { InteractionLink, InteractionAnchor } from "@/components/motion/Interaction";
 
-import Link from "next/link";
-import { GraduationCap, BookOpen, Layers, ChevronLeft, Pencil } from "lucide-react";
+import { GraduationCap, BookOpen, Layers, ChevronLeft, Pencil } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { universityBySlug } from "@/lib/tools/universities";
@@ -44,7 +44,7 @@ export function AcademicBanner({ editHref }: { editHref?: string } = {}) {
 
   if (!hasAny) {
     return (
-      <Link
+      <InteractionLink
         href={target}
         className="group inline-flex items-center gap-2 mt-3 text-[13px] font-medium transition-opacity opacity-80 hover:opacity-100"
         style={{ color: "var(--color-primary)" }}
@@ -55,7 +55,7 @@ export function AcademicBanner({ editHref }: { editHref?: string } = {}) {
           size={14}
           className="transition-transform group-hover:-translate-x-0.5 rtl:rotate-180"
         />
-      </Link>
+      </InteractionLink>
     );
   }
 
@@ -95,14 +95,14 @@ export function AcademicBanner({ editHref }: { editHref?: string } = {}) {
         </>
       )}
       {editHref && (
-        <a
+        <InteractionAnchor
           href={editHref}
           className="inline-flex items-center gap-1 ms-1 text-[12px] font-medium opacity-70 transition-opacity hover:opacity-100"
           style={{ color: "var(--color-primary)" }}
         >
           <Pencil size={11} />
           {lang === "ar" ? "تعديل" : "Edit"}
-        </a>
+        </InteractionAnchor>
       )}
     </div>
   );

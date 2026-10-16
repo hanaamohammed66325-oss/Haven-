@@ -1,4 +1,5 @@
 "use client";
+import { InteractionButton } from "@/components/motion/Interaction";
 
 // GPA checks — what students told us when they compared our GPA with their
 // university portal: the end-of-term window and "try it on a past term" on the
@@ -287,7 +288,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
       <SectionHeader
         title="GPA"
         action={
-          <button
+          <InteractionButton
             onClick={() => {
               setReloadKey((k) => k + 1);
               void load();
@@ -296,7 +297,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
             style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
           >
             {loading ? "…" : "↻ Refresh"}
-          </button>
+          </InteractionButton>
         }
       />
 
@@ -413,13 +414,13 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
               )}
             </div>
             {checks.length > 25 && (
-              <button
+              <InteractionButton
                 onClick={() => setShowAll((v) => !v)}
                 className="mt-2 text-[12px] underline-offset-2 hover:underline"
                 style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0 }}
               >
                 {showAll ? "Show fewer" : `Show all ${checks.length}`}
-              </button>
+              </InteractionButton>
             )}
           </div>
 
@@ -430,14 +431,14 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
               </h3>
               <div className="flex flex-wrap gap-2">
                 {reasons.map(([k, list]) => (
-                  <button
+                  <InteractionButton
                     key={k}
                     onClick={() => open(`Reason: ${REASON_LABEL[k] ?? k}`, list.map(toCheck))}
                     className="admin-hover-row rounded-lg px-3 py-1.5 text-[12px]"
                     style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
                   >
                     {REASON_LABEL[k] ?? k} · <b className="tabular-nums">{list.length}</b>
-                  </button>
+                  </InteractionButton>
                 ))}
               </div>
             </div>
@@ -508,13 +509,13 @@ function Report({ row, last, onOpenUser }: { row: EventRow; last: boolean; onOpe
             {REASON_LABEL[reason] ?? reason}
           </span>
         )}
-        <button
+        <InteractionButton
           onClick={() => onOpenUser(row.user_id)}
           className="text-[11px] underline-offset-2 hover:underline ms-auto"
           style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0 }}
         >
           {row.email ?? "user"} · {fmtDate(row.at)}
-        </button>
+        </InteractionButton>
       </div>
       <div className="overflow-x-auto">
         <table className="text-[12px] tabular-nums" style={{ color: C.text }}>
@@ -685,30 +686,30 @@ function CutoffCard({
         </table>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
+        <InteractionButton
           disabled={!ok || busy}
           onClick={() => void save()}
           className="rounded-lg px-3 py-1.5 text-[12px] font-medium"
           style={{ background: ok ? C.primary : C.border, color: ok ? C.primaryText : C.textFaint, border: "none", cursor: ok ? "pointer" : "default" }}
         >
           {approved ? "Update approved cutoffs" : "Approve cutoffs"}
-        </button>
-        <button
+        </InteractionButton>
+        <InteractionButton
           onClick={() => setValues(initial())}
           className="rounded-lg px-3 py-1.5 text-[12px]"
           style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}
         >
           Reset
-        </button>
+        </InteractionButton>
         {approved && (
-          <button
+          <InteractionButton
             disabled={busy}
             onClick={() => void save(true)}
             className="rounded-lg px-3 py-1.5 text-[12px]"
             style={{ background: "transparent", color: C.danger, border: `1px solid ${C.border}`, cursor: "pointer" }}
           >
             Withdraw
-          </button>
+          </InteractionButton>
         )}
         {!ok && (
           <span className="text-[11px]" style={{ color: C.warning }}>
@@ -764,13 +765,13 @@ function RepeatRules({ rows, onOpenUser }: { rows: EventRow[]; onOpenUser: (id: 
                 <span dir="auto" className="text-[13px] flex-1 min-w-[12rem]" style={{ color: C.textMuted }}>
                   {str(r.meta?.note) ?? "—"}
                 </span>
-                <button
+                <InteractionButton
                   onClick={() => onOpenUser(r.user_id)}
                   className="text-[11px] underline-offset-2 hover:underline"
                   style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0 }}
                 >
                   {r.email ?? "user"} · {fmtDate(r.at)}
-                </button>
+                </InteractionButton>
               </div>
             );
           })

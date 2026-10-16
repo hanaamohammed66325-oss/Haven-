@@ -4,6 +4,7 @@ import { noteBucket } from "./plannerKind";
 import type { GamificationState, ChallengeItem, ChallengeState } from "./gamification";
 import { defaultChallenges } from "./gamification";
 import { toISODate } from "./dates";
+import { activeStreak } from "./streak";
 
 // ── Context ──────────────────────────────────────────────────────────────────
 
@@ -163,7 +164,7 @@ const DAILY_POOL: ChallengeDef[] = [
   {
     type: "open-streak",
     xp: 5,
-    canGenerate: (ctx) => ctx.gamification.streak.current > 1,
+    canGenerate: (ctx) => activeStreak(ctx.gamification.streak.current, ctx.gamification.streak.lastActiveDate, ctx.today) > 1,
     generate: () => ({}),
     isComplete: (ctx) => ctx.gamification.streak.lastActiveDate === ctx.today,
   },
@@ -284,7 +285,7 @@ const WEEKLY_POOL: ChallengeDef[] = [
     canGenerate: (ctx) => POMODORO_ENABLED && ctx.pomodoroStats.totalSessions > 0,
     generate: () => ({ targetDays: "3" }),
     isComplete: (ctx, p) =>
-      ctx.pomodoroStats.currentDailyStreak >= parseInt(p.targetDays),
+      activeStreak(ctx.pomodoroStats.currentDailyStreak, ctx.pomodoroStats.lastSessionDate, ctx.today) >= parseInt(p.targetDays),
   },
 ];
 
@@ -368,7 +369,7 @@ export function refreshChallenges(
         checkIns: state.totalCheckIns - weeklySnapshot.totalCheckIns,
         tasksCompleted: currentTasksDone - weeklySnapshot.tasksDone,
         gradesEntered: currentGrades - weeklySnapshot.gradesEntered,
-        streak: state.streak.current,
+        streak: activeStreak(state.streak.current, state.streak.lastActiveDate, ctx.today),
       };
       lastWeeklyReport = weeklySnapshot;
       changed = true;
