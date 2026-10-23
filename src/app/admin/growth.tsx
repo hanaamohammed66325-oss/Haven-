@@ -9,6 +9,7 @@ import { growthStatus, parseGrowthPage, type GrowthCursor, type GrowthMetric, ty
 import { cosmeticLabel } from "@/lib/haviCosmetics";
 import { AMBASSADOR_BADGES, AMBASSADOR_RUNGS } from "@/lib/ambassadorRewards";
 import { GrowthOutcomes } from "./OutcomePanels";
+import { ReferralAnswersSection } from "./referral-answers";
 
 export function GrowthSection({ session, onOpenUser, onOpenReview, language }: { session: Session; onOpenUser: (id: string) => void; onOpenReview: (id: string) => void; language?: "ar" | "en" }) {
   const C = useC(), S = useS(), account = session.user.id;
@@ -79,6 +80,7 @@ export function GrowthSection({ session, onOpenUser, onOpenReview, language }: {
       <p>{text("دعوات المجموعات تُسجّل مستقبلًا فقط. الحساب الجديد هنا انضم بدعوة خلال أربع وعشرين ساعة من تسجيله، وكانت أول مشاركة جماعية مسجّلة له. قد يظهر الطالب في مساري الإحالة والمجموعات.", "Group invitation attribution is prospective only: a newly created account joining by invitation within twenty-four hours of signup, as its first recorded group exposure. A student may appear in both referral and group paths.")}</p>
     </div></details>
     <div id="growth-panel" role="tabpanel" aria-labelledby={"growth-tab-" + (view === "referral_members" ? "referrals" : view === "group_members" ? "groups" : view)}>
+    {view === "sources" && <ReferralAnswersSection key={account} accountId={account} onOpenUser={onOpenUser} ar={ar} refresh={overviewRefresh} />}
     {error && <div role="alert"><ErrorBanner message={text("تعذّر تحميل النمو. أعد المحاولة؛ قد تكون ميزة الخادم غير مفعّلة بعد.", "Could not load Growth. Retry; the server feature may not be installed yet.")} /><InteractionButton type="button" style={S.btnGhost} className="min-h-11 mb-4" disabled={busy} onClick={() => void load()}>{text("إعادة المحاولة", "Retry")}</InteractionButton></div>}
     {busy && <Loading text={text("جارٍ تحميل السجلات…", "Loading records…")} />}
     {!busy && current && <>
