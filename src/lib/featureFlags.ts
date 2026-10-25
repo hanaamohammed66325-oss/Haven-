@@ -7,6 +7,10 @@ import { ENFORCE_PREMIUM } from "./premium";
 /** Pomodoro focus page — live. Set to `false` to hide the page and its nav entry. */
 export const POMODORO_ENABLED = true;
 
+/** Notes is available locally and in the separately assembled private build.
+ * Public production stays locked until its explicit launch. No opening date. */
+export const NOTES_ENABLED = process.env.NODE_ENV === "development";
+
 /**
  * Group study (/study). Off until the whole feature is done (her rule,
  * 2026-10-06); the server also keeps it closed to all but the trial accounts.

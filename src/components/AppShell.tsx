@@ -30,6 +30,7 @@ import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { runPushAutoHeal } from "@/lib/pushHealthCheck";
 import { logEvent } from "@/lib/db";
+import { NOTES_ENABLED } from "@/lib/featureFlags";
 
 const STORAGE_KEY = "haven-sidebar-collapsed";
 
@@ -144,7 +145,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!hydrated) return <HaviLoader />;
 
-  const scene = isScenePage(pathname);
+  const notes = NOTES_ENABLED && (pathname === '/notes' || !!pathname?.startsWith('/notes/'));
+  const scene = notes || isScenePage(pathname);
   return (
     <div className="flex min-h-dvh">
       {/* Desktop sidebar rail — hides itself below lg via its own classes */}
@@ -155,7 +157,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar mobile collapsed={false} onToggle={() => setDrawerOpen(false)} />
       </NavigationDrawer>
 
-      <main className={`haven-main flex-1 min-w-0 ${scene ? "flex flex-col" : ""}`}>
+      <main data-notes-shell={notes || undefined} className={`haven-main flex-1 min-w-0 ${scene ? "flex flex-col" : ""}`} style={notes ? { height: '100dvh', minHeight: 0, overflow: 'hidden' } : undefined}>
         {/* Mobile top bar (< lg) — hamburger + brand */}
         <div className="haven-topbar lg:hidden sticky top-0 z-30 flex items-center gap-2 px-3">
           <InteractionButton
@@ -191,7 +193,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </>
         )}
       </main>
-      <ReminderToast />
+      {!notes && <><ReminderToast />
       <StudyReturnLifecycle />
       <GroupStartCard />
       <StudyAwardSync />
@@ -204,7 +206,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <TermCheck />
       <ReturnNudge />
       <ReferralSurvey />
-      <ReferralRewardModal />
+      <ReferralRewardModal /></>}
     </div>
   );
 }

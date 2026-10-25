@@ -18,7 +18,7 @@ import { useOverlayLifecycle } from "./overlayLifecycle";
 interface MotionModalProps {
   /** Compact release walkthrough; existing dialogs retain their usual geometry. */
   compact?: boolean;
-  tone?: "lake";
+  tone?: "lake" | "notes";
   open: boolean;
   onClose: () => void;
   title: string;
@@ -70,7 +70,7 @@ function Layer({ layerRef, onClose, title, children, footer, tone, compact, vari
   return (
     <motion.div ref={layerRef} tabIndex={-1} inert={!present}
       className={`fixed inset-0 ${compact ? "z-[95]" : "z-50"} flex justify-center ${sheet ? "items-end sm:items-center sm:p-4" : "items-center p-4"}`}
-      style={{ color:tone === "lake"?"#f8f5e8":undefined, ...(tone === "lake" ? {"--color-surface":"#173e37f5","--color-ink":"#f8f5e8","--color-muted":"#c7d3c6","--color-border":"#ffffff26"} as React.CSSProperties : {}), background: "rgba(36, 54, 64, 0.32)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", pointerEvents: present ? undefined : "none" }}
+      style={{ color: tone ? "#f8f5e8" : undefined, ...(tone === "lake" ? {"--color-surface":"#173e37f5","--color-ink":"#f8f5e8","--color-muted":"#c7d3c6","--color-border":"#ffffff26"} as React.CSSProperties : {}), ...(tone === "notes" ? {"--color-surface":"#1b2b31","--color-canvas":"#253b42","--color-ink":"#eaf0ed","--color-muted":"#a6b9b5","--color-border":"#355057",colorScheme:"dark"} as React.CSSProperties : {}), background: "rgba(36, 54, 64, 0.32)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", pointerEvents: present ? undefined : "none" }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.2 } }} transition={{ duration: 0.2 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="dialog" aria-modal="true" aria-label={title}>

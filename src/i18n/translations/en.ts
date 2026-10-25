@@ -41,6 +41,7 @@ export const en = {
   nav_assignments: "Tasks",
   nav_progress: "Progress",
   nav_schedule: "Schedule",
+  nav_notes: "Notes",
   nav_pomodoro: "Pomodoro",
   nav_settings: "Settings",
   nav_profile: "Profile",

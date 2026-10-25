@@ -8,7 +8,9 @@
     "build": "next build && node scripts/stamp-sw.mjs",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/test-hooks.mjs --test \"tests/*.test.ts\""
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/test-hooks.mjs --test \"tests/*.test.ts\"",
+    "predev": "node scripts/prepare-notes-assets.mjs",
+    "prebuild": "node scripts/prepare-notes-assets.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -21,7 +23,10 @@
     "postcss": "^8.5.15",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "tailwindcss": "^4.3.1"
+    "tailwindcss": "^4.3.1",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "5.4.624",
+    "perfect-freehand": "1.2.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

@@ -29,6 +29,10 @@ import { SUPPORT_EMAIL, contactChannels } from "@/lib/contact";
 import { policyKind } from "@/lib/attendancePolicy";
 import { DEFAULT_SEMESTER_NAME } from "@/lib/db";
 import { TermCheckCard } from "@/components/TermCheckCard";
+import { notesCopy } from "@/lib/notes/copy";
+import { NOTES_ENABLED } from "@/lib/featureFlags";
+import { readNotesPreferences, saveNotesPreferences } from "@/lib/notes/notesPreferences";
+import type { NoteScrollDirection } from "@/lib/notes/types";
 import type { CalendarType, ThemeId, RewardMotionId } from "@/types";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -158,7 +162,9 @@ export default function SettingsPage() {
   usePageTitle("nav_settings");
   const router = useRouter();
   const store = useStore();
-  const { hydrated, language, setLanguage, theme, setTheme, semester, setSemester, resetData, haviName, setHaviName, attendanceEnabled, setAttendanceEnabled, universityPolicy } = store;
+  const { hydrated, language, accountId, setLanguage, theme, setTheme, semester, setSemester, resetData, haviName, setHaviName, attendanceEnabled, setAttendanceEnabled, universityPolicy } = store;
+  const notes = notesCopy(language);
+  const [newNotebookDirection, setNewNotebookDirection] = useState<NoteScrollDirection>('vertical');
   const [ruleOpen, setRuleOpen] = useState(false);
   const ruleSource = semester.attendanceRule?.source ?? "none";
   // Which of the two semester date fields was last rejected for inverting the
@@ -170,6 +176,15 @@ export default function SettingsPage() {
   const [premiumOpen, setPremiumOpen] = useState(false);
   const { sub, profile } = useSubscription();
   const { deleteAccount, loading: deleting, error: deleteError, reset: resetDeleteError } = useDeleteAccount();
+
+  useEffect(() => {
+    if (!NOTES_ENABLED) return;
+    setNewNotebookDirection(readNotesPreferences(accountId ? `account:${accountId}` : '').scrollDirection);
+  }, [accountId]);
+  const updateNewNotebookDirection = (scrollDirection: NoteScrollDirection) => {
+    if (!NOTES_ENABLED || !accountId || !saveNotesPreferences(`account:${accountId}`, { scrollDirection })) return;
+    setNewNotebookDirection(scrollDirection);
+  };
 
   // Arriving from the dashboard notifications nudge → scroll straight to the
   // Notifications enable button (one-shot flag set by NotifNudge before
@@ -321,6 +336,23 @@ export default function SettingsPage() {
               ))}
             </div>
           </Row>
+          {NOTES_ENABLED && <Row label={notes.newNotebookDirection}>
+            <div className="inline-flex rounded-xl p-1 w-full" style={{ background: "var(--color-primary-soft)" }}>
+              {(['vertical', 'horizontal'] as const).map((direction) => (
+                <InteractionButton
+                  key={direction}
+                  onClick={() => updateNewNotebookDirection(direction)}
+                  aria-pressed={newNotebookDirection === direction}
+                  className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+                  style={newNotebookDirection === direction
+                    ? { background: "var(--color-surface)", color: "var(--color-primary)", boxShadow: "var(--shadow-card)" }
+                    : { color: "var(--color-muted)" }}
+                >
+                  {direction === 'vertical' ? notes.vertical : notes.horizontal}
+                </InteractionButton>
+              ))}
+            </div>
+          </Row>}
           <Row label={t("haviNameLabel")}>
             <input
               data-tour="set-haviname"

@@ -29,7 +29,7 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { useSubscription } from "@/lib/subscription";
 import { PLANS, DEFAULT_PLAN_ID, PREMIUM_LIST, FEATURES, hasActiveAccess } from "@/lib/premium";
-import { POMODORO_ENABLED } from "@/lib/featureFlags";
+import { NOTES_ENABLED, POMODORO_ENABLED } from "@/lib/featureFlags";
 import { StudyReturnBar } from "./study/StudyReturnBar";
 import type { TranslationKey } from "@/i18n/translations/en";
 
@@ -45,6 +45,7 @@ const MENU: NavItem[] = [
   { href: "/courses", labelKey: "nav_courses", icon: BookOpen },
   { href: "/assignments", labelKey: "nav_assignments", icon: ClipboardList },
   { href: "/schedule", labelKey: "nav_schedule", icon: CalendarDays },
+  { href: "/notes", labelKey: "nav_notes", icon: BookOpen, locked: !NOTES_ENABLED },
   { href: "/attendance", labelKey: "nav_attendance", icon: Shield },
   { href: "/pomodoro", labelKey: "nav_pomodoro", icon: Timer, locked: !POMODORO_ENABLED },
 ];
@@ -98,9 +99,10 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
         title={collapsed ? undefined : t("comingSoon")}
       >
         <Icon size={18} />
-        {!collapsed && <span className="flex-1">{label}</span>}
+        {!collapsed && <span className="flex-1 min-w-0">{label}</span>}
+        {!collapsed && item.href === "/notes" && <span className="text-[9px] whitespace-nowrap">{t("comingSoon")}</span>}
         {!collapsed && <Lock size={13} />}
-        {collapsed && <Tooltip>{label}</Tooltip>}
+        {collapsed && <Tooltip>{label} · {t("comingSoon")}</Tooltip>}
       </div>
     );
   }

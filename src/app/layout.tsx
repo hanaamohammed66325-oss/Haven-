@@ -9,6 +9,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 import InstallGuideModal from "@/components/InstallGuideModal";
 import { MotionRoot } from "@/components/motion/Press";
 import { SubscriptionProvider } from "@/lib/subscription";
+import { OutsideNotes } from "@/components/notes/NotesRouteBoundary";
 
 // This is a STATIC site (next.config: output "export"), so the SSR <title>,
 // <html lang/dir>, and meta description are ONE fixed value for every visitor —
@@ -121,15 +122,17 @@ export default function RootLayout({
         <SubscriptionProvider>
           <Providers>
             {children}
-            <HaviMascot />
+            <OutsideNotes><HaviMascot /></OutsideNotes>
           </Providers>
         </SubscriptionProvider>
         {/* PWA: register the worker (production only) and offer the install
             flow. Mounted once here so they exist on every route. */}
         <RegisterSW />
         <EnglishDigits />
-        <InstallPrompt />
-        <InstallGuideModal />
+        <OutsideNotes>
+          <InstallPrompt />
+          <InstallGuideModal />
+        </OutsideNotes>
         </MotionRoot>
       </body>
     </html>

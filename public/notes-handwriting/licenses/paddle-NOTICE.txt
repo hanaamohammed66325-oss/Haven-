@@ -1,0 +1,16 @@
+Haven local English handwriting recognition
+
+Model: PaddlePaddle/en_PP-OCRv5_mobile_rec_onnx
+Publisher: PaddlePaddle / PaddleOCR
+Revision: 3fafbc3b5dcf93dd72add9f48368be8a3a2cd33b
+Source: https://huggingface.co/PaddlePaddle/en_PP-OCRv5_mobile_rec_onnx
+License: Apache License 2.0 (paddle-Apache-2.0.txt)
+
+inference.onnx is unmodified. characters.json is derived from the publisher's
+inference.yml character_dict, with CTC blank and space tokens per CTCLabelDecode.
+Haven's ctc.mjs implements local preprocessing and prefix decoding.
+
+Runtime: onnxruntime-web 1.22.0-dev.20250409-89f8206ba4
+Source: https://unpkg.com/onnxruntime-web@1.22.0-dev.20250409-89f8206ba4/dist/ort.webgpu.min.mjs
+License: MIT (onnxruntime-MIT.txt)
+Reuses the already bundled matching JSEP WASM and module.

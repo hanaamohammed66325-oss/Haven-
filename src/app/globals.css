@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source not "../../public/notes-handwriting";
+@source not "../../public/notes-fonts";
 
 @theme {
   --color-primary: #477680;
