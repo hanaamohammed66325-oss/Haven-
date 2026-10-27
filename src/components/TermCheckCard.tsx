@@ -41,7 +41,7 @@ const fieldStyle: React.CSSProperties = {
 /** The student's term plan now; undefined until it's known (a Saudi
  *  university's calendar is read from the facts engine first). */
 export function useTermPlan(): TermPlan | null | undefined {
-  const { hydrated, academic } = useStore();
+  const { hydrated, academic, semester } = useStore();
   const cal = termCalendarKey(academic);
   const slug = cal?.saudi ? cal.key : null;
   const [facts, setFacts] = useState<{ slug: string; facts: VerifiedFact[] } | null>(null);
@@ -56,12 +56,12 @@ export function useTermPlan(): TermPlan | null | undefined {
     };
   }, [slug]);
   if (!hydrated || (slug && facts?.slug !== slug)) return undefined;
-  return termPlan(academic, slug ? facts!.facts : null, toISODate(new Date()));
+  return termPlan(academic, slug ? facts!.facts : null, toISODate(new Date()), semester);
 }
 
 export function TermCheckCard({ className = "" }: { className?: string }) {
   const { t, lang } = useT();
-  const { academic, semester, setupConfirmed, confirmSetup, setSemester } = useStore();
+  const { academic, semester, setupConfirmed, confirmSetup, setSemester, historicalSemesterId } = useStore();
   const plan = useTermPlan();
   const [editing, setEditing] = useState(false);
   const [start, setStart] = useState("");
@@ -69,7 +69,7 @@ export function TermCheckCard({ className = "" }: { className?: string }) {
   const [end, setEnd] = useState("");
   const [error, setError] = useState("");
 
-  if (!plan || setupConfirmed.termAnswered === plan.id) return null;
+  if (historicalSemesterId || !plan || setupConfirmed.termAnswered === plan.id) return null;
   // The official term shows once it's on the semester (SetupCheck puts it there).
   if (plan.status === "official" && setupConfirmed.termApplied !== plan.id) return null;
 

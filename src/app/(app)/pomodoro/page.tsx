@@ -620,16 +620,18 @@ export default function PomodoroPage() {
             style={{ paddingBottom: "max(22px, env(safe-area-inset-bottom))" }}
           >
             <div className="pointer-events-auto">
-              <TimerControls
+              {store.historicalSemesterId ? <p className="rounded-full px-3 py-2 text-sm" style={GLASS}>
+                {t("semesterHistoryPomodoroUnavailable")}
+              </p> : <TimerControls
                 timer={timer}
                 onStart={onStart}
                 onPause={onPause}
                 onResume={onResume}
                 onAbandon={onAbandon}
                 onSkipBreak={onSkipBreak}
-              />
+              />}
             </div>
-            {idle && (
+            {idle && !store.historicalSemesterId && (
               <div className="pointer-events-auto flex flex-col items-center gap-2">
                 <PomodoroSettings settings={{ ...pomodoroSettings, soundEnabled: pomodoroSettings.soundEnabled && audio.state.alerts }} onChange={(patch) => {
                   if (patch.soundEnabled !== undefined) audio.player.preferences({ alerts: patch.soundEnabled });

@@ -23,6 +23,8 @@ import { Onboarding } from "./Onboarding";
 import { WhatsNewModal } from "./WhatsNewModal";
 import { SetupCheck } from "./SetupCheck";
 import { TermCheck } from "./TermCheck";
+import { SemesterEndPrompt } from "./SemesterEndPrompt";
+import { HistoricalSemesterBar } from "./HistoricalSemesterBar";
 import { TrialBanner } from "./TrialBanner";
 import { EarlyAccessBanner } from "./EarlyAccessBanner";
 import { Footer } from "./Footer";
@@ -42,7 +44,7 @@ const isScenePage = (path: string | null) => !!path && SCENE_PAGES.some((p) => p
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { t, lang } = useT();
-  const { hydrated, loadFailed } = useStore();
+  const { hydrated, loadFailed, historicalSemesterId } = useStore();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   // Mobile nav drawer (< lg). The desktop rail hides itself below lg and this
@@ -177,6 +179,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </InteractionLink>
         </div>
 
+        <HistoricalSemesterBar />
+
         {/* Generous bottom padding (+ safe-area inset) so content never touches
             the viewport edge / hides under the phone home indicator in the PWA.
             Top/side padding is unchanged from before; only the bottom grew. */}
@@ -193,7 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </>
         )}
       </main>
-      {!notes && <><ReminderToast />
+      {!notes && !historicalSemesterId && <><ReminderToast />
       <StudyReturnLifecycle />
       <GroupStartCard />
       <StudyAwardSync />
@@ -204,6 +208,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <WhatsNewModal />
       <SetupCheck />
       <TermCheck />
+      <SemesterEndPrompt />
       <ReturnNudge />
       <ReferralSurvey />
       <ReferralRewardModal /></>}

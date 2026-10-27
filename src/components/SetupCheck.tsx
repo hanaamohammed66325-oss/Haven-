@@ -26,12 +26,15 @@ import { SchemeUpdateBody } from "./SchemeUpdateCheck";
 import { pendingSchemeUpdate } from "@/lib/schemeUpdates";
 import { gradeTableStatus } from "@/lib/gradeSchemes";
 import { DateField } from "./DateField";
+import { toISODate } from "@/lib/dates";
 import { universityBySlug } from "@/lib/tools/universities";
 import {
   applyOfficialHolidays,
   defaultsFromFacts,
   fetchUniversityFacts,
+  releaseUniversityHolidays,
   type UniversityDefaults,
+  type VerifiedFact,
 } from "@/lib/universityFacts";
 import { termToApply, termToRelease } from "@/lib/universityTerms";
 import { useTermPlan } from "./TermCheckCard";
@@ -382,6 +385,7 @@ function BasicsStep({ onNext, onLater }: { onNext: () => void; onLater: () => vo
   const uniName = uni ? (lang === "en" ? uni.nameEn : uni.name) : academic.universityName.trim();
 
   const [defaults, setDefaults] = useState<UniversityDefaults | null>(null);
+  const [facts, setFacts] = useState<VerifiedFact[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [touched, setTouched] = useState<Set<keyof Draft>>(new Set());
   const [error, setError] = useState("");
@@ -390,7 +394,8 @@ function BasicsStep({ onNext, onLater }: { onNext: () => void; onLater: () => vo
     let alive = true;
     (slug ? fetchUniversityFacts(slug) : Promise.resolve([])).then((facts) => {
       if (!alive) return;
-      const d = defaultsFromFacts(facts, slug);
+      setFacts(facts);
+      const d = defaultsFromFacts(facts, slug, toISODate(new Date()), semester);
       const placeholder = isPlaceholderSemester(semester);
       setDefaults(d);
       setDraft({
@@ -406,7 +411,7 @@ function BasicsStep({ onNext, onLater }: { onNext: () => void; onLater: () => vo
     };
     // Loaded once per window; the student's edits live in the draft.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [slug, semester.id]);
 
   if (!draft || !defaults) {
     return (
@@ -464,12 +469,19 @@ function BasicsStep({ onNext, onLater }: { onNext: () => void; onLater: () => vo
       setError(t("setup_semErrNumbers"));
       return;
     }
+    const selected = defaultsFromFacts(facts, slug, toISODate(new Date()), {
+      startDate: draft.startDate,
+      endDate: draft.endDate,
+    });
+    const holidays = selected.holidays.length
+      ? applyOfficialHolidays(selected.holidays, semester, lang === "en" ? "en" : "ar")
+      : releaseUniversityHolidays(semester);
     setSemester({
       startDate: draft.startDate,
       endDate: draft.endDate,
       weeks,
       finalsWeeks,
-      ...(applyOfficialHolidays(defaults.holidays, semester, lang === "en" ? "en" : "ar") ?? {}),
+      ...(holidays ?? {}),
     });
     confirmSetup({ semester: true });
     onNext();

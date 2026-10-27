@@ -3,7 +3,7 @@
 // Run: npm test
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { defaultsFromFacts, type VerifiedFact } from "@/lib/universityFacts";
+import { applyOfficialHolidays, defaultsFromFacts, type VerifiedFact } from "@/lib/universityFacts";
 import { policyKind, policyRuleKey, type AttendancePolicy } from "@/lib/attendancePolicy";
 import { ruleMode } from "@/lib/grades";
 import type { AttendanceRule, Semester } from "@/types";
@@ -54,6 +54,37 @@ describe("calendar defaults", () => {
     const d = defaultsFromFacts([fact("finals_start", "2026-12-20"), fact("finals_end", "2027-01-05")], "x", TODAY);
     assert.equal(d.term, null);
     assert.equal(d.kind, null);
+  });
+
+  test("a January to June semester receives only its university's second-term breaks", () => {
+    const first = [
+      fact("term_start", "2026-08-23"),
+      fact("term_end", "2027-01-07"),
+      { ...fact("holiday:2026-11-20", "2026-11-20"), value: { start: "2026-11-20", end: "2026-11-28", name_ar: "إجازة الخريف" } },
+    ];
+    const second = [
+      { ...fact("term_start", "2027-01-17"), term: "second" as const },
+      { ...fact("term_end", "2027-06-17"), term: "second" as const },
+      { ...fact("holiday:2027-02-19", "2027-02-19"), term: "second" as const,
+        value: { start: "2027-02-19", end: "2027-02-22", name_ar: "إجازة يوم التأسيس" } },
+      { ...fact("holiday:2027-02-26", "2027-02-26"), term: "second" as const,
+        value: { start: "2027-02-26", end: "2027-03-13", name_ar: "إجازة عيد الفطر" } },
+      { ...fact("holiday:2027-05-07", "2027-05-07"), term: "second" as const,
+        value: { start: "2027-05-07", end: "2027-05-22", name_ar: "إجازة عيد الأضحى" } },
+    ];
+    const selected = defaultsFromFacts([...first, ...second], "x", "2026-10-27", {
+      startDate: "2027-01-01", endDate: "2027-06-17",
+    });
+    assert.equal(selected.term?.term, "second");
+    assert.deepEqual(selected.holidays.map((holiday) => holiday.nameAr), [
+      "إجازة يوم التأسيس", "إجازة عيد الفطر", "إجازة عيد الأضحى",
+    ]);
+    const applied = applyOfficialHolidays(selected.holidays, {
+      customHolidays: [{ id: "uni-2026-11-20", name: "إجازة الخريف", startDate: "2026-11-20", endDate: "2026-11-28" }],
+    }, "ar");
+    assert.deepEqual(applied?.customHolidays.map((holiday) => holiday.startDate), [
+      "2027-02-19", "2027-02-26", "2027-05-07",
+    ]);
   });
 });
 

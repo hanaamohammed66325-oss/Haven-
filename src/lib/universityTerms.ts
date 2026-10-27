@@ -28,6 +28,7 @@ import { matchUniversityByName } from "./gradeSchemes";
 import { universityBySlug } from "./tools/universities";
 import type { FactHoliday, VerifiedFact } from "./universityFacts";
 import type { Semester } from "@/types";
+import { termForSemester } from "./termSelection";
 
 export type TermName = "first" | "second" | "summer";
 
@@ -191,10 +192,18 @@ export type TermPlan =
   | { status: "unknown"; key: string | null; id: string };
 
 /** `facts` = the Saudi university's facts (unused for the calendars above). */
-export function termPlan(academic: Academic, facts: VerifiedFact[] | null, today: string): TermPlan | null {
+export function termPlan(
+  academic: Academic,
+  facts: VerifiedFact[] | null,
+  today: string,
+  semester?: Pick<Semester, "startDate" | "endDate">,
+): TermPlan | null {
   const cal = termCalendarKey(academic);
   if (cal) {
-    const t = pickTerm<KnownTerm>(cal.saudi ? termsFromFacts(facts ?? []) : OFFICIAL_TERMS[cal.key], today);
+    const terms = cal.saudi ? termsFromFacts(facts ?? []) : OFFICIAL_TERMS[cal.key] ?? [];
+    const t = semester?.startDate && semester?.endDate
+      ? termForSemester<KnownTerm>(terms, semester)
+      : pickTerm<KnownTerm>(terms, today);
     if (!t) return { status: "unknown", key: cal.key, id: `none|${cal.key}` };
     const id = termId(cal.key, t);
     return isComplete(t) ? { status: "official", key: cal.key, id, term: t } : { status: "incomplete", key: cal.key, id, term: t };

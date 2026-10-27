@@ -22,6 +22,7 @@ import { GpaAccuracyCard } from "@/components/TermCheck";
 import { CollapseBody, CollapseToggle, CollapsibleSection, useCardCollapse } from "@/components/Collapsible";
 import AmbassadorPanel from "@/components/AmbassadorPanel";
 import { AmbassadorIdentityBadge } from "@/components/AmbassadorBadge";
+import { SemesterSwitcher } from "@/components/SemesterSwitcher";
 
 const fieldClass =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -146,6 +147,8 @@ export default function ProfilePage() {
       <div className="mb-12" data-tour="profile-banner">
         <AcademicBanner editHref="#academic-profile" />
       </div>
+
+      <SemesterSwitcher />
 
       <Card padding="p-5 sm:p-8" className="haven-stagger" data-havi-role="profile">
         {/* Photo */}

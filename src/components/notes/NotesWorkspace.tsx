@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, BookOpen, Folder, Plus, Search, Star, Clock3, CalendarDays, Bell, BellOff, Trash2, MoreHorizontal, Upload, ChevronRight, X, HardDrive, LayoutGrid, FileText, RefreshCw, Settings2, Download, Loader2, NotebookTabs, PanelLeftClose, GraduationCap, StickyNote, ClipboardList, Shield, Timer } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -8,6 +8,7 @@ import { useStore } from '@/store';
 import type { ThemeId } from '@/types';
 import { plural } from '@/lib/format';
 import { useNotesLibrary } from '@/lib/notes/useNotesLibrary';
+import { notesForSemester } from '@/lib/notes/filterSemester';
 import { notesCopy } from '@/lib/notes/copy';
 import { DEFAULT_NOTE_DOCUMENT_SETTINGS, newId, newNotebook, newPage } from '@/lib/notes/types';
 import type { Notebook, NoteFolder, PaperStyle, NoteDocumentSettings, NoteScrollDirection } from '@/lib/notes/types';
@@ -18,6 +19,7 @@ import { NotebookEditor, IconButton } from './NotebookEditor';
 import { SettingChoices, SettingDiagram } from './SettingChoices';
 import { CourseTimeCarousel } from './CourseTimeCarousel';
 import { PageThumbnail } from './PageSurface';
+import { HistoricalNotes } from './HistoricalNotes';
 import { useLibraryDrag } from './useLibraryDrag';
 import { FolderOpen, GripVertical, Move } from 'lucide-react';
 import s from './notes.module.css';
@@ -27,16 +29,21 @@ type Dialog = { type: 'note' | 'folder' | 'divider' | 'editDivider' | 'removeDiv
 type DividerId = 'courses' | 'personal' | string;
 
 export function NotesWorkspace({ preview = false }: { preview?: boolean }) {
-  const { language, accountId, hydrated } = useStore();
+  const { language, accountId, hydrated, historicalSemesterId, historicalReadOnly } = useStore();
   const t = notesCopy(language);
   if (!preview && (!hydrated || !accountId)) return <div className={s.loading}>{t.loading}</div>;
-  return <Workspace key={preview ? 'preview' : accountId!} scope={preview ? 'notes-preview-v1' : `account:${accountId}`} preview={preview} />;
+  const scope = preview ? 'notes-preview-v1' : `account:${accountId}`;
+  if (!preview && historicalReadOnly) return <HistoricalNotes key={`${accountId}:${historicalSemesterId}`} scope={scope} />;
+  return <Workspace key={preview ? 'preview' : `${accountId}:${historicalSemesterId ?? 'current'}`} scope={scope} preview={preview} />;
 }
 
 function Workspace({ scope, preview }: { scope: string; preview: boolean }) {
-  const { language, courses, theme } = useStore();
+  const { language, courses, theme, historicalSemesterId } = useStore();
   const t = notesCopy(language);
-  const { library, update, status, retry } = useNotesLibrary(scope);
+  const { library: fullLibrary, update, status, retry } = useNotesLibrary(scope);
+  const courseIds = useMemo(() => new Set(courses.map(course => course.id)), [courses]);
+  const library = useMemo(() => historicalSemesterId && fullLibrary
+    ? notesForSemester(fullLibrary, courseIds) : fullLibrary, [historicalSemesterId, fullLibrary, courseIds]);
   const reducedMotion = useReducedMotion();
   const [expandedDivider, setExpandedDivider] = useState<string | null>(null);
   const [activeDivider, setActiveDivider] = useState<DividerId>('courses');
@@ -109,7 +116,9 @@ function Workspace({ scope, preview }: { scope: string; preview: boolean }) {
       const folders = [...old.folders];
       for (const course of courses) {
         if (folders.some(folder => folder.courseId === course.id)) continue;
-        const match = folders.find(folder => !folder.parentId && folder.title.trim().toLocaleLowerCase() === course.name.trim().toLocaleLowerCase() && (!folder.courseId || !courses.some(item => item.id === folder.courseId)));
+        // An older term may have a course with the same name. Never take its
+        // notes folder away from that course when the new term is created.
+        const match = folders.find(folder => !folder.parentId && folder.title.trim().toLocaleLowerCase() === course.name.trim().toLocaleLowerCase() && !folder.courseId);
         if (match) folders[folders.indexOf(match)] = { ...match, courseId: course.id, dividerId: undefined };
         else folders.push({ id: newId(), parentId: null, title: course.name, color: course.color || COVER_COLORS[0], courseId: course.id, promptAtClass: false });
       }
@@ -118,7 +127,7 @@ function Workspace({ scope, preview }: { scope: string; preview: boolean }) {
   }, [courses, library?.folders, update]);
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(id); }, []);
   useEffect(() => {
-    if (!library || classPrompt) return;
+    if (!library || classPrompt || historicalSemesterId) return;
     const minute = now.getHours() * 60 + now.getMinutes();
     for (const folder of library.folders) {
       if (!folder.promptAtClass || !folder.courseId) continue;
@@ -136,7 +145,7 @@ function Workspace({ scope, preview }: { scope: string; preview: boolean }) {
       setClassPrompt({ folderId: folder.id, courseName: course.name });
       break;
     }
-  }, [library, courses, now, classPrompt, scope]);
+  }, [library, courses, now, classPrompt, scope, historicalSemesterId]);
   useEffect(() => { const previous = document.title; document.title = `${t.notes} · Haven`; return () => { document.title = previous; }; }, [t.notes]);
   useEffect(() => {
     if (!folderOptions) return;

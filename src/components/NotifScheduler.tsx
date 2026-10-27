@@ -149,6 +149,12 @@ export function NotifScheduler() {
           });
         }
       }
+      // A task that stopped being live (checked off) is forgotten here, so queuing
+      // it again after it is un-checked reaches the server and brings its
+      // cancelled reminder back instead of being skipped as "already queued".
+      for (const key of [...queued.current.keys()]) {
+        if (key.startsWith("task-") && !liveKeys.has(key)) queued.current.delete(key);
+      }
       // Drop any queued-but-undelivered task push whose task is gone/checked off
       // (only when the set of live tasks changed).
       const liveSignature = [...liveKeys].sort().join(",");

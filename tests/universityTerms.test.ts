@@ -91,6 +91,17 @@ describe("putting a university's term on the semester", () => {
     assert.equal(r.dates.startDate, "2027-02-22");
   });
 
+  test("a January to June workspace selects its university's second term before that term begins", () => {
+    const p = termPlan(typed("جامعة أبوظبي"), null, "2026-10-27", {
+      startDate: "2027-01-01", endDate: "2027-06-17",
+    });
+    assert.equal(p?.id, "abu-dhabi-university|2026-2027|second");
+    const old = termPlan(typed("جامعة أبوظبي"), null, "2027-03-01", {
+      startDate: "2026-08-31", endDate: "2026-12-12",
+    });
+    assert.equal(old?.id, "abu-dhabi-university|2026-2027|first");
+  });
+
   test("nothing to take back from the sign-up placeholder", () => {
     assert.equal(termToApply(plan(typed("جامعة خليفة")), mine, { placeholder: true })!.prev, null);
   });

@@ -31,7 +31,7 @@ const fieldClass =
  */
 export function HolidaysManager() {
   const { t, lang } = useT();
-  const { semester, academic, setSemester, setAcademic } = useStore();
+  const { semester, academic, setSemester, setAcademic, historicalSemesterId, historicalReadOnly } = useStore();
 
   const hasDates = Boolean(semester?.startDate && semester?.endDate);
   const calendar = holidayCalendar(academic);
@@ -69,15 +69,18 @@ export function HolidaysManager() {
   // Each change is also recorded, so the admin sees how a student's holidays
   // differ from the calendar we show.
   const dismiss = (id: string) => {
+    if (historicalReadOnly) return;
     setSemester({ dismissedHolidays: [...new Set([...dismissed, id])] });
-    void logEvent("holiday_removed", { id });
+    if (!historicalSemesterId) void logEvent("holiday_removed", { id });
   };
   const restore = (id: string) => {
+    if (historicalReadOnly) return;
     setSemester({ dismissedHolidays: dismissed.filter((x) => x !== id) });
-    void logEvent("holiday_restored", { id });
+    if (!historicalSemesterId) void logEvent("holiday_restored", { id });
   };
   const deleteCustom = (id: string) => {
-    void logEvent("holiday_deleted", { name: custom.find((c) => c.id === id)?.name });
+    if (historicalReadOnly) return;
+    if (!historicalSemesterId) void logEvent("holiday_deleted", { name: custom.find((c) => c.id === id)?.name });
     setSemester({
       customHolidays: custom.filter((c) => c.id !== id),
       // A custom holiday can also carry a dismiss flag; drop it on delete so a
@@ -99,6 +102,7 @@ export function HolidaysManager() {
   };
 
   const submit = () => {
+    if (historicalReadOnly) return;
     const nm = name.trim();
     if (!nm) {
       setErr(t("holidayErrName"));
@@ -119,7 +123,7 @@ export function HolidaysManager() {
       endDate: end,
     };
     setSemester({ customHolidays: [...custom, entry] });
-    void logEvent("holiday_added", { name: nm, start, end });
+    if (!historicalSemesterId) void logEvent("holiday_added", { name: nm, start, end });
     setName("");
     setErr("");
     setAdding(false);
@@ -166,6 +170,7 @@ export function HolidaysManager() {
                 <InteractionButton
                   type="button"
                   onClick={() => restore(h.id)}
+                  disabled={historicalReadOnly}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shrink-0 transition-colors"
                   style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
                 >
@@ -176,6 +181,7 @@ export function HolidaysManager() {
                 <InteractionButton
                   type="button"
                   onClick={() => dismiss(h.id)}
+                  disabled={historicalReadOnly}
                   aria-label={t("holidayRemove")}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shrink-0 transition-colors"
                   style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
@@ -201,6 +207,7 @@ export function HolidaysManager() {
             <InteractionButton
               type="button"
               onClick={() => deleteCustom(c.id)}
+              disabled={historicalReadOnly}
               aria-label={t("holidayDelete")}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shrink-0 transition-colors"
               style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
@@ -288,6 +295,7 @@ export function HolidaysManager() {
             <InteractionButton
               type="button"
               onClick={submit}
+              disabled={historicalReadOnly}
               className="px-4 py-2 rounded-xl text-sm font-medium text-white"
               style={{ background: "var(--color-primary)" }}
             >
@@ -298,6 +306,7 @@ export function HolidaysManager() {
       ) : (
         <InteractionButton
           type="button"
+          disabled={historicalReadOnly}
           onClick={() => {
             setStart(semester.startDate);
             setEnd(semester.startDate);
@@ -311,7 +320,7 @@ export function HolidaysManager() {
         </InteractionButton>
       )}
 
-      {asksCheck &&
+      {asksCheck && !historicalSemesterId &&
         (checked ? (
           <p className="mt-5 flex items-start gap-2 text-[13px]" style={{ color: "var(--color-muted)" }}>
             <Check size={15} className="mt-0.5 shrink-0" style={{ color: "var(--color-primary)" }} />

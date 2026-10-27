@@ -11,6 +11,7 @@ import { SAUDI_HOLIDAYS } from "./holidays";
 import { universityBySlug } from "./tools/universities";
 import type { CustomHoliday } from "@/types";
 import { toISODate } from "./dates";
+import { termForSemester } from "./termSelection";
 
 export type Term = "first" | "second" | "summer";
 
@@ -79,7 +80,8 @@ const days = (a: string, b: string) => Math.round((+new Date(b) - +new Date(a)) 
 export function defaultsFromFacts(
   facts: VerifiedFact[],
   slug: string | null,
-  today = toISODate(new Date())
+  today = toISODate(new Date()),
+  semester?: { startDate: string; endDate: string },
 ): UniversityDefaults {
   const byTerm = new Map<string, VerifiedFact[]>();
   for (const f of facts) {
@@ -98,9 +100,12 @@ export function defaultsFromFacts(
       end: get(list, "term_end")?.value.date ?? get(list, "finals_end")?.value.date ?? get(list, "finals_start")?.value.date,
       suggested: list.some((f) => f.status === "suggested"),
     }))
-    .filter((t): t is typeof t & { end: string } => !!t.end && (!!t.start || t.suggested) && t.end >= today)
+    .filter((t): t is typeof t & { end: string } => !!t.end && (!!t.start || t.suggested) &&
+      (semester?.startDate && semester?.endDate ? true : t.end >= today))
     .sort((a, b) => (a.start ?? a.end).localeCompare(b.start ?? b.end));
-  const cur = terms[0];
+  const cur = semester?.startDate && semester?.endDate
+    ? termForSemester(terms, semester)
+    : terms[0];
 
   const officialDenial = facts.find((f) => f.fact_key === "denial_pct" && f.status !== "suggested")?.value.pct;
   const typicalDenial = slug ? universityBySlug(slug)?.denialPct : undefined;

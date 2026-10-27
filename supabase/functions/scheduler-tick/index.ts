@@ -10,6 +10,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import webpush from 'npm:web-push@3.6.7';
 import { deliverOutbox } from './outbox.ts';
+import { lectureTermByUser } from './lectureTerms.ts';
 
 const WINDOW = 5;
 
@@ -72,19 +73,20 @@ serve(async (req) => {
     };
     const today = entries.filter((e: any) => e.day_of_week === clock(e.user_id).dow);
 
-    // 3) Active semesters covering the student's today — and not one of their
-    // holidays (preferences.classOff.days: the term's breaks, as their app works
-    // them out from their university's calendar).
+    // 3) The term covering the student's today — and not one of their holidays
+    // (preferences.classOff.days: the term's breaks, as their app works them out
+    // from their university's calendar).
     const semIds = [...new Set(today.map((e: any) => e.semester_id))];
     const { data: semesters } = semIds.length
       ? await supabase.from('semesters').select('id, start_date, end_date, is_active').in('id', semIds)
       : { data: [] };
     const semOf = new Map((semesters ?? []).map((s: any) => [s.id, s]));
 
+    // One term per student: the one whose dates cover their today (see lectureTerms.ts).
+    const termOfUser = lectureTermByUser(today, semOf, (userId) => clock(userId).date);
     const active = today.filter((e: any) => {
-      const s = semOf.get(e.semester_id);
+      if (termOfUser.get(e.user_id) !== e.semester_id) return false;
       const { date } = clock(e.user_id);
-      if (!s?.is_active || date < s.start_date || date > s.end_date) return false;
       const off = prefsOf.get(e.user_id)?.classOff?.days;
       return !(Array.isArray(off) && off.includes(date));
     });

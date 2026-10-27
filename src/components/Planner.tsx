@@ -417,13 +417,13 @@ export function Planner() {
               key={w.index}
               label={t("weekLabel", { n: w.index + 1 })}
               range={range(w)}
-              weekStrike={planner.weekStrikes?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`] ?? "none"}
-              onWeekStrike={(strike) => setPlannerWeekStrike(`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`, strike)}
-              weekIcon={planner.weekIcons?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`] ?? "check"}
-              onWeekIcon={(icon) => setPlannerWeekIcon(`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`, icon)}
+              weekStrike={planner.weekStrikes?.[`week:${w.index}`] ?? planner.weekStrikes?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`] ?? "none"}
+              onWeekStrike={(strike) => setPlannerWeekStrike(`week:${w.index}`, strike)}
+              weekIcon={planner.weekIcons?.[`week:${w.index}`] ?? planner.weekIcons?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`] ?? "check"}
+              onWeekIcon={(icon) => setPlannerWeekIcon(`week:${w.index}`, icon)}
               canComplete={!!w.end && todayIso > toISODate(w.end)}
-              doneColor={planner.completedWeeks?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`]}
-              onWeekDone={(color) => setPlannerWeekDone(`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`, color)}
+              doneColor={planner.completedWeeks?.[`week:${w.index}`] ?? planner.completedWeeks?.[`${semester.startDate}:${semester.endDate}:${w.start ? toISODate(w.start) : w.index}`]}
+              onWeekDone={(color) => setPlannerWeekDone(`week:${w.index}`, color)}
               notes={[
                 ...planner.notes.filter((n) => n.week === w.index + 1),
                 ...(holidayNotesByWeek[w.index] ?? []),

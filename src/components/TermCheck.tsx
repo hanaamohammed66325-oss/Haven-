@@ -19,7 +19,8 @@ import { useT } from "@/i18n";
 import { Modal } from "./Modal";
 import { pendingSetupSteps } from "./SetupCheck";
 import { useGpaChecked } from "./GpaCheckNudge";
-import { courseCurrentPct, projectedCumulativeGpa, semesterGPA } from "@/lib/grades";
+import { courseCurrentPct, projectedCumulativeGpa, semesterGpaDetail, semesterGPA } from "@/lib/grades";
+import { repeatAdjust } from "@/lib/repeats";
 import { compareCumulativeGpa, priorGpaDecimals, sameDisplayedGpa } from "@/lib/gpaComparison";
 import { DENIED, SPECIAL_RESULTS, detectScheme } from "@/lib/gradeSchemes";
 import { toEnglishDigits } from "@/lib/dates";
@@ -141,7 +142,7 @@ function parseNumber(raw: string): number {
 
 export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClose: () => void }) {
   const { t } = useT();
-  const { courses, academic, termCheck, setTermCheck, reportTermCheck, cumulativeGpa, cumulativeHours, setCumulativeGpa, setCumulativeHours } =
+  const { courses, academic, termCheck, setTermCheck, reportTermCheck, cumulativeGpa, cumulativeHours, setCumulativeGpa, setCumulativeHours, confirmCumulativeForSemester } =
     useStore();
   const scheme = useScheme();
 
@@ -433,7 +434,17 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
         </div>
         {(match || cumReasonDone) && (
           <Footer>
-            <Primary onClick={onClose}>{t("tc_done")}</Primary>
+            <Primary onClick={() => {
+              if (match) {
+                const adjustment = repeatAdjust(courses, scheme, academic);
+                const priorHours = adjustment.hours > 0 && adjustment.hours <= cumSaved.hours
+                  ? cumSaved.hours - adjustment.hours
+                  : cumSaved.hours;
+                const completedHours = priorHours + semesterGpaDetail(courses, scheme).credits;
+                confirmCumulativeForSemester(cumSaved.ours, completedHours);
+              }
+              onClose();
+            }}>{t("tc_done")}</Primary>
           </Footer>
         )}
       </>

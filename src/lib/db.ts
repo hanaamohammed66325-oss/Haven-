@@ -18,6 +18,7 @@ import { supabase, sessionUserId } from "./supabase";
 import { latestSync } from "./latestSync";
 import { toISODate } from "./dates";
 import { createAbsenceSync, type AbsenceAlertRow } from "./absenceSync";
+import { createOutbox, type OutboxStore } from "./pushOutbox";
 import type { ComponentType, GradeComponent, WeightUnit } from "@/types";
 
 export type { AbsenceAlertRow };
@@ -80,23 +81,54 @@ export async function enqueueScheduledPush(p: {
   title: string;
   body: string;
 }): Promise<void> {
-  try {
-    const uid = await sessionUserId();
-    if (!uid) return;
+  await outbox.enqueue(p);
+}
+
+// The outbox rules live in lib/pushOutbox (testable); this is the table it writes.
+// Only an unsent row can be cancelled and only a row marked before its send time
+// can be revived, so delivered reminders are never touched.
+const outboxStore: OutboxStore = {
+  async read(uid, dedupKey) {
+    const { data } = await supabase
+      .from("scheduled_pushes")
+      .select("send_at, sent_at, cancelled_at")
+      .eq("user_id", uid)
+      .eq("dedup_key", dedupKey)
+      .maybeSingle();
+    return data ? { sendAt: data.send_at as string, sentAt: (data.sent_at as string | null) ?? null, cancelledAt: (data.cancelled_at as string | null) ?? null } : null;
+  },
+  async upsert(uid, p, revive) {
     await supabase.from("scheduled_pushes").upsert(
       {
-        user_id: uid,
-        dedup_key: p.dedupKey,
-        send_at: p.sendAt,
-        title: p.title,
-        body: p.body,
+        user_id: uid, dedup_key: p.dedupKey, send_at: p.sendAt, title: p.title, body: p.body,
+        // Only a cancelled row comes back; a delivered one never carries these fields here.
+        ...(revive ? { sent_at: null, cancelled_at: null } : {}),
       },
       { onConflict: "user_id,dedup_key" }
     );
-  } catch {
-    // best-effort — ignore failures
-  }
-}
+  },
+  async undeliveredKeys(uid, prefix) {
+    const { data } = await supabase
+      .from("scheduled_pushes")
+      .select("dedup_key")
+      .eq("user_id", uid)
+      .is("sent_at", null)
+      .like("dedup_key", `${prefix}%`);
+    return (data ?? []).map((row) => row.dedup_key as string);
+  },
+  async cancel(uid, dedupKeys, nowIso) {
+    // In small groups: a long list of keys would make the request URL too long.
+    for (let i = 0; i < dedupKeys.length; i += 40) {
+      await supabase
+        .from("scheduled_pushes")
+        .update({ sent_at: nowIso, cancelled_at: nowIso })
+        .eq("user_id", uid)
+        .is("sent_at", null)
+        .in("dedup_key", dedupKeys.slice(i, i + 40));
+    }
+  },
+};
+const outbox = createOutbox({ sessionUserId, store: outboxStore });
 
 /**
  * Reconcile the outbox: keep only the undelivered reminders that SHOULD still
@@ -111,28 +143,9 @@ export async function enqueueScheduledPush(p: {
  * Fire-and-forget; never throws.
  */
 export async function reconcileScheduledPushes(prefix: string, keep: Set<string>): Promise<void> {
-  try {
-    const uid = await sessionUserId();
-    if (!uid) return;
-    const { data: rows } = await supabase
-      .from("scheduled_pushes")
-      .select("dedup_key")
-      .eq("user_id", uid)
-      .is("sent_at", null)
-      .like("dedup_key", `${prefix}%`);
-    if (!rows?.length) return;
-    const stale = rows.map((r) => r.dedup_key as string).filter((k) => !keep.has(k));
-    if (!stale.length) return;
-    // Stamp sent_at so the outbox cron skips these — the task is gone/checked off.
-    await supabase
-      .from("scheduled_pushes")
-      .update({ sent_at: new Date().toISOString() })
-      .eq("user_id", uid)
-      .is("sent_at", null)
-      .in("dedup_key", stale);
-  } catch {
-    // best-effort — ignore failures
-  }
+  // The stale rows are marked cancelled (sent_at and cancelled_at) so the cron
+  // skips them; queuing the same reminder again brings one back (lib/pushOutbox).
+  await outbox.reconcile(prefix, keep);
 }
 
 // Absence alerts (lib/absenceSync): bound to the account whose data built them,
@@ -246,6 +259,8 @@ export interface DbSemester {
   finalsWeeks: number; // finals_weeks
   startDate: string | null; // start_date
   endDate: string | null; // end_date
+  progress: Record<string, unknown>;
+  isActive: boolean;
 }
 
 export interface DbCourse {
@@ -271,6 +286,8 @@ const mapSemester = (row: {
   finals_weeks: number;
   start_date: string | null;
   end_date: string | null;
+  progress?: unknown;
+  is_active?: boolean;
 }): DbSemester => ({
   id: row.id,
   name: row.name,
@@ -278,9 +295,14 @@ const mapSemester = (row: {
   finalsWeeks: row.finals_weeks,
   startDate: row.start_date,
   endDate: row.end_date,
+  progress: row.progress && typeof row.progress === "object" && !Array.isArray(row.progress)
+    ? row.progress as Record<string, unknown>
+    : {},
+  isActive: row.is_active === true,
 });
 
-const SEMESTER_COLS = "id, name, teaching_weeks, finals_weeks, start_date, end_date";
+const SEMESTER_COLS = "id, name, teaching_weeks, finals_weeks, start_date, end_date, progress, is_active";
+const LEGACY_SEMESTER_COLS = "id, name, teaching_weeks, finals_weeks, start_date, end_date, is_active";
 
 /** The current user's active semester, or null if none exists yet.
  *  ALWAYS scoped to the current auth user — a semester is never resolved for
@@ -290,16 +312,183 @@ const SEMESTER_COLS = "id, name, teaching_weeks, finals_weeks, start_date, end_d
  *  courses, else the oldest — never whichever row the database returns first. */
 export async function getActiveSemester(): Promise<DbSemester | null> {
   const userId = await currentUserId();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("semesters")
     .select(`${SEMESTER_COLS}, courses(count)`)
     .eq("user_id", userId)
     .eq("is_active", true)
     .order("created_at", { ascending: true });
+  if (error) {
+    const legacy = await supabase
+      .from("semesters")
+      .select(`${LEGACY_SEMESTER_COLS}, courses(count)`)
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
+    data = legacy.data as unknown as typeof data;
+    error = legacy.error;
+  }
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as (Parameters<typeof mapSemester>[0] & { courses?: { count: number }[] })[];
   const pick = rows.find((r) => (r.courses?.[0]?.count ?? 0) > 0) ?? rows[0];
   return pick ? mapSemester(pick) : null;
+}
+
+export async function listSemesters(): Promise<DbSemester[]> {
+  const userId = await currentUserId();
+  let { data, error } = await supabase
+    .from("semesters")
+    .select(SEMESTER_COLS)
+    .eq("user_id", userId)
+    .order("start_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (error) {
+    const legacy = await supabase
+      .from("semesters")
+      .select(LEGACY_SEMESTER_COLS)
+      .eq("user_id", userId)
+      .order("start_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    data = legacy.data as unknown as typeof data;
+    error = legacy.error;
+  }
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapSemester);
+}
+
+/** Which of these terms hold no courses, planner items or timetable rows. Called
+ *  with the few terms that could be an empty copy (duplicateSemesterCandidates),
+ *  one tiny query per table, so it costs nothing for an account without copies. */
+export async function semestersWithoutRows(ids: string[]): Promise<Set<string>> {
+  const userId = await currentUserId();
+  const empty = new Set<string>();
+  await Promise.all(ids.map(async (id) => {
+    for (const table of ["courses", "planner_items", "timetable_entries"] as const) {
+      const { data, error } = await supabase.from(table).select("id")
+        .eq("user_id", userId).eq("semester_id", id).limit(1);
+      if (error) throw new Error(error.message);
+      if ((data ?? []).length) return;
+    }
+    empty.add(id);
+  }));
+  return empty;
+}
+
+export interface DbSemesterArchive {
+  semester: DbSemester;
+  courses: Array<DbCourse & {
+    components: GradeComponent[];
+    sessions: DbAttendanceSession[];
+    absences: DbAbsence[];
+    timetable: DbTimetableEntry[];
+  }>;
+  planner: DbPlannerItem[];
+}
+
+/** Read a past term without activating it or exposing any write path. */
+export async function getSemesterArchive(id: string): Promise<DbSemesterArchive> {
+  const userId = await currentUserId();
+  const semester = (await listSemesters()).find((item) => item.id === id);
+  if (!semester) throw new Error("Semester not found.");
+  const [courseResult, plannerResult] = await Promise.all([
+    supabase.from("courses").select(COURSE_COLS)
+      .eq("user_id", userId).eq("semester_id", id).order("position", { ascending: true }),
+    supabase.from("planner_items").select(PLANNER_COLS)
+      .eq("user_id", userId).eq("semester_id", id).order("created_at", { ascending: true }),
+  ]);
+  if (courseResult.error) throw new Error(courseResult.error.message);
+  if (plannerResult.error) throw new Error(plannerResult.error.message);
+  const rows = courseResult.data ?? [];
+  const ids = rows.map((row) => row.id);
+  const planner = (plannerResult.data ?? []).map((row) => ({
+    id: row.id,
+    week: row.week_number ?? 0,
+    day: row.day_of_week == null || row.day_of_week === PLANNER_WHOLE_WEEK ? null : row.day_of_week,
+    tag: row.tag ?? null,
+    text: row.note ?? "",
+    done: !!row.done,
+    dueTime: row.due_time ?? null,
+    color: row.color ?? null,
+  }));
+  if (!ids.length) return { semester, courses: [], planner };
+  const [grades, sessions, absences, timetable] = await Promise.all([
+    supabase.from("grade_components").select(`course_id, ${COMPONENT_COLS}`)
+      .eq("user_id", userId).in("course_id", ids).order("created_at", { ascending: true }),
+    supabase.from("attendance_sessions").select("id, course_id, day_of_week, duration_minutes")
+      .eq("user_id", userId).in("course_id", ids),
+    supabase.from("attendance_absences").select("id, course_id, absent_on, minutes, excused, tardiness")
+      .eq("user_id", userId).in("course_id", ids).order("created_at", { ascending: true }),
+    supabase.from("timetable_entries").select("id, course_id, day_of_week, start_time, end_time, room, note")
+      .eq("user_id", userId).eq("semester_id", id),
+  ]);
+  for (const result of [grades, sessions, absences, timetable]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  return {
+    semester,
+    planner,
+    courses: rows.map((row) => ({
+      ...mapCourse(row),
+      components: (grades.data ?? []).filter((item) => item.course_id === row.id).map(mapComponent),
+      sessions: (sessions.data ?? []).filter((item) => item.course_id === row.id).map((item) => ({
+        id: item.id, courseId: item.course_id,
+        day: fromDayOfWeek(item.day_of_week), minutes: item.duration_minutes ?? 0,
+      })),
+      absences: (absences.data ?? []).filter((item) => item.course_id === row.id).map((item) => ({
+        id: item.id, courseId: item.course_id, day: weekdayFromIso(item.absent_on),
+        minutes: Number(item.minutes) || 0, date: item.absent_on ?? undefined,
+        excused: item.excused ?? false,
+        tardiness: item.tardiness != null ? Number(item.tardiness) : undefined,
+      })),
+      timetable: (timetable.data ?? []).filter((item) => item.course_id === row.id).map((item) => {
+        const detail = decodeTtNote(item.note);
+        return {
+          id: item.id,
+          sessionId: detail.sessionId,
+          courseId: item.course_id,
+          day: fromDayOfWeek(item.day_of_week),
+          time: item.start_time ?? undefined,
+          endTime: item.end_time ?? undefined,
+          building: detail.building,
+          room: item.room ?? undefined,
+          notes: detail.notes,
+        };
+      }),
+    })),
+  };
+}
+
+export async function activateSemester(id: string): Promise<void> {
+  const { error } = await supabase.rpc("activate_owned_semester", { p_semester_id: id });
+  if (error) throw new Error(error.message);
+}
+
+export async function createSemester(fields: {
+  name: string;
+  weeks?: number;
+  finalsWeeks?: number;
+  startDate?: string;
+  endDate?: string;
+  progress: Record<string, unknown>;
+}): Promise<DbSemester> {
+  const weeks = fields.weeks ?? 13;
+  const finalsWeeks = fields.finalsWeeks ?? 2;
+  const range = fields.startDate && fields.endDate
+    ? { startDate: fields.startDate, endDate: fields.endDate }
+    : defaultDateRange(weeks, finalsWeeks);
+  const { data, error } = await supabase
+    .rpc("create_owned_semester", {
+      p_name: fields.name.trim(),
+      p_weeks: weeks,
+      p_finals_weeks: finalsWeeks,
+      p_start_date: range.startDate,
+      p_end_date: range.endDate,
+      p_progress: fields.progress,
+    })
+  if (error) throw new Error(error.message);
+  const created = (await listSemesters()).find((semester) => semester.id === data);
+  if (!created) throw new Error("The new semester could not be loaded.");
+  return created;
 }
 
 /** Today + a total term length (weeks), as a start/end ISO pair. Used ONLY to
@@ -375,7 +564,7 @@ export async function ensureActiveSemester(settings?: {
       start_date: range.startDate,
       end_date: range.endDate,
     })
-    .select(SEMESTER_COLS)
+    .select(LEGACY_SEMESTER_COLS)
     .single();
   // Another first load may have created one at the same moment. The database
   // allows one active term per student (unique index), so the second insert is
@@ -386,7 +575,9 @@ export async function ensureActiveSemester(settings?: {
     if (winner) return winner;
     throw new Error(error.message);
   }
-  return (await getActiveSemester()) ?? mapSemester(data);
+  const created = await getActiveSemester();
+  if (!created) throw new Error("The new semester could not be loaded.");
+  return created;
 }
 
 export async function updateSemester(
@@ -400,6 +591,7 @@ export async function updateSemester(
     // An empty string means "cleared" and is stored as NULL — never a fallback.
     startDate: string;
     endDate: string;
+    progress: Record<string, unknown>;
   }>
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
@@ -408,9 +600,32 @@ export async function updateSemester(
   if (fields.finalsWeeks !== undefined) patch.finals_weeks = fields.finalsWeeks;
   if (fields.startDate !== undefined) patch.start_date = fields.startDate.trim() || null;
   if (fields.endDate !== undefined) patch.end_date = fields.endDate.trim() || null;
+  if (fields.progress !== undefined) patch.progress = fields.progress;
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("semesters").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+export async function saveSemesterProgress(semesterId: string, patch: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.rpc("merge_owned_semester_progress", {
+    p_semester_id: semesterId,
+    p_patch: patch,
+  });
+  if (!error) return;
+  // Older production schemas do not have the new column yet. Keep the local
+  // preview and existing accounts functional until the migration is applied;
+  // the semester-keyed preference is read back as a compatibility fallback.
+  if (error.code === "PGRST202" || error.code === "42883") {
+    const prefs = await getPreferences();
+    const previous = prefs[`semesterProgress_${semesterId}`];
+    const merged = {
+      ...(previous && typeof previous === "object" && !Array.isArray(previous) ? previous as Record<string, unknown> : {}),
+      ...patch,
+    };
+    await savePreferences({ [`semesterProgress_${semesterId}`]: merged });
+    return;
+  }
+  throw new Error(error.message);
 }
 
 // ---------------------------------------------------------------------------
@@ -459,21 +674,15 @@ export async function getActiveCourses(): Promise<(DbCourse & { semesterId: stri
 }
 
 export async function addCourse(
-  course: { name: string; creditHours: number; position?: number; attendanceLimit?: number; attendanceMode?: "hour" | "lecture" }
+  course: { name: string; creditHours: number; position?: number; attendanceLimit?: number; attendanceMode?: "hour" | "lecture" },
+  semesterId?: string
 ): Promise<DbCourse> {
   const userId = await currentUserId();
-  // ALWAYS resolve the active semester fresh for THIS user at insert time.
-  // Never trust a semester id from cached client state — it may belong to a
-  // previously signed-in account and would attach the course to the wrong user.
-  let sem = await ensureActiveSemester();
-  // Belt-and-suspenders: confirm the resolved semester truly belongs to the
-  // current user before inserting; if not, re-resolve once and re-check.
-  if ((await semesterOwnerId(sem.id)) !== userId) {
-    sem = await ensureActiveSemester();
-    if ((await semesterOwnerId(sem.id)) !== userId) {
-      throw new Error("Could not resolve the current user's active semester.");
-    }
-  }
+  // An explicit historical target must still belong to the authenticated user.
+  // Normal creation continues resolving the active semester at insert time.
+  let sem = semesterId ? { id: semesterId } : await ensureActiveSemester();
+  if ((await semesterOwnerId(sem.id)) !== userId && !semesterId) sem = await ensureActiveSemester();
+  if ((await semesterOwnerId(sem.id)) !== userId) throw new Error("Semester does not belong to the current user.");
   const { data, error } = await supabase
     .from("courses")
     .insert({
@@ -865,9 +1074,10 @@ interface TimetableFields {
 }
 
 /** Create a NEW timetable-detail row (its own id) for a session; returns its id. */
-export async function addTimetableEntry(fields: TimetableFields): Promise<string> {
+export async function addTimetableEntry(fields: TimetableFields, semesterId?: string): Promise<string> {
   const userId = await currentUserId();
-  const sem = await ensureActiveSemester();
+  const sem = semesterId ? { id: semesterId } : await ensureActiveSemester();
+  if ((await semesterOwnerId(sem.id)) !== userId) throw new Error("Semester does not belong to the current user.");
   const { data, error } = await supabase
     .from("timetable_entries")
     .insert({
@@ -1020,8 +1230,9 @@ export async function getPlannerItems(): Promise<DbPlannerItem[]> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("planner_items")
-    .select(PLANNER_COLS)
+    .select(`${PLANNER_COLS}, semesters!inner(is_active)`)
     .eq("user_id", userId)
+    .eq("semesters.is_active", true)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => ({
@@ -1044,9 +1255,10 @@ export async function addPlannerItem(item: {
   done?: boolean;
   dueTime?: string | null;
   color?: string | null;
-}): Promise<DbPlannerItem> {
+}, semesterId?: string): Promise<DbPlannerItem> {
   const userId = await currentUserId();
-  const sem = await ensureActiveSemester();
+  const sem = semesterId ? { id: semesterId } : await ensureActiveSemester();
+  if ((await semesterOwnerId(sem.id)) !== userId) throw new Error("Semester does not belong to the current user.");
   const { data, error } = await supabase
     .from("planner_items")
     .insert({

@@ -163,6 +163,16 @@ export async function applyStudyAwardProjection(account: string, ids: string[], 
   return { ok: raw.ok, preferences: raw.preferences as Record<string, unknown> };
 }
 
+/** Commit a group award and its projection to one owned semester. */
+export async function applySemesterStudyAwardProjection(account: string, semester: string, ids: string[], expected: Record<string, unknown>, projection: Record<string, unknown>): Promise<{ ok: boolean; preferences: Record<string, unknown> }> {
+  const raw = await call("study_apply_semester_awards", {
+    p_account: account, p_semester: semester, p_ids: ids,
+    p_expected: expected, p_projection: projection,
+  }) as { ok?: unknown; preferences?: unknown } | null;
+  if (!raw || typeof raw.ok !== "boolean" || !raw.preferences || typeof raw.preferences !== "object" || Array.isArray(raw.preferences)) throw new StudyError("unknown");
+  return { ok: raw.ok, preferences: raw.preferences as Record<string, unknown> };
+}
+
 // ---------------------------------------------------------------------------
 // Off the group page: the «بدأ جلسة» card's light check
 // ---------------------------------------------------------------------------
