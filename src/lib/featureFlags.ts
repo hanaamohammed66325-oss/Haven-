@@ -3,6 +3,7 @@
 // nav entry unlocks). Kept in one place so a launch is a one-line change.
 
 import { ENFORCE_PREMIUM } from "./premium";
+import { GROUP_LAUNCH_STARTS_AT } from "../../supabase/functions/_shared/groupLaunch";
 
 /** Pomodoro focus page — live. Set to `false` to hide the page and its nav entry. */
 export const POMODORO_ENABLED = true;
@@ -16,6 +17,10 @@ export const NOTES_ENABLED = process.env.NODE_ENV === "development";
  * 2026-10-06); the server also keeps it closed to all but the trial accounts.
  */
 export const GROUP_STUDY_ENABLED = process.env.NODE_ENV === "development";
+/** Runtime checks for actions; React surfaces use the subscribed launch hook. */
+export function groupStudyAvailable(at = Date.now()): boolean {
+  return GROUP_STUDY_ENABLED || at >= Date.parse(GROUP_LAUNCH_STARTS_AT);
+}
 
 /** Award projection is enabled only for the same local development trial. */
 /** Public opening date for group study and referrals, shown while they are closed. */

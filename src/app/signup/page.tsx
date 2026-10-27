@@ -11,7 +11,7 @@ import { useT } from "@/i18n";
 import { signUp, signIn, verifySignupOtp, resendConfirmation, PENDING_SIGNUP_KEY } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { pendingStudyDestination } from "@/lib/study/destination";
-import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
+import { groupStudyAvailable } from "@/lib/featureFlags";
 
 // Simple, permissive email check: something@something.something (no spaces).
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -49,7 +49,7 @@ export default function SignUpPage() {
     } catch {
       // ignore
     }
-    router.replace((GROUP_STUDY_ENABLED && pendingStudyDestination()) || "/dashboard");
+    router.replace((groupStudyAvailable() && pendingStudyDestination()) || "/dashboard");
   };
 
   // Once the "check your email" screen is showing, poll for the account being
@@ -178,7 +178,7 @@ export default function SignUpPage() {
       setConfirmSent(true);
       return;
     }
-      router.push((GROUP_STUDY_ENABLED && pendingStudyDestination()) || "/dashboard");
+      router.push((groupStudyAvailable() && pendingStudyDestination()) || "/dashboard");
   };
 
   if (confirmSent) {

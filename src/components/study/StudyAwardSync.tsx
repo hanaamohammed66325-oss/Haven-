@@ -1,4 +1,5 @@
 "use client";
+import { useGroupStudyEnabled } from "@/components/useGroupStudyEnabled";
 import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
@@ -6,13 +7,13 @@ import { usePathname } from "next/navigation";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { createPortal } from "react-dom";
-import { GROUP_STUDY_AWARDS_ENABLED } from "@/lib/featureFlags";
 import { activeRoomSnapshot, activeRoomServerSnapshot, subscribeActiveRoom } from "@/lib/study/activeRoom";
 import { useStudyNotice } from "./useStudyNotice";
 /** No timer-derived credit: only pending awards recorded by the server. */
 export function StudyAwardSync() {
+  const groupsAvailable = useGroupStudyEnabled();
   const { accountId, hydrated, syncStudyAwards } = useStore();
-  return GROUP_STUDY_AWARDS_ENABLED && accountId && hydrated ? <AccountAwards key={accountId} sync={syncStudyAwards} /> : null;
+  return groupsAvailable && accountId && hydrated ? <AccountAwards key={accountId} sync={syncStudyAwards} /> : null;
 }
 function AccountAwards({ sync }: { sync: () => Promise<boolean> }) {
   const { t } = useT();

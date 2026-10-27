@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/store";
 import { HaviLoader } from "./HaviLoader";
-import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
+import { groupStudyAvailable } from "@/lib/featureFlags";
 import { rememberStudyDestination } from "@/lib/study/destination";
 
 // Who is signed in is decided once, in the store's auth listener (including a
@@ -16,7 +16,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (authStatus === "signedOut") {
-      if (GROUP_STUDY_ENABLED) rememberStudyDestination(window.location.pathname + window.location.search);
+      if (groupStudyAvailable()) rememberStudyDestination(window.location.pathname + window.location.search + window.location.hash);
       router.replace("/signin");
     }
   }, [authStatus, router]);

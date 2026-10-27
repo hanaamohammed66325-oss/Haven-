@@ -1,4 +1,5 @@
 "use client";
+import { useGroupStudyEnabled } from "@/components/useGroupStudyEnabled";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
@@ -6,7 +7,7 @@ import { MotionRoot, Press, PressLink } from "@/components/motion/Press";
 import { SURFACE } from "@/components/motion/springs";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
-import { GROUP_STUDY_ENABLED, openingDateLabel } from "@/lib/featureFlags";
+import { openingDateLabel } from "@/lib/featureFlags";
 import { ComingSoon } from "@/components/ComingSoon";
 import { clearStudyDestination, rememberStudyDestination } from "@/lib/study/destination";
 import { joinStudyGroup, previewStudyInvite } from "@/lib/study/client";
@@ -16,6 +17,7 @@ export default function JoinPage() {
   return <Suspense><Join /></Suspense>;
 }
 function Join() {
+  const groupsAvailable = useGroupStudyEnabled();
   const { t, lang } = useT();
   const { authStatus, hydrated, accountId, profileName, haviName } = useStore();
   const token = useSearchParams().get("t") ?? "";
@@ -33,13 +35,13 @@ function Join() {
   useEffect(() => {
     const mine = ++request.current;
     setPreview(null); setError(false); setBusy(false); joining.current = false;
-    if (!GROUP_STUDY_ENABLED || !valid) return;
+    if (!groupsAvailable || !valid) return;
     rememberStudyDestination(`/join/?t=${token}`);
     if (authStatus === "signedIn" && hydrated && accountId) {
       previewStudyInvite(token).then((p) => { if (request.current === mine) setPreview(p); }, () => { if (request.current === mine) setError(true); });
     }
     return () => { ++request.current; };
-  }, [token, valid, authStatus, hydrated, accountId, retry]);
+  }, [token, valid, authStatus, hydrated, accountId, retry, groupsAvailable]);
   const join = async () => {
     if (joining.current || !preview?.ok || !appearanceValid(appearance)) return;
     const mine = request.current;
@@ -51,7 +53,7 @@ function Join() {
     } catch { if (mine === request.current) setError(true); }
     finally { if (mine === request.current) { joining.current = false; setBusy(false); } }
   };
-  if (!GROUP_STUDY_ENABLED) return <ComingSoon title={t("study_title")} desc={t("study_soonBody", { date: openingDateLabel(lang) })} />;
+  if (!groupsAvailable) return <ComingSoon title={t("study_title")} desc={t("study_soonBody", { date: openingDateLabel(lang) })} />;
   return <MotionRoot><motion.main className="mx-auto flex max-w-lg flex-col gap-4 p-6"
     initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={SURFACE}>
     <h1 className="text-xl font-semibold">{t("study_inviteTitle")}</h1>

@@ -1,4 +1,5 @@
 "use client";
+import { useGroupStudyEnabled } from "@/components/useGroupStudyEnabled";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
@@ -8,12 +9,12 @@ import { EXIT, SURFACE } from "@/components/motion/springs";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { watchMyStudyGroups } from "@/lib/study/client";
-import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
 import type { StudyGroupSummary } from "@/lib/study/types";
 import { soloStudyActive } from "@/lib/study/solo";
 export function GroupStartCard() {
+  const groupsAvailable = useGroupStudyEnabled();
   const { accountId, hydrated, loadFailed } = useStore();
-  return GROUP_STUDY_ENABLED && accountId && hydrated && !loadFailed ? <AccountCard key={accountId} account={accountId} /> : null;
+  return groupsAvailable && accountId && hydrated && !loadFailed ? <AccountCard key={accountId} account={accountId} /> : null;
 }
 function AccountCard({ account }: { account: string }) {
   const { t } = useT();

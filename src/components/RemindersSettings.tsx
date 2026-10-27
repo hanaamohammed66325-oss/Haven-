@@ -1,4 +1,5 @@
 "use client";
+import { useGroupStudyEnabled } from "@/components/useGroupStudyEnabled";
 import { InteractionButton } from "@/components/motion/Interaction";
 
 // ---------------------------------------------------------------------------
@@ -16,7 +17,6 @@ import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import type { NotifPrefs } from "@/types";
-import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
 import {
   EXAM_DAYS_MIN,
   EXAM_DAYS_MAX,
@@ -323,6 +323,7 @@ function SingleNumber({
 }
 
 export function RemindersSettings() {
+  const groupsAvailable = useGroupStudyEnabled();
   const { t, lang } = useT();
   const { notifPrefs: np, setNotifPrefs } = useStore();
 
@@ -418,7 +419,7 @@ export function RemindersSettings() {
       </div>
 
       {/* 4) Attendance alerts (no timing to customize) */}
-      {GROUP_STUDY_ENABLED && <div className={rowCls} style={border}>
+      {groupsAvailable && <div className={rowCls} style={border}>
         <div className="flex items-center justify-between gap-4">
           <span className={titleCls}>{t("study_pushTitle")}</span>
           <Toggle checked={np.groups.enabled} onChange={(v) => update({ groups: { enabled: v } })} label={t("study_pushTitle")} />

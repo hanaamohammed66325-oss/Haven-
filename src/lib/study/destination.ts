@@ -1,13 +1,16 @@
 import { UUID } from "@/lib/study/parse";
-// Only our two study destinations may survive authentication. Never redirect
-// to a caller-supplied host, scheme or arbitrary application route.
+// Only study/invitation destinations and the exact launch referral anchor may
+// survive authentication. Never accept a caller-supplied host or arbitrary route.
 const KEY = "study-pending-destination";
 const MAX_AGE = 24 * 60 * 60 * 1000;
 export function studyDestination(value: string): string | null {
   if (!value.startsWith("/") || value.startsWith("//")) return null;
   try {
     const url = new URL(value, "https://haven.invalid");
-    if (url.origin !== "https://haven.invalid" || url.hash) return null;
+    if (url.origin !== "https://haven.invalid") return null;
+    if ((url.pathname === "/profile/" || url.pathname === "/profile") && !url.search && url.hash === "#profile-ambassador") return "/profile/#profile-ambassador";
+    if (url.hash) return null;
+    if ((url.pathname === "/study/" || url.pathname === "/study") && !url.search) return "/study/";
     const key = url.pathname === "/join/" || url.pathname === "/join" ? "t" :
       url.pathname === "/study/" || url.pathname === "/study" ? "g" : null;
     if (!key || [...url.searchParams.keys()].length !== 1) return null;

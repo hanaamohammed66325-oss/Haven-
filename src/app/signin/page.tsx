@@ -9,7 +9,7 @@ import { AuthLayout } from "@/components/AuthLayout";
 import { useT } from "@/i18n";
 import { signIn, resendConfirmation, requestPasswordReset } from "@/lib/auth";
 import { pendingStudyDestination } from "@/lib/study/destination";
-import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
+import { groupStudyAvailable } from "@/lib/featureFlags";
 
 const fieldBase =
   "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
@@ -48,7 +48,7 @@ export default function SignInPage() {
       setError(isUnconfirmed ? t("authErrUnconfirmed") : t("authErrInvalid"));
       return;
     }
-    router.push((GROUP_STUDY_ENABLED && pendingStudyDestination()) || "/dashboard");
+    router.push((groupStudyAvailable() && pendingStudyDestination()) || "/dashboard");
   };
 
   const resend = async () => {

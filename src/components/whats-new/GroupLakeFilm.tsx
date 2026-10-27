@@ -45,28 +45,34 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
   const reduced = !!useReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const clock = useRef(0);
-  const drawFrame = useRef<((delta: number) => void) | null>(null);
+  const setPlayback = useRef<((playing: boolean) => void) | null>(null);
   const zoomCommand = useRef<((factor: number) => void) | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const pointerPosition = useRef({ x: 0, y: 0 });
   const [shot, setShot] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
+  // Local profiling only; inspect rendered DOM attributes without account data.
+  const frameStats = useRef({ start: 0, ticks: 0, frames: 0, costs: [] as number[], samples: [] as object[] });
 
   useEffect(() => {
     const canvas = canvasRef.current, ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
+    const viewport = canvas?.parentElement;
+    if (!canvas || !ctx || !viewport) return;
     // The close crop needs a 2x source even on a 1x laptop screen.
     const dpr = 2;
-    const source = document.createElement("canvas");
-    source.width = canvas.width = Math.round(WIDTH * dpr);
-    source.height = canvas.height = Math.round(HEIGHT * dpr);
-    const sourceCtx = source.getContext("2d");
-    if (!sourceCtx) return;
+    const source = canvas;
+    source.width = Math.round(WIDTH * dpr);
+    source.height = Math.round(HEIGHT * dpr);
+    // The browser compositor crops the original canvas. Avoid an intermediate
+    // bitmap and a second full drawImage/upload on every animation frame.
+    const sourceCtx = ctx;
     const scene = new StudyScene(WIDTH, HEIGHT, dpr);
+    frameStats.current = { start: performance.now(), ticks: 0, frames: 0, costs: [], samples: [] };
     clock.current = reduced ? arriveAt : 0;
     let renderTime = performance.now(), lastShot = -1, lastHovered: string | null = null, gardenFramed = false;
     let currentScale = framing(clock.current);
     const camera = { zoom: 1, x: 0, y: 0 };
+    let raf = 0, previous = performance.now(), playing = false, dirty = false;
     const touches = new Map<number, { x: number; y: number }>();
     let cameraMotion: { stop(): void } | null = null;
     const modelAt = (time: number): SceneModel => {
@@ -84,6 +90,7 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
     scene.draw(sourceCtx, Math.max(1, renderTime - 15_000), model);
     scene.draw(sourceCtx, renderTime, model);
     const paint = (delta: number) => {
+      const measuredAt = process.env.NODE_ENV === "development" ? performance.now() : 0;
       // On a freshly opened tab, allow the original entry to settle before
       // counting the first studying shot. Its internal start must be positive.
       if (scene.ui.landed || clock.current > 0) {
@@ -103,24 +110,70 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
         gardenFramed = true;
         scene.draw(sourceCtx, renderTime, modelAt(time));
       }
-      const sw = source.width / currentScale, sh = source.height / currentScale;
       const boundX = (WIDTH - WIDTH / currentScale) / 2, boundY = (HEIGHT - HEIGHT / currentScale) / 2;
       camera.x = Math.max(-boundX, Math.min(boundX, camera.x)); camera.y = Math.max(-boundY, Math.min(boundY, camera.y));
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(source, (source.width - sw) / 2 + camera.x * dpr, (source.height - sh) / 2 + camera.y * dpr, sw, sh, 0, 0, canvas.width, canvas.height);
+      canvas.style.transform = `scale(${currentScale}) translate(${-camera.x / WIDTH * 100}%,${-camera.y / HEIGHT * 100}%)`;
       const next = shotAt(time);
       if (next !== lastShot) { lastShot = next; setShot(next); }
       const owner = scene.hoveredMember;
       if (owner !== lastHovered) { lastHovered = owner; setHovered(owner); }
+      if (process.env.NODE_ENV === "development" && delta > 0) {
+        const end = performance.now(), stats = frameStats.current;
+        stats.frames++; stats.costs.push(end - measuredAt);
+        const elapsed = end - stats.start;
+        if (elapsed >= 1000) {
+          const costs = stats.costs.sort((a, b) => a - b);
+          stats.samples.push({ shot: next, fps: +(stats.frames * 1000 / elapsed).toFixed(1), refresh: +(stats.ticks * 1000 / elapsed).toFixed(1),
+            p95Ms: +costs[Math.min(costs.length - 1, Math.floor(costs.length * .95))].toFixed(2), maxMs: +costs.at(-1)!.toFixed(2),
+            source: `${source.width}x${source.height}`, presentation: "compositor", canvases: 1 });
+          if (stats.samples.length > 40) stats.samples.shift();
+          canvas.dataset.filmSamples = JSON.stringify(stats.samples);
+          stats.start = end; stats.ticks = stats.frames = 0; stats.costs = [];
+        }
+      }
     };
+    const resetMeasurement = () => {
+      const stats = frameStats.current;
+      stats.start = performance.now(); stats.ticks = stats.frames = 0; stats.costs = [];
+    };
+    // Animation, gestures, Motion camera updates and resize share one frame.
+    // RAF follows the display cadence: no fixed 30/60 FPS timer or dropped tick.
+    const tick = (now: number) => {
+      raf = 0;
+      if (document.hidden) { previous = now; return; }
+      const delta = playing ? Math.max(0, Math.min(now - previous, 80)) : 0;
+      previous = now;
+      if (playing || dirty) {
+        dirty = false;
+        if (process.env.NODE_ENV === "development" && playing) frameStats.current.ticks++;
+        paint(delta);
+      }
+      if (playing) raf = requestAnimationFrame(tick);
+    };
+    const invalidate = () => {
+      dirty = true;
+      if (!raf && !document.hidden) raf = requestAnimationFrame(tick);
+    };
+    setPlayback.current = (next) => {
+      if (playing === next) return;
+      playing = next; previous = performance.now(); resetMeasurement();
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      if (playing) invalidate();
+    };
+    const visibility = () => {
+      previous = performance.now(); resetMeasurement();
+      if (document.hidden) { if (raf) cancelAnimationFrame(raf); raf = 0; }
+      else invalidate();
+    };
+    document.addEventListener("visibilitychange", visibility);
     // Inverse of the presentation crop: the renderer still owns hit testing.
     const locate = (event: { clientX: number; clientY: number }) => {
-      const rect = canvas.getBoundingClientRect();
+      const rect = viewport.getBoundingClientRect();
       const x = (event.clientX - rect.left) / rect.width, y = (event.clientY - rect.top) / rect.height;
       pointer.current = { x: WIDTH / 2 + camera.x + (x - .5) * WIDTH / currentScale, y: HEIGHT / 2 + camera.y + (y - .5) * HEIGHT / currentScale };
       pointerPosition.current = { x: x * 100, y: y * 100 };
-      paint(0);
+      invalidate();
       return { x, y };
     };
     const zoom = (factor: number, at = { x: .5, y: .5 }, immediate = false) => {
@@ -130,7 +183,8 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
       const target = { zoom: scale / base, x: factor === 0 ? 0 : camera.x + (at.x - .5) * WIDTH * (1 / currentScale - 1 / scale),
         y: factor === 0 ? 0 : camera.y + (at.y - .5) * HEIGHT * (1 / currentScale - 1 / scale) };
       const update = (q: number) => { camera.zoom = from.zoom + (target.zoom - from.zoom) * q;
-        camera.x = from.x + (target.x - from.x) * q; camera.y = from.y + (target.y - from.y) * q; paint(0); };
+        camera.x = from.x + (target.x - from.x) * q; camera.y = from.y + (target.y - from.y) * q;
+        currentScale = Math.max(1, Math.min(6, framing(clock.current) * camera.zoom)); invalidate(); };
       if (reduced || immediate) update(1);
       else cameraMotion = animate(0, 1, { duration: .22, ease: [.22, 1, .36, 1], onUpdate: update });
     };
@@ -140,7 +194,7 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
       canvas.setPointerCapture(event.pointerId); locate(event);
     };
     const move = (event: PointerEvent) => {
-      const old = touches.get(event.pointerId), rect = canvas.getBoundingClientRect();
+      const old = touches.get(event.pointerId), rect = viewport.getBoundingClientRect();
       if (old) {
         const before = [...touches.values()];
         touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -163,9 +217,9 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
       if (["+", "=", "-", "_", "Home"].includes(event.key)) { event.preventDefault(); zoom(event.key === "Home" ? 0 : ["+", "="].includes(event.key) ? 1.25 : .8); }
       else if (event.key.startsWith("Arrow")) { event.preventDefault();
         camera.x += (event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0) * 55 / currentScale;
-        camera.y += (event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0) * 55 / currentScale; paint(0); }
+        camera.y += (event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0) * 55 / currentScale; invalidate(); }
     };
-    const leave = () => { pointer.current = null; paint(0); };
+    const leave = () => { pointer.current = null; invalidate(); };
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);
     canvas.addEventListener("pointerup", up);
@@ -173,10 +227,11 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
     canvas.addEventListener("pointerleave", leave);
     canvas.addEventListener("wheel", wheel, { passive: false });
     canvas.addEventListener("keydown", key);
-    drawFrame.current = paint;
     paint(0);
     return () => {
-      drawFrame.current = null;
+      setPlayback.current = null;
+      if (raf) cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", visibility);
       zoomCommand.current = null; cameraMotion?.stop(); touches.clear();
       canvas.removeEventListener("pointerdown", down);
       canvas.removeEventListener("pointermove", move);
@@ -190,25 +245,15 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
   }, [replay, reduced]);
 
   useEffect(() => {
-    if (paused || reduced) return;
-    let raf = 0, previous = performance.now(), lastPaint = previous, pending = 0;
-    const tick = (now: number) => {
-      const delta = document.hidden ? 0 : Math.min(now - previous, 80);
-      previous = now;
-      pending += delta;
-      if (!document.hidden && now - lastPaint >= 1000 / 30) {
-        drawFrame.current?.(pending); pending = 0; lastPaint = now;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    setPlayback.current?.(!paused && !reduced);
   }, [paused, reduced, replay]);
 
   const captions = ["whatsnew_groupWorking", "whatsnew_groupWorking", "whatsnew_groupGrowing", "whatsnew_groupTravelling", "whatsnew_groupGarden", "whatsnew_groupAgain"] as const;
   const owner = participants.find(member => member.id === hovered);
   return <>
-    <canvas ref={canvasRef} className={css.interactiveLake} tabIndex={0} data-film-shot={shot} aria-label={t("whatsnew_groups_demo")} aria-describedby="whatsnew-camera-hint" />
+    <div className={css.filmViewport}>
+      <canvas ref={canvasRef} className={css.interactiveLake} tabIndex={0} data-film-shot={shot} aria-label={t("whatsnew_groups_demo")} aria-describedby="whatsnew-camera-hint" />
+    </div>
     <div className={css.filmCamera}>
       {cameraControls.map(({ factor, Icon, label }) => <motion.button key={label} type="button" className={css.sceneButton} onClick={() => zoomCommand.current?.(factor)}
         aria-label={t(label)} whileTap={{ scale: .9 }}><Icon size={13} /></motion.button>)}

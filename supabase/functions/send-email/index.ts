@@ -6,6 +6,8 @@
 // v4: password_changed, email_change_notice; emojis removed from subjects.
 // Every email is BILINGUAL: Arabic block first, divider, English block.
 
+import { SESSION_ANNOUNCEMENT } from './sessionAnnouncement.ts';
+import { GROUP_LAUNCH_ID, GROUP_LAUNCH_TEMPLATE, renderGroupLaunchEmail } from '../_shared/groupLaunch.ts';
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
@@ -37,7 +39,9 @@ function btnPair(url: string, labelAr = 'إدارة الاشتراك', labelEn =
   return `<div style="margin:20px 0;text-align:center;"><a href="${url}" style="display:inline-block;background:${BRAND};color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">${labelAr} &middot; ${labelEn}</a></div>`;
 }
 
-function renderTemplate(template: string, d: TemplateData): { subject: string; html: string } {
+function renderTemplate(template: string, d: TemplateData): { subject: string; html: string; text?: string } {
+  if (template === GROUP_LAUNCH_TEMPLATE) return renderGroupLaunchEmail();
+  if (template === 'session_announcement_20261016') return SESSION_ANNOUNCEMENT;
   const appUrl = 'https://havenstudent.com/profile';
   const h = (color: string, ar: string, en: string) => ({ ar: `<h1 style="color:${color};font-size:19px;margin:0 0 12px;">${ar}</h1>`, en: `<h1 style="color:${color};font-size:19px;margin:0 0 12px;">${en}</h1>` });
 
@@ -158,20 +162,28 @@ serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
     const payloadIn = await req.json().catch(() => ({}));
+    if (payloadIn.mode === 'usage') {
+      const response = await fetch('https://api.resend.com/usage', { signal: AbortSignal.timeout(10_000), headers: { Authorization: `Bearer ${resendKey}` } });
+      const usage = await response.json().catch(() => null);
+      if (!response.ok || !usage?.emails) return j({ error: 'Email quota unavailable; campaign email remains disabled' }, 503);
+      return j({ ok: true, usage: { emails: usage.emails } });
+    }
     const to = String(payloadIn.to ?? '');
     const template = String(payloadIn.template ?? '');
     const data: TemplateData = payloadIn.data ?? {};
     const dedupKey = payloadIn.dedup_key ? String(payloadIn.dedup_key) : null;
     const userId = payloadIn.user_id ? String(payloadIn.user_id) : null;
     if (!to || !template) return j({ error: 'Missing to or template' }, 400);
+    if (template === GROUP_LAUNCH_TEMPLATE && (!userId || dedupKey !== GROUP_LAUNCH_ID || !/^[0-9a-f-]{36}$/i.test(userId))) return j({ error: 'Launch delivery requires a user and the campaign dedup key' }, 400);
 
     if (dedupKey && userId) {
-      const { data: already } = await admin.from('notifications_sent').select('id').eq('user_id', userId).eq('item_key', dedupKey).eq('kind', 'email').maybeSingle();
+      const { data: already, error: dedupError } = await admin.from('notifications_sent').select('id').eq('user_id', userId).eq('item_key', dedupKey).eq('kind', 'email').maybeSingle();
+      if (template === GROUP_LAUNCH_TEMPLATE && dedupError) return j({ error: 'Launch dedup lookup failed' }, 503);
       if (already) return j({ ok: true, skipped: 'dedup', dedup_key: dedupKey });
     }
 
-    const { subject, html } = renderTemplate(template, data);
-    const resp = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: FROM_ADDRESS, to: [to], subject, html }) });
+    const { subject, html, text } = renderTemplate(template, data);
+    const resp = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json', ...(template === GROUP_LAUNCH_TEMPLATE ? { 'Idempotency-Key': `${GROUP_LAUNCH_ID}/${userId}` } : {}) }, body: JSON.stringify({ from: FROM_ADDRESS, to: [to], subject, html, ...(text ? { text } : {}) }) });
     const respJson = await resp.json().catch(() => ({}));
     if (!resp.ok) return j({ error: 'Resend send failed', detail: respJson, status: resp.status }, 502);
 

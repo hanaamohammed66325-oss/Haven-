@@ -10,7 +10,7 @@ import { useT } from "@/i18n";
 import { supabase } from "@/lib/supabase";
 import { PENDING_SIGNUP_KEY } from "@/lib/auth";
 import { pendingStudyDestination } from "@/lib/study/destination";
-import { GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
+import { groupStudyAvailable } from "@/lib/featureFlags";
 
 // Landing page for email-confirmation links. Supabase parses the token from the
 // URL hash on load and stores the session, so by the time getSession() resolves
@@ -88,7 +88,7 @@ export default function WelcomePage() {
           // ignore
         }
         setState("ok");
-        timer = setTimeout(() => router.replace((GROUP_STUDY_ENABLED && pendingStudyDestination()) || "/dashboard"), 2000);
+        timer = setTimeout(() => router.replace((groupStudyAvailable() && pendingStudyDestination()) || "/dashboard"), 2000);
       } else {
         // A different device opened the link: don't leave a session behind here.
         await supabase.auth.signOut();
@@ -106,7 +106,7 @@ export default function WelcomePage() {
   if (state === "ok") {
     return (
       <AuthLayout title={t("welcomeConfirmedTitle")} subtitle={t("welcomeRedirecting")}>
-        <InteractionButton type="button" onClick={() => router.replace((GROUP_STUDY_ENABLED && pendingStudyDestination()) || "/dashboard")} className={primaryBtn}>
+        <InteractionButton type="button" onClick={() => router.replace((groupStudyAvailable() && pendingStudyDestination()) || "/dashboard")} className={primaryBtn}>
           {t("welcomeGoToDashboard")}
         </InteractionButton>
       </AuthLayout>

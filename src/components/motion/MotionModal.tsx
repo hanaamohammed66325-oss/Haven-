@@ -18,6 +18,8 @@ import { useOverlayLifecycle } from "./overlayLifecycle";
 interface MotionModalProps {
   /** Compact release walkthrough; existing dialogs retain their usual geometry. */
   compact?: boolean;
+  /** Gives visual launch walkthroughs room for the actual session scene. */
+  wide?: boolean;
   tone?: "lake" | "notes";
   open: boolean;
   onClose: () => void;
@@ -57,7 +59,7 @@ export function MotionModal(props: MotionModalProps) {
   );
 }
 
-function Layer({ layerRef, onClose, title, children, footer, tone, compact, variant = "dialog" }: MotionModalProps & { layerRef: React.RefObject<HTMLDivElement | null> }) {
+function Layer({ layerRef, onClose, title, children, footer, tone, compact, wide, variant = "dialog" }: MotionModalProps & { layerRef: React.RefObject<HTMLDivElement | null> }) {
   const { t } = useT();
   const present = useIsPresent();
   const sheet = variant === "sheet";
@@ -77,7 +79,8 @@ function Layer({ layerRef, onClose, title, children, footer, tone, compact, vari
       <motion.div {...panel} transition={SURFACE}
         className={`w-full max-w-md overflow-hidden flex flex-col ${sheet ? "rounded-t-3xl sm:rounded-2xl" : "rounded-2xl"}`}
         style={{
-          maxHeight: compact ? "min(580px, calc(100dvh - 32px))" : sheet ? "85dvh" : "90dvh",
+          maxHeight: compact ? `min(${wide ? 760 : 580}px, calc(100dvh - 32px))` : sheet ? "85dvh" : "90dvh",
+          maxWidth: wide ? 600 : undefined,
           background: "var(--color-surface)",
           boxShadow: "0 20px 60px rgba(36,54,64,0.22)",
           paddingBottom: sheet ? "env(safe-area-inset-bottom)" : undefined,

@@ -1,4 +1,5 @@
 "use client";
+import { useGroupStudyEnabled } from "@/components/useGroupStudyEnabled";
 import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -39,7 +40,7 @@ import type { TranslationKey } from "@/i18n/translations/en";
 import { semesterProgress } from "@/lib/grades";
 import { spokenDuration } from "@/lib/format";
 import { toISODate } from "@/lib/dates";
-import { POMODORO_ENABLED, GROUP_STUDY_ENABLED } from "@/lib/featureFlags";
+import { POMODORO_ENABLED } from "@/lib/featureFlags";
 import { StudyGroupsMenu } from "@/components/study/StudyGroupsMenu";
 
 import { setSoloStudyActive } from "@/lib/study/solo";
@@ -69,6 +70,7 @@ const ASK: Record<FocusTaskKind, { q: TranslationKey; yes: TranslationKey; later
 // the pad species + flower type (so every subject always grows the same plant).
 
 export default function PomodoroPage() {
+  const groupsAvailable = useGroupStudyEnabled();
   const audio = useStudyAudio();
   const [groupsOpen, setGroupsOpen] = useState(false);
   const store = useStore();
@@ -487,7 +489,7 @@ export default function PomodoroPage() {
             style={{ paddingTop: immersive ? "max(14px, env(safe-area-inset-top))" : 14 }}
           >
             <div className="flex items-center gap-2">
-            <StudyGroupsMenu soon={!GROUP_STUDY_ENABLED} open={groupsOpen} onToggle={() => setGroupsOpen((v) => !v)} onClose={() => setGroupsOpen(false)} disabled={inSession} />
+            <StudyGroupsMenu soon={!groupsAvailable} open={groupsOpen} onToggle={() => setGroupsOpen((v) => !v)} onClose={() => setGroupsOpen(false)} disabled={inSession} />
             <InteractionButton
               data-tour="pom-grove"
               onClick={() => setLifted(true)}

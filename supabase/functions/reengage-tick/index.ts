@@ -28,6 +28,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import webpush from 'npm:web-push@3.6.7';
+import { GROUP_LAUNCH_SCHEDULE_KEY, GROUP_LAUNCH_STARTS_AT, GROUP_LAUNCH_EXPIRES_AT } from '../_shared/groupLaunch.ts';
 
 const LAPSE_DAYS = 7; // quiet for at least this long → eligible
 const MAX_DAYS = 120; // …but don't chase users who left months ago
@@ -137,6 +138,12 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const admin = createClient(supabaseUrl, serviceKey);
+    if (!onlyUser && !dryRun) {
+      const launch = await admin.from('app_config').select('value').eq('key', GROUP_LAUNCH_SCHEDULE_KEY).maybeSingle();
+      if (launch.error) return json({ error: 'Launch overlap check unavailable' }, 503);
+      const scheduled = launch.data ? JSON.parse(launch.data.value) : null;
+      if (scheduled?.enabled === true && Date.now() >= Date.parse(GROUP_LAUNCH_STARTS_AT) && Date.now() < Date.parse(GROUP_LAUNCH_EXPIRES_AT)) return json({ ok: true, disabled: true, msg: 'Launch window temporarily owns reengagement' });
+    }
 
     // Master switch. Two ways to flip go-live, either one enables sending:
     //   • the REENGAGE_ENABLED secret === "true" (owner sets it in the dashboard)

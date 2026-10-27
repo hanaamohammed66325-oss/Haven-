@@ -48,7 +48,7 @@ import { canUseReferralReward, filterReferralPreferences } from "@/lib/referralR
 import { DEFAULT_NOTIF_PREFS, normalizeNotifPrefs } from "@/lib/notifPrefs";
 import { DEFAULT_REWARD_MOTIONS, normalizeRewardMotions, isAllowedRewardMotion } from "@/lib/rewardMotions";
 import { clearStudyDestination } from "@/lib/study/destination";
-import { GROUP_STUDY_AWARDS_ENABLED } from "@/lib/featureFlags";
+import { groupStudyAvailable } from "@/lib/featureFlags";
 import { pendingStudyAwards, applyStudyAwardProjection } from "@/lib/study/client";
 import { addStudyAwards } from "@/lib/study/awards";
 import { activeStreak, advanceStreak } from "@/lib/streak";
@@ -1518,7 +1518,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const studyAwardRequest = useRef<{ uid: string; epoch: number; promise: Promise<boolean> } | null>(null);
   const syncStudyAwards = useCallback((): Promise<boolean> => {
     const uid = readyUidRef.current;
-    if (!GROUP_STUDY_AWARDS_ENABLED || !uid || uid !== currentUidRef.current) return Promise.resolve(false);
+    if (!groupStudyAvailable() || !uid || uid !== currentUidRef.current) return Promise.resolve(false);
     const epoch = studyAwardEpoch.current;
     if (studyAwardRequest.current?.uid === uid && studyAwardRequest.current.epoch === epoch) return studyAwardRequest.current.promise;
     const sameAccount = () => studyAwardEpoch.current === epoch && readyUidRef.current === uid && currentUidRef.current === uid;

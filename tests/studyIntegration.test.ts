@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
 import { studyDestination, rememberStudyDestination, pendingStudyDestination, clearStudyDestination } from "../src/lib/study/destination";
 import { addStudyAwards } from "../src/lib/study/awards";
 import { normalizeNotifPrefs } from "../src/lib/notifPrefs";
@@ -8,10 +11,15 @@ import { LakeWorld, type Camera } from "../src/lib/pomodoro/lakeWorld";
 import { setSoloStudyActive, soloStudyActive } from "../src/lib/study/solo";
 const id = "00000000-0000-4000-8000-000000000001";
 const token = "a".repeat(32);
-test("auth destination accepts only a single valid study id or invite token", () => {
+test("auth destination accepts study links and the exact launch referral anchor only", () => {
   assert.equal(studyDestination(`/join?t=${token}`), `/join/?t=${token}`);
   assert.equal(studyDestination(`/study/?g=${id}`), `/study/?g=${id}`);
+  assert.equal(studyDestination("/study/"), "/study/");
+  assert.equal(studyDestination("/study"), "/study/");
+  assert.equal(studyDestination("/profile/#profile-ambassador"), "/profile/#profile-ambassador");
+  assert.equal(studyDestination("/profile#profile-ambassador"), "/profile/#profile-ambassador");
   for (const bad of ["https://evil.test", "//evil.test/study", "/dashboard", `/join/?t=${token}&t=${token}`, `/join/?t=${token}#bad`, `/study/?g=${id}&next=https://evil.test`, "/study/?g=bad", "/\\evil.test/join/"]) assert.equal(studyDestination(bad), null, bad);
+  for (const bad of ["/profile/", "/profile/#other", "/profile/?next=bad#profile-ambassador", "/study/#other", "/study/?next=/dashboard", "//evil.test/profile/#profile-ambassador"]) assert.equal(studyDestination(bad), null, bad);
 });
 test("invite survives auth bookkeeping and expires safely", () => {
   const map = new Map<string, string>();
@@ -24,7 +32,34 @@ test("invite survives auth bookkeeping and expires safely", () => {
     map.set(key, JSON.stringify({ path: `/join/?t=${token}`, at: Date.now() - 86_400_001 }));
     assert.equal(pendingStudyDestination(), null);
     rememberStudyDestination(`/study/?g=${id}`); clearStudyDestination(); assert.equal(pendingStudyDestination(), null);
+    for (const path of ["/study/", "/profile/#profile-ambassador"]) {
+      rememberStudyDestination(path);
+      assert.equal(pendingStudyDestination(), path, "launch destination survives the sign-in redirect");
+      map.set(key, JSON.stringify({ path, at: Date.now() + 60_000 }));
+      assert.equal(pendingStudyDestination(), null, "future-dated storage is rejected");
+    }
   } finally { Object.defineProperty(globalThis, "localStorage", { configurable: true, value: old }); }
+});
+
+test("signed-out guard preserves the launch URL including its exact referral hash", () => {
+  const source = readFileSync(new URL("../src/components/AuthGuard.tsx", import.meta.url), "utf8");
+  for (const location of [{ pathname: "/study/", search: "", hash: "" }, { pathname: "/profile/", search: "", hash: "#profile-ambassador" }]) {
+    const remembered: string[] = [], redirects: string[] = [];
+    const exports: { AuthGuard?: (props: { children: null }) => unknown } = {};
+    vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, {
+      exports, window: { location }, require(name: string) {
+        if (name === "react") return { useEffect: (fn: () => void) => fn() };
+        if (name === "next/navigation") return { useRouter: () => ({ replace: (url: string) => redirects.push(url) }) };
+        if (name === "@/store") return { useStore: () => ({ authStatus: "signedOut" }) };
+        if (name.includes("featureFlags")) return { groupStudyAvailable: () => true };
+        if (name.includes("destination")) return { rememberStudyDestination: (url: string) => remembered.push(url) };
+        return {};
+      },
+    });
+    assert.equal(exports.AuthGuard!({ children: null }), null);
+    assert.deepEqual(remembered, [location.pathname + location.hash]);
+    assert.deepEqual(redirects, ["/signin"]);
+  }
 });
 const empty = (): PomodoroStats => ({ totalSessions: 0, totalFocusMinutes: 0, currentDailyStreak: 0, longestDailyStreak: 0, lastSessionDate: null, recentDays: [], lilyPadCount: 0, pads: [] });
 const award = (n: number, date: string, minutes = 40) => ({ id: `${id.slice(0, -1)}${n}`, minutes, awardedAt: new Date(`${date}T12:00:00`).getTime(), groupId: id });

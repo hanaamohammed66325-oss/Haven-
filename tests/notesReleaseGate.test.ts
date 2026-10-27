@@ -16,7 +16,7 @@ function compile(text: string, imports: Record<string, unknown>, globals: Record
 
 test('public production Notes is closed, local development remains available and no public date is coupled to Notes', () => {
   for (const mode of ['production', 'development', 'test']) {
-    const flags = compile(source('src/lib/featureFlags.ts'), { './premium': { ENFORCE_PREMIUM: false } }, { process: { env: { NODE_ENV: mode } } });
+    const flags = compile(source('src/lib/featureFlags.ts'), { './premium': { ENFORCE_PREMIUM: false }, '../../supabase/functions/_shared/groupLaunch': { GROUP_LAUNCH_STARTS_AT: '2026-10-26T21:00:00.000Z' } }, { process: { env: { NODE_ENV: mode } } });
     assert.equal(flags.NOTES_ENABLED, process.env.HAVEN_NOTES_RELEASE_VARIANT === 'private' || mode === 'development');
   }
 });
