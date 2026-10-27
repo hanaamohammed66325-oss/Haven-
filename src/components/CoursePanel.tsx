@@ -138,9 +138,9 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
 
       {/* Components */}
       <div className="p-5 sm:p-8">
-        <div className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 mb-6">
           <h3 className="haven-label" style={{ color: "var(--color-ink)" }}>{t("componentsHeading")}</h3>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <InteractionButton
               onClick={autofill}
               disabled={autoFilling || hasComponents}

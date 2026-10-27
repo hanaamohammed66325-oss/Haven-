@@ -1,4 +1,5 @@
 "use client";
+import { AccountDataRecovery } from "@/components/AccountDataRecovery";
 import { InteractionButton, InteractionAnchor } from "@/components/motion/Interaction";
 
 import { useEffect, useState } from "react";
@@ -170,7 +171,6 @@ export default function SettingsPage() {
   // Which of the two semester date fields was last rejected for inverting the
   // range (null = no problem). Drives the inline explanation under the fields.
   const [dateError, setDateError] = useState<"start" | "end" | null>(null);
-  const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
@@ -581,20 +581,7 @@ export default function SettingsPage() {
               {t("loadDemo")}
             </InteractionButton>
           </div>
-          <div className="flex items-center justify-between gap-4 py-3 last:pb-0">
-            <div>
-              <div className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{t("resetTitle")}</div>
-              <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>{t("resetDesc")}</div>
-            </div>
-            <InteractionButton
-              onClick={() => setConfirmReset(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shrink-0 transition-colors"
-              style={{ background: "#FDEAEA", color: "var(--color-danger)" }}
-            >
-              <Trash2 size={16} />
-              {t("resetData")}
-            </InteractionButton>
-          </div>
+          <AccountDataRecovery />
         </div>
       </Section>
 
@@ -644,28 +631,6 @@ export default function SettingsPage() {
         </InteractionButton>
       </div>
       </div>
-
-      <Modal open={confirmReset} onClose={() => setConfirmReset(false)} title={t("resetData")}>
-        <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
-          {t("resetConfirm")}
-        </p>
-        <div className="flex justify-end gap-3">
-          <InteractionButton
-            onClick={() => setConfirmReset(false)}
-            className="px-4 py-2 rounded-xl text-sm font-medium border"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}
-          >
-            {t("cancel")}
-          </InteractionButton>
-          <InteractionButton
-            onClick={() => { resetData(); setConfirmReset(false); }}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-white"
-            style={{ background: "var(--color-danger)" }}
-          >
-            {t("resetData")}
-          </InteractionButton>
-        </div>
-      </Modal>
 
       <Modal open={confirmDelete} onClose={closeDelete} title={t("deleteAccountTitle")}>
         <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>

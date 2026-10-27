@@ -490,7 +490,7 @@ export function DemoStoreProvider({ children, initial, referral = EMPTY_REFERRAL
       },
       restoreCourse: (course) => setData((d) => ({ ...d, courses: [...d.courses, course] })),
 
-      resetData: () => {},
+      resetData: async () => {},
     };
   }, [data, patch, mapCourses, referral]);
 

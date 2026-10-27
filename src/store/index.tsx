@@ -1,4 +1,5 @@
 "use client";
+import { accountDataChanging, bindAccountGeneration, changeAccountData, initializeAccountData } from "@/lib/accountReset";
 
 import {
   createContext,
@@ -734,7 +735,7 @@ export interface StoreValue extends AppData {
   ) => Promise<MutationResult>;
   updateMissedSession: (courseId: string, missedId: string, patch: { excused?: boolean; tardiness?: number | null; date?: string }) => Promise<MutationResult>;
   removeMissedSession: (courseId: string, missedId: string) => void;
-  resetData: () => void;
+  resetData: () => Promise<void>;
   recordAppOpen: () => { xpEarned: number; streakBroke: boolean; streakCurrent: number };
   doCheckIn: () => { xpEarned: number; alreadyDone: boolean; newBadges: string[]; tierAdvanced: boolean };
   awardGamificationXP: (amount: number, reason: string) => { newBadges: string[]; tierAdvanced: boolean };
@@ -936,6 +937,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Signed-out / anonymous: localStorage IS the store (no account to leak to).
     // Planner / courses require an account, so they stay empty here.
     const applyAnonymous = () => {
+      bindAccountGeneration(null, null);
       const local = readLocal();
       setData({
         ...initialData,
@@ -970,6 +972,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return [];
         });
       try {
+        await initializeAccountData(user.id);
         // Launch speed: every request goes out at once, in one round trip.
         // Courses and grades are asked for "the active semester" instead of
         // waiting for its id.
@@ -1371,6 +1374,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // they computed work it out from dataRef, then commit it here, which keeps
   // dataRef current for the next call in the same tick.
   const commit = useCallback((patch: Partial<AppData>) => {
+    if (accountDataChanging()) return;
     dataRef.current = { ...dataRef.current, ...patch };
     setData((d) => ({ ...d, ...patch }));
   }, []);
@@ -2720,20 +2724,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resetData = useCallback(async () => {
-    const semesterId = semesterIdRef.current;
-    if (loggedInRef.current && semesterId) {
-      try {
-        await db.deleteCoursesForSemester(semesterId);
-      } catch (e) {
-        console.error("Haven: failed to reset cloud data", e);
-      }
-    }
-    // Only the courses and their grades go, as the button says. It used to
-    // reset everything else in memory too (progress, focus stats, university…)
-    // without deleting it, so the next save of any of them wrote the defaults
-    // over the account.
-    commit({ courses: [] });
-  }, [commit]);
+    const uid = readyUidRef.current;
+    if (!uid || !loggedInRef.current) throw new Error("Account is not ready.");
+    await changeAccountData(uid);
+    window.location.assign("/settings/#data-recovery");
+    window.location.reload();
+  }, []);
 
   // Official end-of-term results replace the estimates everywhere courses are read.
   const coursesView = useMemo(() => {

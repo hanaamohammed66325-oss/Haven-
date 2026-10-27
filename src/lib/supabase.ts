@@ -1,4 +1,5 @@
 import { createClient, isAuthRetryableFetchError } from '@supabase/supabase-js';
+import { accountDataChanging, dataRequestHeaders, isRecoveryRequest, trackAccountWrite } from './accountReset';
 
 // Exported so callers that talk to Edge Functions directly (e.g. /checkout →
 // create-subscription) can build the functions URL and send the `apikey` header
@@ -65,6 +66,13 @@ function timeoutFor(url: string): number | null {
 
 const fetchWithTimeout: typeof fetch = (input, init) => {
   const url = input instanceof Request ? input.url : String(input);
+  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+  const personalWrite = url.includes('/rest/v1/') && !['GET','HEAD','OPTIONS'].includes(method);
+  if (personalWrite && accountDataChanging() && !isRecoveryRequest(url)) {
+    return Promise.resolve(new Response(JSON.stringify({ code: '40001', message: 'Account data is changing; reload before saving.' }),
+      { status: 409, headers: { 'Content-Type': 'application/json' } }));
+  }
+  if (url.includes('/rest/v1/')) init = { ...init, headers: dataRequestHeaders(init?.headers ?? (input instanceof Request ? input.headers : undefined)) };
   const ms = timeoutFor(url);
   if (ms === null) return fetch(input, init);
 
@@ -78,7 +86,8 @@ const fetchWithTimeout: typeof fetch = (input, init) => {
     if (callerSignal.aborted) controller.abort();
     else callerSignal.addEventListener('abort', () => controller.abort(), { once: true });
   }
-  return fetch(input, { ...init, signal: controller.signal });
+  const request = fetch(input, { ...init, signal: controller.signal });
+  return personalWrite && !isRecoveryRequest(url) ? trackAccountWrite(request) : request;
 };
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {

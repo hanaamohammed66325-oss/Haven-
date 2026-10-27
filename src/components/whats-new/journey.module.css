@@ -41,7 +41,7 @@
 .lakeScene { aspect-ratio:5/3; background:#28554c; }
 .interactiveLake { touch-action:none; cursor:grab; }
 .filmViewport { position:absolute; inset:0; overflow:hidden; }
-.filmViewport canvas { transform-origin:50% 50%; will-change:transform; }
+.filmViewport canvas { transform:none; }
 .filmViewport:focus-within { outline:2px solid #f2d28b; outline-offset:-3px; }
 .interactiveLake:active { cursor:grabbing; }
 .interactiveLake:focus-visible { outline:2px solid #f2d28b; outline-offset:-3px; }

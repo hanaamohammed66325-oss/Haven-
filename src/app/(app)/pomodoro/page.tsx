@@ -45,6 +45,8 @@ import { StudyGroupsMenu } from "@/components/study/StudyGroupsMenu";
 
 import { setSoloStudyActive } from "@/lib/study/solo";
 import { ComingSoon } from "@/components/ComingSoon";
+import layoutCss from "@/components/pomodoro/PomodoroLayout.module.css";
+import { onAccountDataQuiesce } from "@/lib/accountReset";
 
 function fireNotif(title: string, body: string, tag: string) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -182,6 +184,14 @@ export default function PomodoroPage() {
   const earnedSemesterRef = useRef<AchievementSemester | undefined>(undefined);
   const timerRef = useRef<TimerState>(timer);
   timerRef.current = timer;
+  useEffect(() => onAccountDataQuiesce(() => {
+    deadlineRef.current = null;
+    earnedSemesterRef.current = undefined;
+    audio.player.pause();
+    const initial = createInitialTimer();
+    timerRef.current = initial; setTimer(initial);
+    setAsk(null); setDoneNote(null); setFocusKey("");
+  }), [audio.player]);
 
   // "/pomodoro?task=component:<id>" (the assignments page's "focus on it")
   // picks that task once the data is in. Read from the URL directly: the static
@@ -447,7 +457,7 @@ export default function PomodoroPage() {
   const glassBtn = "pointer-events-auto grid h-10 w-10 place-items-center rounded-full transition-colors hover:bg-white/10";
 
   return (
-    <div className="haven-fade-in flex flex-1 flex-col">
+    <div data-pomodoro-page className={`${layoutCss.page} haven-fade-in flex min-h-0 flex-1 flex-col`}>
       {/* The page is the lake: the pond fills the screen, the timer is written
           into its sky, and everything else floats over it as glass. */}
       <div
@@ -485,23 +495,24 @@ export default function PomodoroPage() {
         <div className={`pointer-events-none absolute inset-0 ${show(!lifted)}`}>
           {/* top: your lake · your progress, notifications, full screen */}
           <div
-            className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 px-3 sm:px-5"
+            data-pomodoro-hud className={`${layoutCss.hud} absolute inset-x-0 top-0 flex items-start justify-between gap-2 px-3 sm:px-5`}
             style={{ paddingTop: immersive ? "max(14px, env(safe-area-inset-top))" : 14 }}
           >
-            <div className="flex items-center gap-2">
+            <div data-pomodoro-actions className={`${layoutCss.actions} flex items-center gap-2`}>
             <StudyGroupsMenu soon={!groupsAvailable} open={groupsOpen} onToggle={() => setGroupsOpen((v) => !v)} onClose={() => setGroupsOpen(false)} disabled={inSession} />
             <InteractionButton
               data-tour="pom-grove"
               onClick={() => setLifted(true)}
+              aria-label={t("pom_grove")}
               className={`pointer-events-auto flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors hover:bg-white/10 ${show(!inSession)}`}
               style={GLASS}
               inert={inSession}
             >
               <Trees size={16} />
-              {t("pom_grove")}
+              <span className="hidden sm:inline">{t("pom_grove")}</span>
             </InteractionButton>
             </div>
-            <div className="flex items-center gap-2">
+            <div data-pomodoro-actions className={`${layoutCss.actions} flex items-center gap-2`}>
               <StudyAudioControls player={audio.player} state={audio.state} className={`${glassBtn} ${show(!quiet)}`}
                 alertsEnabled={pomodoroSettings.soundEnabled && audio.state.alerts}
                 onAlertsChange={(enabled) => setPomodoroSettings({ soundEnabled: enabled })} />

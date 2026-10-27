@@ -89,7 +89,7 @@ export function WeeklySessions({ course }: { course: Course }) {
     <div className="px-5 sm:px-8 py-6 border-t" style={border}>
       {/* Weekly sessions editor */}
       <div data-tour="sessions-box" className="rounded-xl border p-4" style={border}>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-3">
           <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
             {t("weeklySessionsLabel")}
           </span>

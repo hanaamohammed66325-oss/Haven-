@@ -2,6 +2,8 @@ import { noteScrollDirection, type EraserSettings, type HighlighterTuning, type 
 import { validNoteFont, type ImportedNoteFont } from './fonts';
 import { DEFAULT_HANDWRITING, type HandwritingSettings } from './handwriting';
 
+import { localDataWriteAllowed } from '../accountReset';
+
 const keyFor = (scope: string) => `haven-notes-preferences:${scope}`;
 
 export interface NotesPreferences {
@@ -147,6 +149,7 @@ export function readNotesPreferences(scope: string): NotesPreferences {
 
 export function saveNotesPreferences(scope: string, preferences: Partial<NotesPreferences>): boolean {
   if (!scope || typeof window === 'undefined') return false;
+  if (!localDataWriteAllowed(scope)) return false;
   try {
     const current = readNotesPreferences(scope);
     window.localStorage.setItem(keyFor(scope), JSON.stringify({

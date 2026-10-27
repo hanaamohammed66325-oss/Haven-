@@ -1,5 +1,6 @@
 import { audioFileProblem, DEFAULT_AUDIO_PREFS, parseAudioPreferences, STUDY_TRACKS, type AudioPreferences } from "./catalog";
 import { deletePersonalTrack, listPersonalTracks, readPersonalFile, savePersonalTrack, type PersonalTrack } from "./storage";
+import { deviceDataWriteAllowed } from "../accountReset";
 
 export type AudioProblem = "size" | "format" | "play" | "storage" | "temporary" | "missing";
 export interface AudioState extends AudioPreferences {
@@ -42,6 +43,7 @@ export class StudyAudioPlayer {
     } catch { if (generation === this.lifecycle) this.update({ problem: "storage" }); }
   }
   preferences(patch: Partial<AudioPreferences>) {
+    if (!deviceDataWriteAllowed()) return;
     this.update(parseAudioPreferences({ ...this.state, ...patch }));
     if (this.media) { this.media.loop = this.state.loop; this.applyVolume(); }
     const { selected, volume, loop, alerts } = this.state;
@@ -135,6 +137,7 @@ export class StudyAudioPlayer {
     this.update({ playing: false, busy: false });
   };
   async add(file: File) {
+    if (!deviceDataWriteAllowed()) return;
     const problem = audioFileProblem(file);
     if (problem) { this.update({ problem }); return; }
     this.pause();
@@ -166,6 +169,7 @@ export class StudyAudioPlayer {
     finally { probe.pause(); probe.removeAttribute("src"); probe.load(); URL.revokeObjectURL(url); }
   }
   async remove(id: string) {
+    if (!deviceDataWriteAllowed()) return;
     this.update({ busy: true, problem: null });
     try {
       if (!this.temporary.has(id)) await deletePersonalTrack(id);

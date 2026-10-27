@@ -4,7 +4,7 @@
 // either side of it, and the lake grows as more come. Run: npm test
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { StudyScene, deskLayout, ringFor, sessionSizing } from "@/lib/study/scene";
+import { StudyScene, deskLayout, ringFor, sessionSizing, presentationCamera } from "@/lib/study/scene";
 import { lakeRadii } from "@/lib/pomodoro/lakeWorld";
 
 const SCREENS: Array<[number, number]> = [
@@ -14,6 +14,20 @@ const SCREENS: Array<[number, number]> = [
 const COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 const PAD = 34; // a desk's pad radius at the design size
 const LEAF = 34; // the centre leaf's largest radius
+
+test("native presentation crop matches screen coordinates through rotation without changing the flight camera", () => {
+  for (const rot of [0, .2, -.7, Math.PI]) {
+    const cam = { x: 18, y: -36, s: .8, rot }, original = { ...cam };
+    const crop = { x: 31, y: -23, zoom: 2.75 }, q = { x: 72, y: 81 };
+    const project = (c: typeof cam) => ({ x: c.s * (Math.cos(c.rot) * (q.x-c.x)-Math.sin(c.rot)*(q.y-c.y)),
+      y: c.s * (Math.sin(c.rot)*(q.x-c.x)+Math.cos(c.rot)*(q.y-c.y)) });
+    const before = project(cam), after = project(presentationCamera(cam,crop));
+    assert.ok(Math.abs(after.x-(before.x-crop.x)*crop.zoom)<1e-8);
+    assert.ok(Math.abs(after.y-(before.y-crop.y)*crop.zoom)<1e-8);
+    assert.deepEqual(cam,original);
+    assert.equal(presentationCamera(cam),cam);
+  }
+});
 
 test("rapid seated taps restart immediately; arrivals and absent Havis cannot react", () => {
   const scene = new StudyScene(800, 600, 1);

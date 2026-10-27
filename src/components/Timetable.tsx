@@ -115,7 +115,7 @@ export function Timetable() {
   }
 
   const fieldCls =
-    "rounded-lg border px-2.5 py-1.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
+    "min-w-0 max-w-full rounded-lg border px-2.5 py-1.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]";
   const border = { borderColor: "var(--color-border)" };
 
   return (
@@ -127,7 +127,7 @@ export function Timetable() {
           <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{t("ttQuickHint")}</div>
         </div>
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 flex-1 min-w-[160px]">
+          <label className="flex min-w-0 basis-40 flex-col gap-1 flex-1">
             <span className="text-[11px] font-medium" style={{ color: "var(--color-muted)" }}>{t("ttSelectSession")}</span>
             <select data-tour="tt-select" className={fieldCls} style={border} value={selKey} onChange={(e) => onPick(e.target.value)}>
               <option value="">— {t("ttSelectSession")} —</option>

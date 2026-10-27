@@ -41,6 +41,16 @@ import { deskOffset, type DeskSlot } from "./rules";
 import { lakeCameraFrame, lakeZoomTarget, type Flight } from "@/lib/pomodoro/lakeCamera";
 
 type Pt = { x: number; y: number };
+/** Compose a viewport crop into the world camera, before rasterization/LOD.
+ * The internal flight camera remains unchanged, so a crop cannot alter travel. */
+export function presentationCamera(cam: Camera, crop?: { zoom: number; x: number; y: number }): Camera {
+  if (!crop) return cam;
+  const zoom = Number.isFinite(crop.zoom) ? clamp(crop.zoom, 1, 6) : 1;
+  const x = Number.isFinite(crop.x) ? crop.x : 0, y = Number.isFinite(crop.y) ? crop.y : 0;
+  const c = Math.cos(cam.rot), s = Math.sin(cam.rot);
+  return { ...cam, s: cam.s * zoom, x: cam.x + (c * x + s * y) / cam.s,
+    y: cam.y + (-s * x + c * y) / cam.s };
+}
 // A camera move between zoom levels (or back to the middle), exactly as on the
 // student's own lake map (GroveModal): the camera rises or comes down along a
 // log-scale zoom, turns a little on the way and settles.
@@ -541,7 +551,7 @@ export class StudyScene {
 
   // ── Drawing ──────────────────────────────────────────────────────────────
 
-  draw(ctx: CanvasRenderingContext2D, now: number, model: SceneModel) {
+  draw(ctx: CanvasRenderingContext2D, now: number, model: SceneModel, presentation?: { zoom: number; x: number; y: number }) {
     const preparationStarted = performance.now();
     this.reduced = model.reduced;
     const base = { w: this.w, h: this.h, dpr: this.dpr, tod: model.night ? "night" as const : "morning" as const, reducedMotion: model.reduced };
@@ -594,7 +604,7 @@ export class StudyScene {
     if (this.travelFrom && age < tripMs) {
       const q = age / tripMs, cam = this.riverCamera(this.travelFrom, q);
       this.landed = false; this.lastFrame = 0;
-      this.paint(ctx, this.travelFrom, cam, now, model, true, 1 - ease(q)); this.pushUi(cam); return;
+      this.paint(ctx, this.travelFrom, presentationCamera(cam, presentation), now, model, true, 1 - ease(q)); this.pushUi(cam); return;
     }
     const world = this.world(this.view);
     const p = clamp((age - tripMs) / world.diveMs, 0, 1), diving = p < 1;
@@ -604,7 +614,7 @@ export class StudyScene {
       cam = world.diveCamera(p); this.lastFrame = 0;
       world.plan([{ x: 0, y: 0, s: 1, rot: 0 }, world.diveCamera(0.55)], true);
     } else cam = this.landedCamera(world, now);
-    this.paint(ctx, this.view, cam, now, model, diving, p); this.lastCam = cam; this.pushUi(cam);
+    this.paint(ctx, this.view, presentationCamera(cam, presentation), now, model, diving, p); this.lastCam = cam; this.pushUi(cam);
   }
 
   private buildSession(base: Omit<LakeInput, "count" | "padSpecs">, lakeScale: number) {

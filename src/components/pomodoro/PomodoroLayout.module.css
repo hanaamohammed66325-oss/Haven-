@@ -1,0 +1,13 @@
+.page { container: pomodoro-page / inline-size; min-width:0; }
+.hud { min-width:0; }
+.actions { min-width:0; flex-shrink:0; }
+/* Fit the actual pane, including a narrow split workspace on a wide screen. */
+@container pomodoro-page (max-width:639px) {
+  .page .hud { gap:2px; padding-inline:8px; flex-wrap:nowrap; }
+  .page .hud .actions, .page .hud .actions > div { gap:2px; }
+  .page .hud button { width:40px; height:44px; flex-shrink:0; padding-inline:0; }
+  .page .hud button > svg { flex-shrink:0; }
+  .hud :global(button > .sm\:hidden) { display:block; }
+  .hud :global(button > .sm\:inline), .hud :global(button > .md\:inline),
+  .hud :global(button > .sm\:grid), .hud :global(button > .sm\:block) { display:none; }
+}

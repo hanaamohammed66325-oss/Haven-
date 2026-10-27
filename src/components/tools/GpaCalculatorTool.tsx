@@ -119,23 +119,24 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
 
       {/* Course rows */}
       <div className="flex flex-col gap-2.5">
-        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-1 text-xs" style={{ color: "var(--color-muted)" }}>
-          <span>المادة (اختياري)</span>
+        <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_5rem_6rem_2.25rem] gap-2 px-1 text-xs" style={{ color: "var(--color-muted)" }}>
+          <span>المقرر (اختياري)</span>
           <span className="w-20 text-center">الساعات</span>
           <span className="w-24 text-center">التقدير</span>
           <span className="w-9" />
         </div>
         {rows.map((r) => (
-          <div key={r.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+          <div key={r.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem] sm:grid-cols-[minmax(0,1fr)_5rem_6rem_2.25rem] gap-2 items-end">
             <input
               type="text"
               value={r.name}
               onChange={(e) => updateRow(r.id, { name: e.target.value })}
-              placeholder="اسم المادة"
-              className="rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]"
+              placeholder="اسم المقرر (اختياري)"
+              aria-label="اسم المقرر (اختياري)"
+              className="col-span-3 min-w-0 w-full sm:col-span-1 rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]"
               style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
             />
-            <input
+            <label className="min-w-0"><span className="mb-1 block text-xs sm:hidden">الساعات</span><input
               type="number"
               min="1"
               max="12"
@@ -143,14 +144,14 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
               value={r.credits}
               onChange={(e) => updateRow(r.id, { credits: e.target.value })}
               aria-label="عدد الساعات"
-              className="w-20 rounded-xl border px-3 py-2.5 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
+              className="min-w-0 w-full rounded-xl border px-3 py-2.5 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
               style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
-            />
-            <select
+            /></label>
+            <label className="min-w-0"><span className="mb-1 block text-xs sm:hidden">التقدير</span><select
               value={r.grade}
               onChange={(e) => updateRow(r.id, { grade: e.target.value })}
               aria-label="التقدير"
-              className="w-24 rounded-xl border px-2 py-2.5 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
+              className="min-w-0 w-full rounded-xl border px-2 py-2.5 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
               style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
             >
               {GRADES.map((g) => (
@@ -158,11 +159,11 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
                   {isolateOption(g.letter, true)} ({scale === "5" ? g.p5.toFixed(2) : g.p4.toFixed(2)})
                 </option>
               ))}
-            </select>
+            </select></label>
             <InteractionButton
               type="button"
               onClick={() => removeRow(r.id)}
-              aria-label="حذف المادة"
+              aria-label="حذف المقرر"
               disabled={rows.length <= 1}
               className="w-9 h-9 flex items-center justify-center rounded-xl transition-colors disabled:opacity-30 hover:bg-[var(--color-primary-soft)]"
               style={{ color: "var(--color-muted)" }}

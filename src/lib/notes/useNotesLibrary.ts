@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { accountDataChanging, onAccountDataQuiesce } from "../accountReset";
 import { emptyLibrary, type NotesLibrary } from "./types";
 import { loadLibrary, NotesConflictError, NotesStorageError, saveLibrary } from "./storage";
 
@@ -260,9 +261,20 @@ export function useNotesLibrary(scope: string): UseNotesLibraryResult {
       window.addEventListener("pagehide", onPageHide);
       window.addEventListener("beforeunload", onBeforeUnload);
     }
+    const unregister = scope.startsWith("account:") ? onAccountDataQuiesce(async () => {
+      const deadline = Date.now() + 15_000;
+      while (session.pending || session.saving || session.queuedChanges.length) {
+        if (session.conflict || session.lastError || Date.now() > deadline) throw Error("notes_not_saved");
+        if (session.timer !== null) clearTimeout(session.timer);
+        session.timer = null;
+        flushSave(session);
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+    }) : () => {};
     loadForSession();
 
     return () => {
+      unregister();
       session.active = false;
       if (session.timer !== null) clearTimeout(session.timer);
       session.timer = null;
@@ -278,6 +290,7 @@ export function useNotesLibrary(scope: string): UseNotesLibraryResult {
   }, [flushSave, isCurrent, scheduleSave, scope]);
 
   const update = useCallback((change: LibraryChange) => {
+    if (accountDataChanging()) return;
     const session = sessionRef.current;
     if (!session || !session.active) return;
     const base = session.library ?? emptyLibrary();

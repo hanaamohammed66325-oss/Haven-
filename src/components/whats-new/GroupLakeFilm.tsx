@@ -58,13 +58,15 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
     const canvas = canvasRef.current, ctx = canvas?.getContext("2d");
     const viewport = canvas?.parentElement;
     if (!canvas || !ctx || !viewport) return;
-    // The close crop needs a 2x source even on a 1x laptop screen.
-    const dpr = 2;
+    // Render the visible crop at the screen's density. Enlarging a completed
+    // bitmap loses detail; the scene's camera now owns the crop and its LOD.
+    const density = () => Math.max(1.25, Math.min(Math.sqrt(3_500_000 / (WIDTH * HEIGHT)),
+      viewport.getBoundingClientRect().width * Math.max(1, window.devicePixelRatio || 1) / WIDTH));
+    let dpr = density();
     const source = canvas;
     source.width = Math.round(WIDTH * dpr);
     source.height = Math.round(HEIGHT * dpr);
-    // The browser compositor crops the original canvas. Avoid an intermediate
-    // bitmap and a second full drawImage/upload on every animation frame.
+    // One native canvas, no per-frame bitmap copy or CSS enlargement.
     const sourceCtx = ctx;
     const scene = new StudyScene(WIDTH, HEIGHT, dpr);
     frameStats.current = { start: performance.now(), ticks: 0, frames: 0, costs: [], samples: [] };
@@ -101,18 +103,18 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
       const time = clock.current;
       renderTime += delta;
       currentScale = Math.max(1, Math.min(6, framing(time) * camera.zoom));
-      scene.draw(sourceCtx, renderTime, modelAt(time));
+      const boundX = (WIDTH - WIDTH / currentScale) / 2, boundY = (HEIGHT - HEIGHT / currentScale) / 2;
+      camera.x = Math.max(-boundX, Math.min(boundX, camera.x)); camera.y = Math.max(-boundY, Math.min(boundY, camera.y));
+      const crop = { zoom: currentScale, x: camera.x, y: camera.y };
+      scene.draw(sourceCtx, renderTime, modelAt(time), crop);
       if (time >= arriveAt && time < returnAt && scene.ui.landed && !gardenFramed) {
         // Use the lake's real rising camera to reveal the coloured groves.
         // Re-anchor only at this settled shot; a pause never skips a flight.
         renderTime = performance.now();
         for (let level = scene.ui.level; level < scene.ui.count - 1; level++) scene.zoomStep(-1);
         gardenFramed = true;
-        scene.draw(sourceCtx, renderTime, modelAt(time));
+        scene.draw(sourceCtx, renderTime, modelAt(time), crop);
       }
-      const boundX = (WIDTH - WIDTH / currentScale) / 2, boundY = (HEIGHT - HEIGHT / currentScale) / 2;
-      camera.x = Math.max(-boundX, Math.min(boundX, camera.x)); camera.y = Math.max(-boundY, Math.min(boundY, camera.y));
-      canvas.style.transform = `scale(${currentScale}) translate(${-camera.x / WIDTH * 100}%,${-camera.y / HEIGHT * 100}%)`;
       const next = shotAt(time);
       if (next !== lastShot) { lastShot = next; setShot(next); }
       const owner = scene.hoveredMember;
@@ -125,7 +127,7 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
           const costs = stats.costs.sort((a, b) => a - b);
           stats.samples.push({ shot: next, fps: +(stats.frames * 1000 / elapsed).toFixed(1), refresh: +(stats.ticks * 1000 / elapsed).toFixed(1),
             p95Ms: +costs[Math.min(costs.length - 1, Math.floor(costs.length * .95))].toFixed(2), maxMs: +costs.at(-1)!.toFixed(2),
-            source: `${source.width}x${source.height}`, presentation: "compositor", canvases: 1 });
+            source: `${source.width}x${source.height}`, presentation: "native-camera", canvases: 1 });
           if (stats.samples.length > 40) stats.samples.shift();
           canvas.dataset.filmSamples = JSON.stringify(stats.samples);
           stats.start = end; stats.ticks = stats.frames = 0; stats.costs = [];
@@ -154,6 +156,16 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
       dirty = true;
       if (!raf && !document.hidden) raf = requestAnimationFrame(tick);
     };
+    const resize = () => {
+      const next = density();
+      if (Math.abs(next - dpr) < .01) return;
+      dpr = next;
+      source.width = Math.round(WIDTH * dpr); source.height = Math.round(HEIGHT * dpr);
+      scene.resize(WIDTH, HEIGHT, dpr); invalidate();
+    };
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
+    observer?.observe(viewport);
+    window.addEventListener("resize", resize);
     setPlayback.current = (next) => {
       if (playing === next) return;
       playing = next; previous = performance.now(); resetMeasurement();
@@ -167,11 +179,11 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
       else invalidate();
     };
     document.addEventListener("visibilitychange", visibility);
-    // Inverse of the presentation crop: the renderer still owns hit testing.
+    // Hit testing receives actual viewport coordinates and the same native camera.
     const locate = (event: { clientX: number; clientY: number }) => {
       const rect = viewport.getBoundingClientRect();
       const x = (event.clientX - rect.left) / rect.width, y = (event.clientY - rect.top) / rect.height;
-      pointer.current = { x: WIDTH / 2 + camera.x + (x - .5) * WIDTH / currentScale, y: HEIGHT / 2 + camera.y + (y - .5) * HEIGHT / currentScale };
+      pointer.current = { x: x * WIDTH, y: y * HEIGHT };
       pointerPosition.current = { x: x * 100, y: y * 100 };
       invalidate();
       return { x, y };
@@ -232,6 +244,7 @@ export function GroupLakeFilm({ paused, replay }: { paused: boolean; replay: num
       setPlayback.current = null;
       if (raf) cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", visibility);
+      observer?.disconnect(); window.removeEventListener("resize", resize);
       zoomCommand.current = null; cameraMotion?.stop(); touches.clear();
       canvas.removeEventListener("pointerdown", down);
       canvas.removeEventListener("pointermove", move);

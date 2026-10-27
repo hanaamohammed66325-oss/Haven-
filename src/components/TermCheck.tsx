@@ -668,7 +668,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                     setDraft((d) => ({ ...d, [c.id]: e.target.value }));
                     setError("");
                   }}
-                  className="rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
+                  className="min-w-0 max-w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
                   style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
                 />
               ) : (
@@ -680,7 +680,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                     setDraft((d) => ({ ...d, [c.id]: e.target.value }));
                     setError("");
                   }}
-                  className="rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
+                  className="min-w-0 max-w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
                   style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
                 >
                   <option value="">—</option>

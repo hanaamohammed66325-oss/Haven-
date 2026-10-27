@@ -85,15 +85,15 @@ function Layer({ layerRef, onClose, title, children, footer, tone, compact, wide
           boxShadow: "0 20px 60px rgba(36,54,64,0.22)",
           paddingBottom: sheet ? "env(safe-area-inset-bottom)" : undefined,
         }}>
-        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "var(--color-border)" }}>
-          <h2 className="font-display text-lg" style={{ color: "var(--color-ink)" }}>{title}</h2>
+        <div className="flex min-w-0 items-center justify-between gap-3 px-5 py-4 border-b shrink-0" style={{ borderColor: "var(--color-border)" }}>
+          <h2 className="min-w-0 break-words font-display text-lg" style={{ color: "var(--color-ink)" }}>{title}</h2>
           <motion.button type="button" onClick={onClose} aria-label={t("close")}
-            className={`rounded-full ${compact ? "p-3" : "p-1.5"} transition-colors hover:bg-black/5`}
+            className={`shrink-0 rounded-full ${compact ? "p-3" : "p-1.5"} transition-colors hover:bg-black/5`}
             whileHover={{ rotate: 90 }} whileTap={{ scale: 0.86 }} transition={PRESS}>
             <X size={18} style={{ color: "var(--color-muted)" }} />
           </motion.button>
         </div>
-        <motion.div className={`flex-1 min-h-0 overflow-y-auto ${compact ? "px-5 py-4" : "px-6 py-6"}`}
+        <motion.div className={`flex-1 min-w-0 min-h-0 overflow-y-auto ${compact ? "px-5 py-4" : "px-6 py-6"}`}
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SURFACE, delay: 0.06 }}>
           {children}
         </motion.div>

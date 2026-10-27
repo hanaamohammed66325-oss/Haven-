@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useIsPresent } from "motion/react";
-import { ChevronDown } from "@/components/motion/icons";
+import { ChevronDown, Users } from "@/components/motion/icons";
 import { openingDateLabel } from "@/lib/featureFlags";
 import { useT } from "@/i18n";
 import { GLASS } from "@/components/pomodoro/glass";
@@ -58,10 +58,11 @@ export function StudyGroupsMenu({ open, onToggle, onClose, disabled, soon = fals
   }, [shown, dir]);
 
   return <MotionRoot><div className="pointer-events-auto relative">
-    <Press ref={trigger} disabled={disabled} aria-expanded={shown} aria-controls="study-groups-menu"
-      onClick={onToggle} className="flex items-center gap-2 rounded-full px-3 py-2 text-sm disabled:opacity-50" style={GLASS}>
-      {t("study_title")}
-      <motion.span className="grid" animate={{ rotate: shown ? 180 : 0 }} transition={POP}><ChevronDown size={15} /></motion.span>
+    <Press ref={trigger} disabled={disabled} aria-label={t("study_title")} aria-expanded={shown} aria-controls="study-groups-menu"
+      onClick={onToggle} className="flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full text-sm disabled:opacity-50 sm:w-auto sm:px-3" style={GLASS}>
+      <Users size={17} className="sm:hidden" />
+      <span className="hidden whitespace-nowrap sm:inline">{t("study_title")}</span>
+      <motion.span className="hidden sm:grid" animate={{ rotate: shown ? 180 : 0 }} transition={POP}><ChevronDown size={15} /></motion.span>
     </Press>
     {mounted && createPortal(<MotionRoot><AnimatePresence>
       {shown && position && <Menu key="menu" soon={soon} panel={panel} place={position} dir={dir} label={t("study_title")}

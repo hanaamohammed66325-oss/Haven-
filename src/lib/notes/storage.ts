@@ -1,8 +1,15 @@
 import { emptyLibrary, newId, NOTE_SCROLL_DIRECTIONS, NOTE_ZOOM_LIMIT_RANGE, NOTE_SHAPES, type DrawingTool, type NoteElement, type NotePage, type NotesLibrary, type Notebook } from "./types";
 import { validNoteFont } from './fonts';
+import { withDeviceDataLock } from '../accountReset';
+import { assertLocalScopeGeneration } from '../accountResetLocal';
+
+async function writeScope<T>(scope: string, work: () => Promise<T>): Promise<T> {
+  return withDeviceDataLock(async () => { await assertLocalScopeGeneration(scope); return work(); });
+}
 
 const DATABASE_NAME = "haven-notes";
-const DATABASE_VERSION = 1;
+// Version 2 keeps the exact stores while fencing pre-reset legacy writers.
+const DATABASE_VERSION = 2;
 const LIBRARIES_STORE = "libraries";
 const ASSETS_STORE = "assets";
 const STORES = [LIBRARIES_STORE, ASSETS_STORE];
@@ -570,7 +577,7 @@ export function saveLibrary(scope: string, library: NotesLibrary, expectedRevisi
     return Promise.reject(error);
   }
 
-  return transaction<number>("readwrite", (idbTransaction, done, fail) => {
+  return writeScope(scope, () => transaction<number>("readwrite", (idbTransaction, done, fail) => {
     const store = idbTransaction.objectStore(LIBRARIES_STORE);
     let request: IDBRequest<unknown>;
     try {
@@ -596,7 +603,7 @@ export function saveLibrary(scope: string, library: NotesLibrary, expectedRevisi
         fail(error);
       }
     };
-  });
+  }));
 }
 
 export function saveAsset(scope: string, blob: Blob): Promise<string> {
@@ -610,7 +617,7 @@ export function saveAsset(scope: string, blob: Blob): Promise<string> {
   try { id = newId(); }
   catch (error) { return Promise.reject(new NotesStorageError("unavailable", "Secure asset identifiers are unavailable.", error)); }
 
-  return transaction<string>("readwrite", (idbTransaction, done, fail) => {
+  return writeScope(scope, () => transaction<string>("readwrite", (idbTransaction, done, fail) => {
     const store = idbTransaction.objectStore(ASSETS_STORE);
     try {
       const put = store.put({ scope, id, blob } satisfies AssetRecord);
@@ -619,7 +626,7 @@ export function saveAsset(scope: string, blob: Blob): Promise<string> {
     } catch (error) {
       fail(error);
     }
-  });
+  }));
 }
 
 export function loadAsset(scope: string, id: string): Promise<Blob | null> {

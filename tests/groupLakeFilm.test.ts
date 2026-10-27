@@ -24,7 +24,7 @@ function filmHarness(ratio = 1, reduced = false) {
     ui = { landed: true, count: 1, level: 0 }; hoveredMember = null;
     constructor() { instances++; }
     draw(_context: unknown, time: number) { draws.push(time); }
-    zoomStep() {} dispose() { disposed++; }
+    zoomStep() {} resize() {} dispose() { disposed++; }
   }
   const refs: Array<{ current: any }> = [];
   const effects: Array<{ deps: unknown[]; cleanup?: () => void }> = [];
@@ -61,13 +61,13 @@ function filmHarness(ratio = 1, reduced = false) {
   const advance = (ms: number) => { now += ms; const callbacks = [...pending.values()]; pending.clear(); for (const callback of callbacks) callback(now); };
   render();
   return { canvas, sources, draws, render, advance,
-    stats: () => ({ presentations, pending: pending.size, instances, disposed, copies }),
+    stats: () => ({ presentations: draws.length, pending: pending.size, instances, disposed, copies }),
     frames: (hz: number, count: number) => { for (let i = 0; i < count; i++) advance(1000 / hz); },
     move: () => canvasEvents.get("pointermove")!({ pointerId: 1, clientX: 200, clientY: 100 }),
     zoom: () => canvasEvents.get("wheel")!({ deltaY: -20, clientX: 200, clientY: 100, preventDefault() {} }),
     hide: () => { document.hidden = true; docEvents.get("visibilitychange")!(); },
     show: () => { document.hidden = false; docEvents.get("visibilitychange")!(); },
-    resize: (width: number, height: number) => { bounds = { ...bounds, width, height }; },
+    resize: (width: number, height: number) => { bounds = { ...bounds, width, height }; windowEvents.get("resize")?.(); },
     dispose: () => { for (const effect of effects) effect.cleanup?.(); },
   };
 }
@@ -107,23 +107,25 @@ test("pause and hidden tabs stop the loop; resuming excludes hidden wall time", 
   film.dispose(); assert.equal(film.stats().pending, 0);
   assert.equal(film.stats().disposed, 1);
 });
-test("compositor keeps one sharp canvas with no bitmap copies and maps gestures against the viewport", () => {
+test("native camera draws a density-matched canvas without enlarging/copying its bitmap", () => {
   const film = filmHarness(1);
-  assert.equal(film.canvas.width, 1800); assert.equal(film.canvas.height, 1080);
+  assert.equal(film.canvas.width, 1125); assert.equal(film.canvas.height, 675);
   assert.equal(film.sources.length, 0, "no intermediate canvas is allocated");
-  assert.match(film.canvas.style.transform, /^scale\(2\.6\) translate\(/);
+  assert.equal(film.canvas.style.transform, "");
   film.resize(300, 180); film.move(); film.zoom(); film.advance(16);
-  assert.equal(film.canvas.width, 1800); assert.equal(film.canvas.height, 1080);
+  assert.equal(film.canvas.width, 1125); assert.equal(film.canvas.height, 675);
   assert.equal(film.stats().copies, 0);
   assert.equal(film.stats().instances, 1); film.dispose();
   const dense = filmHarness(3);
-  assert.equal(dense.canvas.width, 1800); assert.equal(dense.canvas.height, 1080);
+  assert.equal(dense.canvas.width, 1650); assert.equal(dense.canvas.height, 990);
+  dense.resize(2400, 1440); dense.advance(16);
+  assert.ok(dense.canvas.width * dense.canvas.height < 3_510_000, "backing allocation stays bounded on huge displays");
   dense.dispose();
 });
 test("replay replaces the old loop once; reduced motion retains a still interactive scene", () => {
   const film = filmHarness(); film.frames(60, 5); film.render(false, 1);
   assert.equal(film.stats().instances, 2); assert.equal(film.stats().disposed, 1);
-  assert.equal(film.stats().pending, 1); assert.equal(film.canvas.width, 1800);
+  assert.equal(film.stats().pending, 1); assert.equal(film.canvas.width, 1125);
   film.dispose(); assert.equal(film.stats().pending, 0);
   const still = filmHarness(1, true), before = still.stats().presentations;
   still.frames(120, 120); assert.equal(still.stats().presentations, before);

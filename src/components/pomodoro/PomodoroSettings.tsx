@@ -57,11 +57,11 @@ function Stepper({
   const btn = "flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-primary-soft)] disabled:opacity-35";
   const btnStyle = { border: "1px solid var(--color-border)", color: "var(--color-ink)" };
   return (
-    <div className="flex items-center justify-between gap-3 py-2.5">
-      <span className="text-sm" style={{ color: "var(--color-ink)" }}>
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-2.5">
+      <span className="min-w-0 break-words text-sm" style={{ color: "var(--color-ink)" }}>
         {label}
       </span>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <InteractionButton onClick={() => set(value - 1)} disabled={value <= min} aria-label={`${label} −`} className={btn} style={btnStyle}>
           <Minus size={14} />
         </InteractionButton>

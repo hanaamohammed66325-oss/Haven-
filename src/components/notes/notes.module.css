@@ -499,3 +499,29 @@ html[data-theme="aurora"] .havenRail :is(.havenMark,.havenRailToggle,.havenRailF
 .viewport,.horizontalViewport{touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;scroll-behavior:auto}
 .pullPage{touch-action:pan-x pan-y;contain:paint}
 .pageSlot{contain:layout style}
+
+/* Phone libraries use a short horizontal section rail. The older column
+   layout left a tall empty block beside the bookmarks and squeezed the title. */
+@media(max-width:759px){
+  .libraryBody{flex-direction:column}
+  .dividerRail{width:100%;min-width:0;min-height:64px;flex-direction:row;gap:8px;padding:6px 12px;border-inline-end:0;border-bottom:1px solid var(--n-line);overflow-x:auto;overflow-y:hidden}
+  .dividerSpine{width:28px;min-width:28px;height:44px;min-height:44px;margin:0}
+  .bookmarkSlot{width:auto;min-width:60px;height:50px;min-height:50px}
+  .dividerTab,.dividerRailExpanded .dividerTab{position:relative;width:auto!important;min-width:60px;max-width:160px;height:50px;clip-path:none!important;flex-direction:column;justify-content:center;gap:2px;padding:5px 9px}
+  .dividerTab::before,.bookmarkHole{display:none}
+  .bookmarkLabel{opacity:1;transform:none;max-width:138px;font-size:10px}
+  .dividerAdd{width:44px;min-width:44px;height:44px;min-height:44px;margin:0}
+  .libraryHeader{height:auto;min-height:68px;flex-wrap:wrap;gap:8px;padding:10px 15px}
+  .brandLockup{flex:1 1 100%;min-width:0}
+  .brandLockup strong{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  .libraryHeader>.headerActions{flex:1 1 100%;width:100%;min-width:0;max-width:100%;flex-wrap:wrap;justify-content:space-between;gap:6px;margin-inline-start:0}
+  .editorHeader{height:auto;min-height:56px;flex-wrap:wrap;padding:8px 10px}
+  .editorTitle{flex:1;min-width:0}
+  .editorTitle strong{max-width:100%;overflow-wrap:anywhere}
+  .editorHeader>.headerActions{flex:1 1 100%;width:100%;max-width:100%;justify-content:flex-end}
+}
+@container haven-notes-pane (max-width:420px){
+  .editorHeader{height:auto;min-height:56px;flex-wrap:wrap;padding:8px 10px}
+  .editorTitle{flex:1;min-width:0}.editorTitle strong{max-width:100%;overflow-wrap:anywhere}
+  .editorHeader>.headerActions{flex:1 1 100%;width:100%;max-width:100%;justify-content:flex-end}
+}

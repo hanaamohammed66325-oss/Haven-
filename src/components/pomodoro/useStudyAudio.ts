@@ -2,9 +2,12 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { StudyAudioPlayer } from "@/lib/studyAudio/player";
 
+import { onAccountDataQuiesce } from "@/lib/accountReset";
+
 export function useStudyAudio() {
   const [player] = useState(() => new StudyAudioPlayer());
   const state = useSyncExternalStore(player.subscribe, player.snapshot, player.snapshot);
+  useEffect(() => onAccountDataQuiesce(() => { player.pause(); }), [player]);
   useEffect(() => {
     void player.load();
     // Starting/joining by keyboard also grants the alert its user gesture.

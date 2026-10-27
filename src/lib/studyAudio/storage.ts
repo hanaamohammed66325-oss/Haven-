@@ -1,17 +1,18 @@
 /** Device-only storage. Metadata lists never load the recordings into memory. */
+import { deviceDataWriteAllowed, withDeviceDataLock } from "../accountReset";
 export interface PersonalTrack { id: string; name: string; size: number; temporary?: boolean }
 const DB_NAME = "haven-study-audio";
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, 2);
     let blocked = false;
     request.onupgradeneeded = () => {
-      request.result.createObjectStore("tracks", { keyPath: "id" });
-      request.result.createObjectStore("files");
+      if (!request.result.objectStoreNames.contains("tracks")) request.result.createObjectStore("tracks", { keyPath: "id" });
+      if (!request.result.objectStoreNames.contains("files")) request.result.createObjectStore("files");
     };
     request.onsuccess = () => {
       if (blocked) request.result.close();
-      else resolve(request.result);
+      else { request.result.onversionchange = () => request.result.close(); resolve(request.result); }
     };
     request.onerror = () => reject(request.error);
     request.onblocked = () => { blocked = true; reject(new Error("storage_blocked")); };
@@ -36,10 +37,13 @@ export function listPersonalTracks(): Promise<PersonalTrack[]> {
   });
 }
 export function savePersonalTrack(track: PersonalTrack, file: Blob): Promise<void> {
+  return withDeviceDataLock(async () => {
+  if (!deviceDataWriteAllowed()) throw Error("local_data_changed");
   return transaction("readwrite", (tx, done) => {
     tx.objectStore("tracks").put(track);
     tx.objectStore("files").put(file, track.id);
     done(undefined);
+  });
   });
 }
 export function readPersonalFile(id: string): Promise<Blob | undefined> {
@@ -49,9 +53,12 @@ export function readPersonalFile(id: string): Promise<Blob | undefined> {
   });
 }
 export function deletePersonalTrack(id: string): Promise<void> {
+  return withDeviceDataLock(async () => {
+  if (!deviceDataWriteAllowed()) throw Error("local_data_changed");
   return transaction("readwrite", (tx, done) => {
     tx.objectStore("tracks").delete(id);
     tx.objectStore("files").delete(id);
     done(undefined);
+  });
   });
 }
