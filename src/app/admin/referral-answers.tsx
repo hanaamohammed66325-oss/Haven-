@@ -18,6 +18,7 @@ export function ReferralAnswersSection({ accountId, onOpenUser, ar, refresh }: {
   const [loading, setLoading] = useState(false), [error, setError] = useState(false);
   const request = useRef(0);
   const label = (a: string, e: string) => ar ? a : e;
+  const number = (value: number) => new Intl.NumberFormat(ar ? "ar-SA" : "en-US").format(value);
   const when = (value: string) => new Intl.DateTimeFormat(ar ? "ar-SA" : "en-GB", {
     dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh",
   }).format(new Date(value));
@@ -62,6 +63,20 @@ export function ReferralAnswersSection({ accountId, onOpenUser, ar, refresh }: {
       <InteractionButton type="button" className="min-h-11 mb-4" style={S.btnGhost} onClick={() => void load()}>{label("إعادة المحاولة", "Retry")}</InteractionButton></div>}
     {loading && <Loading text={label("جارٍ تحميل الإجابات…", "Loading answers…")} />}
     {!loading && page && <>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        {([
+          [label("وسائل التواصل", "Social media"), page.totals?.social],
+          [label("الأصدقاء", "Friends"), page.totals?.friend],
+          [label("تخطّوا السؤال", "Skipped the question"), page.totals?.skipped],
+          [label("أدخلوا رمز إحالة", "Entered a referral code"), page.totals?.code_entered],
+        ] as const).map(([title, value], index) => <div key={title} className="rounded-lg border p-3" style={{ borderColor: C.border2, background: C.panel2 }}>
+          <div className="text-xs mb-1" style={{ color: C.textMuted }}>{title}</div>
+          <strong className="text-xl" style={{ color: C.text }}>{value === undefined ? "—" : number(value)}</strong>
+          {index === 3 && page.totals && <p className="text-xs mt-1 leading-5" style={{ color: C.textDim }}>{label("تجربة خاصة: ", "Private pilot: ")}{number(page.totals.pilot_codes)} · {label("عامة: ", "Public: ")}{number(page.totals.code_entered - page.totals.pilot_codes - page.totals.unclassified_codes)}{page.totals.unclassified_codes > 0 && <> · {label("تعذّر تصنيفها: ", "Unclassified: ")}{number(page.totals.unclassified_codes)}</>}</p>}
+        </div>)}
+      </div>
+      {page.totals ? <p className="text-xs leading-6 mb-4" style={{ color: C.textDim }}>{label("مجموع الحسابات: ", "Total accounts: ")}{number(page.totals.total)} · {label("لم يجيبوا بعد: ", "Not answered yet: ")}{number(page.totals.unanswered)}. {label("اختيار المصدر إجابة من المستخدم، وقد يتداخل مع إدخال رمز إحالة مقبول ومسجّل.", "Source is self-reported and can overlap with an accepted, recorded referral code.")}</p>
+        : <p className="text-xs leading-6 mb-4" style={{ color: C.textDim }}>{label("ستظهر الأعداد بعد تفعيل استعلام الإحصاءات. تبقى الإجابات الفردية متاحة أدناه.", "Counts will appear when the totals query is enabled. Individual answers remain available below.")}</p>}
       {!page.rows.length && <Empty text={label("لا توجد حسابات في هذه الصفحة.", "No accounts on this page.")} />}
       <div className="flex flex-col gap-2">{page.rows.map(row => <article key={row.id} className="rounded-lg border p-3 flex flex-wrap items-center justify-between gap-3" style={{ borderColor: C.border2, background: C.panel2 }}>
         <div className="min-w-0">

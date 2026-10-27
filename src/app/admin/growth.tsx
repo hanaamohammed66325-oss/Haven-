@@ -10,6 +10,7 @@ import { cosmeticLabel } from "@/lib/haviCosmetics";
 import { AMBASSADOR_BADGES, AMBASSADOR_RUNGS } from "@/lib/ambassadorRewards";
 import { GrowthOutcomes } from "./OutcomePanels";
 import { ReferralAnswersSection } from "./referral-answers";
+import { GrowthSummary } from "./GrowthSummary";
 
 export function GrowthSection({ session, onOpenUser, onOpenReview, language }: { session: Session; onOpenUser: (id: string) => void; onOpenReview: (id: string) => void; language?: "ar" | "en" }) {
   const C = useC(), S = useS(), account = session.user.id;
@@ -59,8 +60,10 @@ export function GrowthSection({ session, onOpenUser, onOpenReview, language }: {
   const icons: Record<string, typeof BookOpen> = { courses: BookOpen, grades: GraduationCap, planner: ClipboardList, pomodoro: Timer, group: Users, check_in: CalendarCheck };
   return <section dir={ar ? "rtl" : "ltr"} className="text-sm">
     <SectionHeader title={text("النمو", "Growth")} action={<InteractionButton type="button" style={S.btnSec} className="min-h-11 inline-flex gap-2 items-center" disabled={busy} onClick={() => { void load(); setOverviewRefresh(n => n + 1); }}><RefreshCw size={16} aria-hidden />{text("تحديث", "Refresh")}</InteractionButton>} />
-    <GrowthOutcomes account={account} refresh={overviewRefresh} ar={ar} />
-    <p className="mb-4 leading-6" style={{ color: C.textDim }}>{text("متابعة الطلاب الذين جاؤوا عبر الإحالات ودعوات المجموعات، ونشاطهم المسجّل بعد الانضمام.", "Follow students from referrals and group invitations, and their recorded activity after joining.")}</p>
+    <GrowthSummary account={account} refresh={overviewRefresh} ar={ar} />
+    <details className="mb-6 rounded-xl border p-3" style={{ borderColor: C.border, background: C.panel }}><summary className="cursor-pointer min-h-11 flex items-center font-semibold" style={{ color: C.text }}>{text("مؤشرات متقدمة: هل الميزات تدعم النمو؟", "Advanced: are the features driving growth?")}</summary><div className="mt-3"><GrowthOutcomes account={account} refresh={overviewRefresh} ar={ar} /></div></details>
+    <h3 className="font-semibold mb-1" style={{ color: C.text }}>{text("تفاصيل الإحالات والمجموعات", "Referral and group details")}</h3>
+    <p className="mb-4 leading-6 text-xs" style={{ color: C.textDim }}>{text("متابعة الطلاب الذين جاؤوا عبر الإحالات ودعوات المجموعات، ونشاطهم المسجّل بعد الانضمام. الحسابات التجريبية مستبعدة.", "Follow students from referrals and group invitations, and their recorded activity after joining. Test accounts are excluded.")}</p>
     <div role="tablist" aria-label={text("مسارات النمو", "Growth paths")} className="flex gap-2 flex-wrap mb-4">
       {(["referrals", "groups", "sources"] as const).map((tab, i) => { const Icon = [Link2, Users, Sprout][i], selected = view === tab || (tab === "referrals" && view === "referral_members") || (tab === "groups" && view === "group_members"); return <InteractionButton key={tab} id={"growth-tab-" + tab} type="button" role="tab" aria-selected={selected} aria-controls="growth-panel" tabIndex={selected ? 0 : -1} className="min-h-11 px-4 rounded-lg border inline-flex items-center gap-2" style={{ color: selected ? C.primaryText : C.textMuted, background: selected ? C.primarySoft : C.panel, borderColor: C.border }} onClick={() => navigate(tab)} onKeyDown={e => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
@@ -85,7 +88,6 @@ export function GrowthSection({ session, onOpenUser, onOpenReview, language }: {
     {busy && <Loading text={text("جارٍ تحميل السجلات…", "Loading records…")} />}
     {!busy && current && <>
       {!current.tracking_enabled && <p className="mb-4" style={{ color: C.warningText }}>{text("تسجيل مصدر الانضمام للمجموعات متوقف؛ الجلسات تعمل، لكن أعداد الحسابات القادمة عبر الدعوات غير مكتملة. يبدأ التسجيل من وقت تفعيله، ولا نُسنِد الحسابات القديمة بأثر رجعي.", "Group signup-source tracking is off. Sessions still work, but invitation acquisition counts are incomplete. Tracking starts when enabled; older accounts are not attributed retroactively.")}</p>}
-      {view === "sources" && <p className="mb-4" style={{ color: C.textMuted }}>{text("إجمالي إجابات السؤال — صديق: ", "All survey answers — friend: ")}{number(current.survey_totals.friend)} · {text("وسائل التواصل: ", "Social: ")}{number(current.survey_totals.social)} · {text("تخطّي: ", "Skipped: ")}{number(current.survey_totals.skipped)}</p>}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">{[[text("أصحاب إحالات محتسبة", "Owners with counted referrals"), current.summary.owners], [text("إحالات محتسبة", "Counted"), current.summary.counted], [text("قيد التفعيل", "Pending"), current.summary.pending], [text("لم تكتمل", "Not completed"), current.summary.incomplete]].map(([label, value]) => <div key={label} className="border rounded-xl p-3" style={{ background: C.panel, borderColor: C.border }}><div className="text-xs mb-1" style={{ color: C.textDim }}>{label}</div><strong className="text-xl" style={{ color: C.text }}>{number(Number(value))}</strong></div>)}</div>
       <p className="text-xs mb-3" style={{ color: C.textDim }}>{text("الأوقات بتوقيت الرياض. النسب تشمل فترات المتابعة المكتملة فقط. إشارات مراجعة أصحاب الرموز تخص آخر عشر إحالات؛ لا تعني إثبات التلاعب.", "Riyadh time. Rates include complete observation windows only. Owner review signals cover the latest ten referrals, not proof of abuse.")}</p>
       {!current.rows.length && <Empty text={text("لا توجد سجلات في هذه الصفحة.", "No records on this page.")} />}
