@@ -7,13 +7,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Copy, Settings2 } from "@/components/motion/icons";
+import { ArrowLeft, ArrowRight, Settings2, Share2 } from "@/components/motion/icons";
 import { AnimatePresence, motion } from "motion/react";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { MotionModal } from "@/components/motion/MotionModal";
 import { Press } from "@/components/motion/Press";
-import { Swap } from "@/components/motion/Swap";
 import { EXIT, GLIDE, POP, stagger } from "@/components/motion/springs";
 import { GLASS } from "@/components/pomodoro/glass";
 import { getTimeOfDay } from "@/lib/pomodoro/timeOfDay";
@@ -26,10 +25,8 @@ import {
   openGroupSession,
   removeStudyMember,
   renameStudyGroup,
-  resetStudyInvite,
   restoreStudyGroup,
   studyHarvest,
-  studyInviteToken,
   updateStudyAppearance,
 } from "@/lib/study/client";
 import type { StudyAppearance, StudyHarvest, StudyMember, StudyState } from "@/lib/study/types";
@@ -38,6 +35,8 @@ import { retainRoom, leaveRoomView, clearActiveRoom } from "@/lib/study/activeRo
 import { clearStudyDestination } from "@/lib/study/destination";
 import { AppearanceFields, NAME_MAX, appearanceValid, field, fieldStyle, nameOk } from "./AppearanceFields";
 import { useStudyNotice } from "./useStudyNotice";
+import { InviteModal, InvitePanel, takeNewGroup } from "./InvitePanel";
+import { STUDY_LIMITS } from "@/lib/study/rules";
 
 /** How long a deleted group can be restored (study.groups.purge_after). */
 const RESTORE_DAYS = 30;
@@ -67,6 +66,8 @@ function GroupRoom({ groupId, session, myId, onRestored, onBack, onHudHidden }: 
   const [harvestFailed, setHarvestFailed] = useStudyNotice(false);
   const [harvest, setHarvest] = useState<StudyHarvest>({ members: [], pads: [] });
   const [sheet, setSheet] = useState(false);
+  // A group just created opens with the invite window (its owner has no one to study with yet).
+  const [inviting, setInviting] = useState<"new" | "room" | null>(() => takeNewGroup(groupId) ? "new" : null);
   const [deleting, setDeleting] = useState(false);
   const [sheetSnapshot, setSheetSnapshot] = useState<StudyState | null>(null);
   const [night] = useState(() => getTimeOfDay() === "night");
@@ -130,6 +131,12 @@ function GroupRoom({ groupId, session, myId, onRestored, onBack, onHudHidden }: 
               <span className="truncate">{state.group.name}</span><Settings2 size={15} className="shrink-0 transition-[rotate] duration-500 group-hover:rotate-90" />
             </Press>
           )}
+          {state?.group.isOwner && state.members.length < STUDY_LIMITS.maxMembers && (
+            <Press onClick={() => setInviting("room")} style={GLASS} aria-label={t("study_inviteFriends")}
+              className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium">
+              <Share2 size={15} />{t("study_invite")}
+            </Press>
+          )}
           <Press onClick={() => onBack ? onBack() : router.push("/study/")} style={GLASS}
             className="group pointer-events-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium">
             <Back size={15} className="transition-[translate] duration-300 ltr:group-hover:-translate-x-0.5 rtl:group-hover:translate-x-0.5" />{t("study_groupsTitle")}
@@ -139,6 +146,9 @@ function GroupRoom({ groupId, session, myId, onRestored, onBack, onHudHidden }: 
       {harvestFailed && <p role="alert" className="px-4 py-2 text-sm">
         {t("study_errNetwork")} <Press lift="none" className="underline" onClick={loadHarvest}>{t("study_retry")}</Press>
       </p>}
+      {state && (
+        <InviteModal open={inviting !== null && state.group.isOwner} onClose={() => setInviting(null)} groupId={groupId} groupName={state.group.name} fresh={inviting === "new"} />
+      )}
       {sheetState && me && (
         <GroupSheet open={sheet} onClose={() => setSheet(false)} groupId={groupId} name={sheetState.group.name}
           isOwner={sheetState.group.isOwner} members={sheetState.members} me={me} harvest={harvest} onDeletePending={setDeleting} onRestored={onRestored}
@@ -168,9 +178,6 @@ function GroupSheet({ open, onClose, groupId, name, isOwner, members, me, harves
   onRestored: () => void;
 }) {
   const { t } = useT();
-  const inviteRequest = useRef(0);
-  const [link, setLink] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [newName, setNewName] = useState<string | null>(null);
   const [look, setLook] = useState<StudyAppearance | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
@@ -182,15 +189,6 @@ function GroupSheet({ open, onClose, groupId, name, isOwner, members, me, harves
   const muted = { color: "var(--color-muted)" };
   const border = { borderColor: "var(--color-border)", color: "var(--color-ink)" };
   const plain = "rounded-xl border px-3 py-2 text-xs font-medium disabled:opacity-50";
-
-  // The link is the owner's to share (study_invite_token).
-  useEffect(() => {
-    if (!open || !isOwner) return;
-    const request = ++inviteRequest.current;
-    setLink(null);
-    studyInviteToken(groupId).then((tok) => { if (request === inviteRequest.current) setLink(inviteUrl(tok)); }, () => { if (request === inviteRequest.current) setLink(null); });
-    return () => { ++inviteRequest.current; };
-  }, [open, isOwner, groupId]);
 
   async function run(action: () => Promise<void>, after?: () => void) {
     if (busy) return;
@@ -224,21 +222,7 @@ function GroupSheet({ open, onClose, groupId, name, isOwner, members, me, harves
           <motion.section className="flex flex-col gap-2" {...rise(0)}>
             <h3 className="font-semibold">{t("study_inviteLink")}</h3>
             <p className="text-xs" style={muted}>{t("study_inviteHint")}</p>
-            <div className="flex flex-wrap gap-2">
-              <Press lift="none" className="haven-btn inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-medium disabled:opacity-60" disabled={!link}
-                onClick={async () => {
-                  if (!link) return;
-                  try { await navigator.clipboard.writeText(link); setCopied(true); window.setTimeout(() => setCopied(false), 1800); } catch { /* the link is shown below */ }
-                }}>
-                <Swap id={copied ? "copied" : "copy"} kind="rise" className="gap-1.5">{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? t("study_copied") : t("study_copyLink")}</Swap>
-              </Press>
-              <Press lift="soft" className={plain} style={border} disabled={busy}
-                onClick={() => run(async () => { ++inviteRequest.current; setLink(null); setLink(inviteUrl(await resetStudyInvite(groupId))); })}>{t("study_resetLink")}</Press>
-            </div>
-            <p className="text-xs" style={muted}>{t("study_resetLinkHint")}</p>
-            <AnimatePresence initial={false}>
-              {link && <motion.p key={link} className="break-all text-xs" dir="ltr" style={muted} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: EXIT }}>{link}</motion.p>}
-            </AnimatePresence>
+            <InvitePanel groupId={groupId} groupName={name} renewable />
           </motion.section>
         )}
 
@@ -371,7 +355,3 @@ const SWAP_CONTENT = {
   transition: POP,
 } as const;
 
-/** The link members open to join (the /join page, Stage 4). */
-function inviteUrl(token: string): string {
-  return `${window.location.origin}/join/?t=${encodeURIComponent(token)}`;
-}

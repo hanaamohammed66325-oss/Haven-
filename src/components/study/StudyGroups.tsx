@@ -1,12 +1,13 @@
 "use client";
 
 // Group study: «مجموعاتي», the groups list. A group with a live session says
-// so; a new group is created here (its link is shared from inside it); the
+// so; a new group is created here (its invite window opens in its room); an
+// invite link can be pasted here to join from inside the app; the
 // owner's deleted groups can be restored for 30 days.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Users } from "@/components/motion/icons";
+import { Link2, Plus, Users } from "@/components/motion/icons";
 import { useT } from "@/i18n";
 import { useStore } from "@/store";
 import { AnimatePresence, motion, type Variants } from "motion/react";
@@ -18,6 +19,8 @@ import { createStudyGroup, myStudyGroups, restoreStudyGroup } from "@/lib/study/
 import { StudyError, type MyStudyGroups, type StudyAppearance } from "@/lib/study/types";
 import { AppearanceFields, NAME_MAX, appearanceValid, field, fieldStyle } from "./AppearanceFields";
 import { useStudyNotice } from "./useStudyNotice";
+import { markNewGroup } from "./InvitePanel";
+import { inviteTokenFrom, joinPath } from "@/lib/study/inviteLink";
 
 const DAY = 86_400_000;
 
@@ -47,6 +50,16 @@ function AccountGroups({ onSelect }: { onSelect?: (id: string) => void }) {
   const request = useRef(0);
   const restoreBusy = useRef(false);
   const [creating, setCreating] = useState(false);
+  const [joining, setJoining] = useState(false);
+  // The first time a student opens the groups, a window offers the two ways in
+  // (create and invite, or join with a link); after that the two buttons stay
+  // at the top. Remembered per account on this device.
+  const { accountId } = useStore();
+  const [choosing, setChoosing] = useState(false);
+  useEffect(() => {
+    if (groups?.available && accountId && !choiceSeen(accountId)) setChoosing(true);
+  }, [groups?.available, accountId]);
+  const closeChoice = () => { if (accountId) markChoiceSeen(accountId); setChoosing(false); };
 
   const load = useCallback(async () => {
     const mine = ++request.current;
@@ -87,11 +100,18 @@ function AccountGroups({ onSelect }: { onSelect?: (id: string) => void }) {
           <h1 className="text-2xl font-semibold">{t("study_groupsTitle")}</h1>
           <p className="mt-1 max-w-xl text-sm" style={muted}>{t("study_groupsIntro")}</p>
         </div>
-        {groups?.available && (
+        {/* Always shown (also while the list loads or after a failed load), so joining with a link is never out of reach. */}
+        {groups?.available !== false && (
+          <div className="flex flex-wrap gap-2">
+          <Press lift="soft" className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium"
+            style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }} onClick={() => setJoining(true)}>
+            <Link2 size={16} />{t("study_joinByLink")}
+          </Press>
           <Press lift="none" className="group haven-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-60"
-            disabled={full} onClick={() => setCreating(true)}>
+            disabled={!groups || full} onClick={() => setCreating(true)}>
             <Plus size={16} className="transition-[rotate] duration-300 group-hover:rotate-90" />{t("study_newGroup")}
           </Press>
+          </div>
         )}
       </header>
 
@@ -154,9 +174,70 @@ function AccountGroups({ onSelect }: { onSelect?: (id: string) => void }) {
       <CreateGroup open={creating} onClose={() => setCreating(false)}
         initial={{ displayName: profileName === "Student" ? "" : profileName, haviName: haviName || "Havi", haviColor: "#a8d98a", flowerColor: "#edb7c8" }}
         onLimit={() => { setFailed("limit"); void load(); }}
-        onCreated={(id) => { setCreating(false); void load(); if (onSelect) onSelect(id); else router.push(groupHref(id)); }} />
+        onCreated={(id) => { markNewGroup(id); setCreating(false); void load(); if (onSelect) onSelect(id); else router.push(groupHref(id)); }} />
+      <MotionModal open={choosing} onClose={closeChoice} title={t("study_title")} variant="sheet">
+        <div className="flex flex-col gap-3 text-sm">
+          <p style={muted}>{t("study_choiceIntro")}</p>
+          <Press lift="soft" disabled={full} onClick={() => { closeChoice(); setCreating(true); }}
+            className="haven-card flex w-full items-center gap-4 rounded-2xl p-4 text-start disabled:opacity-60">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}><Plus size={20} /></span>
+            <span className="flex min-w-0 flex-col"><span className="font-semibold">{t("study_choiceCreate")}</span><span className="text-xs" style={muted}>{t("study_choiceCreateHint")}</span></span>
+          </Press>
+          <Press lift="soft" onClick={() => { closeChoice(); setJoining(true); }}
+            className="haven-card flex w-full items-center gap-4 rounded-2xl p-4 text-start">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}><Link2 size={20} /></span>
+            <span className="flex min-w-0 flex-col"><span className="font-semibold">{t("study_joinByLink")}</span><span className="text-xs" style={muted}>{t("study_choiceJoinHint")}</span></span>
+          </Press>
+        </div>
+      </MotionModal>
+      <JoinByLink open={joining} onClose={() => setJoining(false)} onJoin={(token) => { setJoining(false); router.push(joinPath(token)); }} />
     </div>
     </MotionRoot>
+  );
+}
+
+const CHOICE_KEY = "study-groups-choice-seen:";
+function choiceSeen(accountId: string): boolean {
+  try { return localStorage.getItem(CHOICE_KEY + accountId) === "1"; } catch { return true; }
+}
+function markChoiceSeen(accountId: string): void {
+  try { localStorage.setItem(CHOICE_KEY + accountId, "1"); } catch { /* storage unavailable */ }
+}
+
+/** Joining from inside the app: the student pastes the link a friend sent. */
+function JoinByLink({ open, onClose, onJoin }: { open: boolean; onClose: () => void; onJoin: (token: string) => void }) {
+  const { t } = useT();
+  const [text, setText] = useState("");
+  const [wrong, setWrong] = useState(false);
+  useEffect(() => { if (open) { setText(""); setWrong(false); } }, [open]);
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = inviteTokenFrom(text);
+    if (token) onJoin(token); else setWrong(true);
+  };
+  const paste = async () => {
+    try { const value = await navigator.clipboard.readText(); setText(value); setWrong(false); } catch { /* the student pastes by hand */ }
+  };
+  return (
+    <MotionModal open={open} onClose={onClose} title={t("study_joinByLink")} variant="sheet"
+      footer={
+        <div className="flex justify-end gap-2">
+          <Press lift="soft" onClick={onClose} className="rounded-xl border px-4 py-2 text-sm font-medium" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>{t("cancel")}</Press>
+          <Press lift="none" type="submit" form="study-join-link" disabled={!text.trim()} className="haven-btn rounded-xl px-5 py-2 text-sm font-medium disabled:opacity-60">{t("study_joinByLinkGo")}</Press>
+        </div>
+      }>
+      <form id="study-join-link" onSubmit={submit} className="flex flex-col gap-3">
+        <p className="text-sm" style={{ color: "var(--color-muted)" }}>{t("study_joinByLinkHint")}</p>
+        <div className="flex gap-2">
+          <input className={`${field} min-w-0 flex-1`} style={fieldStyle} dir="ltr" value={text} placeholder="https://havenstudent.com/join/?t=…"
+            autoComplete="off" spellCheck={false} onChange={(e) => { setText(e.target.value); setWrong(false); }} />
+          {typeof navigator !== "undefined" && typeof navigator.clipboard?.readText === "function" && (
+            <Press lift="soft" onClick={() => void paste()} className="shrink-0 rounded-xl border px-3 text-sm font-medium" style={{ borderColor: "var(--color-border)", color: "var(--color-ink)" }}>{t("study_paste")}</Press>
+          )}
+        </div>
+        {wrong && <p role="alert" className="text-sm">{t("study_joinByLinkWrong")}</p>}
+      </form>
+    </MotionModal>
   );
 }
 

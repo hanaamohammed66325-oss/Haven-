@@ -11,6 +11,7 @@ import { openingDateLabel } from "@/lib/featureFlags";
 import { ComingSoon } from "@/components/ComingSoon";
 import { clearStudyDestination, rememberStudyDestination } from "@/lib/study/destination";
 import { joinStudyGroup, previewStudyInvite } from "@/lib/study/client";
+import { joinPath } from "@/lib/study/inviteLink";
 import { AppearanceFields, appearanceValid } from "@/components/study/AppearanceFields";
 import type { JoinPreview, StudyAppearance } from "@/lib/study/types";
 export default function JoinPage() {
@@ -29,6 +30,7 @@ function Join() {
   const request = useRef(0);
   const joining = useRef(false);
   const [look, setLook] = useState<StudyAppearance | null>(null);
+  const [copied, setCopied] = useState(false);
   const valid = /^[0-9a-f]{32}$/i.test(token);
   const appearance = look ?? { displayName: profileName ?? "", haviName: haviName || "Havi", haviColor: "#a8d98a", flowerColor: "#edb7c8" };
   useEffect(() => setLook(null), [accountId, token]);
@@ -58,6 +60,16 @@ function Join() {
     initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={SURFACE}>
     <h1 className="text-xl font-semibold">{t("study_inviteTitle")}</h1>
     {!valid ? <p>{t("study_invalidInvite")}</p> : authStatus === "signedOut" ? <>
+      {/* An installed app on iPhone/iPad can't open links: they open here, in the
+          browser, which has its own sign-in. Such a member copies the link and
+          pastes it inside the app («Join with a link»). */}
+      <section className="haven-card flex flex-col gap-2 rounded-2xl p-4 text-sm">
+        <h2 className="font-semibold">{t("study_inviteHaveApp")}</h2>
+        <p style={{ color: "var(--color-muted)" }}>{t("study_inviteHaveAppHint")}</p>
+        <Press lift="none" className="haven-btn self-start rounded-xl px-4 py-2 text-sm font-medium" onClick={async () => {
+          try { await navigator.clipboard.writeText(`${window.location.origin}${joinPath(token.toLowerCase())}`); setCopied(true); window.setTimeout(() => setCopied(false), 1800); } catch { /* the address bar holds the link */ }
+        }}>{copied ? t("study_copied") : t("study_copyLink")}</Press>
+      </section>
       <p>{t("study_inviteSignIn")}</p><PressLink lift="none" className="haven-btn rounded-xl p-3" href="/signin">{t("authSignIn")}</PressLink>
       <PressLink lift="none" href="/signup">{t("authCreateAccount")}</PressLink>
     </> : <>
