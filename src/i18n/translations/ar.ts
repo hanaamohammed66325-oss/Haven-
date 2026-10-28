@@ -239,6 +239,7 @@ export const ar: Record<TranslationKey, string> = {
   semesterSwitcherEmpty: "ستظهر الفصول الدراسية المحفوظة هنا.",
   semesterSwitcherSwitching: "جارٍ فتح الفصل…",
   semesterSwitcherHint: "تُحفظ مقرراتك ومهامك وتقدمك بصورة مستقلة لكل فصل دراسي.",
+  semesterSwitcherLimitNote: "حفظ الفصول الدراسية والتنقل بينها متاح الآن، وقد تصبح هذه الميزة مقيّدة مستقبلًا.",
   semesterEndTitle: "انتهى الفصل الدراسي",
   semesterEndBody: "انتهى {name}. حُفظت بيانات هذا الفصل، ويمكنك بدء فصل دراسي جديد الآن.",
   semesterEndProfileHint: "إذا اخترت «لاحقًا»، فلن تظهر هذه النافذة مجددًا لهذا الفصل. يمكنك إنشاء فصل دراسي أو عرض الفصول السابقة من ملفك الشخصي في أي وقت.",

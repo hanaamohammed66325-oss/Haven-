@@ -108,6 +108,9 @@ export function SemesterSwitcher() {
           <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
             {t("semesterSwitcherHint")}
           </p>
+          <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+            {t("semesterSwitcherLimitNote")}
+          </p>
         </div>
         <InteractionButton
           type="button"

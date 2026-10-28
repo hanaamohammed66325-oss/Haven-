@@ -238,6 +238,7 @@ export const en = {
   semesterSwitcherEmpty: "Your saved semesters will appear here.",
   semesterSwitcherSwitching: "Opening semester…",
   semesterSwitcherHint: "Your courses, tasks, and progress are saved separately for each semester.",
+  semesterSwitcherLimitNote: "Saving semesters and moving between them is available now; this feature may become limited in the future.",
   semesterEndTitle: "Your semester has ended",
   semesterEndBody: "{name} has ended. Its data is saved, and you can start a new semester now.",
   semesterEndProfileHint: "If you choose Later, this prompt will not appear again for this semester. You can create a semester or view past semesters from your profile at any time.",
