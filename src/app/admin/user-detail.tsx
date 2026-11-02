@@ -4,7 +4,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 import { useCallback, useEffect, useState } from "react";
 import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import type { Session } from "@supabase/supabase-js";
-import { Badge, useC, useS, callAdmin, fmtDateTime, fmtSar, fmtNum, timeAgo, Loading, StatCard } from "./_lib";
+import { Badge, supabase, useC, useS, callAdmin, fmtDateTime, fmtSar, fmtNum, timeAgo, Loading, StatCard } from "./_lib";
 import { AttendanceAuditView, loadAudit, type AuditRecord } from "./attendance-audit";
 import { StudentSummaryCard } from "./student-decisions";
 
@@ -144,7 +144,7 @@ export function UserDetailSection({
 
       {/* Calculation inputs — exactly what the student entered that the app's
           grade/attendance maths depend on, with integrity flags. */}
-      <InputsCard inputs={detail.inputs} />
+      <InputsCard inputs={detail.inputs} userId={userId} />
 
       {/* Attendance % per course, recomputed with the app's own maths */}
       {!ATTENDANCE_CALC_SUSPENDED && <AttendanceCard userId={userId} />}
@@ -348,11 +348,35 @@ function courseFlags(c: InputCourse): string[] {
   return f;
 }
 
-function InputsCard({ inputs }: { inputs?: Detail["inputs"] }) {
+/** One of the student's semesters (admin_user_semesters). */
+type SemesterRow = Pick<NonNullable<NonNullable<Detail["inputs"]>["semester"]>,
+  "name" | "teaching_weeks" | "finals_weeks" | "start_date" | "end_date" | "cumulative_gpa" | "completed_hours"> & {
+  id: string;
+  is_active: boolean;
+  courses: NonNullable<Detail["inputs"]>["courses"];
+};
+
+function InputsCard({ inputs, userId }: { inputs?: Detail["inputs"]; userId: string }) {
   const C = useC();
+  // Every semester the student has, so earlier ones stay visible after they
+  // move to a new one; null = the active semester from user_detail.
+  const [semesters, setSemesters] = useState<SemesterRow[] | null>(null);
+  const [semError, setSemError] = useState("");
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void supabase.rpc("admin_user_semesters", { target_user_id: userId }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) setSemError(error.message);
+      else setSemesters((data ?? []) as SemesterRow[]);
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
   if (!inputs) return null;
-  const sem = inputs.semester;
-  const courses = inputs.courses ?? [];
+  const chosen = semesters?.find((x) => x.id === picked && !x.is_active) ?? null;
+  // Calendar and tardiness are account settings: they stay the active semester's.
+  const sem = chosen && inputs.semester ? { ...inputs.semester, ...chosen } : chosen ? { ...chosen, calendar_type: null, tardiness_rule: null } : inputs.semester;
+  const courses = chosen ? chosen.courses ?? [] : inputs.courses ?? [];
 
   const semFlags: string[] = [];
   if (sem) {
@@ -369,6 +393,28 @@ function InputsCard({ inputs }: { inputs?: Detail["inputs"] }) {
       <p className="text-[12px] mb-4" style={{ color: C.textFaint }}>
         The exact data this student entered that the grade &amp; attendance maths run on. Flags mark inputs that skew results.
       </p>
+
+      {/* All of the student's semesters */}
+      {semError ? (
+        <p className="text-[12px] mb-3" style={{ color: C.danger }}>Semesters: {semError}</p>
+      ) : semesters && semesters.length > 0 ? (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {semesters.map((x) => {
+            const on = chosen ? chosen.id === x.id : x.is_active;
+            return (
+              <button
+                key={x.id}
+                type="button"
+                onClick={() => setPicked(x.is_active ? null : x.id)}
+                className="rounded-full px-3 py-1 text-[12px] font-medium"
+                style={{ background: on ? C.primary : C.border, color: on ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}
+              >
+                {x.name || "—"}{x.is_active ? " · active" : ""} · {x.courses?.length ?? 0} {(x.courses?.length ?? 0) === 1 ? "course" : "courses"}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       {/* Semester */}
       {!sem ? (

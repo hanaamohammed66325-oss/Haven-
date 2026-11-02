@@ -8,7 +8,7 @@ import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import type { Session } from "@supabase/supabase-js";
 
 export type AdminSection =
-  | "dashboard" | "users" | "insights" | "retention" | "top-users" | "universities" | "gpa-checks" | "facts"
+  | "dashboard" | "users" | "insights" | "retention" | "top-users" | "universities" | "gpa-checks" | "havi-alerts" | "facts"
   | "attendance" | "notifications" | "referral-review" | "growth"
   | "subscriptions" | "payments" | "feedback" | "support" | "coupons";
 
@@ -41,6 +41,7 @@ export function AdminSidebar({
     { id: "top-users",     label: "Top users",     icon: "🏆" },
     { id: "universities",  label: "Universities",  icon: "🎓" },
     { id: "gpa-checks",    label: "GPA",           icon: "✅" },
+    { id: "havi-alerts",   label: "Havi alerts",   icon: "" },
     { id: "facts",         label: "University facts", icon: "📅", badge: badges?.facts },
     { id: "attendance",    label: ATTENDANCE_CALC_SUSPENDED ? "Absence contributions" : "Attendance audit", icon: "📋" },
     { id: "notifications", label: "Notifications", icon: "🔔" },

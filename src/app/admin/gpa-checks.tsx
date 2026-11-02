@@ -485,6 +485,8 @@ function Report({ row, last, onOpenUser }: { row: EventRow; last: boolean; onOpe
   const ours = num(m.ours);
   const portal = num(m.portal);
   const reason = str(m.reason);
+  // Data the student never recorded (lib/gpaReadiness), sent with a reason.
+  const missing = Array.isArray(m.missing) ? m.missing.filter((x): x is string => typeof x === "string") : [];
   const courses = coursesOf(m);
   return (
     <div className="px-5 py-3.5 flex flex-col gap-2" style={{ borderBottom: last ? "none" : `1px solid ${C.border}` }}>
@@ -507,6 +509,11 @@ function Report({ row, last, onOpenUser }: { row: EventRow; last: boolean; onOpe
         {reason && (
           <span className="text-[12px]" style={{ color: C.warning }}>
             {REASON_LABEL[reason] ?? reason}
+          </span>
+        )}
+        {missing.length > 0 && (
+          <span className="text-[12px]" style={{ color: C.danger }} title="Data the student had not recorded when giving the reason">
+            missing data: {missing.join(", ")}
           </span>
         )}
         <InteractionButton

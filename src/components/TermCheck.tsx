@@ -13,6 +13,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useWhatsNewReady } from "./useWhatsNewReady";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Calculator, CheckCircle2, History, Pencil, Plus, Trash2, TrendingUp, X } from "@/components/motion/icons";
 import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
@@ -21,6 +22,7 @@ import { pendingSetupSteps } from "./SetupCheck";
 import { useGpaChecked } from "./GpaCheckNudge";
 import { courseCurrentPct, projectedCumulativeGpa, semesterGpaDetail, semesterGPA } from "@/lib/grades";
 import { repeatAdjust } from "@/lib/repeats";
+import { gpaGaps, type GpaGap } from "@/lib/gpaReadiness";
 import { compareCumulativeGpa, priorGpaDecimals, sameDisplayedGpa } from "@/lib/gpaComparison";
 import { DENIED, SPECIAL_RESULTS, detectScheme } from "@/lib/gradeSchemes";
 import { toEnglishDigits } from "@/lib/dates";
@@ -190,6 +192,15 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
     )
   );
 
+  // Data the student never recorded (lib/gpaReadiness): shown beside the
+  // reasons when the GPA still differs, and sent with the reason.
+  const gaps = useMemo(
+    () => gpaGaps({ academic, courses, cumulativeGpa, cumulativeHours }),
+    [academic, courses, cumulativeGpa, cumulativeHours]
+  );
+  const termGaps = gaps.filter((g) => g.kind !== "cumulative");
+  const missingKinds = (list: GpaGap[]) => list.map((g) => g.kind);
+
   const guesses = useMemo(
     () => (portal != null ? explainGap(estCourses, scheme, portal).slice(0, 2) : []),
     [estCourses, scheme, portal]
@@ -352,7 +363,8 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
       const next = { ...cumSaved, reason };
       const shared = cumConsent || termCheck?.consent === true;
       save({ cum: next, ...(shared ? { consent: true } : {}) });
-      reportTermCheck("term_cum_reason", shared ? { ...cumMeta(next), reason, consent: true } : { reason, consent: false });
+      const missing = missingKinds(gaps);
+      reportTermCheck("term_cum_reason", shared ? { ...cumMeta(next), reason, missing, consent: true } : { reason, missing, consent: false });
       setCumSaved(next);
       setCumReasonDone(true);
     };
@@ -418,6 +430,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                     </span>
                   </label>
                 )}
+                <MissingData gaps={gaps} onLeave={onClose} />
                 <p className="text-sm mt-4" style={{ color: "var(--color-ink)" }}>
                   {t("pt_reasonQuestion")}
                 </p>
@@ -738,7 +751,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   if (step === "reason") {
     const pick = (reason: TermMismatchReason) => {
       save({ reason });
-      if (consent) reportTermCheck("term_mismatch_reason", { ...baseMeta(), reason, courses: courseMeta(gradesFromDraft()) });
+      if (consent) reportTermCheck("term_mismatch_reason", { ...baseMeta(), reason, missing: missingKinds(termGaps), courses: courseMeta(gradesFromDraft()) });
       finish("reason");
     };
     const reasons: TermMismatchReason[] = ["repeat", "notCounted", "hours", "unknown"];
@@ -750,6 +763,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
         <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
           {t("tc_reasonBody")}
         </p>
+        <MissingData gaps={termGaps} onLeave={onClose} />
         <div className="mt-4 flex flex-wrap gap-2">
           {reasons.map((r) => (
             <Secondary key={r} onClick={() => pick(r)}>
@@ -826,6 +840,67 @@ export function GpaAccuracyCard({ onOpen = openTermCheck }: { onOpen?: (step: St
         <PastTerms />
       </div>
     </>
+  );
+}
+
+/** What the student never recorded, when the GPA still differs from the
+ *  portal: each item links to where it is fixed (closing the window). */
+function MissingData({ gaps, onLeave }: { gaps: GpaGap[]; onLeave: () => void }) {
+  const { t } = useT();
+  const router = useRouter();
+  const { setGpaMode } = useStore();
+  if (!gaps.length) return null;
+  const go = (gap: GpaGap, courseId?: string) => {
+    onLeave();
+    if (gap.kind === "university" || gap.kind === "table") router.push("/profile#academic-profile");
+    else if (gap.kind === "cumulative") {
+      setGpaMode("cumulative");
+      router.push("/dashboard");
+    } else router.push(`/courses${courseId ? `#${encodeURIComponent(courseId)}` : ""}`);
+  };
+  return (
+    <div className="mt-4 rounded-xl border p-3" style={{ borderColor: "var(--color-border)", background: "var(--color-primary-soft)" }}>
+      <p className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
+        {t("tc_missingTitle")}
+      </p>
+      <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+        {t("tc_missingBody")}
+      </p>
+      <ul className="mt-2 flex flex-col gap-1.5 text-[13px]">
+        {gaps.map((g) => (
+          <li key={g.kind} className="ps-2.5 border-s-2" style={{ borderColor: "var(--color-warning)" }}>
+            {g.courses ? (
+              <>
+                <span style={{ color: "var(--color-ink)" }}>{t(`haviGpa_${g.kind}`)}</span>
+                <span className="mt-1 flex flex-wrap gap-1">
+                  {g.courses.map((c) => (
+                    <InteractionButton
+                      key={c.id}
+                      type="button"
+                      dir="auto"
+                      onClick={() => go(g, c.id)}
+                      className="rounded-full px-2 py-0.5 text-xs"
+                      style={{ background: "var(--color-surface)", color: "var(--color-primary-dark)" }}
+                    >
+                      {c.name}
+                    </InteractionButton>
+                  ))}
+                </span>
+              </>
+            ) : (
+              <InteractionButton
+                type="button"
+                onClick={() => go(g)}
+                className="text-start underline underline-offset-2"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {t(`haviGpa_${g.kind}`)}
+              </InteractionButton>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

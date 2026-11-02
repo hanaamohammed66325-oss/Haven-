@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import HaviMascot from "@/components/HaviMascot";
+import { HaviGpaNote } from "@/components/HaviGpaNote";
 import RegisterSW from "@/components/RegisterSW";
 import EnglishDigits from "@/components/EnglishDigits";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -122,7 +123,7 @@ export default function RootLayout({
         <SubscriptionProvider>
           <Providers>
             {children}
-            <OutsideNotes><HaviMascot /></OutsideNotes>
+            <OutsideNotes><HaviMascot /><HaviGpaNote /></OutsideNotes>
           </Providers>
         </SubscriptionProvider>
         {/* PWA: register the worker (production only) and offer the install

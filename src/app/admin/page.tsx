@@ -25,6 +25,7 @@ import { CouponsSection } from "./coupons";
 import { TopUsersSection } from "./top-users";
 import { UniversitiesSection } from "./universities";
 import { GpaChecksSection } from "./gpa-checks";
+import { HaviAlertsSection } from "./havi-alerts";
 import { loadCalendarsReady } from "./university-facts";
 import { AttendanceAuditSection } from "./attendance-audit";
 import { AttendanceContributionsSection } from "./attendance-contributions";
@@ -266,6 +267,8 @@ function AdminPage() {
             <UniversitiesSection />
           ) : section === "gpa-checks" ? (
             <GpaChecksSection onOpenUser={openUser} />
+          ) : section === "havi-alerts" ? (
+            <HaviAlertsSection onOpenUser={openUser} />
           ) : section === "facts" ? (
             <UniversityFactsTabs />
           ) : section === "attendance" ? (
