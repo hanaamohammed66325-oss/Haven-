@@ -110,7 +110,7 @@ export function UserDetailSection({
       <div className="rounded-xl border p-5 mb-4" style={{ borderColor: C.border, background: C.panel }}>
         <h2 className="text-[13px] font-semibold uppercase tracking-wide mb-4" style={{ color: C.textDim }}>Profile</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[13px]">
-          <KV label="Name" value={p?.full_name || "—"} />
+          <KV label="Name" value={<bdi>{p?.full_name || "—"}</bdi>} />
           <KV label="Joined" value={fmtDateTime(p?.created_at)} />
           <KV label="Last seen" value={p?.last_sign_in_at ? fmtDateTime(p.last_sign_in_at) : "—"} />
           <KV label="Email confirmed" value={p?.email_confirmed_at ? fmtDateTime(p.email_confirmed_at) : "No"} />
@@ -409,7 +409,7 @@ function InputsCard({ inputs, userId }: { inputs?: Detail["inputs"]; userId: str
                 className="rounded-full px-3 py-1 text-[12px] font-medium"
                 style={{ background: on ? C.primary : C.border, color: on ? "#fff" : C.textMuted, border: "none", cursor: "pointer" }}
               >
-                {x.name || "—"}{x.is_active ? " · active" : ""} · {x.courses?.length ?? 0} {(x.courses?.length ?? 0) === 1 ? "course" : "courses"}
+                <bdi>{x.name || "—"}</bdi>{x.is_active ? " · active" : ""} · {x.courses?.length ?? 0} {(x.courses?.length ?? 0) === 1 ? "course" : "courses"}
               </button>
             );
           })}
@@ -421,7 +421,7 @@ function InputsCard({ inputs, userId }: { inputs?: Detail["inputs"]; userId: str
         <p className="text-[13px]" style={{ color: C.textFaint }}>No active semester.</p>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[13px]">
-          <KV label="Semester" value={sem.name || "—"} />
+          <KV label="Semester" value={<bdi>{sem.name || "—"}</bdi>} />
           <KV label="Teaching weeks" value={sem.teaching_weeks ?? "—"} />
           <KV label="Finals weeks" value={sem.finals_weeks ?? "—"} />
           <KV label="Start date" value={sem.start_date ?? "—"} />
@@ -466,7 +466,7 @@ function InputsCard({ inputs, userId }: { inputs?: Detail["inputs"]; userId: str
                   const weightOff = weightsOff(c);
                   return (
                     <tr key={i} style={{ borderTop: `1px solid ${C.border}` }}>
-                      <td className={td} style={{ color: C.text, fontWeight: 500 }}>{c.name || "—"}</td>
+                      <td className={td} style={{ color: C.text, fontWeight: 500 }}><bdi>{c.name || "—"}</bdi></td>
                       <td className={td} style={{ color: C.text }}>{c.credits ?? "—"}</td>
                       <td className={td} style={{ color: c.sessions === 0 ? C.danger : C.text }}>{c.sessions}</td>
                       <td className={td} style={{ color: C.text }}>{c.weekly_minutes}</td>

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { supabase, useC, fmtNum } from "./_lib";
+import { supabase, useC, fmtNum, countOf } from "./_lib";
+import { plural } from "@/lib/format";
 
 interface Summary {
   account_id: string;
@@ -82,7 +83,7 @@ export function GrowthSummary({ account, refresh, ar }: { account: string; refre
 
   return <div className="mb-6">
     <p className="text-xs mb-4 leading-6" style={{ color: C.textDim }}>
-      {text(`الأرقام لمستخدمين فعليين فقط. استُثنيت ${fmtNum(v.excluded_accounts)} حسابات تجريبية. آخر تحديث: `, `Real students only. ${fmtNum(v.excluded_accounts)} test accounts excluded. Updated: `)}
+      {text(`الأرقام لمستخدمين فعليين فقط. استُثني من الحساب: ${plural(fmtNum(v.excluded_accounts), ["حساب تجريبي واحد", "حسابان تجريبيان", "# حسابات تجريبية", "# حسابًا تجريبيًا"])}. آخر تحديث: `, `Real students only. ${countOf(v.excluded_accounts, "test account")} excluded. Updated: `)}
       {new Date(v.as_of).toLocaleString(ar ? "ar-SA-u-nu-latn" : "en-GB", { timeZone: "Asia/Riyadh" })}
     </p>
 
@@ -112,9 +113,9 @@ export function GrowthSummary({ account, refresh, ar }: { account: string; refre
 
     {group(text("الإحالات والجلسات الجماعية", "Referrals and group sessions"), <div className={grid}>
       {stat(text("إحالات", "Referrals"), v.referrals.claims, text(`${fmtNum(v.referrals.counted)} محتسبة`, `${fmtNum(v.referrals.counted)} counted`))}
-      {stat(text("مجموعات فعّالة", "Active groups"), v.groups.groups, text("فيها عضو فعلي واحد على الأقل", "with at least one real member"))}
+      {stat(text("المجموعات", "Groups"), v.groups.groups, text("غير محذوفة، وفيها طالب فعلي واحد على الأقل", "not deleted, with at least one real student"))}
       {stat(text("أعضاء المجموعات", "Group members"), v.groups.members, text("أعضاء حاليون", "current members"))}
-      {stat(text("جولات مكتملة", "Completed rounds"), v.groups.rounds, text(`${fmtNum(v.groups.students_with_rounds)} طلاب شاركوا`, `${fmtNum(v.groups.students_with_rounds)} students took part`))}
+      {stat(text("جولات مكتملة", "Completed rounds"), v.groups.rounds, text(plural(fmtNum(v.groups.students_with_rounds), ["أكملها طالب واحد", "أكملها طالبان", "أكملها # طلاب", "أكملها # طالبًا"]), `completed by ${countOf(v.groups.students_with_rounds, "student")}`))}
     </div>, v.referrals.claims === 0 && v.groups.rounds === 0 ? text("لا استخدام فعلي لهما بعد؛ الإحالة والجلسات الجماعية جديدتان.", "No real use yet; both are new.") : undefined)}
   </div>;
 }

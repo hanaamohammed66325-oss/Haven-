@@ -14,7 +14,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 //     of their answers, on their page.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, useC, fmtDateTime, timeAgo, Loading, ErrorBanner, type Palette } from "./_lib";
+import { supabase, useC, fmtDateTime, timeAgo, Loading, ErrorBanner, countOf, type Palette } from "./_lib";
 import { useDrill, type DrillUser } from "./_drill";
 import { detectScheme, gradeTableStatus } from "@/lib/gradeSchemes";
 import { holidayCalendar } from "@/lib/universityCountry";
@@ -414,7 +414,7 @@ export function InsightsChoices() {
       <div>
         <h2 className="text-[15px] font-semibold mb-1" style={{ color: C.text }}>Student choices</h2>
         <p className="text-[12px] mb-3" style={{ color: C.textFaint }}>
-          How {rows.length} students answered each question that decides their numbers. Click a row to see the students.
+          How {countOf(rows.length, "student")} answered each question that decides their numbers. Click a row to see the students.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {TOPICS.map((t) => {

@@ -7,7 +7,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 // no edge-function deploy is needed for this page to work.
 
 import { useCallback, useEffect, useState } from "react";
-import { supabase, useC, useS, StatCard, ClickableCard, SectionHeader, Loading, ErrorBanner, fmtNum } from "./_lib";
+import { supabase, useC, useS, StatCard, ClickableCard, SectionHeader, Loading, ErrorBanner, fmtNum, countOf } from "./_lib";
 import { useDrill } from "./_drill";
 import { InsightsChoices } from "./student-decisions";
 import { SustainedUseOutcomes } from "./OutcomePanels";
@@ -173,7 +173,7 @@ function DistCard({ title, dist }: { title: string; dist: Dist }) {
     <div className="rounded-xl border p-5" style={{ borderColor: C.border, background: C.panel }}>
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-[13px] font-semibold" style={{ color: C.textMuted }}>{title}</h3>
-        <span className="text-[11px]" style={{ color: C.textFaint }}>{dist.users_total} users · avg {dist.avg} · max {dist.max}</span>
+        <span className="text-[11px]" style={{ color: C.textFaint }}>{countOf(dist.users_total, "user")} · avg {dist.avg} · max {dist.max}</span>
       </div>
       <div className="flex flex-col gap-2">
         {buckets.map((b) => (

@@ -21,7 +21,7 @@ export function OutcomeCard({ title, detail, current, previous, available = true
       <span className="text-xs" style={{ color: ink }}>{label}</span></div>
     <p className="text-xs" style={{ color: C.textDim }}>{available && pct !== null && countFirst ? n(pct) + '% · ' : ''}{detail}</p>
     <details className="text-xs mt-2" style={{ color: C.textDim }}><summary className="cursor-pointer">{ar ? 'عرض التفاصيل' : 'View details'}</summary>
-    <p className="mt-2">{ar ? `${n(current.yes)} من أصل ${n(current.total)}` : `${n(current.yes)} out of ${n(current.total)}`}</p>
+    {available && <p className="mt-2">{ar ? `${n(current.yes)} من أصل ${n(current.total)}` : `${n(current.yes)} out of ${n(current.total)}`}</p>}
     {available && pct !== null && old !== null && <p className="text-xs mt-2" style={{ color: C.textDim }}>{ar ? 'مقابل الفترة السابقة: ' : 'Versus previous period: '}{pct >= old ? '+' : ''}{n(pct - old)} {ar ? 'نقطة مئوية' : 'percentage points'}</p>}
     {!!current.unknown && <p className="text-xs mt-2" style={{ color: C.warningText }}>{ar ? 'سجلات ذات تغطية غير مكتملة: ' : 'Records with incomplete coverage: '}{n(current.unknown)}</p>}
     </details>

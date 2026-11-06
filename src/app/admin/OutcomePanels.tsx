@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { supabase, useC, fmtNum } from './_lib';
+import { supabase, useC, fmtNum, countOf } from './_lib';
 import { OutcomeCard } from './OutcomeCard';
 import { OUTCOME_KEYS, parseGrowthOverview, parseEngagementOverview, type OutcomeKey } from '@/lib/adminOutcomeMetrics';
 
@@ -85,7 +85,7 @@ export function SustainedUseOutcomes({ account, refresh }: { account: string; re
     </div>
     <div className="border rounded-xl mt-3 p-4" style={{ borderColor: C.border, background: C.panel }}>
       <h3 className="font-semibold text-sm mb-2" style={{ color: C.text }}>Where meaningful use happens</h3>
-      {v.features.map(f => <p key={f.feature} className="text-xs leading-7" style={{ color: C.textMuted }}>{f.feature}: {fmtNum(f.users)} users · {percent(f.users, v.observed_users)} of useful-usage audience · {fmtNum(f.actions)} meaningful actions</p>)}
+      {v.features.map(f => <p key={f.feature} className="text-xs leading-7" style={{ color: C.textMuted }}>{f.feature}: {countOf(f.users, "user")} · {percent(f.users, v.observed_users)} of useful-usage audience · {fmtNum(f.actions)} meaningful actions</p>)}
       <p className="text-xs mt-2" style={{ color: C.textDim }}>Feature audiences overlap. Repeated saves of the same task, grade or session are not separately identified by the current event log; action counts are recorded activity, not unique content created.</p>
     </div>
     <p className="text-xs mt-3" style={{ color: C.warningText }}>Purchase likelihood: not measured. Checkout is currently simulated and disabled during the free launch, so these users are a usage-qualified audience, not a predicted paying audience. No payment probability is inferred.</p>

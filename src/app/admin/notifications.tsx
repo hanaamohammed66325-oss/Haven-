@@ -6,7 +6,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 // admin_notification_stats() directly via supabase.rpc.
 
 import { useCallback, useEffect, useState } from "react";
-import { supabase, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner } from "./_lib";
+import { supabase, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner, countOf } from "./_lib";
 import { useDrill } from "./_drill";
 
 interface Group { sent: number; users: number }
@@ -87,14 +87,14 @@ export function NotificationsSection() {
             <SubHead text="Delivered notifications by type" />
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {groups.map((g) => (
-                <StatCard key={g} label={GROUP_LABEL[g]} value={stats.by_group[g]?.sent ?? 0} sub={`${stats.by_group[g]?.users ?? 0} users`} onClick={() => drill({ title: `${GROUP_LABEL[g]} notifications — who received them`, card: "notif_group", arg: g })} />
+                <StatCard key={g} label={GROUP_LABEL[g]} value={stats.by_group[g]?.sent ?? 0} sub={countOf(stats.by_group[g]?.users ?? 0, "user")} onClick={() => drill({ title: `${GROUP_LABEL[g]} notifications — who received them`, card: "notif_group", arg: g })} />
               ))}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-              <StatCard label="Total delivered" value={stats.delivered_total} accent={C.success} sub={`${stats.delivered_users} users reached`} />
+              <StatCard label="Total delivered" value={stats.delivered_total} accent={C.success} sub={`${countOf(stats.delivered_users, "user")} reached`} />
               <StatCard label="Scheduled (queued)" value={stats.scheduled.total} sub={`${stats.scheduled.sent} sent · ${stats.scheduled.pending} pending`} />
-              <StatCard label="Live devices" value={stats.subscriptions.devices} sub={`${stats.subscriptions.users} users · ${stats.subscriptions.ios} iOS`} onClick={() => drill({ title: "Users with live devices", card: "push_devices" })} />
-              <StatCard label="Pomodoro sessions" value={stats.pomodoro.completions} sub={`${stats.pomodoro.users} users · no push type`} onClick={() => drill({ title: "Pomodoro users", card: "pomodoro" })} />
+              <StatCard label="Live devices" value={stats.subscriptions.devices} sub={`${countOf(stats.subscriptions.users, "user")} · ${stats.subscriptions.ios} iOS`} onClick={() => drill({ title: "Users with live devices", card: "push_devices" })} />
+              <StatCard label="Pomodoro sessions" value={stats.pomodoro.completions} sub={`${countOf(stats.pomodoro.users, "user")} · no push type`} onClick={() => drill({ title: "Pomodoro users", card: "pomodoro" })} />
             </div>
           </div>
 

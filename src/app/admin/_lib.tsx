@@ -50,6 +50,9 @@ export const fmtSar = (n?: number | null) =>
   n == null ? "—" : `${Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 })} SAR`;
 export const fmtNum = (n?: number | null) =>
   n == null ? "—" : Number(n).toLocaleString("en-US");
+/** "1 student" / "3 students"; pass `other` for irregular nouns. */
+export const countOf = (n: number | null | undefined, one: string, other = one + "s") =>
+  `${fmtNum(n)} ${n === 1 ? one : other}`;
 export const timeAgo = (iso?: string | null) => {
   if (!iso) return "—";
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   supabase, useC, useS, StatCard, ClickableCard, SectionHeader, Loading, ErrorBanner,
   fmtNum, fmtDateTime, timeAgo, useDebounce,
+  countOf,
 } from "./_lib";
 import { useDrill } from "./_drill";
 
@@ -156,7 +157,7 @@ export function RetentionSection() {
             </div>
             <p className="text-[12px] mt-2" style={{ color: C.textFaint }}>
               {data.new_today > 0
-                ? `${fmtNum(data.new_today)} users opened Haven for the first time today, so the raw base is dominated by brand-new arrivals. Cohorts exclude them, so this is the honest "do people come back" number.`
+                ? `${countOf(data.new_today, "user")} opened Haven for the first time today, so the raw base is dominated by brand-new arrivals. Cohorts exclude them, so this is the honest "do people come back" number.`
                 : `Cohorts count only users who have had at least a full day of opportunity to return.`}
             </p>
           </div>
@@ -167,7 +168,7 @@ export function RetentionSection() {
             <UsersTable rows={data.users} />
             {data.total_users > data.tracked_users && (
               <p className="text-[12px] mt-2" style={{ color: C.textFaint }}>
-                {fmtNum(data.total_users - data.tracked_users)} users have no open data — they signed up before open-tracking began
+                {countOf(data.total_users - data.tracked_users, "user")} {data.total_users - data.tracked_users === 1 ? "has" : "have"} no open data — they signed up before open-tracking began
                 {data.tracking_since ? ` (${fmtDateTime(data.tracking_since)})` : ""} or never launched the app.
               </p>
             )}
@@ -206,7 +207,7 @@ function Verdict({ data }: { data: Retention }) {
             </span>
             <span className="text-[13px]" style={{ color: C.textMuted }}>
               of the {win} cohort returned<br />
-              <span style={{ color: C.textFaint }}>{fmtNum(returned)} of {fmtNum(cohort)} users came back on another day</span>
+              <span style={{ color: C.textFaint }}>{fmtNum(returned)} of {countOf(cohort, "user")} came back on another day</span>
             </span>
           </div>
         </div>
@@ -237,7 +238,7 @@ function BucketCard({
     <div className="rounded-xl border p-5" style={{ borderColor: C.border, background: C.panel }}>
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-[13px] font-semibold" style={{ color: C.textMuted }}>{title}</h3>
-        <span className="text-[11px]" style={{ color: C.textFaint }}>{fmtNum(total)} users</span>
+        <span className="text-[11px]" style={{ color: C.textFaint }}>{countOf(total, "user")}</span>
       </div>
       <div className="flex flex-col gap-2.5">
         {buckets.map((b) => {

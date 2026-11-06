@@ -21,7 +21,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 // crowd_votes (admins read every row).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, sessionUserId, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner, fmtDate } from "./_lib";
+import { supabase, sessionUserId, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner, fmtDate, countOf } from "./_lib";
 import { useDrill, type DrillUser } from "./_drill";
 import { COUNTRY_NAMES, registerPublishedCalendar } from "@/lib/countryHolidays";
 import { calendarFromRow, type CalendarRow } from "@/lib/publishedCalendars";
@@ -252,7 +252,7 @@ export function HolidayCalendarsSection() {
                         <span className="text-[12px]" style={{ color: C.textDim }}>{countryName(g.country)}</span>
                         {chip(KIND_LABEL[g.kind], g.kind === "none" ? C.danger : g.kind === "country" ? C.indigo : C.primary)}
                         <span className="text-[12px] tabular-nums" style={{ color: C.textMuted }}>
-                          {g.students.length} students · {g.agree} confirmed · {g.differ} changed
+                          {countOf(g.students.length, "student")} · {g.agree} confirmed · {g.differ} changed
                         </span>
                         {g.flag === "ready" && chip("Ready for approval", C.success)}
                         {g.flag === "disputed" && chip("Students disagree", C.warning)}
@@ -404,7 +404,7 @@ function PublishForm({ group: g, onDone, onCancel }: { group: UniversityGroup; o
         })),
         status: "suggested",
         source: "students",
-        note: `From ${g.students.length} students' reports (${g.agree} confirmed as it was, ${g.differ} changed it).`,
+        note: `From ${g.students.length === 1 ? "1 student's report" : `${g.students.length} students' reports`} (${g.agree} confirmed as it was, ${g.differ} changed it).`,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "key" }

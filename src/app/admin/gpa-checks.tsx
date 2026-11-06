@@ -10,7 +10,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 // them to that university's students (grade_cutoffs table).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, useC, StatCard, SectionHeader, Loading, ErrorBanner, fmtDate } from "./_lib";
+import { supabase, useC, StatCard, SectionHeader, Loading, ErrorBanner, fmtDate, countOf } from "./_lib";
 import { useDrill, type DrillUser } from "./_drill";
 import { GradeTablesPanel } from "./grade-tables";
 import { catalogBySlug, detectScheme, matchCatalog, schemeById, type GradeScheme } from "@/lib/gradeSchemes";
@@ -642,7 +642,7 @@ function CutoffCard({
           {u?.ar ?? group.slug}
         </span>
         <span className="text-[11px]" style={{ color: C.textDim }}>
-          {u?.country} · {group.obs.length} results from {group.users.size} students
+          {u?.country} · {countOf(group.obs.length, "result")} from {countOf(group.users.size, "student")}
         </span>
         {approved && (
           <span className="text-[11px] rounded px-1.5 py-0.5" style={{ background: C.successBg, color: C.successText }}>

@@ -9,7 +9,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { supabase, useC, useS, timeAgo, fmtNum, useDebounce } from "./_lib";
+import { supabase, useC, useS, timeAgo, countOf, useDebounce } from "./_lib";
 
 export interface DrillUser {
   user_id: string;
@@ -109,7 +109,7 @@ function DrillPanel({
           <div className="min-w-0">
             <div className="text-[15px] font-semibold" style={{ color: C.text }}>{req.title}</div>
             <div className="text-[12px] mt-0.5" style={{ color: C.textDim }}>
-              {users ? `${fmtNum(users.length)} users` : error ? "" : "Loading…"}
+              {users ? countOf(users.length, "user") : error ? "" : "Loading…"}
             </div>
           </div>
           <InteractionButton onClick={onClose} aria-label="Close" className="rounded-lg px-2.5 py-1 text-[14px]" style={{ background: C.border, color: C.textMuted, border: "none", cursor: "pointer" }}>

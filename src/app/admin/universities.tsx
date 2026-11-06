@@ -12,7 +12,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 // never reads it, so holidays and calendars stay as they are.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, useC, StatCard, SectionHeader, Loading, ErrorBanner, fmtNum } from "./_lib";
+import { supabase, useC, StatCard, SectionHeader, Loading, ErrorBanner, fmtNum, countOf } from "./_lib";
 import { useDrill, type DrillUser } from "./_drill";
 import { universityBySlug } from "@/lib/tools/universities";
 import { matchUniversityByName } from "@/lib/gradeSchemes";
@@ -283,7 +283,7 @@ export function UniversitiesSection() {
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard label="Universities represented" value={placed.length} />
-            <StatCard label="Users who set a university" value={withUni} sub={`of ${fmtNum(data.total_users)} users · ${data.total_users ? Math.round((withUni / data.total_users) * 100) : 0}%`} />
+            <StatCard label="Users who set a university" value={withUni} sub={`of ${countOf(data.total_users, "user")} · ${data.total_users ? Math.round((withUni / data.total_users) * 100) : 0}%`} />
             <StatCard label="Countries" value={byCountry.length} sub={byCountry[0] ? `most: ${countryLabel(byCountry[0].code).en}` : undefined} />
             <StatCard label="Top university" value={top ? top.users.length : "—"} sub={top?.name} />
           </div>

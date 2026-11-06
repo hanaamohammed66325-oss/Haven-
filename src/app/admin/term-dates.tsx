@@ -9,7 +9,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 // through admin_term_date_reports() (admin only; lib/termDateReports groups).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner, timeAgo } from "./_lib";
+import { supabase, useC, useS, StatCard, SectionHeader, Loading, ErrorBanner, timeAgo, countOf } from "./_lib";
 import { COUNTRY_NAMES } from "@/lib/countryHolidays";
 import { groupTermDateReports, type TermDateRow } from "@/lib/termDateReports";
 
@@ -94,7 +94,7 @@ export function TermDatesSection() {
                         <div className="text-[11px]" style={{ color: C.textDim }}>{country(g.country)}</div>
                       </div>
                       <div className="text-[12px] whitespace-nowrap" style={{ color: C.textMuted }}>
-                        {g.students.length} students · {n} confirmed{defaults ? ` · ${defaults} sign-up default` : ""}
+                        {countOf(g.students.length, "student")} · {n} confirmed{defaults ? ` · ${defaults} sign-up default` : ""}
                       </div>
                     </InteractionButton>
                     {isOpen && (

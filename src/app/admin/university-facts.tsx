@@ -22,7 +22,7 @@ import { InteractionButton } from "@/components/motion/Interaction";
 // Reads/writes go straight to the tables under the is_admin_current() policies.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase, sessionUserId, useC, StatCard, SectionHeader, Loading, ErrorBanner } from "./_lib";
+import { supabase, sessionUserId, useC, StatCard, SectionHeader, Loading, ErrorBanner, countOf } from "./_lib";
 import { UNIVERSITIES, type University } from "@/lib/tools/universities";
 
 type Term = "first" | "second" | "summer";
@@ -361,7 +361,7 @@ export function UniversityFactsSection() {
                     <span dir="auto" className="text-[14px] font-semibold" style={{ color: C.text }}>{uni?.name ?? slug}</span>
                     {talliesOf(slug).map((t) => (
                       <span key={t.period} className="text-[11px]" style={{ color: t.review ? C.danger : t.ready ? C.successText : C.textDim }}>
-                        {TERM_LABEL[t.period.split("|")[1] as Term]}: {t.agree} students agree, {t.differ} different
+                        {TERM_LABEL[t.period.split("|")[1] as Term]}: {countOf(t.agree, "student")} agree, {t.differ} different
                       </span>
                     ))}
                   </div>
