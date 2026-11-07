@@ -42,6 +42,7 @@ export const en = {
   nav_progress: "Progress",
   nav_schedule: "Schedule",
   nav_notes: "Notes",
+  nav_comingSoonNote: "Coming soon",
   nav_pomodoro: "Pomodoro",
   nav_settings: "Settings",
   nav_profile: "Profile",

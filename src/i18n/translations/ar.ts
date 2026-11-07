@@ -44,6 +44,7 @@ export const ar: Record<TranslationKey, string> = {
   nav_progress: "التقدّم",
   nav_schedule: "الجدول",
   nav_notes: "الملاحظات",
+  nav_comingSoonNote: "قادم قريبًا",
   nav_pomodoro: "بومودورو",
   nav_settings: "الإعدادات",
   nav_profile: "الملف الشخصي",

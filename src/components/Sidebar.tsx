@@ -2,7 +2,8 @@
 import { CollapseBody } from "./Collapsible";
 import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -12,7 +13,7 @@ import {
   Shield,
   Timer,
   Settings,
-  Lock,
+  NotebookPen,
   Globe,
   User,
   Check,
@@ -45,7 +46,7 @@ const MENU: NavItem[] = [
   { href: "/courses", labelKey: "nav_courses", icon: BookOpen },
   { href: "/assignments", labelKey: "nav_assignments", icon: ClipboardList },
   { href: "/schedule", labelKey: "nav_schedule", icon: CalendarDays },
-  { href: "/notes", labelKey: "nav_notes", icon: BookOpen, locked: !NOTES_ENABLED },
+  { href: "/notes", labelKey: "nav_notes", icon: NotebookPen, locked: !NOTES_ENABLED },
   { href: "/attendance", labelKey: "nav_attendance", icon: Shield },
   { href: "/pomodoro", labelKey: "nav_pomodoro", icon: Timer, locked: !POMODORO_ENABLED },
 ];
@@ -90,20 +91,46 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
   const base = collapsed
     ? "justify-center h-11 w-11 mx-auto"
     : "gap-3 px-3.5 py-2.5";
+  // A closed page goes nowhere. Pointing at it or tapping it says it is coming, right beside its name.
+  const [soon, setSoon] = useState<CSSProperties | null>(null);
+  const tapped = useRef(false);
+  useEffect(() => {
+    if (!soon || !tapped.current) return;
+    const timer = setTimeout(() => { tapped.current = false; setSoon(null); }, 3000);
+    return () => clearTimeout(timer);
+  }, [soon]);
+  const showSoon = (row: HTMLElement) => {
+    const box = row.getBoundingClientRect(), room = 8, width = window.innerWidth;
+    // The name's own text, or the icon when the sidebar is collapsed; the name's box fills the row.
+    const name = row.querySelector("span"), range = document.createRange();
+    if (name) range.selectNodeContents(name);
+    const anchor = name ? range.getBoundingClientRect() : (row.querySelector("svg") ?? row).getBoundingClientRect();
+    const top = box.top + box.height / 2;
+    setSoon(getComputedStyle(row).direction === "rtl"
+      ? { top, right: Math.min(width - anchor.left + room, width - 100) }
+      : { top, left: Math.min(anchor.right + room, width - 100) });
+  };
 
   if (item.locked) {
     return (
-      <div
-        className={`group relative flex items-center rounded-xl text-sm cursor-not-allowed select-none ${base}`}
+      <button
+        type="button"
+        onClick={(event) => { tapped.current = true; showSoon(event.currentTarget); }}
+        onPointerEnter={(event) => { if (event.pointerType === "mouse") showSoon(event.currentTarget); }}
+        onPointerLeave={(event) => { if (event.pointerType === "mouse" && !tapped.current) setSoon(null); }}
+        onFocus={(event) => { if (event.currentTarget.matches(":focus-visible")) showSoon(event.currentTarget); }}
+        onBlur={() => { if (!tapped.current) setSoon(null); }}
+        aria-label={`${label}: ${t("nav_comingSoonNote")}`}
+        className={`group relative flex items-center rounded-xl text-sm text-start select-none ${collapsed ? "" : "w-full"} ${base}`}
         style={{ color: "rgba(231,239,240,0.36)" }}
-        title={collapsed ? undefined : t("comingSoon")}
       >
         <Icon size={18} />
         {!collapsed && <span className="flex-1 min-w-0">{label}</span>}
-        {!collapsed && item.href === "/notes" && <span className="text-[9px] whitespace-nowrap">{t("comingSoon")}</span>}
-        {!collapsed && <Lock size={13} />}
-        {collapsed && <Tooltip>{label} · {t("comingSoon")}</Tooltip>}
-      </div>
+        {soon && createPortal(
+          <span role="status" className="pointer-events-none fixed z-[80] -translate-y-1/2 rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap" style={{ ...soon, background: "var(--color-ink)", color: "#fff", boxShadow: "var(--shadow-card)" }}>{t("nav_comingSoonNote")}</span>,
+          document.body,
+        )}
+      </button>
     );
   }
 
