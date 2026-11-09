@@ -27,9 +27,11 @@ interface AddCourseModalProps {
     attendanceLimit: number;
     /** the earlier attempt when the course is being repeated, else null */
     repeat: RepeatInfo | null;
+    /** the student left the course out of the GPA */
+    gpaExcluded: boolean;
   }) => void | Promise<MutationResult | void>;
   /** when provided, the modal edits an existing course (prefilled) */
-  initial?: { name: string; creditHours: number; attendanceLimit?: number; ownLimit?: boolean; repeat?: RepeatInfo };
+  initial?: { name: string; creditHours: number; attendanceLimit?: number; ownLimit?: boolean; repeat?: RepeatInfo; gpaExcluded?: boolean };
 }
 
 type Kind = NonNullable<RepeatInfo["kind"]>;
@@ -46,6 +48,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
   const [name, setName] = useState(initial?.name ?? "");
   const [credits, setCredits] = useState(String(initial?.creditHours ?? 3));
   const [limit, setLimit] = useState(String(initialLimit));
+  const [gpaExcluded, setGpaExcluded] = useState(initial?.gpaExcluded === true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const border = { borderColor: "var(--color-border)" };
@@ -83,6 +86,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
       setName(initial?.name ?? "");
       setCredits(String(initial?.creditHours ?? 3));
       setLimit(String(initialLimit));
+      setGpaExcluded(initial?.gpaExcluded === true);
       setError("");
       setSaving(false);
       setRepeated(!!initial?.repeat);
@@ -161,7 +165,7 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
     setSaving(true);
     // Await the save. Only close once the store actually has the row; if it
     // failed, keep the modal open and show why (was: closed silently regardless).
-    const res = await onSubmit({ name: name.trim(), creditHours: cr, attendanceLimit, repeat });
+    const res = await onSubmit({ name: name.trim(), creditHours: cr, attendanceLimit, repeat, gpaExcluded });
     setSaving(false);
     if (res && res.ok === false) {
       setError(t("saveError"));
@@ -209,6 +213,23 @@ export function AddCourseModal({ open, onClose, onSubmit, initial }: AddCourseMo
               : t("courseLimitHintUnknown")}
           </span>
         </div>}
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center gap-2.5 text-sm cursor-pointer" style={{ color: "var(--color-ink)" }}>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[var(--color-primary)]"
+              checked={gpaExcluded}
+              onChange={(e) => {
+                setError("");
+                setGpaExcluded(e.target.checked);
+              }}
+            />
+            {t("pt_exclude")}
+          </label>
+          <span className="text-[11.5px] leading-relaxed" style={{ color: "var(--color-muted)" }}>
+            {t("courseExcludeHint")}
+          </span>
+        </div>
         <RepeatFields
           repeated={repeated}
           setRepeated={clear(setRepeated)}

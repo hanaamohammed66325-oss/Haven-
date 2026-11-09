@@ -50,7 +50,7 @@ export function gpaGaps({ academic, courses, cumulativeGpa, cumulativeHours, sem
   else if (gradeTableStatus(academic) !== "ok") gaps.push({ kind: "table" });
 
   // A course without a portal result is read from its %, so only estimates count.
-  const counted = courses.filter((c) => !isWithdrawn(c.official));
+  const counted = courses.filter((c) => !isWithdrawn(c.official) && c.gpaExcluded !== true);
   const noCredits = counted.filter((c) => !((Number(c.creditHours) || 0) > 0));
   if (noCredits.length) gaps.push({ kind: "credits", courses: noCredits.map((c) => ({ id: c.id, name: c.name })) });
 

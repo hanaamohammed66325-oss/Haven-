@@ -9,7 +9,7 @@ import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { Card } from "./Card";
 import { CountUp } from "./CountUp";
-import { courseCurrentPct, gpaIsApprox, gradeCourse, projectedCumulativeFromParts, simulatedSemester } from "@/lib/grades";
+import { countsInGpa, courseCurrentPct, gpaIsApprox, gradeCourse, projectedCumulativeFromParts, simulatedSemester } from "@/lib/grades";
 import { repeatAdjust } from "@/lib/repeats";
 
 export function WhatIfCard() {
@@ -78,7 +78,8 @@ export function WhatIfCard() {
       </p>
 
       <div className="flex flex-col gap-5">
-        {courses.map((c) => {
+        {/* A course left out of the GPA would move nothing here. */}
+        {courses.filter(countsInGpa).map((c) => {
           const v = sim[c.id] ?? 75;
           const g = gradeCourse(c, scheme, { pct: v });
           if (g.source === "official" || g.source === "withdrawn") {

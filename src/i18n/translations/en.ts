@@ -1735,6 +1735,7 @@ export const en = {
   pt_exclude: "This course does not count in the GPA",
   pt_excludeHint: "Select this only when your academic record confirms the course is not counted in your GPA.",
   pt_excludedBadge: "Not counted in GPA",
+  courseExcludeHint: "Select this only when your university's regulations do not count this course in the GPA, such as pass/fail courses.",
   pt_noCounted: "There are no counted courses for a semester GPA.",
   pt_summaryCounted: "Counted in GPA: {n|# course|# courses} · {hours|# hour|# hours}",
   pt_summaryExcluded: "Not counted in GPA: {n|# course|# courses} · {hours|# hour|# hours}",

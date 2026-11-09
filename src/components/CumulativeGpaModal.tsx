@@ -222,7 +222,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
                         {gradeOptions}
                       </select>
                     ) : (
-                      <span className="text-xs italic shrink-0" style={{ color: "var(--color-muted)" }}>{t("cumNoGradeYet")}</span>
+                      <span className="text-xs italic shrink-0" style={{ color: "var(--color-muted)" }}>{t(r.excluded ? "pt_excludedBadge" : "cumNoGradeYet")}</span>
                     )}
                   </div>
                 ))}

@@ -705,8 +705,11 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
               className="grid grid-cols-[minmax(0,1fr)_3.5rem_5.5rem] items-center gap-2 py-2 border-b text-sm"
               style={{ borderColor: "var(--color-border)" }}
             >
-              <span className="truncate" style={{ color: "var(--color-ink)" }}>
-                {c.name}
+              <span className="min-w-0" style={{ color: "var(--color-ink)" }}>
+                <span className="block truncate">{c.name}</span>
+                {c.gpaExcluded && (
+                  <span className="block text-[11.5px]" style={{ color: "var(--color-muted)" }}>{t("pt_excludedBadge")}</span>
+                )}
               </span>
               <span className="text-xs" style={{ color: "var(--color-muted)" }}>
                 {t("tc_hours", { n: c.creditHours })}

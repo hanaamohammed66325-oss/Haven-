@@ -79,8 +79,9 @@ export function repeatAdjust(
     hours = 0,
     raise = false;
   for (const c of courses) {
-    // Withdrawn from the retake: the earlier attempt stays as it was.
-    if (!c.repeat || isWithdrawn(c.official)) continue;
+    // Withdrawn from the retake, or the retake is left out of the GPA: the
+    // earlier attempt stays as it was.
+    if (!c.repeat || isWithdrawn(c.official) || c.gpaExcluded === true) continue;
     const mode = repeatMode(c.repeat, academic);
     if (mode === "both") continue;
     const old = pointsForOfficial(scheme, c.repeat);

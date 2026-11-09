@@ -241,6 +241,7 @@ function buildInitialData(): AppData {
     personalAttendanceRule: null,
     attendancePolicyAck: null,
     ownLimits: [],
+    gpaExcluded: [],
     setupConfirmed: { semester: true },
     gamification: { streak: { current: 3, longest: 7, lastActiveDate: null }, xp: 45, badges: ["first-checkin"], badgeTier: 1, totalCheckIns: 3, checkedInToday: null, challenges: { daily: { date: "", items: [] }, weekly: { weekStart: "", items: [] } }, weeklySnapshot: null, lastWeeklyReport: null },
     pomodoroSettings: { focusMinutes: 25, shortBreakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4, soundEnabled: true, autoStartBreaks: false, autoStartFocus: false },
@@ -279,11 +280,11 @@ export function DemoStoreProvider({ children, initial, referral = EMPTY_REFERRAL
       referralProgram: referral,
       displayXp: totalGamificationXp(data.gamification.xp, referral.profile?.earnedXp ?? 0),
       accountId: referral.accountId,
-      courses: withCurves(
+      courses: (withCurves(
         withRepeats(withOfficial(data.courses, data.termCheck), data.repeats),
         data.curves,
         curveUniversity(data.academic)
-      ),
+      )).map((c) => (data.gpaExcluded?.includes(c.id) ? { ...c, gpaExcluded: true } : c)),
       hydrated: true,
       loadFailed: false,
       authStatus: "signedIn",
@@ -333,6 +334,10 @@ export function DemoStoreProvider({ children, initial, referral = EMPTY_REFERRAL
         if (earlier) repeats[id] = earlier;
         else delete repeats[id];
         patch({ repeats });
+      },
+      setCourseGpaExcluded: (id, excluded) => {
+        const rest = (data.gpaExcluded ?? []).filter((x) => x !== id);
+        patch({ gpaExcluded: excluded ? [...rest, id] : rest });
       },
       setCourseCurve: (id, curve) => {
         patch({ curves: nextCurves(data.curves, data.courses.map((c) => c.id), id, curve) });
@@ -416,12 +421,14 @@ export function DemoStoreProvider({ children, initial, referral = EMPTY_REFERRAL
       setSemester: (sp) => setData((d) => ({ ...d, semester: { ...d.semester, ...sp } })),
 
       addCourse: (course) => {
+        const id = uid();
         setData((d) => ({
           ...d,
+          ...(course.gpaExcluded ? { gpaExcluded: [...(d.gpaExcluded ?? []), id] } : {}),
           courses: [
             ...d.courses,
             {
-              id: uid(),
+              id,
               name: course.name,
               creditHours: course.creditHours,
               attendanceLimit: course.attendanceLimit,

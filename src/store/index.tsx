@@ -215,6 +215,11 @@ function readCustomScheme(raw: unknown): CustomSchemeData | undefined {
 }
 
 /** Reshape the stored preferences.academic blob into a safe AcademicInfo. */
+/** A stored list of course ids; anything else is dropped. */
+function readIdList(raw: unknown): string[] {
+  return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string" && id.length > 0 && id.length <= 80) : [];
+}
+
 /** Validate preferences.setupConfirmed — unknown keys and bad values dropped. */
 function readSetupConfirmed(raw: unknown): SetupConfirmed {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -456,6 +461,7 @@ const initialData: AppData = {
   personalAttendanceRule: null,
   attendancePolicyAck: null,
   ownLimits: [],
+  gpaExcluded: [],
   gamification: defaultGamification,
   pomodoroSettings: defaultPomodoroSettings,
   pomodoroStats: defaultPomodoroStats,
@@ -576,6 +582,7 @@ function dataForSemesterArchive(current: AppData, archive: db.DbSemesterArchive)
     personalAttendanceRule: readPersonalRule(progress.attendanceRule),
     attendancePolicyAck: typeof progress.attendancePolicyAck === "string" ? progress.attendancePolicyAck : null,
     ownLimits: Array.isArray(progress.ownLimits) ? progress.ownLimits.filter((id): id is string => typeof id === "string") : [],
+    gpaExcluded: readIdList(progress.gpaExcluded),
     setupConfirmed: readSetupConfirmed(progress.setupConfirmed),
     termCheck: readTermCheck(progress.termCheck, semester.id),
     pastTerms: readPastTerms(progress.pastTerms),
@@ -626,7 +633,7 @@ const HISTORICAL_READ_ONLY: MutationResult = { ok: false, error: "This semester 
 
 const historicalMutationKeys = [
   "setAcademic", "reportGradeTable", "setTermCheck", "reportTermCheck", "setPastTerms",
-  "setCourseRepeat", "setCourseCurve", "addPlannerNote", "updatePlannerNote",
+  "setCourseRepeat", "setCourseGpaExcluded", "setCourseCurve", "addPlannerNote", "updatePlannerNote",
   "deletePlannerNote", "softDeletePlannerNote", "restorePlannerNote", "setPlannerAutoEdit",
   "setPlannerWeekStrike", "setPlannerWeekIcon", "setPlannerWeekDone", "setTaskOrder",
   "setCumulativeGpa", "setCumulativeHours", "confirmPreviousGpa", "recordPriorGpaReviewShown", "confirmCumulativeForSemester", "confirmSetup",
@@ -750,6 +757,9 @@ export interface StoreValue extends AppData {
   /** Mark a course as repeated with its earlier attempt's grade, or clear it
    *  (null); persisted to preferences.repeats for the current semester. */
   setCourseRepeat: (courseId: string, earlier: RepeatInfo | null) => void;
+  /** Leave a course out of the GPA (points and hours), or count it again;
+   *  persisted to the semester's progress (gpaExcluded). */
+  setCourseGpaExcluded: (courseId: string, excluded: boolean) => void;
   /** Mark a course as graded on the cohort average with the cutoffs the
    *  student entered, or clear it (null); persisted to preferences.curves for
    *  the current semester. Resolves with whether the account saved it. */
@@ -824,6 +834,8 @@ export interface StoreValue extends AppData {
     attendanceLimit?: number;
     /** the earlier attempt, when the course is being repeated */
     repeat?: RepeatInfo | null;
+    /** left out of the GPA */
+    gpaExcluded?: boolean;
   }) => Promise<MutationResult>;
   updateCourse: (
     id: string,
@@ -1372,6 +1384,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ownLimits: Array.isArray(semesterValue("ownLimits", []))
             ? (semesterValue("ownLimits", []) as unknown[]).filter((x): x is string => typeof x === "string")
             : [],
+          gpaExcluded: readIdList(semesterValue("gpaExcluded", [])),
           setupConfirmed: readSetupConfirmed(semesterValue("setupConfirmed", {})),
           termCheck: readTermCheck(semesterValue("termCheck", null), sem.id),
           pastTerms: readPastTerms(semesterValue("pastTerms", [])),
@@ -2729,6 +2742,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [commit, persistSemesterProgress]
   );
 
+  // Leave a course out of the GPA (or count it again), dropping ids of
+  // deleted courses on the way.
+  const setCourseGpaExcluded = useCallback(
+    (courseId: string, excluded: boolean) => {
+      const d = dataRef.current;
+      const live = new Set(d.courses.map((c) => c.id));
+      live.add(courseId);
+      const next = d.gpaExcluded.filter((id) => id !== courseId && live.has(id));
+      if (excluded) next.push(courseId);
+      if (next.length === d.gpaExcluded.length && next.every((id, i) => id === d.gpaExcluded[i])) return;
+      commit({ gpaExcluded: next });
+      persistSemesterProgress({ gpaExcluded: next });
+    },
+    [commit, persistSemesterProgress]
+  );
+
   const reportTermCheck = useCallback((event: TermCheckEvent, meta?: Record<string, unknown>) => {
     if (historicalSelectionRef.current) return;
     void db.logEvent(event, meta);
@@ -2740,6 +2769,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       creditHours: number;
       attendanceLimit?: number;
       repeat?: RepeatInfo | null;
+      gpaExcluded?: boolean;
     }): Promise<MutationResult> => {
       if (!loggedInRef.current) return NOT_SIGNED_IN;
       try {
@@ -2772,13 +2802,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }));
         if (course.repeat) setCourseRepeat(row.id, course.repeat);
         if ((course.attendanceLimit ?? 0) > 0) markOwnLimit(row.id, true);
+        if (course.gpaExcluded) setCourseGpaExcluded(row.id, true);
         return { ok: true };
       } catch (e) {
         console.error("Haven: failed to add course", e);
         return { ok: false, error: asError(e) };
       }
     },
-    [setCourseRepeat, markOwnLimit]
+    [setCourseRepeat, markOwnLimit, setCourseGpaExcluded]
   );
 
   const updateCourse = useCallback(
@@ -3260,10 +3291,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       data.curves,
       curveUniversity(data.academic)
     );
-    if (!data.ownLimits.length) return out;
     const own = new Set(data.ownLimits);
-    return out.map((c) => (own.has(c.id) ? { ...c, ownLimit: true } : c));
-  }, [data.courses, data.termCheck, data.repeats, data.curves, data.academic, data.ownLimits]);
+    const excluded = new Set(data.gpaExcluded);
+    if (!own.size && !excluded.size) return out;
+    return out.map((c) => (own.has(c.id) || excluded.has(c.id)
+      ? { ...c, ...(own.has(c.id) ? { ownLimit: true } : {}), ...(excluded.has(c.id) ? { gpaExcluded: true } : {}) }
+      : c));
+  }, [data.courses, data.termCheck, data.repeats, data.curves, data.academic, data.ownLimits, data.gpaExcluded]);
 
   // The university's absence rule (approved, or a suggestion waiting for
   // approval), fetched whenever the university changes. Until the student
@@ -3335,6 +3369,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     reportTermCheck,
     setPastTerms,
     setCourseRepeat,
+    setCourseGpaExcluded,
     setCourseCurve,
     hydrated,
     loadFailed,

@@ -225,9 +225,16 @@ export function gradeCourse(
  *  courses that add to the GPA count: an estimate (not a portal result or W)
  *  with credit hours. `pctFor` gives each course a hypothetical % (the what-if
  *  sliders), so an ungraded course counts there too. */
+/** Whether a course's points and hours count in the GPA: a course the
+ *  student left out of the GPA stays listed with its grades, but counts nowhere
+ *  (semester, cumulative, What-If, the cumulative modal, repeats). */
+export function countsInGpa(course: Course): boolean {
+  return course.gpaExcluded !== true;
+}
+
 export function gpaIsApprox(courses: Course[], scheme: GradeScheme, pctFor?: (course: Course) => number): boolean {
   return courses.some((c) => {
-    if (!((Number(c.creditHours) || 0) > 0)) return false;
+    if (!countsInGpa(c) || !((Number(c.creditHours) || 0) > 0)) return false;
     if (gradeCourse(c, scheme, pctFor ? { pct: pctFor(c) } : {}).source !== "estimate") return false;
     const cut = courseCutoffs(c, scheme);
     return cut != null && cut.status !== "entered";
@@ -245,6 +252,7 @@ export function simulatedSemester(
   let points = 0;
   let credits = 0;
   for (const c of courses) {
+    if (!countsInGpa(c)) continue;
     const g = gradeCourse(c, scheme, { pct: pctFor(c) });
     if (g.points == null) continue;
     points += g.points * c.creditHours;
@@ -260,6 +268,8 @@ export interface CourseRow {
   credits: number;
   /** has a % or a portal result (a picked letter doesn't make it graded) */
   graded: boolean;
+  /** left out of the GPA by the student: listed, never counted */
+  excluded?: boolean;
   letter: string | null;
   points: number | null;
 }
@@ -270,6 +280,10 @@ export function courseRows(courses: Course[], scheme: GradeScheme, overrides: Re
   return courses.map((c) => {
     const credits = Number(c.creditHours) || 0;
     const base = gradeCourse(c, scheme);
+    // Left out of the GPA: listed with its own grade, never counted.
+    if (!countsInGpa(c)) {
+      return { id: c.id, name: c.name, credits, graded: false, excluded: true, letter: base.letter, points: null };
+    }
     // Withdrawn (W): listed, but out of the GPA.
     if (base.source === "withdrawn") {
       return { id: c.id, name: c.name, credits, graded: false, letter: base.letter, points: null };
@@ -319,6 +333,7 @@ export function semesterGpaDetail(
   let n = 0,
     d = 0;
   courses.forEach((c) => {
+    if (!countsInGpa(c)) return;
     const p = coursePoints(c, scheme);
     if (p == null) return;
     n += p * c.creditHours;

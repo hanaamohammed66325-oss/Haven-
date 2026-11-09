@@ -118,6 +118,10 @@ export interface Course {
    *  student entered for it. Derived from `AppData.curves` by the store (never
    *  a courses-table column). */
   curve?: CourseCurve;
+  /** The student left this course out of the GPA (its points and hours); the
+   *  course, its grades and attendance stay as usual. Derived from
+   *  `AppData.gpaExcluded` by the store (never a courses-table column). */
+  gpaExcluded?: boolean;
 }
 
 /** A repeated course's earlier attempt. `kind` is asked at Saudi universities,
@@ -504,6 +508,9 @@ export interface AppData {
   /** ids of courses whose attendanceLimit the student chose themselves
    *  (preferences.ownLimits). Other stored limits are the old saved default. */
   ownLimits: string[];
+  /** ids of this semester's courses the student left out of the GPA
+   *  (semester progress gpaExcluded). */
+  gpaExcluded: string[];
   /** whether the first-run onboarding walkthrough has been completed/skipped
    *  (per account, in preferences.onboardingSeen). Drives the one-time tour. */
   onboardingSeen: boolean;

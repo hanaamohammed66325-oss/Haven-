@@ -25,7 +25,7 @@ import type { Course, GradeComponent } from "@/types";
 
 export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDeleteCourse?: (id: string) => void }) {
   const { t, lang } = useT();
-  const { attendanceEnabled, addComponent, updateComponent, deleteComponent, softDeleteComponent, restoreComponent, deleteCourse, updateCourse, setCourseRepeat } = useStore();
+  const { attendanceEnabled, addComponent, updateComponent, deleteComponent, softDeleteComponent, restoreComponent, deleteCourse, updateCourse, setCourseRepeat, setCourseGpaExcluded } = useStore();
   const baseScheme = useScheme();
   // The course's own cutoffs when it's graded on the cohort average.
   const scheme = courseScheme(course, baseScheme);
@@ -104,6 +104,12 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
               <>
                 <span>·</span>
                 <span>{t("rep_tag")}</span>
+              </>
+            )}
+            {course.gpaExcluded && (
+              <>
+                <span>·</span>
+                <span>{t("pt_excludedBadge")}</span>
               </>
             )}
             <span>·</span>
@@ -252,9 +258,10 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
       <AddCourseModal
         open={editing}
         onClose={() => setEditing(false)}
-        onSubmit={({ repeat, ...data }) => {
+        onSubmit={({ repeat, gpaExcluded, ...data }) => {
           updateCourse(course.id, data);
           setCourseRepeat(course.id, repeat);
+          setCourseGpaExcluded(course.id, gpaExcluded);
         }}
         initial={{
           name: course.name,
@@ -262,6 +269,7 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
           attendanceLimit: course.attendanceLimit,
           ownLimit: course.ownLimit,
           repeat: course.repeat,
+          gpaExcluded: course.gpaExcluded,
         }}
       />
     </Card>
