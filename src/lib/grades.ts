@@ -1,3 +1,5 @@
+import { priorGpaReview } from "./gpaSystem";
+import type { GpaSystemReference } from "@/types";
 import type { AcademicInfo, Course, OfficialGrade, Semester } from "@/types";
 import { resolveHolidaysForSemester, holidayMinutes, holidayLectureCount, clipHolidays } from "./holidays";
 import { addDays, toISODate } from "./dates";
@@ -344,10 +346,13 @@ export function projectedCumulativeFromParts(
   scheme: GradeScheme = SAUDI5,
   /** repeated courses: earlier attempts the university drops, and any
    *  ceiling on the result (lib/repeats) */
-  repeats: RepeatAdjust = NO_ADJUST
+  repeats: RepeatAdjust = NO_ADJUST,
+  previousSystem?: GpaSystemReference
 ): number | null {
   const max = scheme.max;
-  const prevGpa = Math.max(0, Math.min(max, Number(currentGpa) || 0));
+  if (!Number.isFinite(completedHours) || completedHours < 0) return null;
+  if (completedHours > 0 && priorGpaReview(currentGpa, completedHours, scheme, previousSystem) === "invalid") return null;
+  const prevGpa = completedHours > 0 ? currentGpa : 0;
   let prevHours = Math.max(0, Number(completedHours) || 0);
   let prevPoints = prevGpa * prevHours;
   // Only when the entered record can actually contain those attempts.
@@ -371,7 +376,8 @@ export function projectedCumulativeGpa(
   completedHours: number,
   scheme: GradeScheme = SAUDI5,
   /** the academic profile, for how repeated courses count (lib/repeats) */
-  academic?: AcademicInfo | null
+  academic?: AcademicInfo | null,
+  previousSystem?: GpaSystemReference
 ): number | null {
   const { points, credits } = semesterGpaDetail(courses, scheme);
   return projectedCumulativeFromParts(
@@ -380,7 +386,8 @@ export function projectedCumulativeGpa(
     currentGpa,
     completedHours,
     scheme,
-    repeatAdjust(courses, scheme, academic)
+    repeatAdjust(courses, scheme, academic),
+    previousSystem
   );
 }
 

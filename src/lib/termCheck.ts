@@ -172,6 +172,7 @@ export function pastTermGpa(courses: PastTermCourse[], scheme: GradeScheme): num
   let n = 0,
     d = 0;
   for (const c of courses) {
+    if (c.excludedFromGpa) continue;
     const p = pointsForOfficial(scheme, c);
     if (p == null || !(c.hours > 0)) continue;
     n += p * c.hours;
@@ -186,12 +187,29 @@ export function pastTermCumulative(courses: PastTermCourse[], scheme: GradeSchem
   let n = 0,
     d = 0;
   for (const c of courses) {
+    if (c.excludedFromGpa) continue;
     const p = pointsForOfficial(scheme, c);
     if (p == null || !(c.hours > 0)) continue;
     n += p * c.hours;
     d += c.hours;
   }
   return projectedCumulativeFromParts(n, d, before, hours, scheme);
+}
+
+/** Display entered, counted and non-counted totals without rewriting transcript rows. */
+export function pastTermSummary(courses: PastTermCourse[]) {
+  let enteredHours = 0, countedHours = 0, excludedHours = 0, counted = 0, excluded = 0;
+  for (const course of courses) {
+    enteredHours += course.hours;
+    if (course.excludedFromGpa || course.letter === "W") {
+      excluded++;
+      excludedHours += course.hours;
+    } else if (course.hours > 0) {
+      counted++;
+      countedHours += course.hours;
+    }
+  }
+  return { entered: courses.length, enteredHours, counted, countedHours, excluded, excludedHours };
 }
 
 /** Validate the stored preferences.pastTerms list; bad entries are dropped. */
@@ -207,8 +225,9 @@ export function readPastTerms(raw: unknown): PastTerm[] {
     for (const c of o.courses.slice(0, 20)) {
       const x = c && typeof c === "object" ? (c as Record<string, unknown>) : null;
       const hours = num(x?.hours);
-      if (!x || hours == null || hours <= 0) continue;
+      if (!x || hours == null || hours < 0 || (hours === 0 && x.excludedFromGpa !== true)) continue;
       courses.push({
+        ...(x.excludedFromGpa === true ? { excludedFromGpa: true } : {}),
         ...(typeof x.name === "string" && x.name ? { name: x.name.slice(0, 60) } : {}),
         hours,
         ...(typeof x.letter === "string" && x.letter ? { letter: x.letter.slice(0, 24) } : {}),

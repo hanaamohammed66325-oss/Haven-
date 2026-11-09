@@ -1,4 +1,6 @@
 "use client";
+import { heldPreviousGpa } from "@/lib/gpaSystem";
+import { GpaPriorReview } from "@/components/GpaPriorReview";
 
 import { useState } from "react";
 import { Info } from "@/components/motion/icons";
@@ -13,7 +15,7 @@ import { semesterGPA, projectedCumulativeGpa } from "@/lib/grades";
 
 export function GpaGoalCard() {
   const { t } = useT();
-  const { courses, gpaGoal, setGpaGoal, gpaMode, cumulativeGpa, cumulativeHours, academic } = useStore();
+  const { courses, gpaGoal, setGpaGoal, gpaMode, cumulativeGpa, cumulativeHours, cumulativeGpaSystem, academic } = useStore();
   const scheme = useScheme();
 
   // Follow the same Semester / Cumulative toggle the GPA card uses (shared
@@ -21,8 +23,9 @@ export function GpaGoalCard() {
   // currently on screen, not a fixed semester figure.
   const gpa =
     gpaMode === "cumulative"
-      ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, scheme, academic)
+      ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, scheme, academic, cumulativeGpaSystem)
       : semesterGPA(courses, scheme);
+  const held = heldPreviousGpa(gpa, gpaMode, cumulativeGpa, cumulativeHours, scheme, cumulativeGpaSystem);
   const goal = effectiveGpaGoal(gpaGoal, scheme);
   // The box edits a draft so a percentage student can type "85" without the
   // "8" being rejected mid-way; a valid value is committed as they type.
@@ -30,7 +33,7 @@ export function GpaGoalCard() {
   const pct = gpa != null ? Math.min(100, (gpa / goal) * 100) : 0;
   const reached = gpa != null && gpa >= goal;
   const message =
-    gpa == null
+    held != null ? t("gpaReviewSavedValue") : gpa == null
       ? t("goalNoData")
       : reached
       ? t("goalReached")
@@ -55,10 +58,10 @@ export function GpaGoalCard() {
         <CircularProgress value={pct} size={104} color="gradient">
           <div className="flex flex-col items-center leading-none">
             <span className="font-display text-2xl" style={{ color: "var(--color-ink)" }}>
-              {gpa != null ? <CountUp value={gpa} decimals={2} /> : "—"}
+              {held != null ? String(held) : gpa != null ? <CountUp value={gpa} decimals={2} /> : "—"}
             </span>
             <span className="text-[11px] mt-1" style={{ color: "var(--color-muted)" }}>
-              / {goal}
+              {held == null ? `/ ${goal}` : ""}
             </span>
           </div>
         </CircularProgress>
@@ -87,6 +90,7 @@ export function GpaGoalCard() {
           </p>
         </div>
       </div>
+      <GpaPriorReview />
     </Card>
   );
 }

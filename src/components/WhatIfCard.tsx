@@ -1,4 +1,6 @@
 "use client";
+import { heldPreviousGpa } from "@/lib/gpaSystem";
+import { GpaPriorReview } from "@/components/GpaPriorReview";
 import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,7 +14,7 @@ import { repeatAdjust } from "@/lib/repeats";
 
 export function WhatIfCard() {
   const { t } = useT();
-  const { courses, gpaMode, cumulativeGpa, cumulativeHours, academic } = useStore();
+  const { courses, gpaMode, cumulativeGpa, cumulativeHours, cumulativeGpaSystem, academic } = useStore();
   const scheme = useScheme();
 
   const buildInitial = useMemo(
@@ -42,10 +44,10 @@ export function WhatIfCard() {
     const { points, credits } = simulatedSemester(courses, scheme, (c) => sim[c.id] ?? 75);
     if (gpaMode === "cumulative") {
       const repeats = repeatAdjust(courses, scheme, academic);
-      return projectedCumulativeFromParts(points, credits, cumulativeGpa, cumulativeHours, scheme, repeats);
+      return projectedCumulativeFromParts(points, credits, cumulativeGpa, cumulativeHours, scheme, repeats, cumulativeGpaSystem);
     }
     return credits ? points / credits : null;
-  }, [sim, courses, gpaMode, cumulativeGpa, cumulativeHours, scheme, academic]);
+  }, [sim, courses, gpaMode, cumulativeGpa, cumulativeHours, cumulativeGpaSystem, scheme, academic]);
   // A course graded on the cohort average still waiting for (some of) its cutoffs.
   const approx = useMemo(() => gpaIsApprox(courses, scheme, (c) => sim[c.id] ?? 75), [courses, scheme, sim]);
 
@@ -53,7 +55,8 @@ export function WhatIfCard() {
 
   // The "what you need" final-exam calculator is available to everyone (not part
   // of the premium gate set — course limit, themes and Havi are).
-  const resultLabel = gpaMode === "cumulative" ? t("whatIfResultCumulative") : t("whatIfResult");
+  const held = heldPreviousGpa(gpa, gpaMode, cumulativeGpa, cumulativeHours, scheme, cumulativeGpaSystem);
+  const resultLabel = held != null ? t("gpaReviewSavedValue") : gpaMode === "cumulative" ? t("whatIfResultCumulative") : t("whatIfResult");
 
   return (
     <Card>
@@ -147,11 +150,12 @@ export function WhatIfCard() {
       >
         <span className="haven-label">{resultLabel}</span>
         <span className="font-display text-3xl" style={{ color: "var(--color-brass)" }}>
-          {gpa != null ? <CountUp value={gpa} decimals={2} duration={500} /> : "—"}
-          <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ {scheme.max}</span>
+          {held != null ? String(held) : gpa != null ? <CountUp value={gpa} decimals={2} duration={500} /> : "—"}
+          {held == null && <span className="text-base ml-1" style={{ color: "var(--color-muted)" }}>/ {scheme.max}</span>}
         </span>
       </div>
-      {approx && (
+      <GpaPriorReview />
+      {approx && held == null && (
         <p className="mt-2 text-[11px] leading-snug" style={{ color: "var(--color-warning)" }}>
           {t("curve_gpaApprox")}
         </p>

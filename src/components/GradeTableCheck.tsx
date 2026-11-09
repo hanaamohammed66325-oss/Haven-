@@ -239,7 +239,7 @@ const toRows = (s: GradeScheme): Row[] =>
  * Enter (or correct) the university's points table. Prefilled from the table
  * in use, so a student whose table is almost right only fixes what differs.
  */
-export function GradeTableForm({ onDone }: { onDone: (saved: boolean) => void }) {
+export function GradeTableForm({ onDone, previousScheme }: { onDone: (saved: boolean) => void; previousScheme?: GradeScheme }) {
   const { t } = useT();
   const { academic, setAcademic, reportGradeTable } = useStore();
   const d = detectScheme(academic);
@@ -282,7 +282,7 @@ export function GradeTableForm({ onDone }: { onDone: (saved: boolean) => void })
       gpaSchemeId: "custom",
       customScheme: data,
       ...(d.catalog ? { gradeCheck: { key: d.catalog.slug, answer: "no" as const, at: new Date().toISOString() } } : {}),
-    });
+    }, previousScheme);
     reportGradeTable("grade_table_submitted", {
       university: name,
       country: d.catalog?.country ?? "",

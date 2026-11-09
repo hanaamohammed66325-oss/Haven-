@@ -38,10 +38,10 @@ async function currentUserId(): Promise<string> {
  * and never throws — tracking must never break the app. Powers the admin
  * activity feed (admin_user_activity UNIONs public.user_events).
  */
-export async function logEvent(event: string, meta: Record<string, unknown> = {}): Promise<void> {
+export async function logEvent(event: string, meta: Record<string, unknown> = {}, expectedUserId?: string): Promise<void> {
   try {
     const uid = await sessionUserId();
-    if (!uid) return;
+    if (!uid || (expectedUserId && uid !== expectedUserId)) return;
     await supabase.from("user_events").insert({ user_id: uid, event, meta });
   } catch {
     // best-effort — ignore failures

@@ -34,3 +34,18 @@ export function compareCumulativeGpa(
   const target = displayed(portal);
   return target >= displayed(lower) && target <= displayed(upper) ? "rounding" : "mismatch";
 }
+
+/** Display a saved check using its recorded numbers, preserving explicit rounding evidence.
+ * The stored result stays untouched for historical provenance. */
+export function savedGpaComparison(
+  ours: number | null | undefined,
+  portal: number | null | undefined,
+  comparison?: string | null,
+  reported?: string | null,
+): GpaComparison | null {
+  if (comparison === "rounding") return "rounding";
+  if (typeof ours === "number" && typeof portal === "number" && Number.isFinite(ours) && Number.isFinite(portal)) {
+    return sameDisplayedGpa(ours, portal) ? "match" : "mismatch";
+  }
+  return reported === "match" || reported === "mismatch" ? reported : null;
+}

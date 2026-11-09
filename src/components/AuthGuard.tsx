@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberGpaReviewDestination, takeGpaReviewDestination } from "@/lib/gpaReviewDestination";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/store";
@@ -16,8 +17,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (authStatus === "signedOut") {
+      rememberGpaReviewDestination(window.location.pathname + window.location.search);
       if (groupStudyAvailable()) rememberStudyDestination(window.location.pathname + window.location.search + window.location.hash);
       router.replace("/signin");
+    } else if (authStatus === "signedIn") {
+      const destination = takeGpaReviewDestination();
+      if (destination) router.replace(destination);
     }
   }, [authStatus, router]);
 

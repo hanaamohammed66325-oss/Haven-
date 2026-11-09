@@ -52,6 +52,7 @@ test("signed-out guard preserves the launch URL including its exact referral has
         if (name === "next/navigation") return { useRouter: () => ({ replace: (url: string) => redirects.push(url) }) };
         if (name === "@/store") return { useStore: () => ({ authStatus: "signedOut" }) };
         if (name.includes("featureFlags")) return { groupStudyAvailable: () => true };
+        if (name.includes("gpaReviewDestination")) return { rememberGpaReviewDestination: () => {}, takeGpaReviewDestination: () => null };
         if (name.includes("destination")) return { rememberStudyDestination: (url: string) => remembered.push(url) };
         return {};
       },

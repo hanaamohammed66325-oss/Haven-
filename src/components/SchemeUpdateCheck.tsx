@@ -60,15 +60,15 @@ export function SchemeUpdateBody({ update, onDone }: { update: SchemeUpdate; onD
     // "No" keeps the system he has: an automatic student's old system becomes his
     // own choice, so the correction no longer follows him. "Yes" puts everyone on
     // the university's table (automatic).
-    if (a === "yes") setAcademic({ schemeUpdate, gpaSchemeId: "auto" });
+    if (a === "yes") setAcademic({ schemeUpdate, gpaSchemeId: "auto" }, manual ? undefined : previous);
     else if (manual) setAcademic({ schemeUpdate });
-    else setAcademic({ schemeUpdate, ...keepPrevious(previous) });
+    else setAcademic({ schemeUpdate, ...keepPrevious(previous) }, previous);
     onDone();
   };
 
   if (editing) {
     return (
-      <GradeTableForm
+      <GradeTableForm previousScheme={manual ? undefined : previous}
         onDone={(saved) => {
           if (saved) {
             setAcademic({ schemeUpdate: record("custom") });

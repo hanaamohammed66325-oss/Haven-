@@ -1,4 +1,8 @@
 "use client";
+import { captureGpaSystem, priorGpaReview } from "@/lib/gpaSystem";
+import { SAUDI4, SAUDI5 } from "@/lib/gradeSchemes";
+import type { GpaSystemReference } from "@/types";
+import { validPriorGpa } from "@/lib/gpaInputs";
 import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useMemo, useState } from "react";
@@ -60,8 +64,11 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
   // Optional cumulative projection.
   const [prevGpa, setPrevGpa] = useState("");
   const [prevHours, setPrevHours] = useState("");
+  const [previousSystem, setPreviousSystem] = useState<GpaSystemReference>();
 
-  const max = scale === "5" ? 5 : 4;
+  const scheme = scale === "5" ? SAUDI5 : SAUDI4;
+  const max = scheme.max;
+  const reviewReason = priorGpaReview(Number(prevGpa), Number(prevHours) || 0, scheme, previousSystem);
 
   const { semesterGpa, semesterCredits, cumulativeGpa } = useMemo(() => {
     let qp = 0;
@@ -77,11 +84,15 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
     const pg = Number(prevGpa);
     const ph = Number(prevHours);
     let cum: number | null = null;
-    if (Number.isFinite(pg) && pg > 0 && Number.isFinite(ph) && ph > 0 && cr > 0) {
-      cum = (pg * ph + qp) / (ph + cr);
+    if (Number.isFinite(ph) && ph >= 0 && prevHours.trim() !== "" && cr > 0 &&
+        (ph === 0 || (prevGpa.trim() !== "" && validPriorGpa(pg, max) && reviewReason !== "invalid"))) {
+      cum = ph === 0 ? sem : (pg * ph + qp) / (ph + cr);
     }
     return { semesterGpa: sem, semesterCredits: cr, cumulativeGpa: cum };
-  }, [rows, scale, prevGpa, prevHours]);
+  }, [rows, scale, prevGpa, prevHours, max, reviewReason]);
+
+  const invalidPrior = Number(prevHours) > 0 && prevGpa.trim() !== "" && !validPriorGpa(Number(prevGpa), max);
+  const missingPrior = Number(prevHours) > 0 && prevGpa.trim() === "";
 
   const updateRow = (id: number, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -190,7 +201,7 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
         </summary>
         <div className="flex flex-wrap gap-3 px-4 pb-4">
           <label className="flex flex-col gap-1 text-xs" style={{ color: "var(--color-muted)" }}>
-            معدلك التراكمي الحالي
+            المعدل التراكمي قبل هذا الفصل
             <input
               type="number"
               min="0"
@@ -198,14 +209,14 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
               step="0.01"
               inputMode="decimal"
               value={prevGpa}
-              onChange={(e) => setPrevGpa(e.target.value)}
+              onChange={(e) => { setPrevGpa(e.target.value); setPreviousSystem(e.target.value.trim() ? captureGpaSystem(scheme) : undefined); }}
               placeholder="0.00"
               className="w-32 rounded-xl border px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
               style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
             />
           </label>
           <label className="flex flex-col gap-1 text-xs" style={{ color: "var(--color-muted)" }}>
-            الساعات المحسوبة في المعدل
+            الساعات المحتسبة في المعدل قبل هذا الفصل
             <input
               type="number"
               min="0"
@@ -220,9 +231,30 @@ export function GpaCalculatorTool({ defaultScale = "5" }: { defaultScale?: Scale
           </label>
         </div>
         <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--color-muted)" }}>
-          انسخها من سجلك الأكاديمي: الساعات التي يُحسب عليها معدلك، ومنها ساعات المواد التي رسبت فيها، وليست الساعات المكتسبة.
+          انسخ المعدل الذي يسبق هذا الفصل من سجلك الأكاديمي، ولا تُدخل المعدل الفصلي هنا. هذه ساعات المعدل، وليست مجموع النقاط أو الساعات المكتسبة. لا تضف ساعات الفصل الذي تتحقق منه.
         </p>
       </details>
+
+      {invalidPrior && (
+        <p role="status" className="text-xs leading-relaxed" style={{ color: "var(--color-warning)" }}>
+          المعدل السابق المسجّل ({prevGpa}) لا يتوافق مع سلم {max}. راجع المعدل السابق لإكمال الحساب التراكمي؛ لم تتغيّر القيمة المدخلة.
+        </p>
+      )}
+
+      {missingPrior && (
+        <p role="status" className="text-xs leading-relaxed" style={{ color: "var(--color-warning)" }}>
+          أدخل المعدل السابق الذي تقابله الساعات المسجّلة لإكمال الحساب التراكمي.
+        </p>
+      )}
+
+      {reviewReason === "systemChanged" && (
+        <div role="status" className="text-xs leading-relaxed" style={{ color: "var(--color-warning)" }}>
+          <p>تغيّر نظام التقديرات. راجع المعدل السابق وفق النظام الحالي، ثم أكّد القيمة أو عدّلها؛ لا تُحوَّل القيم تلقائيًا.</p>
+          <InteractionButton type="button" disabled={!validPriorGpa(Number(prevGpa), max)} className="mt-1 underline underline-offset-2" onClick={() => { if (validPriorGpa(Number(prevGpa), max)) setPreviousSystem(captureGpaSystem(scheme)); }}>
+            أؤكد صحة البيانات
+          </InteractionButton>
+        </div>
+      )}
 
       {/* Results */}
       <div

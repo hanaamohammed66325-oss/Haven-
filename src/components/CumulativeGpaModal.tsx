@@ -1,4 +1,7 @@
 "use client";
+import { captureGpaSystem, priorGpaReview } from "@/lib/gpaSystem";
+import type { GpaSystemReference } from "@/types";
+import { manualSemesterTotals, validPriorGpa } from "@/lib/gpaInputs";
 import { InteractionButton } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useState } from "react";
@@ -9,7 +12,6 @@ import { useStore, useScheme } from "@/store";
 import { useT } from "@/i18n";
 import { courseRows, projectedCumulativeFromParts } from "@/lib/grades";
 import { repeatAdjust } from "@/lib/repeats";
-import { pointsForLetter } from "@/lib/gradeSchemes";
 import { isolateOption } from "@/lib/format";
 
 const field =
@@ -26,7 +28,7 @@ interface ManualRow {
   credits: string;
   letter: string;
 }
-const blankRow = (): ManualRow => ({ id: rid(), name: "", credits: "", letter: "A" });
+const blankRow = (): ManualRow => ({ id: rid(), name: "", credits: "", letter: "" });
 
 interface CumulativeGpaModalProps {
   open: boolean;
@@ -41,6 +43,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
   const [mode, setMode] = useState<Mode>("current");
   const [prevGpa, setPrevGpa] = useState("");
   const [prevHours, setPrevHours] = useState("");
+  const [previousSystem, setPreviousSystem] = useState<GpaSystemReference>();
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [manual, setManual] = useState<ManualRow[]>(() => [blankRow(), blankRow(), blankRow()]);
 
@@ -59,6 +62,9 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
   // The official portal result beats the estimate; a picked letter beats both.
   const currentRows = useMemo(() => courseRows(courses, scheme, overrides), [courses, overrides, scheme]);
 
+  const manualTotals = useMemo(() => manualSemesterTotals(manual, scheme), [manual, scheme]);
+  const incomplete = mode === "manual" && manualTotals.incomplete;
+
   // ---- semester totals for the active tab ----
   const { semesterCredits, semesterPoints } = useMemo(() => {
     if (mode === "current") {
@@ -68,20 +74,19 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
         semesterPoints: g.reduce((s, r) => s + r.points! * r.credits, 0),
       };
     }
-    const g = manual.filter((r) => (Number(r.credits) || 0) > 0);
-    return {
-      semesterCredits: g.reduce((s, r) => s + (Number(r.credits) || 0), 0),
-      semesterPoints: g.reduce((s, r) => s + pointsForLetter(scheme, r.letter) * (Number(r.credits) || 0), 0),
-    };
-  }, [mode, currentRows, manual, scheme]);
+    return { semesterCredits: manualTotals.credits, semesterPoints: manualTotals.points };
+  }, [mode, currentRows, manualTotals]);
 
-  const semGpa = semesterCredits > 0 ? semesterPoints / semesterCredits : null;
-  const pGpa = Math.min(scheme.max, Math.max(0, Number(prevGpa) || 0));
+  const semGpa = !incomplete && semesterCredits > 0 ? semesterPoints / semesterCredits : null;
+  const pGpa = prevGpa.trim() ? Number(prevGpa) : 0;
+  const reviewReason = priorGpaReview(pGpa, Number(prevHours) || 0, scheme, previousSystem);
+  const invalidPrior = Number(prevHours) > 0 && reviewReason === "invalid";
+  const missingPrior = Number(prevHours) > 0 && !prevGpa.trim();
   const pHours = Math.max(0, Number(prevHours) || 0);
   const hasPrev = pHours > 0;
   // Repeated courses only apply to this term's own courses, not hand-entered rows.
   const repeats = mode === "current" ? repeatAdjust(courses, scheme, academic) : undefined;
-  const newGpa = projectedCumulativeFromParts(semesterPoints, semesterCredits, pGpa, pHours, scheme, repeats);
+  const newGpa = incomplete || invalidPrior || missingPrior ? null : projectedCumulativeFromParts(semesterPoints, semesterCredits, pGpa, pHours, scheme, repeats, previousSystem);
 
   const fmt = (n: number | null) => (n == null ? "—" : n.toFixed(2));
 
@@ -95,6 +100,7 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
   const reset = () => {
     setPrevGpa("");
     setPrevHours("");
+    setPreviousSystem(undefined);
   };
 
   const tabs: { key: Mode; label: string }[] = [
@@ -166,8 +172,9 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
                 inputMode="decimal"
                 placeholder="0.00"
                 value={prevGpa}
-                onChange={(e) => setPrevGpa(e.target.value)}
+                onChange={(e) => { setPrevGpa(e.target.value); if (e.target.value.trim()) setPreviousSystem(captureGpaSystem(scheme)); else setPreviousSystem(undefined); }}
               />
+              <p className="text-[11px] leading-relaxed" style={{ color: "var(--color-muted)" }}>{t("gpaBeforeHint")}</p>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{t("cumCompletedHours")}</label>
@@ -176,8 +183,8 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
                 style={border}
                 type="number"
                 min="0"
-                step="1"
-                inputMode="numeric"
+                step="any"
+                inputMode="decimal"
                 placeholder="60"
                 value={prevHours}
                 onChange={(e) => setPrevHours(e.target.value)}
@@ -239,8 +246,8 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
                     style={border}
                     type="number"
                     min="0"
-                    step="1"
-                    inputMode="numeric"
+                    step="any"
+                    inputMode="decimal"
                     aria-label={t("cumRowCredits")}
                     placeholder={t("cumRowCredits")}
                     value={r.credits}
@@ -248,11 +255,12 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
                   />
                   <select
                     aria-label={t("cumGrade")}
-                    value={r.letter}
+                    value={scheme.bands.some((band) => band.letter === r.letter) ? r.letter : ""}
                     onChange={(e) => updateRow(r.id, { letter: e.target.value })}
                     className={`${cellInput} font-semibold shrink-0`}
                     style={{ borderColor: "var(--color-border)", color: "var(--color-primary)" }}
                   >
+                    <option value="">{t("gpaChooseGrade")}</option>
                     {gradeOptions}
                   </select>
                   <InteractionButton
@@ -286,6 +294,16 @@ export function CumulativeGpaModal({ open, onClose }: CumulativeGpaModalProps) {
               </InteractionButton>
             </div>
           </section>
+        )}
+
+        {incomplete && <p role="status" className="text-xs" style={{ color: "var(--color-warning)" }}>{t("gpaManualIncomplete")}</p>}
+        {(reviewReason || missingPrior) && <p role="status" className="text-xs" style={{ color: "var(--color-warning)" }}>{t(reviewReason === "systemChanged" ? "gpaSystemChanged" : invalidPrior ? "gpaPriorInputReview" : "gpaPreviousRequired", { gpa: prevGpa, max: scheme.max })}</p>}
+
+        {reviewReason === "systemChanged" && (
+          <InteractionButton type="button" disabled={!validPriorGpa(pGpa, scheme.max)} className="text-xs underline underline-offset-2" style={{ color: "var(--color-primary)" }}
+            onClick={() => { if (validPriorGpa(pGpa, scheme.max)) setPreviousSystem(captureGpaSystem(scheme)); }}>
+            {t("gpaConfirmData")}
+          </InteractionButton>
         )}
 
         {/* Result (shared) */}

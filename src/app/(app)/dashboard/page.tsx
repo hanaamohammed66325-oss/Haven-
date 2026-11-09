@@ -1,4 +1,6 @@
 "use client";
+import { heldPreviousGpa } from "@/lib/gpaSystem";
+import { GpaPriorReview } from "@/components/GpaPriorReview";
 import { InteractionButton, InteractionLink } from "@/components/motion/Interaction";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -126,10 +128,11 @@ export default function DashboardPage() {
   const progress = useMemo(() => semesterProgress(semester), [semester]);
   const gpa = useMemo(() => semesterGPA(courses, gradeScheme), [courses, gradeScheme]);
   const projected = useMemo(
-    () => projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, gradeScheme, store.academic),
-    [courses, cumulativeGpa, cumulativeHours, gradeScheme, store.academic]
+    () => projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, gradeScheme, store.academic, store.cumulativeGpaSystem),
+    [courses, cumulativeGpa, cumulativeHours, gradeScheme, store.academic, store.cumulativeGpaSystem]
   );
   const shownGpa = gpaMode === "cumulative" ? projected : gpa;
+  const heldGpa = heldPreviousGpa(shownGpa, gpaMode, cumulativeGpa, cumulativeHours, gradeScheme, store.cumulativeGpaSystem);
   // A course graded on the cohort average still waiting for (some of) its cutoffs.
   const gpaApprox = useMemo(() => gpaIsApprox(courses, gradeScheme), [courses, gradeScheme]);
 
@@ -440,7 +443,7 @@ export default function DashboardPage() {
                       we don't nest buttons; the icon covers both GPA readings). */}
                   <div className="inline-flex items-center gap-1">
                     <span className="haven-label">
-                      {t(gpaMode === "cumulative" ? "gpaProjectedCumulative" : "semesterGpa")}
+                      {t(heldGpa != null ? "gpaReviewSavedValue" : gpaMode === "cumulative" ? "gpaProjectedCumulative" : "semesterGpa")}
                     </span>
                     <InfoPopover
                       label={t("gpaRoundingInfo")}
@@ -464,7 +467,13 @@ export default function DashboardPage() {
                     }}
                     className="flex flex-col items-center justify-center gap-2 text-center cursor-pointer"
                   >
-                    {shownGpa == null ? (
+                    {heldGpa != null ? (
+                      <>
+                        <div className={revealGpa ? "haven-clear" : "haven-blur"}>
+                          <span className="font-display text-[40px] leading-none" style={{ color: "var(--color-brass)" }}>{String(heldGpa)}</span>
+                        </div>
+                      </>
+                    ) : shownGpa == null ? (
                     gpaMode === "cumulative" ? (
                     <>
                       <div className="font-display text-4xl" style={{ color: "var(--color-muted)" }}>—</div>
@@ -546,6 +555,7 @@ export default function DashboardPage() {
                         step="0.01"
                         inputMode="decimal"
                         placeholder="0.00"
+                        id="gpa-previous"
                         value={cumulativeGpa || ""}
                         onChange={(e) => setCumulativeGpa(Number(e.target.value) || 0)}
                         className="w-20 rounded-lg border px-2 py-1 text-sm text-center outline-none transition-colors focus:border-[var(--color-primary)]"
@@ -559,8 +569,8 @@ export default function DashboardPage() {
                       <input
                         type="number"
                         min="0"
-                        step="1"
-                        inputMode="numeric"
+                        step="any"
+                        inputMode="decimal"
                         placeholder="0"
                         value={cumulativeHours || ""}
                         onChange={(e) => setCumulativeHours(Number(e.target.value) || 0)}
@@ -570,6 +580,7 @@ export default function DashboardPage() {
                     </label>
                   </div>
                 )}
+                <GpaPriorReview enableDeepLink />
                 {/* Which hours: shown until they're entered (easy to confuse with earned hours). */}
                 {gpaMode === "cumulative" && !cumulativeHours && (
                   <p className="text-[10px] leading-snug text-center max-w-[15rem] mx-auto" style={{ color: "var(--color-muted)" }}>

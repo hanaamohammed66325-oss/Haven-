@@ -15,6 +15,8 @@ import { useDrill, type DrillUser } from "./_drill";
 import { GradeTablesPanel } from "./grade-tables";
 import { catalogBySlug, detectScheme, matchCatalog, schemeById, type GradeScheme } from "@/lib/gradeSchemes";
 import { learnCutoffs, validCutoffs, type Observation } from "@/lib/cutoffLearning";
+import { GpaFollowupsSection } from "./gpa-followups";
+import { savedGpaComparison } from "@/lib/gpaComparison";
 import { en } from "@/i18n/translations/en";
 
 interface EventRow {
@@ -26,6 +28,7 @@ interface EventRow {
 }
 
 interface SharedCourse {
+  excludedFromGpa?: boolean;
   name?: string;
   hours?: number;
   pct?: number | null;
@@ -91,6 +94,8 @@ interface Check {
   cumHours: number | null;
   cumComparison: string | null;
   withdrawn: boolean;
+  reportedResult: string | null;
+  reportedCumResult: string | null;
 }
 
 function toCheck(r: EventRow): Check {
@@ -99,15 +104,21 @@ function toCheck(r: EventRow): Check {
   const past = r.event.startsWith("past_");
   const cumulative = r.event.startsWith("term_cum");
   const cum = past && m.cum && typeof m.cum === "object" ? m.cum as Record<string, unknown> : cumulative ? m : {};
+  const reportedResult = r.event === "term_gpa_match" ? "match" : r.event === "term_gpa_mismatch" ? "mismatch" : str(m.result);
+  const reportedCumResult = past ? cumResultOf(m) : null;
+  const current = savedGpaComparison(num(m.ours), num(m.portal), cumulative ? str(m.comparison) : null, reportedResult);
+  const currentCum = savedGpaComparison(num(cum.ours), num(cum.portal), str(cum.comparison) ?? str(m.cum_comparison), reportedCumResult);
   return {
     row: r,
+    reportedResult,
+    reportedCumResult,
     kind: past ? `Past term${str(m.name) ? ` · ${str(m.name)}` : ""}` : r.event.startsWith("term_cum") ? "Cumulative, end of term" : "End of term",
     uni: (slug && catalogBySlug(slug)?.ar) || str(m.university) || "—",
     scheme: schemeLabel(str(m.scheme)),
     ours: cumulative ? null : num(m.ours),
     portal: cumulative ? null : num(m.portal),
-    result: r.event === "term_gpa_match" ? "match" : r.event === "term_gpa_mismatch" ? "mismatch" : m.result === "match" || m.result === "mismatch" ? m.result : null,
-    cumResult: past ? cumResultOf(m) : null,
+    result: current === "rounding" ? "match" : current,
+    cumResult: past ? currentCum === "rounding" ? "match" : currentCum : null,
     cumOurs: num(cum.ours),
     cumPortal: num(cum.portal),
     cumBefore: num(cum.before),
@@ -261,6 +272,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
       const slug = slugOf(r.meta);
       if (!slug) continue;
       for (const c of coursesOf(r.meta)) {
+        if (c.excludedFromGpa === true) continue;
         const letter = typeof c.official === "string" ? c.official : c.letter;
         if (!letter || typeof c.pct !== "number") continue;
         const key = `${r.user_id}|${c.name ?? ""}|${c.pct}|${letter}`;
@@ -302,6 +314,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
       />
 
       <GradeTablesPanel reloadKey={reloadKey} onOpenUser={onOpenUser} />
+      <GpaFollowupsSection reloadKey={reloadKey} onOpenUser={onOpenUser} />
 
       <div className="mt-10 pt-8 border-t" style={{ borderColor: C.border }}>
         <h2 className="text-[16px] font-semibold mb-1" style={{ color: C.text }}>
@@ -310,7 +323,8 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
         <p className="text-[12px] mb-4" style={{ color: C.textDim }}>
           Cards show each student's latest reported check in each category. A later check may concern a different term;
           it does not prove every earlier discrepancy was resolved. All attempts remain in the history below. Click a number
-          to see the students.
+          to see the students. Summaries compare saved numbers at the current displayed precision, so historical matches
+          may now count as differences. The original reported results remain in the history.
         </p>
       </div>
       {updatedAt && <p className="text-[12px] mb-4" style={{ color: C.textDim }}>Last refreshed: {fmtDate(updatedAt)}</p>}
@@ -395,6 +409,12 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
                               <span style={{ color: c.result === "match" ? C.success : c.result ? C.warning : C.textFaint }}>
                                 {c.row.event === "term_cum_checked" && c.cumComparison === "rounding" ? "compatible with prior rounding" : c.result === "match" ? "matched" : c.result ? "differed" : "—"}
                               </span>
+                              {c.reportedResult && c.reportedResult !== c.result && (
+                                <span className="block text-[11px]" style={{ color: C.textMuted }}>Reported at the time: {c.reportedResult}; displayed comparison: {c.result}.</span>
+                              )}
+                              {c.reportedCumResult && c.reportedCumResult !== c.cumResult && (
+                                <span className="block text-[11px]" style={{ color: C.textMuted }}>Cumulative reported at the time: {c.reportedCumResult}; displayed comparison: {c.cumResult}.</span>
+                              )}
                               {c.cumResult && (
                                 <span style={{ color: c.cumResult === "match" ? C.success : C.warning }}>
                                   {" "}
@@ -504,7 +524,7 @@ function Report({ row, last, onOpenUser }: { row: EventRow; last: boolean; onOpe
         )}
         <span className="text-[12px] tabular-nums" style={{ color: C.textMuted }}>
           ours {ours ?? "—"} · portal {portal ?? "—"}
-          {m.result === "match" && <span style={{ color: C.success }}> · matched</span>}
+          {m.result === "match" && <span style={{ color: C.success }}> · reported matched at the time</span>}
         </span>
         {reason && (
           <span className="text-[12px]" style={{ color: C.warning }}>
@@ -541,7 +561,7 @@ function Report({ row, last, onOpenUser }: { row: EventRow; last: boolean; onOpe
               const differs = !past && actual != null && c.estimated != null && String(actual) !== c.estimated;
               return (
                 <tr key={i}>
-                  <td dir="auto" className="pe-4">{c.name || `#${i + 1}`}</td>
+                  <td dir="auto" className="pe-4">{c.name || `#${i + 1}`} {c.excludedFromGpa === true && <span style={{ color: C.textMuted }}>(Excluded from GPA)</span>}</td>
                   <td className="pe-4">{c.hours ?? "—"}</td>
                   <td className="pe-4">{c.pct ?? "—"}</td>
                   {!past && <td className="pe-4">{c.estimated ?? "—"}</td>}

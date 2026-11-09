@@ -228,8 +228,8 @@ describe("cumulative GPA", () => {
     close(projectedCumulativeGpa(sample(), 3.1, 30, SAUDI4), (3.1 * 30 + 29) / 42);
   });
 
-  test("a previous GPA above the scale is clamped to the scale max", () => {
-    close(projectedCumulativeFromParts(0, 0, 4.6, 30, SAUDI4), 4);
+  test("a previous GPA above the scale requires review instead of silent conversion", () => {
+    assert.equal(projectedCumulativeFromParts(0, 0, 4.6, 30, SAUDI4), null);
   });
 
   test("no previous hours → the semester GPA itself", () => {

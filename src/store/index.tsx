@@ -1,4 +1,7 @@
 "use client";
+import { gpaReviewId, captureGpaSystem, readGpaSystem, gpaSystemChanged, priorGpaReview, priorGpaReviewKey, legacyReferenceBeforeChange, type PriorGpaReviewReason } from "@/lib/gpaSystem";
+import { createGpaReviewTracker } from "@/lib/gpaReviewTracking";
+import { nonNegativeFinite, validPriorGpa } from "@/lib/gpaInputs";
 import { accountDataChanging, bindAccountGeneration, changeAccountData, initializeAccountData } from "@/lib/accountReset";
 
 import {
@@ -76,7 +79,7 @@ import {
 import { refreshChallenges, type ChallengeContext } from "@/lib/challenges";
 import { preserveEarnedBadges } from "@/lib/badgeProgress";
 import { ruleMode, semesterGPA } from "@/lib/grades";
-import { resolveScheme, setLearnedCutoffs, SCHEMES, type LearnedCutoffs } from "@/lib/gradeSchemes";
+import { resolveScheme, setLearnedCutoffs, SCHEMES, type LearnedCutoffs, type GradeScheme } from "@/lib/gradeSchemes";
 import { readPastTerms, readTermCheck, withOfficial } from "@/lib/termCheck";
 import { canPinSemester, currentSemesterForDate, nextSemesterProgress, prepareSemesterProgress, semesterDatesProblem, semesterForAward, semesterWeeks } from "@/lib/semesterProgress";
 import { readRepeats, withRepeats } from "@/lib/repeats";
@@ -569,6 +572,7 @@ function dataForSemesterArchive(current: AppData, archive: db.DbSemesterArchive)
     taskOrder: Array.isArray(progress.taskOrder) ? progress.taskOrder.filter((id): id is string => typeof id === "string") : [],
     cumulativeGpa: number(progress.cumulativeStartGpa, 0),
     cumulativeHours: number(progress.cumulativeStartHours, 0),
+    cumulativeGpaSystem: readGpaSystem(progress.cumulativeStartSystem),
     personalAttendanceRule: readPersonalRule(progress.attendanceRule),
     attendancePolicyAck: typeof progress.attendancePolicyAck === "string" ? progress.attendancePolicyAck : null,
     ownLimits: Array.isArray(progress.ownLimits) ? progress.ownLimits.filter((id): id is string => typeof id === "string") : [],
@@ -625,7 +629,7 @@ const historicalMutationKeys = [
   "setCourseRepeat", "setCourseCurve", "addPlannerNote", "updatePlannerNote",
   "deletePlannerNote", "softDeletePlannerNote", "restorePlannerNote", "setPlannerAutoEdit",
   "setPlannerWeekStrike", "setPlannerWeekIcon", "setPlannerWeekDone", "setTaskOrder",
-  "setCumulativeGpa", "setCumulativeHours", "confirmCumulativeForSemester", "confirmSetup",
+  "setCumulativeGpa", "setCumulativeHours", "confirmPreviousGpa", "recordPriorGpaReviewShown", "confirmCumulativeForSemester", "confirmSetup",
   "setPersonalAttendanceRule", "ackAttendancePolicy", "setSemester", "saveClassOff",
   "addCourse", "updateCourse", "deleteCourse", "softDeleteCourse", "restoreCourse",
   "addComponent", "updateComponent", "deleteComponent", "softDeleteComponent",
@@ -730,7 +734,7 @@ export interface StoreValue extends AppData {
   /** Update the student's academic info (university/major/level); persisted per
    *  account in preferences.academic. Selecting a known university also applies
    *  its usual حرمان limit to the semester. */
-  setAcademic: (patch: Partial<AcademicInfo>) => void;
+  setAcademic: (patch: Partial<AcademicInfo>, previousScheme?: GradeScheme) => void;
   /** Report a student's answer about their university's points table (confirm /
    *  reject / their own table) to the admin activity feed. No-op in the demo. */
   reportGradeTable: (event: GradeTableEvent, meta: Record<string, unknown>) => void;
@@ -777,8 +781,12 @@ export interface StoreValue extends AppData {
   setCumulativeGpa: (gpa: number) => void;
   /** Completed credit hours behind the cumulative GPA; persisted per account. */
   setCumulativeHours: (hours: number) => void;
+  /** Explicitly review previous values against the current grading rules. */
+  confirmPreviousGpa: (gpa: number, hours: number, requested?: boolean) => boolean;
+  recordPriorGpaReviewShown: (reason: PriorGpaReviewReason) => void;
   /** Confirm the checked end-of-semester cumulative result for carry-forward. */
-  confirmCumulativeForSemester: (gpa: number, hours: number) => void;
+  /** Validates and queues the confirmation; false leaves the record unchanged. */
+  confirmCumulativeForSemester: (gpa: number, hours: number) => boolean;
   /** Customizable notification preferences; persisted to preferences.notifPrefs. */
   setNotifPrefs: (next: NotifPrefs) => void;
   /** Custom name for Havi mascot; persisted to preferences.haviName. */
@@ -966,6 +974,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // start-up state (the dashboard counting today's visit) would save it over
   // the real data. That is how signing in wiped streaks, XP and check-ins.
   const readyUidRef = useRef<string | null>(null);
+  const gpaReviewTrackerRef = useRef<ReturnType<typeof createGpaReviewTracker> | null>(null);
+  if (!gpaReviewTrackerRef.current) gpaReviewTrackerRef.current = createGpaReviewTracker(
+    (event, meta) => db.logEvent(event, meta, readyUidRef.current ?? undefined),
+  );
   const studyAwardEpoch = useRef(0);
   const pendingPreferenceSaves = useRef(new Set<Promise<void>>());
   const pendingSemesterMutations = useRef(new Set<Promise<unknown>>());
@@ -1333,6 +1345,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           gpaMode: prefs.gpaMode === "cumulative" ? "cumulative" : "semester",
           cumulativeGpa: num(semesterValue("cumulativeStartGpa", initialData.cumulativeGpa), initialData.cumulativeGpa),
           cumulativeHours: num(semesterValue("cumulativeStartHours", initialData.cumulativeHours), initialData.cumulativeHours),
+          cumulativeGpaSystem: readGpaSystem(semesterValue("cumulativeStartSystem", undefined)),
           // notifPrefs supersedes the legacy `reminderDays`; missing → defaults.
           notifPrefs: normalizeNotifPrefs(prefs.notifPrefs),
           haviName: str(prefs.haviName, "Havi") || "Havi",
@@ -2216,33 +2229,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setPref]
   );
 
-  const setCumulativeGpa = useCallback(
-    (gpa: number) => {
-      const g = Math.min(resolveScheme(dataRef.current.academic).max, Math.max(0, Number(gpa) || 0));
-      commit({ cumulativeGpa: g });
-      persistSemesterProgress({ cumulativeStartGpa: g });
-    },
-    [commit, persistSemesterProgress]
-  );
-
   const setCumulativeHours = useCallback(
     (hours: number) => {
-      const h = Math.max(0, Math.round(Number(hours) || 0));
+      const h = nonNegativeFinite(hours);
       commit({ cumulativeHours: h });
       persistSemesterProgress({ cumulativeStartHours: h });
     },
     [commit, persistSemesterProgress]
   );
 
+  const recordPriorGpaReviewShown = useCallback((reason: PriorGpaReviewReason) => {
+    if (accountDataChanging() || historicalSelectionRef.current || !readyUidRef.current || !semesterIdRef.current) return;
+    const d = dataRef.current, scheme = resolveScheme(d.academic);
+    const actual = priorGpaReview(d.cumulativeGpa, d.cumulativeHours, scheme, d.cumulativeGpaSystem);
+    if (reason !== "requested" && reason !== actual) return;
+    gpaReviewTrackerRef.current!.shown(readyUidRef.current,
+      priorGpaReviewKey(d.cumulativeGpaSystem, scheme, reason, semesterIdRef.current),
+      { reason, scheme: scheme.id, max: scheme.max });
+  }, []);
+
+  const confirmPreviousGpa = useCallback((gpa: number, hours: number, requested = false, fields: "record" | "gpa" = "record") => {
+    const d = dataRef.current, scheme = resolveScheme(d.academic);
+    if (!validPriorGpa(gpa, scheme.max) || !Number.isFinite(hours) || hours < 0 || accountDataChanging()) return false;
+    const reason = priorGpaReview(d.cumulativeGpa, d.cumulativeHours, scheme, d.cumulativeGpaSystem);
+    const key = priorGpaReviewKey(d.cumulativeGpaSystem, scheme, reason ?? "requested", semesterIdRef.current ?? "");
+    const edited = gpa !== d.cumulativeGpa || hours !== d.cumulativeHours;
+    const system = captureGpaSystem(scheme, gpaReviewId());
+    commit({ cumulativeGpa: gpa, ...(fields === "record" ? { cumulativeHours: hours } : {}), cumulativeGpaSystem: system });
+    persistSemesterProgress({ cumulativeStartGpa: gpa, ...(fields === "record" ? { cumulativeStartHours: hours } : {}), cumulativeStartSystem: system });
+    if (readyUidRef.current && !historicalSelectionRef.current && (reason || requested || gpaReviewTrackerRef.current!.hasShown(readyUidRef.current, key))) {
+      gpaReviewTrackerRef.current!.completed(readyUidRef.current, key, edited, { scheme: scheme.id, max: scheme.max });
+    }
+    return true;
+  }, [commit, persistSemesterProgress]);
+
+  const setCumulativeGpa = useCallback((gpa: number) => {
+    if (accountDataChanging()) return;
+    const g = nonNegativeFinite(gpa), d = dataRef.current, scheme = resolveScheme(d.academic);
+    if (validPriorGpa(g, scheme.max)) {
+      // Entering a valid previous GPA is the same explicit acknowledgement as the modal.
+      confirmPreviousGpa(g, d.cumulativeHours, false, "gpa");
+      return;
+    }
+    commit({ cumulativeGpa: g });
+    persistSemesterProgress({ cumulativeStartGpa: g });
+  }, [commit, persistSemesterProgress, confirmPreviousGpa]);
+
   const confirmCumulativeForSemester = useCallback((gpa: number, hours: number) => {
+    if (accountDataChanging()) return false;
     const scheme = resolveScheme(dataRef.current.academic);
-    const confirmedGpa = Math.min(scheme.max, Math.max(0, Number(gpa) || 0));
-    const confirmedHours = Math.max(0, Math.round(Number(hours) || 0));
+    if (!validPriorGpa(gpa, scheme.max) || !Number.isFinite(hours) || hours < 0) return false;
+    if (dataRef.current.cumulativeHours > 0 && gpaSystemChanged(scheme, dataRef.current.cumulativeGpaSystem)) return false;
+    const confirmedGpa = gpa;
+    const confirmedHours = hours;
     persistSemesterProgress({
       cumulativeEndGpa: confirmedGpa,
       cumulativeEndHours: confirmedHours,
+      cumulativeEndSystem: captureGpaSystem(scheme, gpaReviewId()),
       cumulativeConfirmedAt: new Date().toISOString(),
     });
+    return true;
   }, [persistSemesterProgress]);
 
   // WRITE helper for notifPrefs. Normalizes defensively (so a bad partial can
@@ -2577,20 +2623,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setAcademic = useCallback(
-    (patch: Partial<AcademicInfo>) => {
+    (patch: Partial<AcademicInfo>, previousScheme?: GradeScheme) => {
+      if (accountDataChanging()) return;
       // Worked out from dataRef, not inside the setData updater: when React ran
       // that updater later, the profile saved was the empty one, wiping the
       // student's university from their account.
       const cur = dataRef.current;
       const next = { ...cur.academic, ...patch };
+      const legacy = legacyReferenceBeforeChange(cur.cumulativeHours, cur.cumulativeGpaSystem, previousScheme ?? resolveScheme(cur.academic), resolveScheme(next));
       // A different university: its official breaks no longer apply.
       const released =
         patch.universitySlug !== undefined && patch.universitySlug !== cur.academic.universitySlug
           ? releaseUniversityHolidays(cur.semester)
           : null;
-      commit({ academic: next });
+      commit({ academic: next, ...(legacy ? { cumulativeGpaSystem: legacy } : {}) });
       if (!historicalSelectionRef.current) persistPref({ academic: next as unknown as Record<string, unknown> });
-      persistSemesterProgress({ academic: next as unknown as Record<string, unknown> });
+      persistSemesterProgress({ academic: next as unknown as Record<string, unknown>, ...(legacy ? { cumulativeStartSystem: legacy } : {}) });
       if (released) setSemester(released);
       if (historicalSelectionRef.current) return;
       // What the student chose, for the admin's view of their answers. A typed
@@ -3328,6 +3376,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setGpaMode,
     setCumulativeGpa,
     setCumulativeHours,
+    confirmPreviousGpa,
+    recordPriorGpaReviewShown,
     confirmCumulativeForSemester,
     setNotifPrefs,
     setHaviName,

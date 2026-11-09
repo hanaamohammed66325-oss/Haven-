@@ -206,6 +206,8 @@ export interface TermCheck {
 
 /** One course of a past term the student entered from their transcript. */
 export interface PastTermCourse {
+  /** Explicit transcript-based exclusion; preserves the actual grade and hours. */
+  excludedFromGpa?: boolean;
   name?: string;
   hours: number;
   /** portal letter (points schemes) */
@@ -440,6 +442,16 @@ export interface SetupConfirmed {
   termAnswered?: string;
 }
 
+/** Semantic grading rules explicitly associated with a previous GPA. */
+export interface GpaSystemReference {
+  version: 1;
+  /** Acknowledgement identity, excluded from grading-rule comparisons. */
+  reviewId?: string;
+  max: number;
+  percent: boolean;
+  bands: { letter: string; points: number; min: number }[];
+}
+
 export interface AppData {
   profileName: string;
   email: string;
@@ -468,6 +480,8 @@ export interface AppData {
   cumulativeGpa: number;
   /** completed credit hours behind the current cumulative GPA. */
   cumulativeHours: number;
+  /** Absent on legacy records; never inferred just by reading them. */
+  cumulativeGpaSystem?: GpaSystemReference;
   /** customizable notification preferences (per account, in preferences.notifPrefs). */
   notifPrefs: NotifPrefs;
   /** custom name for the Havi mascot (default "Havi") */

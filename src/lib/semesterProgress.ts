@@ -1,3 +1,4 @@
+import { readGpaSystem } from "./gpaSystem";
 import type { Semester } from "@/types";
 import { termEnded } from "./termCheck";
 
@@ -151,8 +152,10 @@ export function nextSemesterProgress(
   const confirmed = typeof current.cumulativeConfirmedAt === "string" &&
     typeof current.cumulativeEndGpa === "number" && Number.isFinite(current.cumulativeEndGpa) &&
     typeof current.cumulativeEndHours === "number" && Number.isFinite(current.cumulativeEndHours);
+  const system = readGpaSystem(confirmed ? current.cumulativeEndSystem : current.cumulativeStartSystem);
   return {
     semesterVersion: 1,
+    ...(system ? { cumulativeStartSystem: system } : {}),
     cumulativeStartGpa: confirmed ? current.cumulativeEndGpa : startingGpa,
     cumulativeStartHours: confirmed ? current.cumulativeEndHours : startingHours,
     academic,

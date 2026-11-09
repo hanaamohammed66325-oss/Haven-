@@ -1,4 +1,7 @@
 "use client";
+import { gpaReviewId, captureGpaSystem, legacyReferenceBeforeChange } from "@/lib/gpaSystem";
+import { resolveScheme } from "@/lib/gradeSchemes";
+import { validPriorGpa } from "@/lib/gpaInputs";
 
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { StoreContext, type StoreValue } from "@/store";
@@ -316,7 +319,11 @@ export function DemoStoreProvider({ children, initial, referral = EMPTY_REFERRAL
       setProfileName: (name) => patch({ profileName: name }),
       setEmail: (email) => patch({ email }),
       saveClassOff: () => {},
-      setAcademic: (p) => patch({ academic: { ...data.academic, ...p } }),
+      setAcademic: (p, previousScheme) => setData((d) => {
+        const academic = { ...d.academic, ...p };
+        const legacy = legacyReferenceBeforeChange(d.cumulativeHours, d.cumulativeGpaSystem, previousScheme ?? resolveScheme(d.academic), resolveScheme(academic));
+        return { ...d, academic, ...(legacy ? { cumulativeGpaSystem: legacy } : {}) };
+      }),
       reportGradeTable: () => {},
       setTermCheck: (check) => patch({ termCheck: check ? { ...check, term: "demo" } : null }),
       reportTermCheck: () => {},
@@ -392,9 +399,19 @@ export function DemoStoreProvider({ children, initial, referral = EMPTY_REFERRAL
       },
       setTaskOrder: (taskOrder) => patch({ taskOrder }),
       setGpaMode: (gpaMode) => patch({ gpaMode }),
-      setCumulativeGpa: (cumulativeGpa) => patch({ cumulativeGpa }),
+      setCumulativeGpa: (cumulativeGpa) => {
+        const scheme = resolveScheme(data.academic);
+        patch({ cumulativeGpa, ...(validPriorGpa(cumulativeGpa, scheme.max) ? { cumulativeGpaSystem: captureGpaSystem(scheme, gpaReviewId()) } : {}) });
+      },
       setCumulativeHours: (cumulativeHours) => patch({ cumulativeHours }),
-      confirmCumulativeForSemester: () => {},
+      confirmPreviousGpa: (gpa, hours) => {
+        const scheme = resolveScheme(data.academic);
+        if (!validPriorGpa(gpa, scheme.max) || !Number.isFinite(hours) || hours < 0) return false;
+        patch({ cumulativeGpa: gpa, cumulativeHours: hours, cumulativeGpaSystem: captureGpaSystem(scheme, gpaReviewId()) });
+        return true;
+      },
+      recordPriorGpaReviewShown: () => {},
+      confirmCumulativeForSemester: () => true,
       setNotifPrefs: (notifPrefs) => patch({ notifPrefs }),
       setSemester: (sp) => setData((d) => ({ ...d, semester: { ...d.semester, ...sp } })),
 

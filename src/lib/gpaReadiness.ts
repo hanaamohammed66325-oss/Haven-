@@ -22,6 +22,8 @@ export interface GpaReadinessInput {
   cumulativeHours: number;
   /** the term's last day (yyyy-mm-dd): grades are asked for only in its last month */
   semesterEnd?: string;
+  /** Explicit comparison after the term ended; Havi keeps its last-month window. */
+  checkGrades?: boolean;
   now?: Date;
 }
 
@@ -40,7 +42,7 @@ const inLastMonth = (end: string | undefined, now: Date): boolean => {
   return +now <= +last && +last - +now <= GRADES_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 };
 
-export function gpaGaps({ academic, courses, cumulativeGpa, cumulativeHours, semesterEnd, now = new Date() }: GpaReadinessInput): GpaGap[] {
+export function gpaGaps({ academic, courses, cumulativeGpa, cumulativeHours, semesterEnd, checkGrades = false, now = new Date() }: GpaReadinessInput): GpaGap[] {
   const gaps: GpaGap[] = [];
 
   // The university decides the points table: none at all means 5.0 by assumption.
@@ -54,7 +56,7 @@ export function gpaGaps({ academic, courses, cumulativeGpa, cumulativeHours, sem
 
   // No grade recorded yet: nothing to read a % from, so the course drops out
   // of the GPA without a word. Asked for only in the term's last month.
-  if (inLastMonth(semesterEnd, now)) {
+  if (checkGrades || inLastMonth(semesterEnd, now)) {
     const noGrades = counted.filter((c) => !c.official && !c.components.some((x) => x.score != null && x.total > 0));
     if (noGrades.length) gaps.push({ kind: "grades", courses: noGrades.map((c) => ({ id: c.id, name: c.name })) });
   }
