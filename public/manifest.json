@@ -7,25 +7,83 @@
   "start_url": "/dashboard/",
   "scope": "/",
   "display": "standalone",
-  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
+  "launch_handler": {
+    "client_mode": [
+      "navigate-existing",
+      "auto"
+    ]
+  },
   "handle_links": "preferred",
   "orientation": "any",
   "background_color": "#f8f0ea",
   "theme_color": "#2b3648",
-  "categories": ["education", "productivity"],
+  "categories": [
+    "education",
+    "productivity"
+  ],
   "icons": [
-    { "src": "/icons/icon-72.png?v=2",  "sizes": "72x72",   "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-96.png?v=2",  "sizes": "96x96",   "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-128.png?v=2", "sizes": "128x128", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-152.png?v=2", "sizes": "152x152", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-167.png?v=2", "sizes": "167x167", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-180.png?v=2", "sizes": "180x180", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-256.png?v=2", "sizes": "256x256", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-384.png?v=2", "sizes": "384x384", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     {
-      "src": "/icons/icon-maskable-512.png?v=2",
+      "src": "/icons/icon-72.0e29f8115d78.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-96.020026ecef2f.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-128.dad8a45621ec.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-152.20ba9ecee765.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-167.eb553a59cbae.png",
+      "sizes": "167x167",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-180.ee18ccdb50cd.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.af4788109b08.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-256.9e9d88271c90.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-384.04222b0d61f8.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.6f2209351eba.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.788674de455a.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -36,19 +94,34 @@
       "name": "المهام",
       "short_name": "المهام",
       "url": "/assignments/",
-      "icons": [{ "src": "/icons/icon-96.png?v=2", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96.020026ecef2f.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "الجدول",
       "short_name": "الجدول",
       "url": "/schedule/",
-      "icons": [{ "src": "/icons/icon-96.png?v=2", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96.020026ecef2f.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "المقررات",
       "short_name": "المقررات",
       "url": "/courses/",
-      "icons": [{ "src": "/icons/icon-96.png?v=2", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96.020026ecef2f.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ]
 }

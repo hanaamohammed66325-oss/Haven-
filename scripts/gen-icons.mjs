@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { versionIcons } from "./version-icons.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -107,6 +108,7 @@ async function main() {
 
   console.log("Updating favicon.svg...");
   await updateFaviconSvg();
+  versionIcons();
 
   console.log("Done! All icons regenerated.");
 }

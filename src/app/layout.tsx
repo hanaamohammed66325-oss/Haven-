@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import appIcons from "@/lib/appIcons.json";
 import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
@@ -48,11 +49,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.svg" },
-      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: appIcons.favicon, sizes: "32x32", type: "image/png" },
+      { url: appIcons.icon, sizes: "192x192", type: "image/png" },
     ],
-    apple: "/icons/apple-touch-icon.png",
+    apple: appIcons.apple,
   },
   openGraph: {
     type: "website",

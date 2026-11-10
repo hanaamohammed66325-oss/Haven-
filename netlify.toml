@@ -26,14 +26,13 @@
 [[headers]]
   for = "/manifest.json"
   [headers.values]
-    Cache-Control = "public, max-age=3600"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
-# Icons use stable filenames (no content hash), so keep cache short enough
-# that a redesign propagates within a day.
+# Revalidate legacy icons too; content-hashed copies retain identical bytes.
 [[headers]]
   for = "/icons/*"
   [headers.values]
-    Cache-Control = "public, max-age=86400"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 # Build output under /_next/static/ is named by its content hash: a new build
 # gets new file names, so a file's bytes never change and it can be cached for

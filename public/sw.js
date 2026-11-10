@@ -2,7 +2,8 @@
  *
  * Strategy
  *  - Build-hashed assets (/_next/static/) : cache-first (immutable by name)
- *  - Named assets (/icons/, /logo, favicon): stale-while-revalidate
+ *  - Install metadata/icons              : network-first → cached fallback
+ *  - Other named assets (/logo, fonts)   : stale-while-revalidate
  *  - Page navigations                     : network-first → cache → /offline/
  *  - Supabase / API calls                 : never cached (always live data)
  *
@@ -100,6 +101,42 @@ self.addEventListener("fetch", (event) => {
 
   // Cross-origin (fonts, CDNs): let the browser handle it.
   if (url.origin !== self.location.origin) return;
+
+  // Installation must see the current identity on its first request. Keep the
+  // saved response on failed requests; never clear user storage or subscriptions.
+  if (url.pathname === "/manifest.json" || url.pathname.startsWith("/icons/") || url.pathname === "/favicon.svg") {
+    event.respondWith(
+      (async () => {
+        let timer;
+        const network = fetch(new Request(request, { cache: "no-cache" }))
+          .then(async (fresh) => {
+            if (fresh.ok) {
+              // A full/unavailable cache must never discard a good icon.
+              try {
+                const cache = await caches.open(ASSET_CACHE);
+                await cache.put(request, fresh.clone());
+              } catch {}
+            }
+            return fresh;
+          });
+        network.catch(() => {});
+        // Keep a slow connection from delaying a previously correct icon.
+        try {
+          const slow = new Promise((resolve) => {
+            timer = setTimeout(() => resolve(null), NAVIGATE_TIMEOUT_MS);
+          });
+          const fresh = await Promise.race([network, slow]);
+          if (fresh?.ok) return fresh;
+          return (await caches.match(request)) || fresh || (await network);
+        } catch {
+          return (await caches.match(request)) || new Response("", { status: 504 });
+        } finally {
+          clearTimeout(timer);
+        }
+      })()
+    );
+    return;
+  }
 
   // Page navigations: fresh when online, cached when not — and cached when the
   // network is too slow. Reopening the app on a phone whose connection is still
