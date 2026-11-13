@@ -48,6 +48,8 @@ import {
   projectedCumulativeFromParts,
   projectedCumulativeGpa,
   finalAdvice,
+  pendingFinal,
+  weightsComplete,
 } from "@/lib/grades";
 
 // ── fixtures ──────────────────────────────────────────────────────────────
@@ -280,6 +282,55 @@ describe("final-exam advice", () => {
         }
       }
     }
+  });
+
+  // The reported course: two final-type items, the lab final already graded.
+  // 7 + 13 + 19.5 + 5 + 5 + 10 = 59.5 earned, written final 40% left → A+.
+  const twoFinals = (labFinalFirst = false) => {
+    const written = comp("final", 40, 40, null);
+    const lab = comp("final", 10, 10, 10);
+    const rest = [
+      comp("quiz", 7, 7, 7),
+      comp("quiz", 13, 13, 13),
+      comp("midterm", 20, 20, 19.5),
+      comp("project", 5, 5, 5),
+      comp("midterm", 5, 5, 5),
+    ];
+    return course(3, labFinalFirst ? [lab, ...rest, written] : [written, ...rest, lab]);
+  };
+
+  test("a graded lab final counts as earned marks (reported case)", () => {
+    for (const labFirst of [false, true]) {
+      const a = finalAdvice(twoFinals(labFirst), SAUDI5)!;
+      assert.ok(a, `advice shown (lab final first: ${labFirst})`);
+      assert.equal(a.ceiling?.letter, "A+"); // 59.5 + 36 = 95.5
+      assert.equal(a.ceiling?.raw, 36); // 95 − 59.5 = 35.5 → 36
+      assert.equal(a.avoidFraw, 1); // 60 − 59.5 = 0.5 → 1
+      assert.equal(a.finalTotal, 40);
+      assert.equal(a.passesAtZero, false);
+    }
+  });
+
+  test("two ungraded finals → no single-final advice", () => {
+    const c = twoFinals();
+    c.components.find((x) => x.weight === 10)!.score = null;
+    assert.equal(finalAdvice(c, SAUDI5), null);
+  });
+
+  test("weights not adding up to 100% → no advice (the panel asks to complete them)", () => {
+    for (const w of [30, 60]) {
+      // 90% (missing weight) and 120% (extra weight)
+      const c = course(3, [comp("midterm", w, w, w - 2), comp("assignment", 20, 20, 18), comp("final", 40, 40, null)]);
+      assert.equal(finalAdvice(c, SAUDI5), null);
+      assert.ok(pendingFinal(c));
+      assert.equal(weightsComplete(c), false);
+    }
+    assert.equal(weightsComplete(pending()), true);
+  });
+
+  test("the only ungraded item is not a final → no advice", () => {
+    const c = course(3, [comp("midterm", 40, 40, 30), comp("final", 40, 40, 35), comp("project", 20, 20, null)]);
+    assert.equal(finalAdvice(c, SAUDI5), null);
   });
 
   test("'avoid F' uses the scheme's own pass mark", () => {

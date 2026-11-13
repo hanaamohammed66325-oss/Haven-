@@ -17,7 +17,9 @@ import { useUndo } from "./UndoManager";
 import {
   courseCurrentPct,
   weightsTotal,
+  weightsComplete,
   finalAdvice,
+  pendingFinal,
 } from "@/lib/grades";
 import { creditHoursLabel, isolate } from "@/lib/format";
 import { courseCutoffs, courseScheme } from "@/lib/curves";
@@ -41,6 +43,9 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
   const left = Math.max(0, 100 - used);
   // Once the official result is in, there is no final left to plan for.
   const advice = course.official ? null : finalAdvice(course, scheme);
+  // Only the final is left but the weights don't add up to 100%: any mark
+  // asked for would be a guess, so ask to complete the weights instead.
+  const finalNeedsWeights = !course.official && !advice && pendingFinal(course) != null && !weightsComplete(course);
 
   // Share of the FULL course (out of 100) that is actually graded — drives the
   // "provisional" note. Measured against 100, not just the weight defined so
@@ -220,6 +225,19 @@ export function CoursePanel({ course, onDeleteCourse }: { course: Course; onDele
                 )}
                 {curve && curve.status !== "entered" && <li>{t("curve_finalApprox")}</li>}
               </ul>
+            </div>
+          </div>
+        )}
+
+        {finalNeedsWeights && (
+          <div
+            className="mt-6 rounded-xl p-6 flex gap-3"
+            style={{ background: "var(--color-primary-soft)" }}
+          >
+            <Target size={18} className="shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
+            <div className="text-sm min-w-0" style={{ color: "var(--color-ink)" }}>
+              <div className="font-semibold mb-1">{t("finalTitle")}</div>
+              <p style={{ color: "var(--color-muted)" }}>{t("finalWeightsIncomplete", { used: round(used) })}</p>
             </div>
           </div>
         )}

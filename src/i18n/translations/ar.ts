@@ -768,6 +768,7 @@ export const ar: Record<TranslationKey, string> = {
   finalCeilingNone: "حتى النهائي الكامل لن يغيّر التقدير الآن.",
   finalAvoidF: "المطلوب {raw} / {total} على الأقل لتجنّب الرسوب.",
   finalSecured: "النجاح مضمون حتى بصفر — التقدير {letter} مؤكَّد.",
+  finalWeightsIncomplete: "مجموع أوزان البنود {used}%. أكمِل الأوزان لتصبح 100% بالضبط لعرض المطلوب في النهائي.",
 
   // Attendance editor
   attendanceEditor: "الحضور",

@@ -767,6 +767,7 @@ export const en = {
   finalCeilingNone: "Even a perfect final can't change your letter grade now.",
   finalAvoidF: "Score at least {raw} / {total} to avoid an F.",
   finalSecured: "You pass even with 0 — {letter} is secured.",
+  finalWeightsIncomplete: "The item weights add up to {used}%. Complete them to exactly 100% to see what you need on the final.",
 
   // Attendance editor
   attendanceEditor: "Attendance",

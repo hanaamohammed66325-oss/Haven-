@@ -1,6 +1,6 @@
 import { priorGpaReview } from "./gpaSystem";
 import type { GpaSystemReference } from "@/types";
-import type { AcademicInfo, Course, OfficialGrade, Semester } from "@/types";
+import type { AcademicInfo, Course, GradeComponent, OfficialGrade, Semester } from "@/types";
 import { resolveHolidaysForSemester, holidayMinutes, holidayLectureCount, clipHolidays } from "./holidays";
 import { addDays, toISODate } from "./dates";
 import { resolveTardinessRule, tardinessToAbsenceMinutes } from "./tardiness";
@@ -753,20 +753,41 @@ export function semesterProgress(sem: Semester) {
   };
 }
 
+/** The final when it's the single ungraded item and every other item is
+ *  graded, else null. */
+export function pendingFinal(course: Course): GradeComponent | null {
+  const ungraded = course.components.filter((c) => c.score == null);
+  if (ungraded.length !== 1 || ungraded[0].type !== "final") return null;
+  if (course.components.length < 2) return null;
+  return ungraded[0];
+}
+
+/** The course's item weights add up to exactly 100%. */
+export const weightsComplete = (course: Course) => Math.abs(weightsTotal(course) - 100) < 1e-6;
+
 // "What you need on the final" — only when the final is the single remaining
 // ungraded item. Letters follow the student's scheme so a plus/minus student
 // sees A-/B-, not the 5.0 letters; a course graded on the cohort average uses
 // its own cutoffs and pass mark.
+//
+// The final is the ONE ungraded item, not "every item typed final": a course
+// can hold several final-type items (a lab final beside the written final),
+// and a graded one is earned marks like any other — dropping it understated
+// the reachable grade (59.5% earned read as 49.5%: B+ instead of A+).
+//
+// Only when the item weights add up to exactly 100%: the badge reads the course
+// out of 100, so with weight missing (or extra) any mark asked for would be a
+// guess that disagrees with it — the course panel asks to complete the items.
 export function finalAdvice(course: Course, baseScheme: GradeScheme = SAUDI5) {
   const scheme = courseScheme(course, baseScheme);
-  const final = course.components.find((c) => c.type === "final");
-  if (!final || final.score != null) return null;
-  const others = course.components.filter((c) => c.type !== "final");
-  if (!others.length || !others.every((c) => c.score != null)) return null;
-  const totalW = weightsTotal(course);
-  if (!totalW || !final.weight || !final.total) return null;
+  const final = pendingFinal(course);
+  if (!final || !weightsComplete(course)) return null;
+  const others = course.components.filter((c) => c !== final);
+  const totalW = 100;
+  if (!final.weight || !final.total) return null;
+  // Same rule as courseCurrentPct: an item with no total adds nothing.
   const earned = others.reduce(
-    (s, c) => s + (c.score! / c.total) * c.weight,
+    (s, c) => (c.total > 0 ? s + (c.score! / c.total) * c.weight : s),
     0
   );
   const need = (T: number) => ((T / 100) * totalW - earned) / final.weight; // fraction 0..1
