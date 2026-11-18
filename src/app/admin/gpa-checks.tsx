@@ -292,7 +292,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
 
   if (loading && !rows) return <Loading text="Loading GPA checks…" />;
 
-  const shared = (c: Check) => c.row.meta?.consent === true || coursesOf(c.row.meta).length > 0;
+  const shared = (c: Check) => c.row.meta?.reviewShared === true || c.row.meta?.consent === true || coursesOf(c.row.meta).length > 0;
   const shown = showAll ? checks : checks.slice(0, 25);
 
   return (
@@ -484,7 +484,7 @@ export function GpaChecksSection({ onOpenUser }: { onOpenUser: (id: string) => v
           </div>
 
           <p className="text-[12px]" style={{ color: C.textFaint }}>
-            Course details appear only when the student agreed to share them; a student who withdrew consent shows no end-of-term
+            New GPA reviews include comparison details for admin diagnosis. Older records retain their original sharing status; historical withdrawal still hides end-of-term
             details. Every check is also in the user&apos;s activity feed.
           </p>
         </div>

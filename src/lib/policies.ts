@@ -1,16 +1,434 @@
-// AUTO-GENERATED from the policy markdown (do not edit by hand).
-// Each policy's markdown is split into its English and Arabic sections plus
-// the shared bilingual "Effective / Last Updated" meta block.
+// Canonical bilingual policy copy. No original Markdown/generator is present
+// in this repository. Keep Arabic and English provisions aligned.
+const POLICY_META = "**Effective Date / تاريخ السريان:** August 24, 2026 / ٢٤ أغسطس ٢٠٢٦\n**Last Updated / آخر تحديث:** November 17, 2026 / ١٧ نوفمبر ٢٠٢٦";
+export const PRIVACY_META = POLICY_META.replace("November 17, 2026 / ١٧ نوفمبر ٢٠٢٦", "November 18, 2026 / ١٨ نوفمبر ٢٠٢٦");
+export const TERMS_META = POLICY_META;
+export const REFUND_META = POLICY_META;
 
-export const PRIVACY_META = "**Effective Date / تاريخ السريان:** August 24, 2026 / ٢٤ أغسطس ٢٠٢٦\n**Last Updated / آخر تحديث:** August 24, 2026 / ٢٤ أغسطس ٢٠٢٦";
-export const PRIVACY_EN = "### 1. Introduction\n\nHaven (\"we,\" \"us,\" \"our\") operates the website havenstudent.com and the Haven mobile/web application (collectively, the \"Service\"). This Privacy Policy explains how we collect, use, share, and protect your personal information when you use the Service.\n\nBy using the Service, you agree to the practices described in this policy. If you do not agree, please do not use the Service.\n\n### 2. Information We Collect\n\n**Account Information:**\n- Name (as you provide it)\n- Email address\n- Password (stored in encrypted form)\n- Language preference\n\n**Content You Create:**\n- Courses, grades, assignments, exams, and planner entries\n- Class schedules and attendance records\n- Any notes or study data you enter\n\n**Payment Information:**\n- We do NOT store your full credit card number, CVV, or other sensitive payment data.\n- Payment processing is handled by a licensed third-party payment provider. No payment provider is connected at this time; when one is, this policy will be updated to name it before any charge is made.\n- We store only: subscription plan type, billing status, trial end date, next billing date, and (once payments are enabled) a payment token held by our payment provider that identifies your saved card. No card number, expiry or CVV is ever stored by Haven.\n\n**Device and Push Notification Data:**\n- When you enable notifications, we store a push subscription token from your browser/device (contains a device endpoint, public key, and authentication secret).\n- User agent (browser/device type) for troubleshooting.\n\n**Usage Data:**\n- Feature interactions (e.g., which pages you visit, when you mark tasks as complete)\n- Session timestamps\n\nWe do NOT use third-party analytics or tracking cookies. We do NOT sell your data to advertisers.\n\n### 3. How We Use Your Information\n\nWe use the information we collect to:\n\n- Provide, maintain, and improve the Service\n- Process your subscription payments through our payment provider, once payments are enabled\n- Send you push notifications and emails you have opted into (e.g., trial ending reminders, payment receipts, service updates)\n- Respond to your support requests\n- Detect fraud and abuse\n- Comply with legal obligations under Saudi Arabian law and other applicable laws\n\n### 4. How We Share Your Information\n\nWe share your information only with the following categories of third parties, and only as necessary:\n\n**Service Providers:**\n- **Supabase** (database and authentication hosting)\n- **Netlify** (website and application hosting)\n- **A licensed payment provider** (payment processing — none connected at this time)\n- **Apple, Google, and Mozilla** (push notification delivery to your device)\n- **Hostinger** (email service for support communications)\n\nThese providers process your information under contracts requiring them to protect your data.\n\n**Legal Requirements:**\nWe may disclose your information if required by law, court order, or governmental request, or to protect the rights, property, or safety of Haven, our users, or others.\n\n**Business Transfers:**\nIf Haven is acquired, merged, or transferred to another entity, your information may be transferred as part of that transaction. You will be notified in advance.\n\nWe do NOT sell, rent, or trade your personal information to third parties for their marketing purposes.\n\n### 5. Data Storage and Security\n\nYour data is stored on servers provided by Supabase and Netlify, which use industry-standard security measures including encryption at rest and in transit (TLS).\n\nWe take reasonable steps to protect your information but cannot guarantee absolute security. You are responsible for keeping your password confidential.\n\n### 6. Data Retention\n\n- **Active accounts:** We retain your data as long as your account is active.\n- **After account cancellation:** We retain your data for 30 days after you delete your account, then permanently delete it. During the 30-day period, you may restore your account by contacting us.\n- **Payment records:** We retain billing records for the period required by Saudi Arabian tax law (currently 10 years).\n- **Backups:** Deleted data may persist in encrypted backups for up to 90 days after deletion.\n\n### 7. Your Rights\n\nYou have the right to:\n\n- **Access:** Request a copy of the personal information we hold about you.\n- **Correction:** Correct inaccurate or incomplete information (most settings are editable directly in your account).\n- **Deletion:** Request deletion of your account and personal data.\n- **Portability:** Request a machine-readable export of your data.\n- **Withdraw consent:** Disable push notifications, opt out of non-essential emails, or cancel your subscription at any time.\n\nTo exercise these rights, email us at `support@havenstudent.com`. We respond within 30 days.\n\n### 8. Age Restriction\n\nThe Service is intended for users aged 18 years or older. We do not knowingly collect personal information from anyone under 18. If we learn that we have collected information from a user under 18, we will delete it.\n\nIf you are a parent or guardian and believe your child under 18 has provided us with personal information, please contact us at `support@havenstudent.com`.\n\n### 9. International Users\n\nHaven is operated from Saudi Arabia. If you access the Service from outside Saudi Arabia, your information will be transferred to and processed in Saudi Arabia and other locations where our service providers operate. By using the Service, you consent to this transfer.\n\n### 10. Third-Party Links\n\nThe Service may contain links to third-party websites. We are not responsible for the privacy practices of those websites. Please review their privacy policies before providing any information.\n\n### 11. Changes to This Policy\n\nWe may update this Privacy Policy from time to time. Material changes will be communicated by email or an in-app notice at least 14 days before they take effect. Continued use of the Service after changes means you accept the updated policy.\n\n### 12. Contact Us\n\nFor questions about this Privacy Policy or to exercise your rights:\n\n**Email:** support@havenstudent.com\n**Website:** havenstudent.com";
-export const PRIVACY_AR = "### ١. مقدمة\n\nتُشغِّل Haven (ويُشار إليها بـ\"نحن\" أو \"لدينا\") موقع havenstudent.com وتطبيق Haven (ويُشار إليهم مجتمعين بـ\"الخدمة\"). توضّح سياسة الخصوصية هذه كيف نجمع معلوماتك الشخصية ونستخدمها ونشاركها ونحميها عند استخدامك للخدمة.\n\nباستخدامك للخدمة، تُوافق على الممارسات الموصوفة في هذه السياسة. إذا لم توافق، يُرجى عدم استخدام الخدمة.\n\n### ٢. المعلومات التي نجمعها\n\n**معلومات الحساب:**\n- الاسم (كما تُقدّمه)\n- عنوان البريد الإلكتروني\n- كلمة المرور (مُخزَّنة بصيغة مُشفَّرة)\n- تفضيل اللغة\n\n**المحتوى الذي تُنشئه:**\n- المواد الدراسية والدرجات والواجبات والاختبارات وعناصر المُخطِّط\n- الجداول الدراسية وسجلات الحضور\n- أي ملاحظات أو بيانات دراسية تُدخِلها\n\n**معلومات الدفع:**\n- **لا نُخزِّن** رقم بطاقتك الائتمانية الكامل أو رمز CVV أو أي بيانات دفع حسّاسة.\n- تُعالَج المدفوعات عبر مُزوِّد دفع مُرخّص من طرف ثالث. لا يوجد مُزوِّد دفع مرتبط حالياً؛ وعند ارتباطه ستُحدَّث هذه السياسة لتسميته قبل إجراء أي خصم.\n- نُخزِّن فقط: نوع خطة الاشتراك، حالة الفوترة، تاريخ انتهاء التجربة، تاريخ الفوترة القادمة، و(عند تفعيل المدفوعات) رمزاً تعريفياً (token) لدى مُزوِّد الدفع يُشير إلى بطاقتك المحفوظة. لا تُخزِّن Haven رقم البطاقة أو تاريخ انتهائها أو رمز CVV إطلاقاً.\n\n**بيانات الجهاز وإشعارات Push:**\n- عند تفعيلك للإشعارات، نُخزِّن طلائع اشتراك (subscription token) من متصفحك/جهازك (يحتوي على معرّف الجهاز، مفتاح عام، وسر مصادقة).\n- نوع المتصفح/الجهاز (User Agent) لأغراض استكشاف الأخطاء.\n\n**بيانات الاستخدام:**\n- التفاعلات مع الميزات (مثل الصفحات التي تزورها، متى تُعلّم المهام كمُكتَملة)\n- طوابع زمنية للجلسات\n\n**لا نستخدم** أدوات تحليل من أطراف ثالثة أو ملفات تعريف ارتباط تتبّعية. **لا نبيع** بياناتك للمُعلنين.\n\n### ٣. كيف نستخدم معلوماتك\n\nنستخدم المعلومات التي نجمعها من أجل:\n\n- تقديم الخدمة وصيانتها وتحسينها\n- معالجة مدفوعات اشتراكك عبر مُزوّد الدفع عند تفعيل المدفوعات\n- إرسال إشعارات Push ورسائل بريد إلكتروني تختار الاشتراك فيها (مثل تذكيرات انتهاء التجربة، إيصالات الدفع، تحديثات الخدمة)\n- الرد على طلبات الدعم\n- كشف الاحتيال وسوء الاستخدام\n- الامتثال للالتزامات القانونية بموجب أنظمة المملكة العربية السعودية والأنظمة السارية الأخرى\n\n### ٤. كيف نُشارك معلوماتك\n\nنُشارك معلوماتك فقط مع الفئات التالية من الأطراف الثالثة، وفقط بالقدر اللازم:\n\n**مُقدِّمو الخدمة:**\n- **Supabase** (استضافة قاعدة البيانات والمصادقة)\n- **Netlify** (استضافة الموقع والتطبيق)\n- **مُزوّد دفع مُرخّص** (معالجة المدفوعات — لا يوجد مُزوّد مرتبط حالياً)\n- **Apple و Google و Mozilla** (توصيل إشعارات Push لجهازك)\n- **Hostinger** (خدمة البريد الإلكتروني لتواصل الدعم)\n\nيُعالج هؤلاء المُقدِّمون معلوماتك بموجب عقود تُلزمهم بحماية بياناتك.\n\n**المتطلبات القانونية:**\nقد نُفصح عن معلوماتك إذا اقتضى القانون ذلك، أو بناءً على أمر قضائي أو طلب حكومي، أو لحماية حقوق أو ممتلكات أو سلامة Haven أو مستخدمينا أو غيرهم.\n\n**عمليات نقل الأعمال:**\nإذا استُحوذ على Haven أو اندمجت أو نُقلت إلى كيان آخر، قد تُنقل معلوماتك كجزء من تلك العملية. سيتم إشعارك مسبقاً.\n\n**لا نبيع أو نُؤجِّر أو نُتاجر** بمعلوماتك الشخصية إلى أطراف ثالثة لأغراضهم التسويقية.\n\n### ٥. تخزين البيانات والأمان\n\nبياناتك مُخزَّنة على خوادم يُقدِّمها Supabase و Netlify، اللتان تستخدمان تدابير أمنية معيارية في الصناعة تشمل التشفير في حالة السكون وفي أثناء النقل (TLS).\n\nنتخذ خطوات معقولة لحماية معلوماتك ولكن لا يُمكننا ضمان أمان مُطلَق. أنت مسؤول عن الحفاظ على سرية كلمة مرورك.\n\n### ٦. الاحتفاظ بالبيانات\n\n- **الحسابات النشطة:** نحتفظ ببياناتك طالما كان حسابك نشطاً.\n- **بعد إلغاء الحساب:** نحتفظ ببياناتك لمدة ٣٠ يوماً بعد حذفك للحساب، ثم نحذفها نهائياً. خلال فترة الـ٣٠ يوماً، يُمكنك استعادة حسابك بالتواصل معنا.\n- **سجلات الدفع:** نحتفظ بسجلات الفوترة للمدة المطلوبة بموجب أنظمة الضرائب في المملكة العربية السعودية (حالياً ١٠ سنوات).\n- **النسخ الاحتياطية:** قد تظل البيانات المحذوفة في نسخ احتياطية مُشفَّرة لمدة تصل إلى ٩٠ يوماً بعد الحذف.\n\n### ٧. حقوقك\n\nيحقّ لك:\n\n- **الوصول:** طلب نسخة من المعلومات الشخصية التي نحتفظ بها عنك.\n- **التصحيح:** تصحيح المعلومات غير الدقيقة أو غير المُكتمِلة (معظم الإعدادات قابلة للتعديل مباشرة في حسابك).\n- **الحذف:** طلب حذف حسابك وبياناتك الشخصية.\n- **قابلية النقل:** طلب تصدير بياناتك بصيغة قابلة للقراءة آلياً.\n- **سحب الموافقة:** تعطيل إشعارات Push، إلغاء الاشتراك في رسائل البريد الإلكتروني غير الأساسية، أو إلغاء اشتراكك في أي وقت.\n\nلممارسة هذه الحقوق، راسلنا على `support@havenstudent.com`. نستجيب خلال ٣٠ يوماً.\n\n### ٨. القيود العمرية\n\nالخدمة مُخصَّصة للمستخدمين البالغين من العمر ١٨ سنة أو أكثر. لا نجمع عن قصد معلومات شخصية من أي شخص دون سن ١٨. إذا علمنا بأننا جمعنا معلومات من مستخدم دون سن ١٨، سنقوم بحذفها.\n\nإذا كنت والداً أو ولي أمر وتعتقد أن ابنك/ابنتك دون سن ١٨ قد قدّم/ت لنا معلومات شخصية، يُرجى التواصل معنا على `support@havenstudent.com`.\n\n### ٩. المستخدمون الدوليون\n\nتُدار Haven من المملكة العربية السعودية. إذا كنت تصل إلى الخدمة من خارج المملكة، ستُنقل معلوماتك وتُعالَج في المملكة العربية السعودية وفي أماكن أخرى يعمل فيها مُقدِّمو خدماتنا. باستخدامك للخدمة، تُوافق على هذا النقل.\n\n### ١٠. روابط الأطراف الثالثة\n\nقد تحتوي الخدمة على روابط لمواقع أطراف ثالثة. لسنا مسؤولين عن ممارسات الخصوصية لتلك المواقع. يُرجى مراجعة سياسات خصوصيتهم قبل تقديم أي معلومات.\n\n### ١١. التغييرات على هذه السياسة\n\nقد نُحدِّث سياسة الخصوصية هذه من وقت لآخر. سنُبلِغ عن التغييرات الجوهرية عبر البريد الإلكتروني أو إشعار داخل التطبيق قبل ١٤ يوماً على الأقل من سريانها. يعني استمرار استخدامك للخدمة بعد التغييرات موافقتك على السياسة المُحدَّثة.\n\n### ١٢. تواصل معنا\n\nللأسئلة حول سياسة الخصوصية هذه أو لممارسة حقوقك:\n\n**البريد الإلكتروني:** support@havenstudent.com\n**الموقع:** havenstudent.com";
+export const PRIVACY_EN = `### 1. Who We Are
 
-export const TERMS_META = "**Effective Date / تاريخ السريان:** August 24, 2026 / ٢٤ أغسطس ٢٠٢٦\n**Last Updated / آخر تحديث:** August 24, 2026 / ٢٤ أغسطس ٢٠٢٦";
-export const TERMS_EN = "### 1. Acceptance of Terms\n\nThese Terms of Service (\"Terms\") form a legally binding agreement between you and Haven (\"we,\" \"us,\" \"our\"). By creating an account, accessing, or using the Haven website at havenstudent.com or any related application (collectively, the \"Service\"), you agree to be bound by these Terms.\n\nIf you do not agree, do not use the Service.\n\n### 2. Description of Service\n\nHaven is a productivity application designed for students to organize their academic life, including tracking courses, grades, GPA, assignments, exams, class schedules, attendance, and study planning. The Service may include Havi, a decorative animated companion character that appears in the app.\n\nWe may modify, suspend, or discontinue any part of the Service at any time.\n\n### 3. Eligibility\n\nYou must be at least 18 years old to use the Service. By creating an account, you represent and warrant that you are 18 or older and have the legal capacity to enter into a binding contract.\n\nYou may not use the Service if you are barred from doing so under applicable law.\n\n### 4. Account Registration\n\nYou must create an account to use the Service. You agree to:\n\n- Provide accurate and complete information during registration\n- Keep your account information up to date\n- Maintain the security of your password\n- Notify us immediately of any unauthorized use of your account\n- Accept responsibility for all activities under your account\n\nEach person may register only one account. You may not share your account credentials with others or transfer your account to another person.\n\n### 5. Free Trial\n\nNew users are eligible for a 30-day free trial (\"Free Trial\") upon subscribing to any paid plan.\n\n- **No charge during trial:** During the Free Trial, no payment will be charged to your saved payment method.\n- **Payment method required:** To activate the Free Trial, you must provide a valid payment method that will be saved for future billing.\n- **Automatic conversion:** If you do not cancel before the trial ends, your subscription will automatically convert to a paid subscription, and the full plan fee will be charged.\n- **Cancellation before trial ends:** You may cancel at any time before the trial ends without any charge.\n- **One trial per person:** Each user is eligible for only one Free Trial. Creating multiple accounts to receive additional trials is a violation of these Terms.\n\n### 6. Subscription Plans and Billing\n\n**Available Plans:**\n- 4 months — 20 SAR\n- 6 months — 25 SAR\n- 12 months — 40 SAR\n\nAll prices are in Saudi Riyals (SAR) and inclusive of any applicable taxes.\n\n**Billing:**\n- Payment is charged in full at the beginning of each subscription period.\n- Subscriptions automatically renew for the same period unless you cancel before the renewal date.\n- You will receive an email receipt for each successful charge.\n- If a payment fails, we will retry within 7 days. If payment cannot be collected, your subscription will be suspended.\n\n**Price Changes:**\nWe may change subscription prices with at least 30 days' prior notice by email. Price changes will not affect the current billing period; they apply to the next renewal.\n\n### 7. Cancellation\n\nYou may cancel your subscription at any time from your account settings.\n\n- **Effect of cancellation:** Cancellation stops future renewals. You will continue to have access to the paid features until the end of your current paid period.\n- **No partial refunds for cancellation:** Cancellation itself does not entitle you to a refund of the current period, except as described in our Refund Policy.\n\n### 8. Refunds\n\nRefunds are governed by our Refund Policy, available at havenstudent.com/refund. In summary:\n\n- Free Trial cancellation: no charge, no refund needed.\n- Refund window: 14 days from the first paid charge, if the Service has not been used substantively.\n- After 14 days: no refunds, but you may cancel to prevent future charges.\n\n### 9. VIP Access\n\nAt Haven's discretion, we may grant certain users lifetime free access to premium features. This VIP status is a gift, is non-transferable, and may be revoked at any time. VIP status does not create a paid subscription.\n\n### 10. User Content\n\nYou retain ownership of all content you enter into the Service (courses, grades, notes, planner entries, etc.) (\"User Content\").\n\nYou grant Haven a limited license to store, process, and display your User Content solely for the purpose of providing the Service to you.\n\nYou are responsible for the accuracy and legality of your User Content. We do not review or endorse User Content.\n\n### 11. Acceptable Use\n\nYou agree NOT to:\n\n- Use the Service for any unlawful purpose or in violation of any applicable law\n- Attempt to gain unauthorized access to the Service, other users' accounts, or our systems\n- Reverse engineer, decompile, or attempt to extract the source code of the Service\n- Resell, sublicense, or commercially exploit the Service without our written permission\n- Use automated tools (bots, scrapers) to access the Service without our permission\n- Upload malicious code, viruses, or content that could harm the Service or other users\n- Impersonate another person or entity\n- Circumvent any technical or usage limits of the Service\n- Use the Service to harass, abuse, or harm others\n\nViolations may result in immediate suspension or termination of your account without refund.\n\n### 12. Intellectual Property\n\n**Our Property:** The Service, including the Haven name, Havi character, logos, design, code, and all related content (except User Content), is the property of Haven and is protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, or create derivative works from any part of the Service without our written permission.\n\n**Feedback:** If you provide us with suggestions or feedback about the Service, we may use that feedback without any obligation or payment to you.\n\n### 13. Service Availability\n\nWe strive to make the Service available at all times but do not guarantee uninterrupted availability. The Service may be temporarily unavailable due to maintenance, updates, technical issues, or events beyond our control.\n\nWe are not liable for any losses resulting from Service downtime.\n\n### 14. Termination\n\n**By You:** You may terminate your account at any time by contacting `support@havenstudent.com` or using the account deletion feature within the Service.\n\n**By Us:** We may suspend or terminate your account if:\n- You violate these Terms\n- You engage in fraudulent, abusive, or harmful behavior\n- Payment cannot be collected\n- We are required to do so by law\n- We discontinue the Service\n\n**Effect of Termination:** Upon termination, your right to use the Service ends. Your data will be retained per our Privacy Policy (30 days after account deletion, then permanently deleted).\n\n### 15. Disclaimers\n\nTHE SERVICE IS PROVIDED \"AS IS\" AND \"AS AVAILABLE\" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT.\n\nWe do not warrant that:\n- The Service will meet your specific requirements\n- The Service will be uninterrupted, timely, secure, or error-free\n- Any information provided (including GPA calculations and exam predictions) will be accurate\n- Data will not be lost due to technical failure\n\n**Educational Accuracy Disclaimer:** Haven provides organizational tools; it does not replace official academic records. Always verify grades, GPA, and requirements with your educational institution.\n\n### 16. Limitation of Liability\n\nTO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, HAVEN SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING LOSS OF PROFITS, DATA, OR OTHER INTANGIBLE LOSSES, ARISING FROM YOUR USE OF THE SERVICE.\n\nOur total cumulative liability for any claim arising from these Terms or the Service is limited to the amount you have paid us in the 12 months preceding the claim, or 100 SAR, whichever is greater.\n\n### 17. Indemnification\n\nYou agree to defend, indemnify, and hold Haven harmless from any claims, damages, losses, or expenses (including reasonable legal fees) arising from your violation of these Terms, your User Content, or your use of the Service.\n\n### 18. Governing Law and Disputes\n\nThese Terms are governed by the laws of the Kingdom of Saudi Arabia.\n\nAny dispute arising from these Terms or the Service shall be resolved exclusively in the courts of Riyadh, Saudi Arabia, unless applicable consumer protection law requires otherwise.\n\n### 19. Changes to Terms\n\nWe may update these Terms from time to time. Material changes will be communicated by email or in-app notice at least 14 days before they take effect. Your continued use of the Service after the changes means you accept the updated Terms. If you do not accept them, you must stop using the Service and cancel your subscription.\n\n### 20. General\n\n**Entire Agreement:** These Terms, together with the Privacy Policy and Refund Policy, constitute the entire agreement between you and Haven.\n\n**Severability:** If any provision of these Terms is held invalid, the remaining provisions remain in full effect.\n\n**No Waiver:** Our failure to enforce any right or provision does not constitute a waiver of that right.\n\n**Assignment:** You may not transfer your rights under these Terms without our written consent. We may transfer our rights and obligations without restriction.\n\n### 21. Contact\n\nFor questions about these Terms:\n\n**Email:** support@havenstudent.com\n**Website:** havenstudent.com";
-export const TERMS_AR = "### ١. الموافقة على الشروط\n\nتُشكّل شروط الخدمة هذه (\"الشروط\") اتفاقية مُلزِمة قانونياً بينك وبين Haven (ويُشار إليها بـ\"نحن\" أو \"لدينا\"). بإنشائك حساب أو الوصول إلى موقع Haven على havenstudent.com أو أي تطبيق ذي صلة (ويُشار إليهم مجتمعين بـ\"الخدمة\")، فإنك تُوافق على الالتزام بهذه الشروط.\n\nإذا لم توافق، لا تستخدم الخدمة.\n\n### ٢. وصف الخدمة\n\nHaven تطبيق إنتاجية مُصمَّم للطلاب لتنظيم حياتهم الأكاديمية، بما في ذلك تتبّع المواد الدراسية والدرجات والمعدل التراكمي والواجبات والاختبارات والجداول الدراسية والحضور والتخطيط الدراسي. قد تشمل الخدمة Havi، وهي شخصية متحركة مُزخرِفة تُرافِقك داخل التطبيق.\n\nقد نُعدِّل أو نُعلِّق أو نُوقف أي جزء من الخدمة في أي وقت.\n\n### ٣. الأهلية\n\nيجب أن تكون على الأقل ١٨ سنة لاستخدام الخدمة. بإنشائك حساب، تُقرّ وتضمن أنك ١٨ سنة أو أكثر ولديك الأهلية القانونية للدخول في عقد مُلزِم.\n\nلا يجوز لك استخدام الخدمة إذا كنت مَمنوعاً من ذلك بموجب الأنظمة السارية.\n\n### ٤. تسجيل الحساب\n\nيجب عليك إنشاء حساب لاستخدام الخدمة. تُوافق على:\n\n- تقديم معلومات دقيقة وكاملة أثناء التسجيل\n- تحديث معلومات حسابك\n- الحفاظ على أمان كلمة مرورك\n- إشعارنا فوراً بأي استخدام غير مُصرَّح به لحسابك\n- تحمُّل المسؤولية عن جميع الأنشطة تحت حسابك\n\nيُسمح لكل شخص بتسجيل حساب واحد فقط. لا يجوز لك مشاركة بيانات دخول حسابك مع الآخرين أو نقل حسابك إلى شخص آخر.\n\n### ٥. التجربة المجانية\n\nالمستخدمون الجدد مؤهّلون لتجربة مجانية لمدة ٣٠ يوماً (\"التجربة المجانية\") عند الاشتراك في أي خطة مدفوعة.\n\n- **بدون خصم أثناء التجربة:** خلال التجربة المجانية، لن يُخصم أي مبلغ من طريقة الدفع المحفوظة لديك.\n- **طريقة الدفع مطلوبة:** لتفعيل التجربة المجانية، يجب عليك تقديم طريقة دفع صالحة تُحفَظ للفوترة المستقبلية.\n- **التحوّل التلقائي:** إذا لم تُلغِ قبل انتهاء التجربة، سيتحوّل اشتراكك تلقائياً إلى اشتراك مدفوع، وسيُخصم الرسم الكامل للخطة.\n- **الإلغاء قبل انتهاء التجربة:** يُمكنك الإلغاء في أي وقت قبل انتهاء التجربة بدون أي خصم.\n- **تجربة واحدة لكل شخص:** كل مستخدم مؤهل لتجربة مجانية واحدة فقط. إنشاء حسابات مُتعدِّدة للحصول على تجارب إضافية يُعد انتهاكاً لهذه الشروط.\n\n### ٦. خطط الاشتراك والفوترة\n\n**الخطط المُتاحة:**\n- ٤ أشهر — ٢٠ ريال سعودي\n- ٦ أشهر — ٢٥ ريال سعودي\n- ١٢ شهراً — ٤٠ ريال سعودي\n\nجميع الأسعار بالريال السعودي وتشمل أي ضرائب سارية.\n\n**الفوترة:**\n- يُخصم المبلغ بالكامل في بداية كل فترة اشتراك.\n- تتجدد الاشتراكات تلقائياً لنفس المدة ما لم تُلغِ قبل تاريخ التجديد.\n- ستتلقى إيصالاً بالبريد الإلكتروني لكل خصم ناجح.\n- إذا فشل الدفع، سنُعيد المحاولة خلال ٧ أيام. إذا تعذّر تحصيل الدفع، سيُعلَّق اشتراكك.\n\n**تغييرات الأسعار:**\nقد نُغيِّر أسعار الاشتراكات بإشعار مُسبَق ٣٠ يوماً على الأقل بالبريد الإلكتروني. لن تُؤثِّر تغييرات الأسعار على فترة الفوترة الحالية؛ تنطبق على التجديد التالي.\n\n### ٧. الإلغاء\n\nيُمكنك إلغاء اشتراكك في أي وقت من إعدادات حسابك.\n\n- **أثر الإلغاء:** يُوقِف الإلغاء التجديدات المستقبلية. ستستمر في الوصول إلى الميزات المدفوعة حتى نهاية فترتك المدفوعة الحالية.\n- **لا استرداد جزئي عند الإلغاء:** الإلغاء بحدّ ذاته لا يُخوِّلك استرداد الفترة الحالية، إلا كما هو موضّح في سياسة الاسترجاع.\n\n### ٨. الاسترجاع\n\nيخضع الاسترجاع لسياسة الاسترجاع الخاصة بنا، المُتاحة على havenstudent.com/refund. باختصار:\n\n- إلغاء التجربة المجانية: لا خصم، لا حاجة للاسترجاع.\n- نافذة الاسترجاع: ١٤ يوماً من أول خصم مدفوع، إذا لم تُستخدم الخدمة استخداماً جوهرياً.\n- بعد ١٤ يوماً: لا استرجاع، لكن يُمكنك الإلغاء لمنع الخصومات المستقبلية.\n\n### ٩. الوصول المميّز\n\nوفقاً لتقدير Haven، قد نمنح مستخدمين معيّنين وصولاً مجانياً مدى الحياة إلى الميزات المدفوعة. حالة الوصول المميّز هذه هدية غير قابلة للنقل، وقد تُلغى في أي وقت. لا تُنشئ هذه الحالة اشتراكاً مدفوعاً.\n\n### ١٠. محتوى المستخدم\n\nتحتفظ بملكية جميع المحتويات التي تُدخِلها في الخدمة (المواد الدراسية، الدرجات، الملاحظات، عناصر المُخطِّط، إلخ) (\"محتوى المستخدم\").\n\nتمنح Haven ترخيصاً محدوداً لتخزين ومعالجة وعرض محتوى المستخدم الخاص بك فقط لغرض تقديم الخدمة لك.\n\nأنت مسؤول عن دقة وقانونية محتوى المستخدم الخاص بك. لا نُراجِع أو نُصادِق على محتوى المستخدم.\n\n### ١١. الاستخدام المقبول\n\nتُوافق على عدم:\n\n- استخدام الخدمة لأي غرض غير قانوني أو انتهاكاً لأي نظام ساري\n- محاولة الوصول غير المُصرَّح به إلى الخدمة أو حسابات المستخدمين الآخرين أو أنظمتنا\n- الهندسة العكسية أو فك التجميع أو محاولة استخراج الكود المصدري للخدمة\n- إعادة بيع الخدمة أو الترخيص من الباطن أو الاستغلال التجاري لها دون إذنٍ خطي منّا\n- استخدام أدوات آلية (بوتات، أدوات استخلاص) للوصول إلى الخدمة دون إذنٍ منّا\n- تحميل كود ضار أو فيروسات أو محتوى قد يُضِر بالخدمة أو المستخدمين الآخرين\n- انتحال شخصية شخص أو كيان آخر\n- التحايل على أي حدود تقنية أو استخدامية للخدمة\n- استخدام الخدمة للتحرش أو الإساءة أو الإضرار بالآخرين\n\nقد تؤدي المخالفات إلى تعليق أو إنهاء فوري لحسابك دون استرداد.\n\n### ١٢. الملكية الفكرية\n\n**ملكيتنا:** الخدمة، بما في ذلك اسم Haven وشخصية Havi والشعارات والتصميم والشيفرة البرمجية وجميع المحتوى ذي الصلة (باستثناء محتوى المستخدم)، هي ملكية Haven ومحمية بموجب قوانين حقوق النشر والعلامات التجارية وقوانين الملكية الفكرية الأخرى. لا يجوز لك نسخ أو تعديل أو توزيع أو إنشاء أعمال مُشتقّة من أي جزء من الخدمة دون إذنٍ خطي منّا.\n\n**التغذية الراجعة:** إذا قدّمت لنا اقتراحات أو تعليقات حول الخدمة، فيجوز لنا استخدام تلك التعليقات دون أي التزام أو مدفوعات لك.\n\n### ١٣. توفر الخدمة\n\nنسعى لجعل الخدمة مُتاحة في جميع الأوقات لكن لا نضمن التوفر بدون انقطاع. قد لا تكون الخدمة مُتاحة مؤقتاً بسبب الصيانة أو التحديثات أو المشاكل التقنية أو أحداث خارج سيطرتنا.\n\nلسنا مسؤولين عن أي خسائر ناتجة عن توقّف الخدمة.\n\n### ١٤. الإنهاء\n\n**من قِبَلك:** يُمكنك إنهاء حسابك في أي وقت بالتواصل مع `support@havenstudent.com` أو باستخدام ميزة حذف الحساب داخل الخدمة.\n\n**من قِبَلنا:** قد نُعلِّق أو نُنهي حسابك إذا:\n- انتهكت هذه الشروط\n- انخرطت في سلوك احتيالي أو مُسِيء أو ضار\n- تعذّر تحصيل الدفع\n- طُلِب منّا ذلك بموجب القانون\n- توقّفنا عن الخدمة\n\n**أثر الإنهاء:** عند الإنهاء، ينتهي حقّك في استخدام الخدمة. سيتم الاحتفاظ ببياناتك وفقاً لسياسة الخصوصية (٣٠ يوماً بعد حذف الحساب، ثم الحذف النهائي).\n\n### ١٥. إخلاء المسؤولية\n\nتُقدَّم الخدمة \"كما هي\" و\"كما هي مُتاحة\" دون ضمانات من أي نوع، سواء صريحة أو ضمنية، بما في ذلك على سبيل المثال لا الحصر ضمانات القابلية للتسويق أو الملاءمة لغرض مُعيَّن أو عدم الانتهاك.\n\nلا نضمن أن:\n- الخدمة ستُلبِّي متطلباتك الخاصة\n- الخدمة ستكون بدون انقطاع أو في الوقت المُناسب أو آمنة أو خالية من الأخطاء\n- أي معلومات مُقدَّمة (بما في ذلك حسابات المعدل التراكمي وتوقّعات الاختبارات) ستكون دقيقة\n- البيانات لن تُفقد بسبب عطل تقني\n\n**إخلاء مسؤولية الدقة التعليمية:** توفر Haven أدوات تنظيمية؛ ولا تحل محل السجلات الأكاديمية الرسمية. تحقّق دائماً من الدرجات والمعدل التراكمي والمتطلبات مع مؤسستك التعليمية.\n\n### ١٦. تحديد المسؤولية\n\nإلى أقصى حد يسمح به القانون الساري، لن تكون Haven مسؤولة عن أي أضرار غير مباشرة أو عرضية أو خاصة أو تبعية أو عقابية، بما في ذلك خسارة الأرباح أو البيانات أو الخسائر غير الملموسة الأخرى، الناشئة عن استخدامك للخدمة.\n\nمسؤوليتنا التراكمية الإجمالية عن أي مطالبة ناشئة من هذه الشروط أو الخدمة مقتصرة على المبلغ الذي دفعته لنا في الـ١٢ شهراً السابقة للمطالبة، أو ١٠٠ ريال سعودي، أيهما أكبر.\n\n### ١٧. التعويض\n\nتُوافق على الدفاع عن Haven وتعويضها وإبراء ذمتها من أي مطالبات أو أضرار أو خسائر أو نفقات (بما في ذلك الرسوم القانونية المعقولة) الناشئة عن انتهاكك لهذه الشروط أو محتوى المستخدم الخاص بك أو استخدامك للخدمة.\n\n### ١٨. القانون الحاكم والنزاعات\n\nتخضع هذه الشروط لأنظمة المملكة العربية السعودية.\n\nيُحلّ أي نزاع ناشئ عن هذه الشروط أو الخدمة حصرياً في محاكم الرياض، المملكة العربية السعودية، ما لم يقتضِ نظام حماية المستهلك الساري خلاف ذلك.\n\n### ١٩. التغييرات على الشروط\n\nقد نُحدِّث هذه الشروط من وقت لآخر. سنُبلِغ عن التغييرات الجوهرية عبر البريد الإلكتروني أو إشعار داخل التطبيق قبل ١٤ يوماً على الأقل من سريانها. يعني استمرار استخدامك للخدمة بعد التغييرات موافقتك على الشروط المُحدَّثة. إذا لم تقبلها، يجب عليك التوقف عن استخدام الخدمة وإلغاء اشتراكك.\n\n### ٢٠. أحكام عامة\n\n**الاتفاقية الكاملة:** تُشكِّل هذه الشروط، مع سياسة الخصوصية وسياسة الاسترجاع، الاتفاقية الكاملة بينك وبين Haven.\n\n**قابلية الفصل:** إذا اعتُبِر أي بند من هذه الشروط باطلاً، تظل البنود الباقية سارية بالكامل.\n\n**عدم التنازل:** فشلنا في إنفاذ أي حق أو بند لا يُشكِّل تنازلاً عن ذلك الحق.\n\n**التنازل:** لا يجوز لك نقل حقوقك بموجب هذه الشروط دون موافقتنا الخطية. يجوز لنا نقل حقوقنا والتزاماتنا دون قيود.\n\n### ٢١. التواصل\n\nللأسئلة حول هذه الشروط:\n\n**البريد الإلكتروني:** support@havenstudent.com\n**الموقع:** havenstudent.com";
+Haven operates havenstudent.com and the Haven application (the "Service"). This policy explains the personal data we process, its purposes and recipients, and your rights. Contact support@havenstudent.com about privacy.
 
-export const REFUND_META = "**Effective Date / تاريخ السريان:** August 24, 2026 / ٢٤ أغسطس ٢٠٢٦\n**Last Updated / آخر تحديث:** August 24, 2026 / ٢٤ أغسطس ٢٠٢٦";
-export const REFUND_EN = "### 1. Overview\n\nThis Refund Policy explains when and how you can request a refund for payments made to Haven. It applies to all subscriptions purchased through havenstudent.com.\n\nThis policy is part of our Terms of Service. By using the Service, you agree to this Refund Policy.\n\n### 2. Free Trial\n\nAll new subscribers begin with a 30-day free trial:\n\n- **No charge during the trial:** You will not be charged during the 30-day trial period.\n- **Cancel anytime, no charge:** If you cancel at any time before the trial ends, no payment will be taken. There is nothing to refund because no money has been charged.\n- **Automatic conversion:** If you do not cancel before the trial ends, your subscription will automatically convert to a paid subscription and the full plan fee will be charged.\n\n**How to cancel during the trial:** Go to your account settings and select \"Cancel subscription\" at any time before the trial ends.\n\n### 3. First Paid Charge — 14-Day Refund Window\n\nFor your first paid subscription period (immediately after the free trial ends, or immediately upon direct subscription without a trial), you may request a full refund within **14 days** of the charge, subject to the following conditions:\n\n**Eligible for refund:**\n- Request made within 14 calendar days of the charge date\n- The Service has not been used substantively during the paid period\n- Only one refund per user is permitted under this policy\n\n**\"Substantively used\" means:**\n- Fewer than 5 sessions logged in the paid period, AND\n- The Havi companion character was not interacted with more than 20 times, AND\n- No premium themes activated\n\nIf your usage exceeds these limits, we may deny the refund, but we will notify you and explain why.\n\n### 4. Renewal Charges — No Refund\n\nAfter the first paid charge, subsequent auto-renewal charges are **not refundable**. This is because:\n\n- You are notified before each renewal (via email and in-app notification)\n- You have the option to cancel at any time to prevent the next renewal\n- Renewals represent continued access to the Service you have been using\n\nIf you forgot to cancel and were charged for a renewal you did not want:\n- We may offer, at our discretion, a partial refund if you contact us within 7 days of the renewal and demonstrate genuine intent to cancel (e.g., you did not use the Service after the renewal).\n- This is a courtesy, not a right.\n\n### 5. How to Request a Refund\n\nTo request a refund:\n\n1. **Email** `support@havenstudent.com` with:\n   - Subject line: \"Refund Request\"\n   - The email address associated with your account\n   - The date of the charge you want refunded\n   - A brief reason for the request\n\n2. **We will respond within 3 business days** with either:\n   - Confirmation that your refund is approved and being processed\n   - A request for additional information\n   - An explanation if the refund is denied\n\n### 6. Refund Processing\n\nApproved refunds are:\n\n- Issued to the original payment method used for the charge\n- Processed through our payment provider\n- Typically completed within **5–10 business days** after approval\n\nThe exact time depends on your bank or card issuer. Haven has no control over how long the receiving bank takes to reflect the refund in your account.\n\n### 7. Effect of Refund on Access\n\nIf your refund is approved:\n\n- Your subscription will be immediately cancelled\n- Access to premium features will end at the date of the refund\n- Your account and User Content will remain accessible (you can continue using the free tier)\n- If you wish to delete your account entirely, you may do so from account settings\n\n### 8. Cancellation Without Refund\n\nYou may cancel your subscription at any time without requesting a refund:\n\n- **Effect:** Your subscription will not auto-renew.\n- **You keep access:** You continue to have access to all paid features until the end of your current paid period.\n- **Example:** If you subscribed to a 6-month plan on January 1 and cancel on January 15, you will retain paid access until July 1, then automatically move to the free tier without any further charge.\n\nThis option is available even after the 14-day refund window has passed.\n\n### 9. Exceptions\n\nRefunds may be denied in the following cases:\n\n- Request made more than 14 days after the charge\n- Substantial use of premium features (see Section 3)\n- Fraud or attempted fraud (including creating multiple accounts to abuse the refund policy)\n- Terms of Service violations resulting in account termination\n- Chargebacks filed with your bank without first contacting us (we consider this a breach of good faith and may permanently ban the account)\n\nIf a chargeback is filed, we reserve the right to:\n- Provide our payment provider with evidence of your usage and agreement to these Terms\n- Recover any fees imposed by the payment provider\n- Permanently disable your account\n\n### 10. Special Situations\n\n**Duplicate charges:** If you were accidentally charged twice for the same period, we will refund the duplicate charge immediately upon verification, regardless of the 14-day window.\n\n**Service failures:** If the Service is unavailable for more than 7 consecutive days due to our fault (excluding scheduled maintenance and force majeure), you may request a pro-rata refund for the downtime period.\n\n**Death or incapacity:** If the account holder passes away or becomes legally incapacitated, an authorized representative may request a refund for the remaining unused portion of the paid period with appropriate documentation.\n\n### 11. Governing Law\n\nThis Refund Policy is governed by the laws of the Kingdom of Saudi Arabia and complements the consumer protection provisions of Saudi commercial regulations.\n\n### 12. Changes to This Policy\n\nWe may update this Refund Policy from time to time. Changes will not affect refund requests already submitted. New charges made after a policy change will be governed by the updated policy.\n\nWe will notify you of material changes at least 14 days before they take effect, via email or in-app notification.\n\n### 13. Contact\n\nFor refund requests or questions about this policy:\n\n**Email:** support@havenstudent.com\n**Website:** havenstudent.com";
-export const REFUND_AR = "### ١. نظرة عامة\n\nتوضّح سياسة الاسترجاع هذه متى وكيف يُمكنك طلب استرجاع للمدفوعات التي قُدِّمت لـ Haven. تنطبق على جميع الاشتراكات المُشترَاة عبر havenstudent.com.\n\nهذه السياسة جزء من شروط الخدمة الخاصة بنا. باستخدامك للخدمة، تُوافق على سياسة الاسترجاع هذه.\n\n### ٢. التجربة المجانية\n\nجميع المشتركين الجدد يبدأون بتجربة مجانية لمدة ٣٠ يوماً:\n\n- **بدون خصم أثناء التجربة:** لن يُخصم منك أي مبلغ خلال فترة التجربة الـ٣٠ يوماً.\n- **إلغاء في أي وقت، بدون خصم:** إذا ألغيت في أي وقت قبل انتهاء التجربة، لن يُؤخذ أي دفع. لا يوجد شيء لاسترداده لأنه لم يُخصم أي مبلغ.\n- **التحوّل التلقائي:** إذا لم تُلغِ قبل انتهاء التجربة، سيتحوّل اشتراكك تلقائياً إلى اشتراك مدفوع وسيُخصم الرسم الكامل للخطة.\n\n**كيفية الإلغاء أثناء التجربة:** اذهب إلى إعدادات حسابك واختر \"إلغاء الاشتراك\" في أي وقت قبل انتهاء التجربة.\n\n### ٣. أول خصم مدفوع — نافذة استرجاع ١٤ يوماً\n\nلأول فترة اشتراك مدفوعة (فور انتهاء التجربة المجانية، أو فور الاشتراك المباشر بدون تجربة)، يُمكنك طلب استرجاع كامل خلال **١٤ يوماً** من الخصم، وفقاً للشروط التالية:\n\n**مؤهل للاسترجاع:**\n- تقديم الطلب خلال ١٤ يوماً تقويمياً من تاريخ الخصم\n- عدم استخدام الخدمة استخداماً جوهرياً خلال الفترة المدفوعة\n- يُسمح باسترجاع واحد فقط لكل مستخدم بموجب هذه السياسة\n\n**\"الاستخدام الجوهري\" يعني:**\n- أقل من ٥ جلسات مُسجَّلة في الفترة المدفوعة، و\n- عدم التفاعل مع شخصية Havi المُرافِقة أكثر من ٢٠ مرة، و\n- عدم تفعيل أي سمات مُميَّزة\n\nإذا تجاوز استخدامك هذه الحدود، قد نرفض الاسترجاع، لكن سنُخطِرك ونشرح السبب.\n\n### ٤. رسوم التجديد — لا استرجاع\n\nبعد أول خصم مدفوع، خصومات التجديد التلقائي اللاحقة **غير قابلة للاسترجاع**. وذلك لأن:\n\n- يتم إشعارك قبل كل تجديد (عبر البريد الإلكتروني وإشعار داخل التطبيق)\n- لديك خيار الإلغاء في أي وقت لمنع التجديد التالي\n- التجديدات تُمثِّل استمرار وصولك إلى الخدمة التي تستخدمها\n\nإذا نسيت الإلغاء وخُصم منك مقابل تجديد لم ترغب فيه:\n- قد نعرض، وفقاً لتقديرنا، استرجاعاً جزئياً إذا اتصلت بنا خلال ٧ أيام من التجديد وأثبتت نيّة حقيقية للإلغاء (مثلاً، لم تستخدم الخدمة بعد التجديد).\n- هذه مجاملة، وليست حقاً.\n\n### ٥. كيفية طلب الاسترجاع\n\nلطلب استرجاع:\n\n١. **راسل** `support@havenstudent.com` بـ:\n   - عنوان الرسالة: \"طلب استرجاع\"\n   - البريد الإلكتروني المُرتبِط بحسابك\n   - تاريخ الخصم الذي تريد استرجاعه\n   - سبب مختصر للطلب\n\n٢. **سنرد خلال ٣ أيام عمل** بأي من:\n   - تأكيد الموافقة على الاسترجاع ومعالجته\n   - طلب معلومات إضافية\n   - شرح إذا رُفض الاسترجاع\n\n### ٦. معالجة الاسترجاع\n\nالاسترجاعات المُوافَق عليها:\n\n- تُصدر إلى طريقة الدفع الأصلية المُستخدَمة للخصم\n- تُعالَج عبر مُزوِّد الدفع لدينا\n- تكتمل عادةً خلال **٥ إلى ١٠ أيام عمل** بعد الموافقة\n\nيعتمد الوقت الفعلي على بنكك أو مُصدِر بطاقتك. Haven لا تتحكّم في المدة التي يستغرقها البنك المُستقبِل لعكس الاسترجاع في حسابك.\n\n### ٧. أثر الاسترجاع على الوصول\n\nإذا وُوفق على الاسترجاع:\n\n- سيُلغى اشتراكك فوراً\n- سينتهي الوصول إلى الميزات المدفوعة في تاريخ الاسترجاع\n- سيبقى حسابك ومحتوى المستخدم الخاص بك قابلاً للوصول (يُمكنك الاستمرار في استخدام الفئة المجانية)\n- إذا رغبت في حذف حسابك كاملاً، يُمكنك ذلك من إعدادات الحساب\n\n### ٨. الإلغاء بدون استرجاع\n\nيُمكنك إلغاء اشتراكك في أي وقت دون طلب استرجاع:\n\n- **الأثر:** لن يتجدد اشتراكك تلقائياً.\n- **تحتفظ بالوصول:** تستمر في الوصول إلى جميع الميزات المدفوعة حتى نهاية فترتك المدفوعة الحالية.\n- **مثال:** إذا اشتركت في خطة ٦ أشهر في ١ يناير وألغيت في ١٥ يناير، ستحتفظ بالوصول المدفوع حتى ١ يوليو، ثم تنتقل تلقائياً إلى الفئة المجانية دون أي خصم إضافي.\n\nهذا الخيار مُتاح حتى بعد انتهاء نافذة الاسترجاع الـ١٤ يوماً.\n\n### ٩. الاستثناءات\n\nقد يُرفض الاسترجاع في الحالات التالية:\n\n- تقديم الطلب بعد أكثر من ١٤ يوماً من الخصم\n- الاستخدام الجوهري للميزات المدفوعة (انظر القسم ٣)\n- الاحتيال أو محاولة الاحتيال (بما في ذلك إنشاء حسابات مُتعدِّدة لاستغلال سياسة الاسترجاع)\n- انتهاكات شروط الخدمة التي أدت إلى إنهاء الحساب\n- المُطالبات العكسية المُقدَّمة إلى بنكك دون التواصل معنا أولاً (نعتبر هذا انتهاكاً لحسن النية وقد نحظر الحساب نهائياً)\n\nإذا قُدِّمت مطالبة عكسية، نحتفظ بالحق في:\n- تزويد مُزوِّد الدفع بأدلة على استخدامك وموافقتك على هذه الشروط\n- استرداد أي رسوم يفرضها مُزوِّد الدفع\n- تعطيل حسابك نهائياً\n\n### ١٠. حالات خاصة\n\n**الخصومات المُكرَّرة:** إذا خُصم منك عن طريق الخطأ مرتين لنفس الفترة، سنُسترد الخصم المُكرَّر فوراً عند التحقق، بغض النظر عن نافذة الـ١٤ يوماً.\n\n**فشل الخدمة:** إذا كانت الخدمة غير مُتاحة لأكثر من ٧ أيام متتالية بسبب خطأنا (باستثناء الصيانة المُجدولَة والقوة القاهرة)، يُمكنك طلب استرجاع نسبي عن فترة التوقُّف.\n\n**الوفاة أو عدم الأهلية:** إذا تُوفِّي مالك الحساب أو أصبح فاقداً للأهلية القانونية، يُمكن لممثل مُخوَّل طلب استرجاع الجزء غير المُستخدَم المتبقي من الفترة المدفوعة مع وثائق مُناسِبة.\n\n### ١١. القانون الحاكم\n\nتخضع سياسة الاسترجاع هذه لأنظمة المملكة العربية السعودية وتُكمل أحكام حماية المستهلك في الأنظمة التجارية السعودية.\n\n### ١٢. التغييرات على هذه السياسة\n\nقد نُحدِّث سياسة الاسترجاع هذه من وقت لآخر. لن تُؤثِّر التغييرات على طلبات الاسترجاع المُقدَّمة بالفعل. ستخضع الخصومات الجديدة المُجراة بعد تغيير السياسة للسياسة المُحدَّثة.\n\nسنُخطِرك بالتغييرات الجوهرية قبل ١٤ يوماً على الأقل من سريانها، عبر البريد الإلكتروني أو إشعار داخل التطبيق.\n\n### ١٣. التواصل\n\nلطلبات الاسترجاع أو الأسئلة حول هذه السياسة:\n\n**البريد الإلكتروني:** support@havenstudent.com\n**الموقع:** havenstudent.com";
+### 2. Data You Provide
 
+- **Account and profile:** name, email, optional profile photo, language, university and academic preferences. Supabase handles authentication; Haven does not store a readable copy of your password.
+- **Academic content:** courses, grades, GPA inputs, schedules, absence logs, assignments, exams, planner entries, goals and study-session records.
+- **Notes, where available:** folders, notebooks, pages, handwriting, highlights, text, imported documents, images and attachments. A synchronised library is processed to save content and make it available on your devices.
+- **Collaboration, where available:** group membership, invitations, shared content, study presence and session activity. Visibility to other participants depends on the feature and your sharing choices.
+- **Optional contributions and support:** messages, feedback, university-system information and evidence you submit. Remove unrelated identifiers and other people's information from attachments before sending them.
+- **Referrals:** invitation codes, attribution and reward eligibility or usage records when you participate.
+
+Required account information is necessary to operate your account. Optional photos, contributions, notifications and sharing are not required to use unrelated features.
+
+### 3. Technical Data and Device Storage
+
+We process account identifiers, request and session times, browser/device information, network information such as IP addresses in provider logs, and feature-action records to operate the Service, investigate faults, prevent abuse and understand usage.
+
+When you enable notifications, we store the browser's push subscription, including its delivery endpoint and authentication keys. Disable notifications through the Service or your browser/device settings.
+
+Browser storage, including local storage, IndexedDB, caches and authentication session storage, supports sign-in, preferences, offline use, local content and synchronisation. Clearing it can remove unsynchronised work. Referral links may save a code locally to associate a later registration with an invitation.
+
+We do not sell personal data or use advertising tracking cookies. Internal usage records differ from advertising tracking; infrastructure providers also process operational logs.
+
+### 4. Purposes and Legal Bases
+
+We process necessary data to provide your account, save and synchronise content, perform calculations, deliver requested reminders, support collaboration and administer referrals under our agreement with you.
+
+Optional processing requiring consent relies on your consent, which you may withdraw. Security and service improvement may rely on legitimate interests where permitted without overriding your rights. Legally required processing relies on the applicable obligation. Withdrawal does not invalidate earlier lawful processing or prevent processing supported by another lawful basis.
+
+When you submit a GPA check or save course grades within that review, the comparison details are recorded for authorised Haven administrators to verify calculation accuracy and diagnose differences. They include the GPAs, credits, grading system, relevant course grades and any reason you provide. The review shows this notice before submission; it does not offer a separate option to withhold these diagnostic details. Earlier sharing choices remain attached to earlier records.
+
+### 5. Sharing and Providers
+
+Data is disclosed for the purposes described here, subject to applicable requirements:
+
+- **Supabase:** authentication, application database, backend functions and storage used by relevant features.
+- **Netlify:** website and application hosting and delivery.
+- **Cloudflare:** real-time study connections and cloud storage/synchronisation for Notes where available.
+- **Resend:** account verification, security and other service emails sent through our email functions.
+- **Hostinger:** support email communications.
+- **Google Fonts:** delivery of fonts requested by the application, which exposes normal connection information to the font provider.
+- **Browser/device push providers:** notification delivery through the provider used by your browser or device, such as Apple, Google or Mozilla.
+
+Authorised support and administration may access relevant records to resolve requests, review optional contributions, protect the Service and administer accounts. Sharing can make your name, presence, contributions or content visible to participants. Share only material you are entitled to share; recipients may retain copies already obtained.
+
+We may disclose information when legally required or necessary to establish or protect legal rights. Business transfers involving personal data must respect data-protection requirements and required notices; this policy does not authorise unrestricted transfer or new uses.
+
+### 6. Payments
+
+Payments are currently disabled. Haven does not currently collect card details or charge for use. Trial, subscription, VIP or referral entitlement records may exist without payment. Before enabling payments, we will identify the provider, explain its data processing and disclose purchase terms. We do not store full card numbers or card security codes.
+
+### 7. Storage, Transfers and Security
+
+Data may be stored or processed outside Saudi Arabia where providers operate. We do not promise that all data remains in Saudi Arabia. International transfers must meet applicable requirements and safeguards; using the Service alone does not replace a required transfer basis.
+
+We use authentication, access controls and encrypted network connections to protect data. Absolute security cannot be guaranteed. Notes synchronisation is not represented as end-to-end encryption: storage and synchronisation systems process its content. Protect your device, account and sharing links.
+
+### 8. Retention and Deletion
+
+We retain data for its collection purposes and applicable legal requirements, then delete or anonymise it when no longer needed. Active content, security logs, support correspondence and optional evidence have different operational needs; there is no universal retention period.
+
+Account deletion is available in Settings and is intended to be permanent. There is no guaranteed 30-day account-restoration period. Active account records, attachments and backups may be removed through different processes. Include Notes cloud copies, submitted evidence or other provider-held data in your request to support if you need confirmation about their deletion.
+
+Deleted Notes items and synchronisation markers may be retained for recovery and to prevent an older device from incorrectly reintroducing or removing content. Trash and version history do not guarantee permanent backup or account recovery. Export important content before deleting it.
+
+Legally required retained records are limited to that purpose. Backup copies follow the provider's retention/deletion process; we do not promise an unverified fixed deletion deadline. Account deletion does not remotely erase exports or copies already held by other people or devices.
+
+### 9. Your Rights
+
+Subject to applicable law, you may request information about processing, access, a readable copy, correction or completion, and destruction of data without a lawful retention basis. You may withdraw consent for consent-based processing and complain to the competent authority, including the Saudi Data and Artificial Intelligence Authority (SDAIA) where applicable.
+
+Email support@havenstudent.com. We may verify identity using proportionate information. Rights requests are handled without undue delay and within 30 days. If a lawful extension of up to a further 30 days is necessary, we will notify you beforehand with the reason. We will explain any lawful restriction on a request.
+
+### 10. Age and Updates
+
+The Service is intended for people aged 18 or older. Contact us if you believe someone under 18 has provided personal data so we can investigate and act appropriately. External websites have their own privacy practices.
+
+We update this policy when processing changes, give required notices and obtain consent where required. Material changes will be notified at least 14 days before taking effect unless a legal requirement requires earlier action. An update does not itself authorise unrelated processing.
+
+**Contact:** support@havenstudent.com
+**Website:** havenstudent.com`;
+
+export const PRIVACY_AR = `### ١. من نحن
+
+تُشغّل Haven موقع havenstudent.com وتطبيق Haven، ويُشار إليهما معًا بـ«الخدمة». توضح هذه السياسة البيانات الشخصية التي نعالجها وأغراضها والجهات التي تتلقاها وحقوقك. للتواصل بشأن الخصوصية: support@havenstudent.com.
+
+### ٢. البيانات التي تقدمها
+
+- **الحساب والملف الشخصي:** الاسم، والبريد الإلكتروني، والصورة الاختيارية، واللغة، والجامعة، والتفضيلات الأكاديمية. تُدار المصادقة من خلال Supabase؛ ولا تحتفظ Haven بنسخة مقروءة من كلمة مرورك.
+- **المحتوى الأكاديمي:** المقررات، والدرجات، ومدخلات المعدل، والجداول، وسجلات الغياب، والواجبات، والاختبارات، وعناصر المخطط، والأهداف، وسجلات جلسات الدراسة.
+- **الملاحظات، حيث تتاح:** المجلدات، والدفاتر، والصفحات، والكتابة اليدوية، والتظليل، والنصوص، والمستندات المستوردة، والصور، والمرفقات. تُعالج المكتبة المتزامنة لحفظ المحتوى وإتاحته على أجهزتك.
+- **التعاون، حيث يتاح:** عضوية المجموعات، والدعوات، والمحتوى المشترك، وحالة الحضور، ونشاط الجلسات. تتحدد المعلومات الظاهرة للمشاركين بحسب الميزة وخيارات المشاركة.
+- **المساهمات الاختيارية والدعم:** الرسائل، والملاحظات، ومعلومات الأنظمة الجامعية، والأدلة التي تقدمها. احذف المعرّفات غير المرتبطة بالطلب وبيانات الآخرين من المرفقات قبل إرسالها.
+- **الإحالات:** رموز الدعوة، ونسبة التسجيل إلى الدعوة، وسجلات استحقاق المكافآت أو استخدامها عند المشاركة.
+
+تلزم بيانات الحساب المطلوبة لتشغيله. ولا تُشترط الصور الاختيارية أو المساهمات أو الإشعارات أو المشاركة لاستخدام الميزات غير المرتبطة بها.
+
+### ٣. البيانات التقنية وتخزين الجهاز
+
+نعالج معرّفات الحسابات، وأوقات الطلبات والجلسات، ومعلومات المتصفح والجهاز، وبيانات الشبكة مثل عنوان الإنترنت ضمن سجلات المزوّدين، وسجلات إجراءات استخدام الميزات لتشغيل الخدمة وتشخيص الأعطال ومنع إساءة الاستخدام وفهم الاستخدام.
+
+عند تفعيل الإشعارات، نحفظ اشتراك المتصفح فيها، بما يشمل عنوان التسليم ومفاتيح المصادقة. ويمكنك تعطيلها من الخدمة أو إعدادات المتصفح أو الجهاز.
+
+يدعم تخزين المتصفح، بما يشمل التخزين المحلي وقواعد البيانات المحلية والنسخ المؤقتة وبيانات جلسة المصادقة، تسجيل الدخول والتفضيلات والعمل دون اتصال والمحتوى المحلي والمزامنة. وقد يؤدي مسحه إلى فقدان العمل الذي لم تتم مزامنته. وقد تحفظ روابط الإحالة رمزًا محليًا لربط التسجيل اللاحق بالدعوة.
+
+لا نبيع البيانات الشخصية ولا نستخدم ملفات تعريف ارتباط للتتبع الإعلاني. وتختلف سجلات الاستخدام الداخلية عن التتبع الإعلاني؛ كما يعالج مزوّدو البنية التقنية سجلات التشغيل.
+
+### ٤. الأغراض والمسوّغات النظامية
+
+نعالج البيانات اللازمة لتوفير الحساب، وحفظ المحتوى ومزامنته، وإجراء الحسابات، وتسليم التذكيرات المطلوبة، وتوفير التعاون، وإدارة الإحالات، لتنفيذ اتفاق تقديم الخدمة معك.
+
+تستند المعالجة الاختيارية التي تتطلب الموافقة إلى موافقتك، ويمكنك العدول عنها. وقد تستند حماية الخدمة وتحسينها إلى المصالح المشروعة حيث يُسمح بذلك، دون الإخلال بحقوقك. وتستند المعالجة المفروضة نظامًا إلى الالتزام المنطبق. ولا يؤثر العدول في مشروعية المعالجة السابقة أو يمنع المعالجة المستندة إلى مسوّغ نظامي آخر.
+
+عند إجراء تدقيق المعدل أو حفظ تقديرات المقررات ضمنه، تُسجَّل تفاصيل المقارنة لتطّلع عليها إدارة Haven المخوّلة لمراجعة دقة الحساب وتشخيص الاختلافات. وتشمل المعدلات والساعات ونظام التقديرات وتقديرات المقررات المعنية والسبب الذي تقدّمه، إن وجد. يظهر هذا الإيضاح قبل الإرسال، ولا يتضمّن التدقيق خيارًا منفصلًا لحجب هذه التفاصيل التشخيصية. وتبقى اختيارات المشاركة السابقة مرتبطة بسجلاتها السابقة.
+
+### ٥. المشاركة ومزوّدو الخدمة
+
+يُفصح عن البيانات للأغراض الموضحة هنا، مع مراعاة المتطلبات النظامية:
+
+- **Supabase:** المصادقة، وقاعدة بيانات التطبيق، والوظائف الخلفية، والتخزين الذي تستخدمه الميزات ذات الصلة.
+- **Netlify:** استضافة الموقع والتطبيق وتسليم محتواهما.
+- **Cloudflare:** اتصالات الدراسة الآنية، والتخزين السحابي ومزامنة الملاحظات حيث تتاح.
+- **Resend:** رسائل التحقق من الحساب والأمان وغيرها من رسائل الخدمة المرسلة عبر وظائف البريد.
+- **Hostinger:** مراسلات بريد الدعم.
+- **Google Fonts:** تسليم الخطوط التي يطلبها التطبيق، بما يتيح لمزوّد الخطوط بيانات الاتصال المعتادة.
+- **مزوّدو إشعارات المتصفح والجهاز:** تسليم الإشعارات عبر المزوّد الذي يستخدمه المتصفح أو الجهاز، مثل Apple أو Google أو Mozilla.
+
+قد يطّلع الدعم والإدارة المخوّلان على السجلات ذات الصلة لمعالجة الطلبات، ومراجعة المساهمات الاختيارية، وحماية الخدمة، وإدارة الحسابات. وقد تجعل المشاركة اسمك أو حضورك أو مساهماتك أو محتواك ظاهرًا للمشاركين. لا تشارك إلا مواد يحق لك مشاركتها؛ فقد يحتفظ المستلمون بنسخ حصلوا عليها بالفعل.
+
+قد نفصح عن المعلومات تنفيذًا لمتطلب نظامي أو عند الحاجة لإثبات الحقوق النظامية أو حمايتها. ويجب أن يراعي نقل الأعمال الذي يشمل بيانات شخصية متطلبات حمايتها والإشعارات الواجبة؛ ولا تجيز هذه السياسة نقلًا غير مقيد أو استخدامات جديدة.
+
+### ٦. الدفع
+
+الدفع معطل حاليًا. لا تجمع Haven حاليًا بيانات البطاقات ولا تخصم مبالغ مقابل الاستخدام. وقد توجد سجلات للتجربة أو الاشتراك أو الإتاحة الخاصة أو استحقاقات الإحالة دون دفع. قبل تفعيل الدفع، سنحدد مزوّده ونوضح معالجته للبيانات وشروط الشراء. لا نحفظ أرقام البطاقات كاملة أو رموز أمانها.
+
+### ٧. التخزين والنقل والأمان
+
+قد تُخزّن البيانات أو تُعالج خارج المملكة العربية السعودية في المواقع التي يعمل فيها المزوّدون. ولا نعد ببقاء جميع البيانات داخل المملكة. ويجب أن يستوفي النقل الدولي المتطلبات والضمانات النظامية؛ ولا يُغني استخدام الخدمة وحده عن مسوّغ النقل المطلوب.
+
+نستخدم المصادقة وضوابط الوصول واتصالات الشبكة المشفرة لحماية البيانات. ولا يمكن ضمان الأمان المطلق. ولا نقدم مزامنة الملاحظات على أنها مشفرة بين الطرفين تشفيرًا يمنع أنظمة التخزين والمزامنة من معالجة محتواها. احمِ جهازك وحسابك وروابط المشاركة.
+
+### ٨. الاحتفاظ والحذف
+
+نحتفظ بالبيانات لأغراض جمعها والمتطلبات النظامية، ثم نحذفها أو نخفي هويتها عند انتفاء الحاجة إليها. وتختلف الاحتياجات التشغيلية للمحتوى النشط وسجلات الأمان ومراسلات الدعم والأدلة الاختيارية؛ ولا توجد مدة احتفاظ واحدة لجميع الأنواع.
+
+يتاح حذف الحساب من الإعدادات، وهو مخصص للإزالة النهائية. ولا توجد مهلة مضمونة لاستعادة الحساب خلال ثلاثين يومًا. وقد تُزال سجلات الحساب النشطة والمرفقات والنسخ الاحتياطية عبر إجراءات مختلفة. اذكر النسخ السحابية للملاحظات أو الأدلة المقدمة أو بيانات المزوّدين الأخرى في طلبك إلى الدعم إذا احتجت إلى تأكيد بشأن حذفها.
+
+قد تُحتفظ بعناصر الملاحظات المحذوفة وعلامات المزامنة لدعم الاستعادة ومنع جهاز ذي نسخة أقدم من إعادة المحتوى أو إزالته بصورة غير صحيحة. ولا تضمن سلة المحذوفات وسجل النسخ نسخة احتياطية دائمة أو إمكانية استعادة الحساب. صدّر المحتوى المهم قبل حذفه.
+
+يُقصر استخدام السجلات المحتفظ بها لمتطلب نظامي على ذلك الغرض. وتتبع النسخ الاحتياطية إجراءات الاحتفاظ والحذف لدى المزوّد؛ ولا نعد بموعد ثابت غير متحقق لحذفها. ولا يمحو حذف الحساب عن بُعد الملفات المصدرة أو النسخ الموجودة بالفعل لدى أشخاص أو أجهزة أخرى.
+
+### ٩. حقوقك
+
+وفقًا للنظام المنطبق، يمكنك طلب العلم بالمعالجة، والوصول إلى بياناتك، والحصول على نسخة مقروءة، والتصحيح أو الاستكمال، وإتلاف ما ليس له مسوّغ احتفاظ نظامي. ويمكنك العدول عن الموافقة على المعالجة المستندة إليها، والشكوى إلى الجهة المختصة، بما فيها الهيئة السعودية للبيانات والذكاء الاصطناعي «سدايا» حيث ينطبق ذلك.
+
+راسل support@havenstudent.com. قد نتحقق من الهوية بمعلومات متناسبة. تُنفذ طلبات الحقوق دون تأخير غير مبرر وخلال ثلاثين يومًا. وعند الحاجة إلى تمديد نظامي لا يتجاوز ثلاثين يومًا إضافية، نبلغك مسبقًا بالسبب. ونوضح أي قيد نظامي على الطلب.
+
+### ١٠. العمر والتحديثات
+
+الخدمة مخصصة لمن بلغ الثامنة عشرة. تواصل معنا إذا اعتقدت أن شخصًا دون هذا العمر قدم بيانات شخصية، للتحقق واتخاذ الإجراء المناسب. وتخضع المواقع الخارجية لممارسات الخصوصية الخاصة بها.
+
+نحدّث هذه السياسة عند تغير المعالجة، ونقدم الإشعارات المطلوبة ونطلب الموافقة حيث تلزم. نبلغ بالتغييرات الجوهرية قبل سريانها بأربعة عشر يومًا على الأقل، إلا إذا استلزم متطلب نظامي إجراءً أسرع. ولا يُجيز التحديث بذاته معالجة غير مرتبطة بالأغراض المعلنة.
+
+**التواصل:** support@havenstudent.com
+**الموقع:** havenstudent.com`;
+
+export const TERMS_EN = `### 1. Agreement and Eligibility
+
+These Terms govern havenstudent.com and the Haven application (the "Service"). By creating an account or using the Service, you agree to these Terms. You must be at least 18 and legally able to enter this agreement. If you disagree, do not use the Service.
+
+### 2. What Haven Provides
+
+Haven helps students organise courses, grades, GPA inputs, tasks, exams, schedules, absence logs and study plans. Available features may include Pomodoro sessions, Havi, Notes, group study, shared planning and referrals. Availability depends on the version and features enabled for your account; a preview or announcement does not promise public availability.
+
+Haven is independent of your university. Calculations and guidance depend on your inputs and the applicable academic system. University records and official rules remain authoritative. An absence log does not certify eligibility, permitted absence or an official attendance decision.
+
+### 3. Your Account
+
+Provide accurate information, keep contact details current, protect sign-in credentials and report unauthorised access. Each person may register one account. Do not share credentials, impersonate others or transfer an account. You are responsible for activity you authorise; these Terms do not make you automatically responsible for every unauthorised act by another person.
+
+### 4. Free Access and Future Paid Plans
+
+Payments are currently disabled and Haven is free to use. No card is required, no subscription charge is made, and current free use does not automatically become a paid subscription.
+
+If paid plans are introduced, the price, currency, taxes, features, duration, provider, any trial, renewal terms and cancellation method will be disclosed before purchase. Payment requires your explicit purchase authorisation. A trial or subscription status in account records does not itself authorise a charge. Any future automatic renewal requires prior clear disclosure and agreement.
+
+### 5. Cancellation and Refunds
+
+No paid subscription needs cancellation during the current free period. For a future paid subscription, cancellation stops renewals; paid access normally continues until the purchased period ends unless a refund ends that entitlement. Cancellation and account deletion are separate.
+
+Refunds follow the Refund Policy at havenstudent.com/refund and mandatory rights. Neither these Terms nor that policy excludes a statutory remedy.
+
+### 6. Your Content and Sharing
+
+You retain ownership of your courses, notes, documents, handwriting and other content. You grant Haven only the permissions needed to store, process, synchronise and display it to provide the Service, including to people you choose to share it with.
+
+Upload or share only material you are entitled to use. Respect copyright, privacy and academic integrity. You control the sharing choices offered by each feature. Participants may see your name, presence and contributions; shared editing may change shared content. Leaving or withdrawing access cannot retrieve copies another participant has already obtained or exported.
+
+Export important work using available tools. Synchronisation, trash and history do not guarantee recovery of lost content. Processing and deletion are described at havenstudent.com/privacy.
+
+### 7. Acceptable Use
+
+Do not act unlawfully, harass others, upload malicious content, access others' data without authority, exploit vulnerabilities, bypass access/usage limits or interfere with availability. Do not resell the Service, copy proprietary code or perform automated extraction without permission, except where law permits it.
+
+We may restrict harmful activity or suspend accounts when reasonably necessary to protect users, comply with law or address a material breach. Where appropriate and legally permitted, we explain the reason and offer contact with support. A good-faith complaint, privacy request or payment dispute is not itself abuse.
+
+### 8. Referrals and Granted Access
+
+Referral eligibility, rewards and conditions are those shown when you participate. Do not use self-referrals, fictitious accounts, unsolicited messages or misleading claims. Referrals do not guarantee cash payment; rewards and granted entitlements do not prove a paid subscription.
+
+VIP or complimentary access is personal and non-transferable. Its stated grant conditions apply. We may address fraud or misuse while respecting mandatory rights and commitments already made.
+
+### 9. Intellectual Property
+
+Haven, Havi, logos, proprietary design, code and content belong to Haven or their respective rights holders. Your content remains yours. Third-party materials retain their applicable licences. Feedback is voluntary; we may use it to improve the Service without a payment obligation.
+
+### 10. Availability and Changes
+
+We maintain and improve the Service but cannot guarantee continuous availability or compatibility with every device. Maintenance, connectivity and events outside our control may interrupt it. Features may change or end, with reasonable notice for material changes where practicable. This does not remove applicable paid-service or consumer rights.
+
+### 11. Ending Use and Deletion
+
+Stop using Haven or delete your account through Settings. Contact support for help or data-rights requests. Deletion is intended to be permanent; no account-restoration period is guaranteed. Export important content first.
+
+We may suspend or terminate access for a material breach, fraud, harmful conduct, a legal requirement or discontinuation. Mandatory notice, refund and data-protection obligations still apply. Record retention follows the Privacy Policy and law.
+
+### 12. Responsibility and Liability
+
+The Service is provided as available. We do not guarantee every calculation, recommendation or import is complete or error-free. Check academic decisions against official university records and report suspected errors.
+
+To the extent law permits, Haven is not liable for indirect or consequential losses. Aggregate liability is limited to the greater of the amount you paid Haven in the preceding 12 months and SAR 100. These limits do not exclude fraud, gross negligence or any liability, consumer protection, refund or right that cannot lawfully be limited. You remain responsible for unlawful content or misuse attributable to you under applicable law.
+
+### 13. Law and Disputes
+
+Saudi Arabian law governs, without excluding mandatory protections applicable to you. Contacting support to seek a resolution does not prevent a complaint to a competent authority or proceedings before a court with jurisdiction under applicable law.
+
+### 14. Updates and General Provisions
+
+Material changes will be notified at least 14 days before taking effect unless law or an urgent security issue requires earlier action. An update does not authorise a new charge or replace legally required consent. If you disagree with updated Terms, you may stop using the Service, subject to mandatory rights.
+
+These Terms, the Privacy Policy and Refund Policy form the Service agreement. If a provision is invalid, the remainder continues where legally possible. Not exercising a right does not waive it. Transfers of the agreement must respect your mandatory rights and data-protection obligations.
+
+**Contact:** support@havenstudent.com
+**Website:** havenstudent.com`;
+
+export const TERMS_AR = `### ١. الاتفاق والأهلية
+
+تحكم هذه الشروط موقع havenstudent.com وتطبيق Haven، ويُشار إليهما معًا بـ«الخدمة». بإنشاء حساب أو استخدام الخدمة، توافق على هذه الشروط. يجب أن تكون قد بلغت الثامنة عشرة وأن تتمتع بالأهلية النظامية لإبرام الاتفاق. إذا لم توافق، فلا تستخدم الخدمة.
+
+### ٢. ما تقدمه Haven
+
+تساعد Haven الطلاب على تنظيم المقررات والدرجات ومدخلات المعدل والمهام والاختبارات والجداول وسجلات الغياب والخطط الدراسية. وقد تشمل الميزات المتاحة جلسات بومودورو وHavi والملاحظات والدراسة الجماعية والتخطيط المشترك والإحالات. يعتمد التوفر على الإصدار والميزات المفعلة لحسابك؛ ولا تُعد المعاينة أو الإعلان وعدًا بالإتاحة للعامة.
+
+Haven مستقلة عن جامعتك. تعتمد الحسابات والإرشادات على مدخلاتك والنظام الأكاديمي المنطبق. وتبقى سجلات الجامعة وأنظمتها الرسمية هي المرجع المعتمد. ولا يُعد سجل الغياب إثباتًا للأهلية أو للغياب المسموح أو لقرار حضور رسمي.
+
+### ٣. حسابك
+
+قدم معلومات صحيحة، وحدّث بيانات التواصل، واحمِ بيانات الدخول، وأبلغ عن الوصول غير المصرح به. يجوز لكل شخص تسجيل حساب واحد. لا تشارك بيانات الدخول ولا تنتحل هوية الآخرين ولا تنقل الحساب. تتحمل مسؤولية النشاط الذي تصرح به؛ ولا تجعلك هذه الشروط مسؤولًا تلقائيًا عن كل تصرف غير مصرح به يصدر من غيرك.
+
+### ٤. الإتاحة المجانية والخطط المستقبلية
+
+الدفع معطل حاليًا واستخدام Haven مجاني. لا تُطلب بطاقة، ولا تُخصم رسوم اشتراك، ولا يتحول الاستخدام المجاني الحالي تلقائيًا إلى اشتراك مدفوع.
+
+إذا أُتيحت خطط مدفوعة، فسيُفصح قبل الشراء عن السعر والعملة والضرائب والميزات والمدة والمزوّد وأي تجربة وشروط التجديد وطريقة الإلغاء. يتطلب الدفع تفويضك الصريح بالشراء. ولا تمنح حالة تجربة أو اشتراك محفوظة في الحساب تفويضًا بالخصم بذاتها. ويتطلب أي تجديد تلقائي مستقبلي إفصاحًا واضحًا مسبقًا وموافقتك.
+
+### ٥. الإلغاء والاسترجاع
+
+لا يوجد اشتراك مدفوع يلزم إلغاؤه خلال الفترة المجانية الحالية. وفي اشتراك مدفوع مستقبلي، يوقف الإلغاء التجديدات؛ وتستمر الإتاحة المدفوعة عادةً حتى نهاية المدة المشتراة ما لم ينهِ الاسترجاع الاستحقاق. الإلغاء وحذف الحساب إجراءان منفصلان.
+
+يخضع الاسترجاع لسياسة الاسترجاع في havenstudent.com/refund وللحقوق الملزمة. ولا تستبعد هذه الشروط أو تلك السياسة أي معالجة مقررة نظامًا.
+
+### ٦. محتواك والمشاركة
+
+تحتفظ بملكية مقرراتك وملاحظاتك ومستنداتك وكتابتك اليدوية وسائر محتواك. وتمنح Haven الصلاحيات اللازمة فقط لتخزينه ومعالجته ومزامنته وعرضه لتقديم الخدمة، بما يشمل عرضه لمن تختار مشاركته معهم.
+
+لا ترفع أو تشارك إلا مواد يحق لك استخدامها. احترم حقوق النشر والخصوصية والنزاهة الأكاديمية. تتحكم في خيارات المشاركة التي تتيحها كل ميزة. وقد يرى المشاركون اسمك وحضورك ومساهماتك، وقد يغير التحرير المشترك المحتوى. ولا تؤدي المغادرة أو سحب الإتاحة إلى استرداد نسخ حصل عليها مشارك آخر أو صدّرها بالفعل.
+
+صدّر العمل المهم بالأدوات المتاحة. ولا تضمن المزامنة وسلة المحذوفات وسجل النسخ استعادة المحتوى المفقود. توضح havenstudent.com/privacy معالجة البيانات وحذفها.
+
+### ٧. الاستخدام المقبول
+
+يُحظر الاستخدام غير النظامي، ومضايقة الآخرين، ورفع محتوى ضار، والوصول إلى بيانات الغير دون صلاحية، واستغلال الثغرات، وتجاوز حدود الوصول أو الاستخدام، والتأثير في الإتاحة. كما يُحظر إعادة بيع الخدمة أو نسخ شيفرتها المملوكة أو الاستخراج الآلي دون إذن، إلا فيما يسمح به النظام.
+
+قد نقيد النشاط الضار أو نوقف الحسابات عند الحاجة المعقولة لحماية المستخدمين أو الامتثال للنظام أو معالجة مخالفة جوهرية. ونوضح السبب ونتيح التواصل مع الدعم حيث يكون ذلك مناسبًا ومسموحًا نظامًا. ولا تُعد الشكوى أو طلب الخصوصية أو الاعتراض على دفعة بحسن نية إساءة استخدام بذاتها.
+
+### ٨. الإحالات والمزايا الممنوحة
+
+تُحدد أهلية الإحالة ومكافآتها وشروطها وفق المعروض عند مشاركتك. يُحظر استخدام الإحالات الذاتية والحسابات الوهمية والرسائل غير المرغوبة والادعاءات المضللة. لا تضمن الإحالات دفع مبلغ نقدي؛ ولا تثبت المكافآت والاستحقاقات الممنوحة وجود اشتراك مدفوع.
+
+الإتاحة الخاصة أو المجانية شخصية وغير قابلة للتحويل، وتخضع لشروط منحها المعلنة. ويجوز معالجة الاحتيال أو إساءة الاستخدام مع احترام الحقوق الملزمة والالتزامات المقدمة.
+
+### ٩. الملكية الفكرية
+
+تعود Haven وHavi والشعارات والتصميم المملوك والشيفرة والمحتوى إلى Haven أو أصحاب الحقوق المعنيين. ويظل محتواك ملكًا لك. وتخضع مواد الغير لتراخيصها المنطبقة. تُقدم المقترحات طوعًا؛ ويجوز لنا استخدامها لتحسين الخدمة دون التزام بمقابل مالي.
+
+### ١٠. الإتاحة والتغييرات
+
+نصون الخدمة ونحسنها، لكننا لا نضمن الإتاحة المتواصلة أو التوافق مع كل جهاز. وقد تتوقف بسبب الصيانة أو الاتصال أو ظروف خارجة عن إرادتنا. وقد تتغير الميزات أو تنتهي، مع إشعار معقول بالتغييرات الجوهرية متى كان ذلك ممكنًا. ولا يُسقط ذلك حقوق الخدمات المدفوعة أو حقوق المستهلك المنطبقة.
+
+### ١١. إنهاء الاستخدام والحذف
+
+يمكنك التوقف عن استخدام Haven أو حذف الحساب من الإعدادات. تواصل مع الدعم للمساعدة أو لطلبات حقوق البيانات. الحذف مخصص للإزالة النهائية؛ ولا توجد مهلة مضمونة لاستعادة الحساب. صدّر المحتوى المهم أولًا.
+
+قد نوقف الإتاحة أو ننهيها بسبب مخالفة جوهرية أو احتيال أو سلوك ضار أو متطلب نظامي أو إيقاف الخدمة. وتبقى التزامات الإشعار والاسترجاع وحماية البيانات الملزمة سارية. ويخضع الاحتفاظ بالسجلات لسياسة الخصوصية والنظام.
+
+### ١٢. المسؤولية وحدودها
+
+تُقدم الخدمة بحسب إتاحتها. ولا نضمن خلو كل حساب أو توصية أو استيراد من النقص أو الخطأ. راجع القرارات الأكاديمية بالرجوع إلى سجلات الجامعة الرسمية وأبلغ بالأخطاء المشتبه بها.
+
+في الحدود التي يسمح بها النظام، لا تتحمل Haven الخسائر غير المباشرة أو التبعية. وتُحد المسؤولية الإجمالية بالأكبر من المبلغ الذي دفعته إلى Haven خلال الأشهر الاثني عشر السابقة ومائة ريال سعودي. ولا تستبعد هذه الحدود الاحتيال أو الخطأ الجسيم أو أي مسؤولية أو حماية للمستهلك أو استرجاع أو حق لا يجوز تقييده نظامًا. وتبقى مسؤولًا عن المحتوى غير النظامي أو إساءة الاستخدام المنسوبة إليك وفقًا للنظام المنطبق.
+
+### ١٣. النظام والمنازعات
+
+تسري أنظمة المملكة العربية السعودية، دون استبعاد الحماية الملزمة المنطبقة عليك. ولا يمنع التواصل مع الدعم لطلب الحل تقديم شكوى إلى الجهة المختصة أو اللجوء إلى المحكمة المختصة وفقًا للنظام.
+
+### ١٤. التحديثات والأحكام العامة
+
+نبلغ بالتغييرات الجوهرية قبل سريانها بأربعة عشر يومًا على الأقل، إلا إذا تطلب النظام أو مسألة أمنية عاجلة إجراءً أسرع. ولا يفوض التحديث خصمًا جديدًا أو يحل محل موافقة مطلوبة نظامًا. إذا لم تقبل الشروط المحدثة، فيمكنك التوقف عن الاستخدام مع مراعاة الحقوق الملزمة.
+
+تشكل هذه الشروط وسياسة الخصوصية وسياسة الاسترجاع اتفاق الخدمة. إذا بطل حكم، تستمر البقية حيث يسمح النظام. ولا يُعد عدم ممارسة حق تنازلًا عنه. ويجب أن يحترم نقل الاتفاق حقوقك الملزمة والتزامات حماية البيانات.
+
+**التواصل:** support@havenstudent.com
+**الموقع:** havenstudent.com`;
+
+export const REFUND_EN = `### 1. Current Payment Status
+
+Payments are currently disabled. Haven does not charge for current use, require a payment card or automatically convert current free access into a paid subscription. Free use has no payment to refund. Trial, VIP or reward status does not establish that money was collected.
+
+The following provisions describe refunds if paid subscriptions are introduced. They do not activate billing or authorise a charge. Prices, the provider, trial and renewal terms must be disclosed before purchase and require your agreement.
+
+### 2. Mandatory Rights
+
+This policy supplements rather than reduces rights under applicable law. Where Saudi e-commerce rules apply, statutory cancellation and other remedies remain available subject to their legal conditions and exceptions. The contractual window below does not restrict a remedy for unauthorised or duplicate charges, defective service or another legally protected situation.
+
+### 3. First Paid Charge
+
+If paid subscriptions are enabled, you may request a full refund of your first paid charge within 14 calendar days if the paid Service has not been used substantively. We consider the paid service actually provided and explain the decision. Clicking Havi, choosing a theme or reaching an arbitrary session count does not itself determine eligibility.
+
+This additional contractual offer is normally available once per person. That limit and the usage condition do not limit mandatory rights or correction of billing errors.
+
+### 4. Trials, Renewals and Cancellation
+
+Any future trial's duration, payment requirements and conversion terms must be shown before agreement. Cancelling before an agreed paid conversion prevents that charge. Current free use has no automatic paid conversion.
+
+Cancellation of a future paid subscription stops renewals. Access continues until the paid period ends unless a refund ends the entitlement. Cancellation alone does not automatically refund that period. Contact support promptly about a disputed renewal to check authorisation, cancellation, use and applicable rights. Renewals are not categorically excluded from statutory refunds.
+
+### 5. Errors and Service Problems
+
+We correct verified duplicate or erroneous charges and investigate unauthorised charges regardless of the contractual 14-day window. If a paid service is not delivered, materially differs from its agreed description or is unavailable, contact support. We assess correction, a full or proportionate refund, or another remedy under the agreement and law. You need not wait for seven days of continuous downtime to report a problem or exercise a legal right.
+
+An authorised representative may contact us about an account holder's death or legal incapacity and unused paid time; we may request proportionate evidence of authority.
+
+### 6. Requesting a Refund
+
+Email support@havenstudent.com with subject "Refund Request", your account email, charge date and amount, transaction reference if available, and a brief description. Do not send passwords, full card numbers, security codes or unrelated personal documents.
+
+We aim to respond within three business days with a decision, explanation or necessary information request. We explain any refusal and its basis. This support target does not extend a mandatory legal deadline.
+
+### 7. Processing and Access
+
+Approved refunds normally return through the provider to the original payment method, subject to applicable requirements. We confirm the amount, initiation and any provider processing estimate. Timing depends on the provider and bank; no current provider deadline is promised while payments remain disabled.
+
+A refund may end the corresponding paid entitlement, as explained upon approval. It does not itself delete your account or content. Export, account deletion and retention follow available features and the Privacy Policy.
+
+### 8. Disputes and Abuse
+
+You may contact support, your bank, payment provider or competent authority to exercise your rights. A good-faith dispute does not itself justify permanent banning or a penalty. We may investigate fraud, provide necessary transaction evidence through lawful channels and address proven misuse under the Terms and law.
+
+### 9. Changes and Contact
+
+Saudi Arabian law applies without excluding mandatory protections applicable to you. Material changes are notified at least 14 days before taking effect unless law requires earlier action. Changes do not retrospectively remove rights attached to earlier charges or submitted requests.
+
+**Contact:** support@havenstudent.com
+**Website:** havenstudent.com`;
+
+export const REFUND_AR = `### ١. حالة الدفع الحالية
+
+الدفع معطل حاليًا. لا تخصم Haven مبالغ مقابل الاستخدام الحالي، ولا تطلب بطاقة دفع، ولا تحول الإتاحة المجانية الحالية تلقائيًا إلى اشتراك مدفوع. ولا يوجد مبلغ يُسترجع مقابل الاستخدام المجاني. ولا تثبت حالة التجربة أو الإتاحة الخاصة أو المكافأة تحصيل مبلغ مالي.
+
+توضح البنود التالية الاسترجاع إذا أُتيحت اشتراكات مدفوعة. ولا تُفعّل الفوترة ولا تفوض الخصم. ويجب الإفصاح عن الأسعار والمزوّد وشروط التجربة والتجديد قبل الشراء، مع اشتراط موافقتك.
+
+### ٢. الحقوق النظامية الملزمة
+
+تُكمل هذه السياسة الحقوق المقررة بالنظام المنطبق ولا تنتقص منها. عند انطباق أحكام التجارة الإلكترونية السعودية، تبقى حقوق فسخ العقد والمعالجات الأخرى متاحة وفق شروطها واستثناءاتها النظامية. ولا تقيد النافذة التعاقدية أدناه معالجة الخصم غير المصرح به أو المكرر أو الخدمة المعيبة أو حالة أخرى محمية نظامًا.
+
+### ٣. أول دفعة
+
+إذا فُعّلت الاشتراكات المدفوعة، فيمكنك طلب استرجاع كامل لأول دفعة خلال أربعة عشر يومًا تقويميًا إذا لم تُستخدم الخدمة المدفوعة استخدامًا جوهريًا. ننظر في الخدمة المدفوعة المقدمة فعلًا ونوضح القرار. ولا يحدد النقر على Havi أو اختيار سمة أو بلوغ عدد اعتباطي من الجلسات الأهلية بذاته.
+
+تتاح هذه الميزة التعاقدية الإضافية عادةً مرة واحدة لكل شخص. ولا يقيد هذا الحد أو شرط الاستخدام الحقوق الملزمة أو تصحيح أخطاء الفوترة.
+
+### ٤. التجارب والتجديدات والإلغاء
+
+يجب عرض مدة أي تجربة مستقبلية ومتطلبات الدفع وشروط التحول إليه قبل الموافقة. ويمنع الإلغاء قبل التحول المدفوع المتفق عليه وقوع ذلك الخصم. لا يخضع الاستخدام المجاني الحالي لتحول مدفوع تلقائي.
+
+يوقف إلغاء اشتراك مدفوع مستقبلي التجديدات. وتستمر الإتاحة حتى نهاية الفترة المدفوعة ما لم ينهِ الاسترجاع الاستحقاق. ولا يؤدي الإلغاء وحده إلى استرجاع تلقائي لتلك الفترة. تواصل مع الدعم دون تأخير بشأن تجديد محل اعتراض لمراجعة التفويض والإلغاء والاستخدام والحقوق المنطبقة. ولا تُستبعد التجديدات استبعادًا مطلقًا من الاسترجاع النظامي.
+
+### ٥. الأخطاء ومشكلات الخدمة
+
+نصحح الخصم المكرر أو الخاطئ بعد التحقق، ونحقق في الخصم غير المصرح به دون تقييد بنافذة الأربعة عشر يومًا التعاقدية. إذا لم تُقدم الخدمة المدفوعة أو اختلفت جوهريًا عن وصفها المتفق عليه أو تعذرت إتاحتها، فتواصل مع الدعم. ونقيّم التصحيح أو الاسترجاع الكامل أو النسبي أو أي معالجة يقتضيها الاتفاق والنظام. ولا يلزم انتظار انقطاع متواصل لمدة سبعة أيام للإبلاغ عن المشكلة أو ممارسة حق نظامي.
+
+يجوز للممثل المخوّل التواصل بشأن وفاة صاحب الحساب أو فقد أهليته النظامية والمدة المدفوعة غير المستخدمة؛ وقد نطلب إثباتًا متناسبًا للصلاحية.
+
+### ٦. طلب الاسترجاع
+
+راسل support@havenstudent.com بعنوان «طلب استرجاع»، مع بريد الحساب وتاريخ الخصم ومبلغه ومرجع العملية إن توفر ووصف مختصر. لا ترسل كلمات المرور أو أرقام البطاقات كاملة أو رموز الأمان أو مستندات شخصية غير مرتبطة بالطلب.
+
+نسعى للرد خلال ثلاثة أيام عمل بقرار أو توضيح أو طلب معلومات لازمة. ونوضح سبب أي رفض وأساسه. ولا تمدد هذه المدة المستهدفة للدعم أي مهلة نظامية ملزمة.
+
+### ٧. التنفيذ والإتاحة
+
+تُعاد المبالغ المعتمدة عادةً عبر المزوّد إلى وسيلة الدفع الأصلية، وفق المتطلبات المنطبقة. ونؤكد المبلغ وبدء التنفيذ والمدة التقديرية التي يحددها المزوّد إن وجدت. وتعتمد المدة على المزوّد والبنك؛ ولا نعد بمهلة حالية تخص مزوّدًا بينما يظل الدفع معطلًا.
+
+قد ينهي الاسترجاع الاستحقاق المدفوع المقابل، مع توضيح ذلك عند الموافقة. ولا يحذف الحساب أو المحتوى بذاته. ويخضع التصدير وحذف الحساب والاحتفاظ بالبيانات للميزات المتاحة وسياسة الخصوصية.
+
+### ٨. الاعتراضات وإساءة الاستخدام
+
+يمكنك التواصل مع الدعم أو البنك أو مزوّد الدفع أو الجهة المختصة لممارسة حقوقك. ولا يبرر الاعتراض بحسن نية الحظر الدائم أو فرض غرامة بذاته. ويجوز التحقيق في الاحتيال وتقديم أدلة العملية اللازمة عبر القنوات النظامية ومعالجة إساءة الاستخدام المثبتة وفق الشروط والنظام.
+
+### ٩. التعديلات والتواصل
+
+تسري أنظمة المملكة العربية السعودية دون استبعاد الحماية الملزمة المنطبقة عليك. نبلغ بالتغييرات الجوهرية قبل سريانها بأربعة عشر يومًا على الأقل، إلا إذا تطلب النظام إجراءً أسرع. ولا تسقط التعديلات بأثر رجعي حقوقًا متعلقة بخصم سابق أو طلب مقدم.
+
+**التواصل:** support@havenstudent.com
+**الموقع:** havenstudent.com`;

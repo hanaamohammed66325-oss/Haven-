@@ -54,7 +54,7 @@ function actualCallback(file: string, name: string, bindings: Record<string, unk
   return new Function(...Object.keys(bindings), `${js}; return extracted;`)(...Object.values(bindings));
 }
 
-test("actual comparison saves exclusion privately, shares course details only with consent, and blocks all-excluded", () => {
+test("actual comparison submits diagnostic details regardless of legacy consent and blocks all-excluded", () => {
   const rows = [{ name: "Kept", hours: "3.5", grade: "B", pct: "", excludedFromGpa: false }, { name: "Excluded", hours: "4", grade: "A+", pct: "95", excludedFromGpa: true }];
   const run = (consent: boolean, allExcluded = false) => {
     let saved: any; let error: string | undefined; let payload: any;
@@ -63,7 +63,7 @@ test("actual comparison saves exclusion privately, shares course details only wi
       parseNumber: (raw: string) => raw.trim() ? Number(raw) : NaN,
       t: (key: string) => key, setError: (value: string) => { error = value; },
       scheme: SAUDI5, SPECIAL_RESULTS, pastTermGpa, pastTermCumulative, portalRaw: "4", cumBeforeRaw: "", cumHoursRaw: "", cumAfterRaw: "",
-      term: null, newId: () => "new", name: "Term", sameGpa, consent, pastTerms: [],
+      term: { id: "legacy", consent }, newId: () => "new", name: "Term", sameGpa, consent, pastTerms: [{ id: "legacy", consent }],
       setPastTerms: (terms: any[]) => { saved = terms[0]; }, setSaved: () => {},
       reportTermCheck: (_: string, meta: any) => { payload = meta; }, university: "Test", catalog: null,
     })();
@@ -72,7 +72,11 @@ test("actual comparison saves exclusion privately, shares course details only wi
   const privateResult = run(false);
   assert.equal(privateResult.saved.courses[1].excludedFromGpa, true);
   assert.equal(privateResult.saved.ours, 4);
-  assert.deepEqual(Object.keys(privateResult.payload).sort(), ["result", "scheme"]);
+  assert.equal(privateResult.saved.reviewShared, true);
+  assert.equal(privateResult.saved.consent, false);
+  assert.equal(privateResult.payload.reviewShared, true);
+  assert.equal(privateResult.payload.courses[1].excludedFromGpa, true);
+  assert.equal(privateResult.payload.portal, 4);
   assert.equal(run(true).payload.courses[1].excludedFromGpa, true);
   assert.equal(run(false, true).error, "pt_noCounted");
   assert.equal(run(false, true).saved, undefined);

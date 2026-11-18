@@ -200,6 +200,8 @@ export interface TermCheck {
   grades: Record<string, OfficialGrade>;
   /** agreed to let the Haven team see this term's courses and grades. */
   consent?: boolean;
+  /** New comparison submitted with the admin diagnostic-review notice. */
+  reviewShared?: boolean;
   reason?: TermMismatchReason;
   /** "not out yet" — ask again from this ISO date. */
   snoozeUntil?: string;
@@ -236,6 +238,8 @@ export interface PastTerm {
   /** the cumulative GPA before and after this term, when entered */
   cum?: CumulativeCheck;
   consent?: boolean;
+  /** New comparison submitted with the admin diagnostic-review notice. */
+  reviewShared?: boolean;
   reason?: TermMismatchReason;
   at: string;
 }

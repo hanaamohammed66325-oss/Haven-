@@ -4,13 +4,13 @@ import { GpaPriorReview, GpaReviewLink } from "./GpaPriorReview";
 import { InteractionButton } from "@/components/motion/Interaction";
 
 // TermCheck — the end-of-term window: "does our semester GPA match your
-// portal?". A mismatch offers review and opt-in consent, then we work out
+// portal?". A mismatch submits diagnostic details for admin review, then we work out
 // which course most likely differs (lib/termCheck explainGap) and ask about just
 // that one; entering every course's official letter is the fallback. Official
 // results then replace the estimates everywhere. After it, the student can
 // compare the cumulative GPA too (the one before the term plus this term's
 // courses against the portal's new one). Also: TermCheckProfileCard (the
-// Profile page line to edit results or withdraw consent) and TermCheckFlow (the
+// Profile page line to edit results) and TermCheckFlow (the
 // window's contents, reused by the local test station).
 
 import { useWhatsNewReady } from "./useWhatsNewReady";
@@ -134,7 +134,7 @@ export function TermCheck() {
   );
 }
 
-type Step = "ask" | "portal" | "consent" | "guess" | "grades" | "reason" | "done" | "cum" | "cumResult";
+type Step = "ask" | "portal" | "review" | "guess" | "grades" | "reason" | "done" | "cum" | "cumResult";
 type Done = "match" | "close" | "snoozed" | "found" | "saved" | "reason";
 
 const withoutOfficial = (courses: Course[]): Course[] => courses.map(({ official: _o, ...c }) => c);
@@ -159,8 +159,6 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   const [done, setDone] = useState<Done>("match");
   const [portalRaw, setPortalRaw] = useState("");
   const [portal, setPortal] = useState<number | null>(termCheck?.portalGpa ?? null);
-  const [consent, setConsent] = useState<boolean>(termCheck?.consent ?? false);
-  const [consentTick, setConsentTick] = useState(false);
   const [error, setError] = useState("");
   const [guessIdx, setGuessIdx] = useState(0);
   const [found, setFound] = useState<string[]>([]);
@@ -175,7 +173,6 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   const previousDraft = useRef<{ gpa: string; hours: string } | null>(null);
   const [cumPortalRaw, setCumPortalRaw] = useState("");
   const [cumSaved, setCumSaved] = useState<CumulativeCheck | null>(null);
-  const [cumConsent, setCumConsent] = useState(false);
   const [cumReasonDone, setCumReasonDone] = useState(false);
   const cumOurs = useMemo(
     () => (hasBefore ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, scheme, academic, cumulativeGpaSystem) : null),
@@ -304,11 +301,9 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
         ours: o,
         result: comparison === "mismatch" ? "mismatch" : "match",
       };
-      save({ cum });
-      // Without consent, only whether it matched.
-      reportTermCheck("term_cum_checked", termCheck?.consent ? { ...cumMeta(cum), consent: true } : { result: cum.result, comparison: cum.comparison, scheme: scheme.id });
+      save({ cum, reviewShared: true });
+      reportTermCheck("term_cum_checked", { ...cumMeta(cum), reviewShared: true });
       setCumSaved(cum);
-      setCumConsent(termCheck?.consent ?? false);
       setCumReasonDone(false);
       setStep("cumResult");
     };
@@ -367,6 +362,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
         <div className="mt-5">
           {numberField(cumPortalRaw, setCumPortalRaw, t("tc_cumPortalLabel"), !cumEdit)}
         </div>
+        <ReviewNotice />
         {error && <ErrorText>{error}</ErrorText>}
         <Footer>
           <Ghost onClick={onClose}>{t("tc_notNow")}</Ghost>
@@ -381,14 +377,12 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
     const match = cumSaved.comparison ? cumSaved.comparison !== "mismatch" : sameDisplayedGpa(cumSaved.ours, cumSaved.portal);
     const pick = (reason: TermMismatchReason) => {
       const next = { ...cumSaved, reason };
-      const shared = cumConsent || termCheck?.consent === true;
-      save({ cum: next, ...(shared ? { consent: true } : {}) });
+      save({ cum: next, reviewShared: true });
       const missing = missingKinds(gaps);
-      reportTermCheck("term_cum_reason", shared ? { ...cumMeta(next), reason, missing, consent: true } : { reason, missing, consent: false });
+      reportTermCheck("term_cum_reason", { ...cumMeta(next), reason, missing, reviewShared: true });
       setCumSaved(next);
       setCumReasonDone(true);
     };
-    const shared = cumConsent || termCheck?.consent === true;
     return (
       <>
         <div className="flex items-start gap-3">
@@ -403,7 +397,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
             </p>
             <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
               {cumReasonDone
-                ? t(shared ? "tc_reasonDoneShared" : "tc_cumReasonDone")
+                ? t("tc_reasonDoneShared")
                 : t(rounding ? "gpa_roundingBody" : match ? "tc_cumMatchBody" : "tc_cumMismatchBody", {
                     ours: fmt(cumSaved.ours),
                     portal: fmt(cumSaved.portal),
@@ -433,23 +427,6 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                     {t("tc_cumCheckBefore")}
                   </InteractionButton>
                 </p>
-                {!termCheck?.consent && (
-                  <label className="mt-4 flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cumConsent}
-                      onChange={(e) => setCumConsent(e.target.checked)}
-                      className="mt-1"
-                      style={{ accentColor: "var(--color-primary)" }}
-                    />
-                    <span className="text-[13px] leading-relaxed" style={{ color: "var(--color-ink)" }}>
-                      {t("tc_cumConsentLabel")}
-                      <span className="block text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                        {t("tc_cumConsentNote")}
-                      </span>
-                    </span>
-                  </label>
-                )}
                 <MissingData gaps={gaps} onLeave={onClose} />
                 <p className="text-sm mt-4" style={{ color: "var(--color-ink)" }}>
                   {t("pt_reasonQuestion")}
@@ -521,7 +498,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           <Primary
             onClick={() => {
               save({ answer: "match", snoozeUntil: undefined });
-              // No consent asked here, so only which university/system matched.
+              // A yes/no match has no entered comparison details.
               reportTermCheck("term_gpa_match", { university, scheme: scheme.id });
               finish("match");
             }}
@@ -557,7 +534,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
         finish("close");
         return;
       }
-      setStep("consent");
+      setStep("review");
     };
     return (
       <>
@@ -592,12 +569,11 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
     );
   }
 
-  // ── review + consent ──
-  if (step === "consent" && portal != null && ours != null) {
-    const next = (agreed: boolean) => {
-      setConsent(agreed);
-      save({ answer: "mismatch", portalGpa: portal, consent: agreed, snoozeUntil: undefined });
-      reportTermCheck("term_gpa_mismatch", agreed ? { ...baseMeta(), consent: true } : { consent: false });
+  // ── diagnostic review ──
+  if (step === "review" && portal != null && ours != null) {
+    const next = () => {
+      save({ answer: "mismatch", portalGpa: portal, reviewShared: true, snoozeUntil: undefined });
+      reportTermCheck("term_gpa_mismatch", { ...baseMeta(), courses: courseMeta(termCheck?.grades ?? {}), reviewShared: true });
       setStep(guesses.length ? "guess" : "grades");
     };
     return (
@@ -608,28 +584,9 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
         <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
           {t("tc_sorryBody", { ours: fmt(ours), portal: fmt(portal) })}
         </p>
-        <label className="mt-5 flex items-start gap-2.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={consentTick}
-            onChange={(e) => {
-              setConsentTick(e.target.checked);
-              setError("");
-            }}
-            className="mt-1"
-            style={{ accentColor: "var(--color-primary)" }}
-          />
-          <span className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
-            {t("tc_consentLabel")}
-          </span>
-        </label>
-        <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-          {t("tc_consentNote")}
-        </p>
-        {error && <ErrorText>{error}</ErrorText>}
+        <ReviewNotice />
         <Footer>
-          <Ghost onClick={() => next(false)}>{t("tc_noThanks")}</Ghost>
-          <Primary onClick={() => (consentTick ? next(true) : setError(t("tc_consentErr")))}>{t("tc_continue")}</Primary>
+          <Primary onClick={next}>{t("tc_continue")}</Primary>
         </Footer>
       </>
     );
@@ -641,8 +598,8 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
     const course = estCourses.find((c) => c.id === g.courseId)!;
     const yes = () => {
       const grades = { ...(termCheck?.grades ?? {}), [g.courseId]: { letter: g.letter } };
-      save({ grades });
-      if (consent) reportTermCheck("term_grades_saved", { ...baseMeta(), via: "guess", courses: courseMeta(grades) });
+      save({ grades, reviewShared: true });
+      reportTermCheck("term_grades_saved", { ...baseMeta(), via: "guess", courses: courseMeta(grades), reviewShared: true });
       setFound([course.name]);
       finish("found");
     };
@@ -672,7 +629,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   }
 
   // ── every course's official result ──
-  if (step === "grades" || step === "guess" || step === "consent") {
+  if (step === "grades" || step === "guess" || step === "review") {
     const matches = portal != null && draftGpa != null && sameGpa(draftGpa, portal, scheme);
     const submit = () => {
       const grades = gradesFromDraft();
@@ -680,8 +637,8 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
         setError(t("tc_gradesErr"));
         return;
       }
-      save({ grades });
-      if (consent) reportTermCheck("term_grades_saved", { ...baseMeta(), via: "list", courses: courseMeta(grades) });
+      save({ grades, reviewShared: true });
+      reportTermCheck("term_grades_saved", { ...baseMeta(), via: "list", courses: courseMeta(grades), reviewShared: true });
       if (portal == null) return finish("saved");
       if (matches) {
         setFound(
@@ -770,6 +727,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
             )}
           </p>
         )}
+        <ReviewNotice />
         {error && <ErrorText>{error}</ErrorText>}
         <Footer>
           {start !== "grades" && <Ghost onClick={onClose}>{t("tc_notNow")}</Ghost>}
@@ -782,8 +740,8 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   // ── still off after official results ──
   if (step === "reason") {
     const pick = (reason: TermMismatchReason) => {
-      save({ reason });
-      if (consent) reportTermCheck("term_mismatch_reason", { ...baseMeta(), reason, missing: missingKinds(termGaps), courses: courseMeta(gradesFromDraft()) });
+      save({ reason, reviewShared: true });
+      reportTermCheck("term_mismatch_reason", { ...baseMeta(), reason, missing: missingKinds(termGaps), courses: courseMeta(gradesFromDraft()), reviewShared: true });
       finish("reason");
     };
     const reasons: TermMismatchReason[] = ["repeat", "notCounted", "hours", "unknown"];
@@ -818,12 +776,12 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
     found: {
       title: t("tc_foundTitle"),
       body: found.length ? t("tc_foundBody", { courses: found.join("، ") }) : t("tc_foundBodyNone"),
-      note: t(consent ? "tc_foundShared" : "tc_foundPrivate"),
+      note: t("tc_foundShared"),
     },
     saved: { title: t("tc_savedTitle"), body: t("tc_savedBody") },
     reason: {
       title: t("tc_thanksTitle"),
-      body: t(consent ? "tc_reasonDoneShared" : "tc_reasonDone"),
+      body: t("tc_reasonDoneShared"),
       // A repeated course is something the student can tell us right away.
       note: termCheck?.reason === "repeat" ? t("tc_repeatHint") : undefined,
     },
@@ -976,11 +934,10 @@ function CumulativeProfileCard({ onOpen }: { onOpen: (step: Start) => void }) {
   );
 }
 
-/** This term: where the check stands, edit official results, withdraw consent. */
+/** This term: where the check stands, edit official results and explain diagnostic review. */
 export function TermCheckProfileCard({ onOpen = openTermCheck }: { onOpen?: (step: Start) => void } = {}) {
   const { t, lang } = useT();
-  const { semester, termCheck, setTermCheck, reportTermCheck } = useStore();
-  const [withdrawn, setWithdrawn] = useState(false);
+  const { semester, termCheck } = useStore();
   const ended = termEnded(semester);
   const count = Object.keys(termCheck?.grades ?? {}).length;
   const answer = termCheck?.answer;
@@ -990,14 +947,6 @@ export function TermCheckProfileCard({ onOpen = openTermCheck }: { onOpen?: (ste
         month: "long",
       })
     : null;
-
-  const withdraw = () => {
-    if (!termCheck) return;
-    const { term: _term, ...rest } = termCheck;
-    setTermCheck({ ...rest, consent: false, at: new Date().toISOString() });
-    reportTermCheck("term_consent_withdrawn");
-    setWithdrawn(true);
-  };
 
   return (
     <div className="flex items-start gap-3">
@@ -1033,26 +982,7 @@ export function TermCheckProfileCard({ onOpen = openTermCheck }: { onOpen?: (ste
             )}
           </div>
         )}
-        {termCheck?.consent && (
-          <div className="mt-4 rounded-xl px-3.5 py-3" style={{ background: "var(--color-surface-alt)" }}>
-            <p className="text-[13px] leading-relaxed" style={{ color: "var(--color-ink)" }}>
-              {t("tc_profileConsent")}
-            </p>
-            <InteractionButton
-              type="button"
-              onClick={withdraw}
-              className="mt-2 text-xs font-medium underline underline-offset-2"
-              style={{ color: "var(--color-danger)" }}
-            >
-              {t("tc_profileWithdraw")}
-            </InteractionButton>
-          </div>
-        )}
-        {withdrawn && !termCheck?.consent && (
-          <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>
-            {t("tc_profileWithdrawn")}
-          </p>
-        )}
+        <ReviewNotice />
       </div>
     </div>
   );
@@ -1068,7 +998,6 @@ function PastTerms() {
   const { t } = useT();
   const { pastTerms, setPastTerms, hydrated, historicalReadOnly } = useStore();
   const checked = useGpaChecked();
-  const [sharing, setSharing] = useState<PastTerm | null>(null);
   const [editing, setEditing] = useState<PastTerm | "new" | null>(null);
   const [removed, setRemoved] = useState<{ term: PastTerm; index: number } | null>(null);
   const openPastReview = useCallback(() => { setRemoved(null); setEditing("new"); }, []);
@@ -1131,11 +1060,6 @@ function PastTerms() {
                       {t(cumComparison === "rounding" ? "gpa_roundingTitle" : cumComparison === "match" ? "pt_cumPillMatch" : "pt_cumPillDiffers")}
                     </Pill>
                   )}
-                  {!p.consent && p.reason && (
-                    <InteractionButton type="button" onClick={() => setSharing(p)} className="text-xs underline" style={{ color: "var(--color-primary)" }}>
-                      {t("gpa_shareDetails")}
-                    </InteractionButton>
-                  )}
                   <InteractionButton
                     type="button"
                     onClick={() => setEditing(p)}
@@ -1189,7 +1113,6 @@ function PastTerms() {
           )}
         </div>
       </div>
-      {sharing && <PastTermModal term={sharing} shareOnly onClose={() => setSharing(null)} />}
       {editing && (
         <PastTermModal term={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
       )}
@@ -1217,7 +1140,7 @@ interface Row {
 }
 const blankRow = (): Row => ({ key: newId(), name: "", hours: "", grade: "", pct: "", excludedFromGpa: false });
 
-function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | null; onClose: () => void; shareOnly?: boolean }) {
+function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () => void }) {
   const { t } = useT();
   const { pastTerms, setPastTerms, reportTermCheck, academic } = useStore();
   const scheme = useScheme();
@@ -1240,10 +1163,9 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
   const [cumHoursRaw, setCumHoursRaw] = useState(term?.cum ? String(term.cum.hours) : "");
   const previousDraft = useRef<{ gpa: string; hours: string } | null>(null);
   const [cumAfterRaw, setCumAfterRaw] = useState(term?.cum ? String(term.cum.portal) : "");
-  const [consent, setConsent] = useState(term?.consent ?? false);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState<PastTerm | null>(shareOnly ? term : null);
-  const [reasonDone, setReasonDone] = useState(shareOnly && !!term?.reason);
+  const [saved, setSaved] = useState<PastTerm | null>(null);
+  const [reasonDone, setReasonDone] = useState(false);
 
   const setRow = (key: string, patch: Partial<Row>) => {
     setError("");
@@ -1321,38 +1243,23 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
       ours: ours,
       result: sameGpa(ours, portal, scheme) ? "match" : "mismatch",
       ...(cum ? { cum } : {}),
-      consent,
+      ...(term?.consent !== undefined ? { consent: term.consent } : {}),
+      reviewShared: true,
       at: new Date().toISOString(),
     };
     setPastTerms(term ? pastTerms.map((p) => (p.id === term.id ? result : p)) : [...pastTerms, result]);
     reportTermCheck(
       "past_term_checked",
-      consent
-        ? { result: result.result, university, catalog, scheme: scheme.id, name: result.name, ours: result.ours, portal, courses, ...(cum ? { cum } : {}) }
-        : { result: result.result, scheme: scheme.id, ...(cum ? { cum_result: cum.result, cum_comparison: cum.comparison } : {}) }
+      { reviewShared: true, result: result.result, university, catalog, scheme: scheme.id, name: result.name, ours: result.ours, portal, courses, ...(cum ? { cum } : {}) }
     );
     setSaved(result);
-  };
-
-  const shareDetails = () => {
-    if (!saved || saved.consent) return;
-    const next = { ...saved, consent: true };
-    setPastTerms(pastTerms.map((p) => p.id === saved.id ? next : p));
-    reportTermCheck("past_term_checked", {
-      consent: true, result: saved.result, university, catalog, scheme: saved.scheme,
-      name: saved.name, ours: saved.ours, portal: saved.portalGpa,
-      courses: saved.courses, ...(saved.cum ? { cum: saved.cum } : {}),
-      ...(saved.reason ? { reason: saved.reason } : {}),
-    });
-    setSaved(next);
   };
 
   const pickReason = (reason: TermMismatchReason) => {
     if (!saved) return;
     const next = { ...saved, reason };
     setPastTerms(pastTerms.map((p) => (p.id === saved.id ? next : p)));
-    if (saved.consent)
-      reportTermCheck("past_term_reason", { reason, university, scheme: scheme.id, name: saved.name, result: saved.result, ...(saved.cum ? { cum: saved.cum } : {}) });
+    reportTermCheck("past_term_reason", { reviewShared: true, reason, university, catalog, scheme: saved.scheme, name: saved.name, result: saved.result, ours: saved.ours, portal: saved.portalGpa, courses: saved.courses, ...(saved.cum ? { cum: saved.cum } : {}) });
     setSaved(next);
     setReasonDone(true);
   };
@@ -1425,15 +1332,9 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
                 </InteractionButton>
               </>
             )}
-            {reasonDone && !saved.consent && (
-              <div className="mt-3">
-                <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--color-ink)" }}>{t("gpa_shareWhy")}</p>
-                <Secondary onClick={shareDetails}>{t("gpa_shareDetails")}</Secondary>
-              </div>
-            )}
             {(match || reasonDone) && (
               <p className="text-xs mt-3 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-                {t(reasonDone ? (saved.consent ? "gpa_reasonShared" : "gpa_reasonPrivate") : saved.consent ? "pt_sharedMatch" : "pt_private")}
+                {t(reasonDone ? "gpa_reasonShared" : "pt_sharedMatch")}
               </p>
             )}
           </div>
@@ -1441,7 +1342,7 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
         <PastTermInputSummary courses={saved.courses} />
         {(match || reasonDone) && (
           <Footer>
-            <Primary onClick={onClose}>{t(reasonDone && !saved.consent ? "gpa_continuePrivate" : "tc_done")}</Primary>
+            <Primary onClick={onClose}>{t("tc_done")}</Primary>
           </Footer>
         )}
       </Modal>
@@ -1640,21 +1541,7 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
         </div>
       </div>
 
-      <label className="mt-5 flex items-start gap-2.5 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-          className="mt-1"
-          style={{ accentColor: "var(--color-primary)" }}
-        />
-        <span className="text-[13px] leading-relaxed" style={{ color: "var(--color-ink)" }}>
-          {t("pt_consent")}
-          <span className="block text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-            {t("pt_consentNote")}
-          </span>
-        </span>
-      </label>
+      <ReviewNotice />
 
       {error && <ErrorText>{error}</ErrorText>}
       <Footer>
@@ -1666,6 +1553,11 @@ function PastTermModal({ term, onClose, shareOnly = false }: { term: PastTerm | 
 }
 
 // ── small pieces ──
+
+function ReviewNotice() {
+  const { t } = useT();
+  return <p className="text-xs mt-4 leading-relaxed" style={{ color: "var(--color-muted)" }}>{t("gpa_reviewNotice")}</p>;
+}
 
 function Intro({ text }: { text: string }) {
   return (

@@ -48,6 +48,7 @@ export function readTermCheck(raw: unknown, term: string): TermCheck | null {
     ...(typeof r.portalGpa === "number" ? { portalGpa: r.portalGpa } : {}),
     grades,
     ...(typeof r.consent === "boolean" ? { consent: r.consent } : {}),
+    ...(r.reviewShared === true ? { reviewShared: true } : {}),
     ...(reasons.includes(r.reason as (typeof reasons)[number]) ? { reason: r.reason as TermCheck["reason"] } : {}),
     ...(typeof r.snoozeUntil === "string" ? { snoozeUntil: r.snoozeUntil } : {}),
     ...(cum ? { cum } : {}),
@@ -110,8 +111,8 @@ export function estimatedLetter(course: Course, scheme: GradeScheme): string | n
   return p == null ? null : bandForPct(courseScheme(course, scheme), p).letter;
 }
 
-/** One course as the end-of-term check shares it with the admin (only with the
- *  student's consent). A course graded on the cohort average got its letter
+/** One course submitted for admin diagnosis through the GPA comparison.
+ *  A course graded on the cohort average got its letter
  *  from its own cutoffs, not the university's, so its % is left out: it can
  *  never count toward the university's learned cutoffs (admin → GPA checks). */
 export function sharedCourse(course: Course, scheme: GradeScheme, official?: OfficialGrade) {
@@ -120,6 +121,7 @@ export function sharedCourse(course: Course, scheme: GradeScheme, official?: Off
   return {
     name: course.name,
     hours: course.creditHours,
+    ...(course.gpaExcluded ? { excludedFromGpa: true } : {}),
     ...(average ? { average: true } : {}),
     pct: pct != null ? Math.round(pct * 100) / 100 : null,
     estimated: estimatedLetter(course, scheme),
@@ -248,6 +250,7 @@ export function readPastTerms(raw: unknown): PastTerm[] {
       result: o.result === "match" ? "match" : "mismatch",
       ...(cum ? { cum } : {}),
       ...(typeof o.consent === "boolean" ? { consent: o.consent } : {}),
+      ...(o.reviewShared === true ? { reviewShared: true } : {}),
       ...(reasons.includes(o.reason as string) ? { reason: o.reason as PastTerm["reason"] } : {}),
       at: typeof o.at === "string" ? o.at : "",
     });

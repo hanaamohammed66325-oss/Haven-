@@ -749,7 +749,7 @@ export interface StoreValue extends AppData {
    *  them); persisted per account in preferences.termCheck. */
   setTermCheck: (check: Omit<TermCheck, "term"> | null) => void;
   /** Report an end-of-term check answer to the admin activity feed. Callers
-   *  only send course details when the student consented. No-op in the demo. */
+   *  new comparisons include diagnostic details after the review notice. No-op in the demo. */
   reportTermCheck: (event: TermCheckEvent, meta?: Record<string, unknown>) => void;
   /** Replace the saved past terms (Profile → "try it on a past term");
    *  persisted per account in preferences.pastTerms. */
