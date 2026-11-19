@@ -13,7 +13,6 @@ import {
   Globe,
   MousePointer2,
   GraduationCap,
-  Lock,
   Lightbulb,
   Trophy,
   Medal,
@@ -270,15 +269,16 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Pricing — shown, but plans read "coming soon" during the free launch */}
         <section id="pricing" className="pb-32">
           <div className="text-center max-w-2xl mx-auto mb-10">
             <h2 className="font-display text-3xl md:text-4xl" style={{ color: "var(--color-ink)" }}>
               {t("land_pricingTitle")}
             </h2>
-            <p className="mt-5 text-lg" style={{ color: "var(--color-muted)" }}>
-              {t("land_pricingSubtitle")}
-            </p>
+            {ENFORCE_PREMIUM && (
+              <p className="mt-5 text-lg" style={{ color: "var(--color-muted)" }}>
+                {t("land_pricingSubtitle")}
+              </p>
+            )}
           </div>
 
           {/* Free-trial highlight */}
@@ -293,8 +293,8 @@ export default function LandingPage() {
           </div>
 
           {/* Plan cards (labels/prices from PLANS — single source of truth) */}
-          <div className="grid md:grid-cols-3 gap-8 items-stretch">
-            {PLANS.map((p) => {
+          <div className={`grid gap-8 items-stretch ${ENFORCE_PREMIUM ? "md:grid-cols-3" : "max-w-3xl mx-auto md:grid-cols-2"}`}>
+            {PLANS.filter((plan) => ENFORCE_PREMIUM || plan.id === "6" || plan.id === "12").map((p) => {
               const recommended = p.id === "12"; // Full year / Best value
               return (
                 <div
@@ -321,30 +321,22 @@ export default function LandingPage() {
                   <div className="text-sm font-medium" style={{ color: "var(--color-muted)" }}>
                     {t(p.labelKey as TranslationKey)}
                   </div>
-                  <div className="mt-2 font-display text-4xl leading-none" style={{ color: "var(--color-ink)" }}>
-                    {t(p.priceKey as TranslationKey)}
-                  </div>
-                  <div className="mt-1.5 text-[13px]" style={{ color: "var(--color-muted)" }}>
-                    {t(p.perMonthKey as TranslationKey)}
-                  </div>
-
-                  {ENFORCE_PREMIUM ? (
-                    <InteractionLink
-                      href={startFreeHref(p.cycle)}
-                      className="haven-btn mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
-                    >
-                      <Sparkles size={16} />
-                      {t("land_pricingStartFree")}
-                    </InteractionLink>
-                  ) : (
-                    <div
-                      className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium cursor-not-allowed select-none"
-                      style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}
-                      aria-disabled="true"
-                    >
-                      <Lock size={15} />
-                      {t("comingSoon")}
-                    </div>
+                  {ENFORCE_PREMIUM && (
+                    <>
+                      <div className="mt-2 font-display text-4xl leading-none" style={{ color: "var(--color-ink)" }}>
+                        {t(p.priceKey as TranslationKey)}
+                      </div>
+                      <div className="mt-1.5 text-[13px]" style={{ color: "var(--color-muted)" }}>
+                        {t(p.perMonthKey as TranslationKey)}
+                      </div>
+                      <InteractionLink
+                        href={startFreeHref(p.cycle)}
+                        className="haven-btn mt-8 inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
+                      >
+                        <Sparkles size={16} />
+                        {t("land_pricingStartFree")}
+                      </InteractionLink>
+                    </>
                   )}
                 </div>
               );
