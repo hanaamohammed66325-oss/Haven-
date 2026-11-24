@@ -22,11 +22,15 @@ import { useT } from "@/i18n";
 import { Modal } from "./Modal";
 import { pendingSetupSteps } from "./SetupCheck";
 import { useGpaChecked } from "./GpaCheckNudge";
+import { focusReviewField, GpaMismatchReview, GpaReviewNumbers, GpaReviewStatusBadge, useGpaReviewMatch, useStudentGpaReviews, type ReviewField } from "./GpaMismatchReview";
+import { useGpaRequiredFields } from "./GpaRequiredFields";
+import { reviewCourse } from "@/lib/gpaReviewData";
+import { reviewComparison, type ReviewReason, type ReviewResults, type ReviewSnapshot, type ReviewStatus } from "@/lib/gpaReviewCases";
 import { courseCurrentPct, projectedCumulativeGpa, semesterGpaDetail, semesterGPA } from "@/lib/grades";
 import { repeatAdjust } from "@/lib/repeats";
 import { gpaGaps, type GpaGap } from "@/lib/gpaReadiness";
 import { compareCumulativeGpa, priorGpaDecimals, sameDisplayedGpa, savedGpaComparison } from "@/lib/gpaComparison";
-import { DENIED, SPECIAL_RESULTS, detectScheme } from "@/lib/gradeSchemes";
+import { DENIED, SPECIAL_RESULTS, detectScheme, type GradeScheme } from "@/lib/gradeSchemes";
 import { toEnglishDigits } from "@/lib/dates";
 import { isolate, isolateOption } from "@/lib/format";
 import {
@@ -147,9 +151,28 @@ function parseNumber(raw: string): number {
 
 export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClose: () => void }) {
   const { t } = useT();
-  const { courses, academic, semester, termCheck, setTermCheck, reportTermCheck, cumulativeGpa, cumulativeHours, cumulativeGpaSystem, confirmPreviousGpa, confirmCumulativeForSemester } =
+  const required = useGpaRequiredFields();
+  const router = useRouter();
+  const { courses, academic, semester, activeSemesterId, termCheck, setTermCheck, reportTermCheck, cumulativeGpa, cumulativeHours, cumulativeGpaSystem, confirmPreviousGpa, confirmCumulativeForSemester } =
     useStore();
   const scheme = useScheme();
+  const termId = semester.id ?? activeSemesterId;
+  const [confirmedMatch, setConfirmedMatch] = useState<ReviewSnapshot | null>(null);
+  useGpaReviewMatch(confirmedMatch);
+  const reviewSnapshot = (results: ReviewResults, details: Record<string, unknown>): ReviewSnapshot => ({
+    source: "current", termId: termId ?? "", label: semester.name.trim() || t("tc_profileTitle"), scheme: scheme.id, max: scheme.max, results, details,
+  });
+  const courseTable = (grades: Record<string, OfficialGrade>) => courses.map((course) => reviewCourse(
+    course.id, course.name, course.creditHours, scheme, grades[course.id] ?? course.official, course.gpaExcluded === true,
+    estimatedLetter(course, scheme), Boolean(course.repeat)
+  ));
+  const courseOptions = courses.map((course) => ({ id: course.id, name: course.name }));
+  const openCourseEditor = (field: ReviewField, courseId?: string) => {
+    if (!courseId) return;
+    const query = new URLSearchParams({ gpaCourse: courseId, gpaField: field });
+    onClose();
+    router.push(`/courses/?${query}`);
+  };
 
   const estCourses = useMemo(() => withoutOfficial(courses), [courses]);
   const ours = useMemo(() => semesterGPA(estCourses, scheme), [estCourses, scheme]);
@@ -174,6 +197,8 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   const [cumPortalRaw, setCumPortalRaw] = useState("");
   const [cumSaved, setCumSaved] = useState<CumulativeCheck | null>(null);
   const [cumReasonDone, setCumReasonDone] = useState(false);
+  const [returnToCumulative, setReturnToCumulative] = useState(false);
+  const [focusPriorHours, setFocusPriorHours] = useState(false);
   const cumOurs = useMemo(
     () => (hasBefore ? projectedCumulativeGpa(courses, cumulativeGpa, cumulativeHours, scheme, academic, cumulativeGpaSystem) : null),
     [hasBefore, courses, cumulativeGpa, cumulativeHours, cumulativeGpaSystem, scheme, academic]
@@ -303,28 +328,38 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
       };
       save({ cum, reviewShared: true });
       reportTermCheck("term_cum_checked", { ...cumMeta(cum), reviewShared: true });
+      if (comparison === "match") {
+        setConfirmedMatch(reviewSnapshot({ cumulative: reviewComparison(o, portalCum) }, {}));
+      }
       setCumSaved(cum);
       setCumReasonDone(false);
       setStep("cumResult");
     };
-    const numberField = (value: string, set: (v: string) => void, label: string, autoFocus = false) => (
+    const compareForm = () => {
+      if (required.validate([cumEdit && !beforeRaw.trim() && "prior-gpa", cumEdit && !hoursRaw.trim() && "prior-hours", !cumPortalRaw.trim() && "cumulative-portal"])) compareCum();
+    };
+    const numberField = (value: string, set: (v: string) => void, label: string, fieldKey: string, autoFocus = false, field?: string) => (
       <label className="block">
         <span className="block text-xs font-medium mb-1.5" style={{ color: "var(--color-muted)" }}>
           {label}
         </span>
         <input
+          {...required.props(fieldKey)}
           autoFocus={autoFocus}
+          data-gpa-field={field}
           inputMode="decimal"
           dir="ltr"
           value={value}
           onChange={(e) => {
             set(e.target.value);
             setError("");
+            if (e.target.value.trim()) required.clear(fieldKey);
           }}
-          onKeyDown={(e) => e.key === "Enter" && compareCum()}
-          className="w-28 rounded-xl border px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-          style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+          onKeyDown={(e) => e.key === "Enter" && compareForm()}
+          className="w-28 max-w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+          style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)", ...required.style(fieldKey) }}
         />
+        {required.message(fieldKey)}
       </label>
     );
     return (
@@ -350,9 +385,9 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           <>
             <Intro text={t("tc_cumNeedBefore")} />
             <div className="flex flex-wrap gap-4">
-              <label className="col-span-2 text-xs flex items-center gap-2"><input type="checkbox" checked={beforeRaw === "0" && hoursRaw === "0"} onChange={(e) => { if (e.target.checked) { previousDraft.current = { gpa: beforeRaw, hours: hoursRaw }; setBeforeRaw("0"); setHoursRaw("0"); } else { setBeforeRaw(previousDraft.current?.gpa ?? ""); setHoursRaw(previousDraft.current?.hours ?? ""); } }} />{t("gpa_noPrevious")}</label>
-              {numberField(beforeRaw, setBeforeRaw, t("tc_cumBeforeGpa"), true)}
-              {numberField(hoursRaw, setHoursRaw, t("tc_cumBeforeHours"))}
+              <label className="col-span-2 text-xs flex items-center gap-2"><input type="checkbox" checked={beforeRaw === "0" && hoursRaw === "0"} onChange={(e) => { if (e.target.checked) { previousDraft.current = { gpa: beforeRaw, hours: hoursRaw }; setBeforeRaw("0"); setHoursRaw("0"); required.clear("prior-gpa"); required.clear("prior-hours"); } else { setBeforeRaw(previousDraft.current?.gpa ?? ""); setHoursRaw(previousDraft.current?.hours ?? ""); } }} />{t("gpa_noPrevious")}</label>
+              {numberField(beforeRaw, setBeforeRaw, t("tc_cumBeforeGpa"), "prior-gpa", !focusPriorHours)}
+              {numberField(hoursRaw, setHoursRaw, t("tc_cumBeforeHours"), "prior-hours", focusPriorHours, "current-prior-hours")}
             </div>
             <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
               {t("tc_cumBeforeHint")}
@@ -360,13 +395,13 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           </>
         )}
         <div className="mt-5">
-          {numberField(cumPortalRaw, setCumPortalRaw, t("tc_cumPortalLabel"), !cumEdit)}
+          {numberField(cumPortalRaw, setCumPortalRaw, t("tc_cumPortalLabel"), "cumulative-portal", !cumEdit)}
         </div>
         <ReviewNotice />
         {error && <ErrorText>{error}</ErrorText>}
         <Footer>
           <Ghost onClick={onClose}>{t("tc_notNow")}</Ghost>
-          <Primary onClick={compareCum}>{t("pt_compare")}</Primary>
+          <Primary onClick={compareForm}>{t("pt_compare")}</Primary>
         </Footer>
       </>
     );
@@ -393,51 +428,47 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           )}
           <div className="min-w-0">
             <p className="text-base font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
-              {t(rounding ? "gpa_roundingTitle" : match ? "tc_cumMatchTitle" : cumReasonDone ? "tc_thanksTitle" : "tc_sorryTitle")}
+              {t(rounding ? "gpa_roundingTitle" : match ? "tc_cumMatchTitle" : "tc_differs")}
             </p>
             <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
-              {cumReasonDone
-                ? t("tc_reasonDoneShared")
-                : t(rounding ? "gpa_roundingBody" : match ? "tc_cumMatchBody" : "tc_cumMismatchBody", {
+              {match ? t(rounding ? "gpa_roundingBody" : "tc_cumMatchBody", {
                     ours: fmt(cumSaved.ours),
                     portal: fmt(cumSaved.portal),
                     diff: fmt(Math.abs(cumSaved.ours - cumSaved.portal)),
-                  })}
+                  }) : <GpaReviewNumbers ours={fmt(cumSaved.ours)} portal={fmt(cumSaved.portal)} />}
             </p>
-            {cumReasonDone && cumSaved.reason === "repeat" && (
-              <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-                {t("tc_repeatHint")}
-              </p>
-            )}
-            {!match && !cumReasonDone && (
+            {!match && (
               <>
                 <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
                   {t("tc_cumFrom", { gpa: fmt(cumSaved.before), hours: cumSaved.hours })}{" "}
-                  <InteractionButton
-                    type="button"
-                    onClick={() => {
+                </p>
+                <GpaMismatchReview
+                  snapshot={reviewSnapshot({ cumulative: reviewComparison(cumSaved.ours, cumSaved.portal) }, {
+                    ...cumMeta(cumSaved), before: cumSaved.before, hours: cumSaved.hours, missing: missingKinds(gaps),
+                    courseTable: courseTable(termCheck?.grades ?? {}), grading: scheme, prior: { gpa: cumSaved.before, hours: cumSaved.hours },
+                  })}
+                  destinations={{
+                    hours: { field: "priorTotals" },
+                    grade: { field: "grade", courses: courseOptions },
+                    notCounted: { field: "notCounted", courses: courseOptions },
+                    repeat: { field: "repeat", courses: courseOptions },
+                  }}
+                  onEdit={(field, courseId) => {
+                    if (field === "priorTotals") {
                       setBeforeRaw(cumSaved.before.toFixed(cumSaved.beforeDecimals ?? 2));
                       setHoursRaw(String(cumSaved.hours));
+                      setFocusPriorHours(true);
                       setCumEdit(true);
                       setStep("cum");
-                    }}
-                    className="underline underline-offset-2"
-                    style={{ color: "var(--color-primary)" }}
-                  >
-                    {t("tc_cumCheckBefore")}
-                  </InteractionButton>
-                </p>
-                <MissingData gaps={gaps} onLeave={onClose} />
-                <p className="text-sm mt-4" style={{ color: "var(--color-ink)" }}>
-                  {t("pt_reasonQuestion")}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(["repeat", "notCounted", "unknown"] as TermMismatchReason[]).map((r) => (
-                    <Secondary key={r} onClick={() => pick(r)}>
-                      {t(`tc_reason_${r}` as const)}
-                    </Secondary>
-                  ))}
-                </div>
+                      focusReviewField("current-prior-hours");
+                    } else if (field === "grade") {
+                      setReturnToCumulative(true);
+                      setStep("grades");
+                      focusReviewField(`current-grade:${courseId}`);
+                    } else openCourseEditor(field, courseId);
+                  }}
+                  onReceived={(reason) => pick(legacyReviewReason(reason))}
+                />
               </>
             )}
           </div>
@@ -531,11 +562,13 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
       if (ours != null && sameGpa(ours, v, scheme)) {
         save({ answer: "match", portalGpa: v, snoozeUntil: undefined });
         reportTermCheck("term_gpa_match", { university, scheme: scheme.id });
+        setConfirmedMatch(reviewSnapshot({ semester: reviewComparison(ours, v) }, {}));
         finish("close");
         return;
       }
       setStep("review");
     };
+    const compareForm = () => { if (required.validate([!portalRaw.trim() && "semester-portal"])) submit(); };
     return (
       <>
         <label className="block">
@@ -547,23 +580,26 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           </span>
           <input
             autoFocus
+            {...required.props("semester-portal")}
             inputMode="decimal"
             dir="ltr"
             value={portalRaw}
             onChange={(e) => {
               setPortalRaw(e.target.value);
               setError("");
+              if (e.target.value.trim()) required.clear("semester-portal");
             }}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
+            onKeyDown={(e) => e.key === "Enter" && compareForm()}
             placeholder="0.00"
             className="w-32 rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:border-[var(--color-primary)]"
-            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)", ...required.style("semester-portal") }}
           />
+          {required.message("semester-portal")}
         </label>
         {error && <ErrorText>{error}</ErrorText>}
         <Footer>
           <Ghost onClick={() => setStep("ask")}>{t("tc_back")}</Ghost>
-          <Primary onClick={submit}>{t("tc_continue")}</Primary>
+          <Primary onClick={compareForm}>{t("tc_continue")}</Primary>
         </Footer>
       </>
     );
@@ -582,7 +618,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
           {t("tc_sorryTitle")}
         </p>
         <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
-          {t("tc_sorryBody", { ours: fmt(ours), portal: fmt(portal) })}
+          <GpaReviewNumbers ours={fmt(ours)} portal={fmt(portal)} />
         </p>
         <ReviewNotice />
         <Footer>
@@ -598,8 +634,11 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
     const course = estCourses.find((c) => c.id === g.courseId)!;
     const yes = () => {
       const grades = { ...(termCheck?.grades ?? {}), [g.courseId]: { letter: g.letter } };
-      save({ grades, reviewShared: true });
+      save({ grades, answer: "match", reviewShared: true });
       reportTermCheck("term_grades_saved", { ...baseMeta(), via: "guess", courses: courseMeta(grades), reviewShared: true });
+      if (portal != null && sameGpa(g.gpa, portal, scheme)) {
+        setConfirmedMatch(reviewSnapshot({ semester: reviewComparison(g.gpa, portal) }, {}));
+      }
       setFound([course.name]);
       finish("found");
     };
@@ -637,10 +676,18 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
         setError(t("tc_gradesErr"));
         return;
       }
-      save({ grades, reviewShared: true });
+      save({ grades, ...(matches && !returnToCumulative ? { answer: "match" as const } : {}), reviewShared: true });
       reportTermCheck("term_grades_saved", { ...baseMeta(), via: "list", courses: courseMeta(grades), reviewShared: true });
+      if (returnToCumulative) {
+        setReturnToCumulative(false);
+        setStep("cum");
+        return;
+      }
       if (portal == null) return finish("saved");
       if (matches) {
+        if (draftGpa != null && portal != null) {
+          setConfirmedMatch(reviewSnapshot({ semester: reviewComparison(draftGpa, portal) }, {}));
+        }
         setFound(
           estCourses
             .filter((c) => grades[c.id] && (grades[c.id].letter ?? String(grades[c.id].mark)) !== (estimatedLetter(c, scheme) ?? ""))
@@ -676,6 +723,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                   inputMode="decimal"
                   dir="ltr"
                   aria-label={c.name}
+                  data-gpa-field={`current-grade:${c.id}`}
                   value={draft[c.id] ?? ""}
                   onChange={(e) => {
                     setDraft((d) => ({ ...d, [c.id]: e.target.value }));
@@ -688,6 +736,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                 <select
                   dir="ltr"
                   aria-label={c.name}
+                  data-gpa-field={`current-grade:${c.id}`}
                   value={draft[c.id] ?? ""}
                   onChange={(e) => {
                     setDraft((d) => ({ ...d, [c.id]: e.target.value }));
@@ -738,29 +787,53 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
   }
 
   // ── still off after official results ──
-  if (step === "reason") {
+  if (step === "reason" && (draftGpa == null || portal == null)) {
+    return <>
+      <Intro text={t("tc_noGrades")} />
+      <MissingData gaps={termGaps} onLeave={onClose} />
+      <Footer><Primary onClick={() => setStep("grades")}>{t("tc_back")}</Primary></Footer>
+    </>;
+  }
+  if (step === "reason" && draftGpa != null && portal != null) {
     const pick = (reason: TermMismatchReason) => {
       save({ reason, reviewShared: true });
       reportTermCheck("term_mismatch_reason", { ...baseMeta(), reason, missing: missingKinds(termGaps), courses: courseMeta(gradesFromDraft()), reviewShared: true });
-      finish("reason");
+      setDone("reason");
     };
-    const reasons: TermMismatchReason[] = ["repeat", "notCounted", "hours", "unknown"];
     return (
       <>
         <p className="text-base font-semibold mb-1.5" style={{ color: "var(--color-ink)" }}>
           {t("tc_reasonTitle")}
         </p>
         <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
-          {t("tc_reasonBody")}
+          <GpaReviewNumbers ours={fmt(draftGpa)} portal={fmt(portal)} />
         </p>
-        <MissingData gaps={termGaps} onLeave={onClose} />
-        <div className="mt-4 flex flex-wrap gap-2">
-          {reasons.map((r) => (
-            <Secondary key={r} onClick={() => pick(r)}>
-              {t(`tc_reason_${r}` as const)}
-            </Secondary>
-          ))}
-        </div>
+        <GpaMismatchReview
+          snapshot={reviewSnapshot({ semester: reviewComparison(draftGpa, portal) }, {
+            ...baseMeta(), ours: draftGpa, courses: courseMeta(gradesFromDraft()), missing: missingKinds(termGaps),
+            courseTable: courseTable(gradesFromDraft()), grading: scheme,
+          })}
+          destinations={{
+            hours: { field: "courseHours", courses: courseOptions },
+            grade: { field: "grade", courses: courseOptions },
+            notCounted: { field: "notCounted", courses: courseOptions },
+            repeat: { field: "repeat", courses: courseOptions },
+          }}
+          onEdit={(field, courseId) => {
+            if (field === "grade") {
+              setDone("match");
+              setStep("grades");
+              focusReviewField(`current-grade:${courseId}`);
+            } else openCourseEditor(field, courseId);
+          }}
+          onReceived={(reason) => pick(legacyReviewReason(reason))}
+        />
+        {done === "reason" && (
+          <Footer>
+            <Secondary onClick={() => setStep("cum")}>{t("tc_cumOffer")}</Secondary>
+            <Primary onClick={onClose}>{t("tc_done")}</Primary>
+          </Footer>
+        )}
       </>
     );
   }
@@ -817,17 +890,20 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
  *  check, and past terms. */
 export function GpaAccuracyCard({ onOpen = openTermCheck }: { onOpen?: (step: Start) => void } = {}) {
   const { t } = useT();
+  const { semester, activeSemesterId } = useStore();
+  const reviews = useStudentGpaReviews();
+  const current = reviews.find((review) => review.source === "current" && review.termId === (semester.id ?? activeSemesterId));
   return (
     <>
       <p className="text-[13px] mb-5 -mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
         {t("acc_desc")}
       </p>
-      <CumulativeProfileCard onOpen={onOpen} />
+      <CumulativeProfileCard onOpen={onOpen} review={current} />
       <div className="mt-6 pt-5 border-t" style={{ borderColor: "var(--color-border)" }}>
-        <TermCheckProfileCard onOpen={onOpen} />
+        <TermCheckProfileCard onOpen={onOpen} review={current} />
       </div>
       <div className="mt-6 pt-5 border-t" style={{ borderColor: "var(--color-border)" }}>
-        <PastTerms />
+        <PastTerms reviews={reviews} />
       </div>
     </>
   );
@@ -896,7 +972,7 @@ function MissingData({ gaps, onLeave }: { gaps: GpaGap[]; onLeave: () => void })
 
 /** The cumulative GPA after this term against the portal's: open once the
  *  term is over; until then, a past term is where to try it. */
-function CumulativeProfileCard({ onOpen }: { onOpen: (step: Start) => void }) {
+function CumulativeProfileCard({ onOpen, review }: { onOpen: (step: Start) => void; review?: ReviewStatus }) {
   const { t } = useT();
   const { semester, termCheck } = useStore();
   const ended = termEnded(semester);
@@ -913,7 +989,7 @@ function CumulativeProfileCard({ onOpen }: { onOpen: (step: Start) => void }) {
         <p className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
           {t("tc_cumProfileTitle")}
         </p>
-        <p className="text-[13px] mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
           {cum
             ? cum.comparison === "rounding"
               ? t("gpa_roundingBody", { ours: cum.ours.toFixed(2), portal: cum.portal.toFixed(2) })
@@ -923,6 +999,7 @@ function CumulativeProfileCard({ onOpen }: { onOpen: (step: Start) => void }) {
             : ended
             ? t("tc_cumProfilePending")
             : t("tc_cumProfileNotEnded")}
+          {cum && <GpaReviewStatusBadge review={review} kind="cumulative" soleKind={!termCheck?.answer} />}
         </p>
         {(ended || cum) && (
           <div className="mt-3">
@@ -935,7 +1012,7 @@ function CumulativeProfileCard({ onOpen }: { onOpen: (step: Start) => void }) {
 }
 
 /** This term: where the check stands, edit official results and explain diagnostic review. */
-export function TermCheckProfileCard({ onOpen = openTermCheck }: { onOpen?: (step: Start) => void } = {}) {
+export function TermCheckProfileCard({ onOpen = openTermCheck, review }: { onOpen?: (step: Start) => void; review?: ReviewStatus } = {}) {
   const { t, lang } = useT();
   const { semester, termCheck } = useStore();
   const ended = termEnded(semester);
@@ -960,7 +1037,7 @@ export function TermCheckProfileCard({ onOpen = openTermCheck }: { onOpen?: (ste
         <p className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
           {t("tc_profileTitle")}
         </p>
-        <p className="text-[13px] mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] mt-1 leading-relaxed" style={{ color: "var(--color-muted)" }}>
           {answer === "match"
             ? t("tc_profileMatched")
             : answer === "mismatch"
@@ -970,7 +1047,8 @@ export function TermCheckProfileCard({ onOpen = openTermCheck }: { onOpen?: (ste
             : endLabel
             ? t("tc_profileNotEnded", { date: endLabel })
             : t("tc_profileNotEndedNoDate")}
-          {count > 0 && <> {t("tc_profileGrades", { n: count })}</>}
+          {answer && <GpaReviewStatusBadge review={review} kind="semester" soleKind={!termCheck?.cum} />}
+          {count > 0 && <span>{t("tc_profileGrades", { n: count })}</span>}
         </p>
         {(ended || answer || count > 0) && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -993,8 +1071,31 @@ export function TermCheckProfileCard({ onOpen = openTermCheck }: { onOpen?: (ste
 const newId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
+const legacyReviewReason = (reason: ReviewReason): TermMismatchReason => reason === "grade" ? "unknown" : reason;
+
+function pastReviewSnapshot(term: PastTerm, scheme: GradeScheme, university: string, matchingOnly: boolean, courseIds: string[] = []): ReviewSnapshot | null {
+  const results: ReviewResults = {};
+  if (!matchingOnly || sameDisplayedGpa(term.ours, term.portalGpa)) {
+    results.semester = reviewComparison(term.ours, term.portalGpa);
+  }
+  if (term.cum && term.cum.comparison !== "rounding" &&
+      (!matchingOnly || sameDisplayedGpa(term.cum.ours, term.cum.portal))) {
+    results.cumulative = reviewComparison(term.cum.ours, term.cum.portal);
+  }
+  if (!Object.keys(results).length) return null;
+  return {
+    source: "past", termId: term.id, label: term.name, scheme: term.scheme, max: scheme.max, results,
+    details: matchingOnly ? {} : {
+      university, courses: term.courses, cumulative: term.cum, grading: scheme,
+      courseTable: term.courses.map((course, i) => reviewCourse(courseIds[i] ?? String(i), course.name ?? "", course.hours,
+        scheme, course, course.excludedFromGpa === true, course.pct)),
+      ...(term.cum ? { prior: { gpa: term.cum.before, hours: term.cum.hours } } : {}),
+    },
+  };
+}
+
 /** Saved past terms (compact) + the button to check another one. */
-function PastTerms() {
+function PastTerms({ reviews }: { reviews: ReviewStatus[] }) {
   const { t } = useT();
   const { pastTerms, setPastTerms, hydrated, historicalReadOnly } = useStore();
   const checked = useGpaChecked();
@@ -1038,28 +1139,35 @@ function PastTerms() {
               const hours = summary.enteredHours;
               const termComparison = savedGpaComparison(p.ours, p.portalGpa, undefined, p.result);
               const cumComparison = p.cum ? savedGpaComparison(p.cum.ours, p.cum.portal, p.cum.comparison, p.cum.result) : null;
+              const review = reviews.find((item) => item.source === "past" && item.termId === p.id);
               return (
                 <li
                   key={p.id}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-[13px]"
                   style={{ background: "var(--color-surface-alt)" }}
                 >
-                  <span className="min-w-0 flex-1 truncate" style={{ color: "var(--color-ink)" }}>
+                  <div className="min-w-0 flex-1 [overflow-wrap:anywhere]" style={{ color: "var(--color-ink)" }}>
                     <b className="font-medium">{p.name || t("pt_unnamed")}</b>
                     <span style={{ color: "var(--color-muted)" }}>
                       {" · "}
                       {t("pt_summary", { n: p.courses.length, hours })}
                       {summary.excluded > 0 && <span className="block">{t("pt_summaryCounted", { n: summary.counted, hours: summary.countedHours })} · {t("pt_summaryExcluded", { n: summary.excluded, hours: summary.excludedHours })}</span>}
                     </span>
-                  </span>
-                  <Pill ok={termComparison === "match"}>
-                    {t(p.cum ? (termComparison === "match" ? "pt_termPillMatch" : "pt_termPillDiffers") : termComparison === "match" ? "tc_matches" : "tc_differs")}
-                  </Pill>
-                  {p.cum && (
-                    <Pill ok={cumComparison === "match" || cumComparison === "rounding"}>
-                      {t(cumComparison === "rounding" ? "gpa_roundingTitle" : cumComparison === "match" ? "pt_cumPillMatch" : "pt_cumPillDiffers")}
-                    </Pill>
-                  )}
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                      <span className="inline-flex flex-wrap items-center gap-1">
+                        <Pill ok={termComparison === "match"}>
+                          {t(p.cum ? (termComparison === "match" ? "pt_termPillMatch" : "pt_termPillDiffers") : termComparison === "match" ? "tc_matches" : "tc_differs")}
+                        </Pill>
+                        <GpaReviewStatusBadge review={review} kind="semester" soleKind={!p.cum} />
+                      </span>
+                      {p.cum && <span className="inline-flex flex-wrap items-center gap-1">
+                        <Pill ok={cumComparison === "match" || cumComparison === "rounding"}>
+                          {t(cumComparison === "rounding" ? "gpa_roundingTitle" : cumComparison === "match" ? "pt_cumPillMatch" : "pt_cumPillDiffers")}
+                        </Pill>
+                        <GpaReviewStatusBadge review={review} kind="cumulative" />
+                      </span>}
+                    </div>
+                  </div>
                   <InteractionButton
                     type="button"
                     onClick={() => setEditing(p)}
@@ -1140,10 +1248,13 @@ interface Row {
 }
 const blankRow = (): Row => ({ key: newId(), name: "", hours: "", grade: "", pct: "", excludedFromGpa: false });
 
-function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () => void }) {
+function PastTermModal({ term: initialTerm, onClose }: { term: PastTerm | null; onClose: () => void }) {
   const { t } = useT();
+  const required = useGpaRequiredFields();
   const { pastTerms, setPastTerms, reportTermCheck, academic } = useStore();
   const scheme = useScheme();
+  const [createdTerm, setCreatedTerm] = useState<PastTerm | null>(null);
+  const term = initialTerm ?? createdTerm;
   const [name, setName] = useState(term?.name ?? "");
   const [rows, setRows] = useState<Row[]>(() =>
     term
@@ -1173,6 +1284,9 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
   };
   const university = academic.universityName || academic.universitySlug || "";
   const catalog = detectScheme(academic).catalog?.slug ?? null;
+  const confirmed = useMemo(() => saved && !reasonDone ? pastReviewSnapshot(saved, scheme, university, true) : null,
+    [saved, reasonDone, scheme, university]);
+  useGpaReviewMatch(confirmed);
 
   const compare = () => {
     const courses: PastTermCourse[] = [];
@@ -1255,6 +1369,19 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
     setSaved(result);
   };
 
+  const compareForm = () => {
+    const entered = rows.filter((r) => r.excludedFromGpa || [r.name, r.hours, r.grade, r.pct].some((value) => value.trim()));
+    const requiredRows = entered.length ? entered : rows.slice(0, 1);
+    const withCumulative = Boolean(cumBeforeRaw.trim() || cumHoursRaw.trim() || cumAfterRaw.trim());
+    if (required.validate([
+      ...requiredRows.flatMap((r) => [!r.hours.trim() && `hours:${r.key}`, !r.excludedFromGpa && !r.grade.trim() && `grade:${r.key}`]),
+      !portalRaw.trim() && "portal",
+      withCumulative && !cumBeforeRaw.trim() && "pt_cumBefore",
+      withCumulative && !cumHoursRaw.trim() && "pt_cumHours",
+      withCumulative && !cumAfterRaw.trim() && "pt_cumAfter",
+    ])) compare();
+  };
+
   const pickReason = (reason: TermMismatchReason) => {
     if (!saved) return;
     const next = { ...saved, reason };
@@ -1277,6 +1404,10 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
 
   // ── result ──
   if (saved) {
+    const reviewCourses = rows.flatMap((row, index) => row.hours.trim() ? [{
+      id: row.key,
+      name: row.name.trim() || `${t("pt_colCourse")} ${index + 1}`,
+    }] : []);
     const termMatch = sameDisplayedGpa(saved.ours, saved.portalGpa);
     const rounding = saved.cum?.comparison === "rounding";
     const cumMatch = !saved.cum || (saved.cum.comparison ? saved.cum.comparison !== "mismatch" : sameDisplayedGpa(saved.cum.ours, saved.cum.portal));
@@ -1292,49 +1423,45 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
           )}
           <div className="min-w-0">
             <p className="text-base font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
-              {t(reasonDone ? "gpa_reasonThanks" : rounding && termMatch ? "gpa_roundingTitle" : match ? "pt_matchTitle" : "tc_sorryTitle")}
+              {t(rounding && termMatch ? "gpa_roundingTitle" : match ? "pt_matchTitle" : "tc_sorryTitle")}
             </p>
-            {!reasonDone && <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
-              {t(termMatch ? (saved.cum ? "pt_termLineMatch" : "pt_matchBody") : "pt_mismatchBody", {
+            <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
+              {termMatch ? t(saved.cum ? "pt_termLineMatch" : "pt_matchBody", {
                 ours: saved.ours.toFixed(2),
                 portal: saved.portalGpa.toFixed(2),
                 diff,
-              })}
-            </p>}
-            {!reasonDone && saved.cum && (
+              }) : <GpaReviewNumbers ours={saved.ours.toFixed(2)} portal={saved.portalGpa.toFixed(2)} kind={saved.cum ? "semester" : undefined} />}
+            </p>
+            {saved.cum && (
               <p className="text-sm leading-relaxed mt-2" style={{ color: "var(--color-ink)" }}>
-                {t(rounding ? "gpa_roundingBody" : cumMatch ? "pt_cumLineMatch" : "pt_cumLineMismatch", {
+                {cumMatch ? t(rounding ? "gpa_roundingBody" : "pt_cumLineMatch", {
                   ours: saved.cum.ours.toFixed(2),
                   portal: saved.cum.portal.toFixed(2),
                   diff: Math.abs(saved.cum.ours - saved.cum.portal).toFixed(2),
-                })}
+                }) : <GpaReviewNumbers ours={saved.cum.ours.toFixed(2)} portal={saved.cum.portal.toFixed(2)} kind="cumulative" />}
               </p>
             )}
-            {!match && !reasonDone && (
-              <>
-                <p className="text-sm mt-4" style={{ color: "var(--color-ink)" }}>
-                  {t("pt_reasonQuestion")}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(["repeat", "notCounted", "hours", "unknown"] as TermMismatchReason[]).map((r) => (
-                    <Secondary key={r} onClick={() => pickReason(r)}>
-                      {t(`tc_reason_${r}` as const)}
-                    </Secondary>
-                  ))}
-                </div>
-                <InteractionButton
-                  type="button"
-                  onClick={() => setSaved(null)}
-                  className="mt-4 text-xs underline underline-offset-2"
-                  style={{ color: "var(--color-primary)" }}
-                >
-                  {t("pt_backToEdit")}
-                </InteractionButton>
-              </>
-            )}
-            {(match || reasonDone) && (
+            {!match && <GpaMismatchReview
+              snapshot={pastReviewSnapshot(saved, scheme, university, false, reviewCourses.map((course) => course.id))!}
+              destinations={{
+                hours: termMatch ? { field: "priorTotals" } : { field: "courseHours", courses: reviewCourses },
+                grade: { field: "grade", courses: reviewCourses },
+                notCounted: { field: "notCounted", courses: reviewCourses },
+                repeat: { field: "repeatNote", courses: reviewCourses },
+              }}
+              onEdit={(field, courseId) => {
+                if (!initialTerm) setCreatedTerm(saved);
+                setSaved(null);
+                setReasonDone(false);
+                if (field === "termLabel") required.validate(["term-name"]);
+                else if (field === "courseLabel" && courseId) required.validate([`name:${courseId}`]);
+                focusReviewField(field === "termLabel" ? "past-term-name" : field === "priorTotals" ? "past-prior-hours" : `${field}:${courseId}`);
+              }}
+              onReceived={(reason) => pickReason(legacyReviewReason(reason))}
+            />}
+            {match && (
               <p className="text-xs mt-3 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-                {t(reasonDone ? "gpa_reasonShared" : "pt_sharedMatch")}
+                {t("pt_sharedMatch")}
               </p>
             )}
           </div>
@@ -1361,12 +1488,15 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
         </span>
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          data-gpa-field="past-term-name"
+          {...required.props("term-name")}
+          onChange={(e) => { setName(e.target.value); if (e.target.value.trim()) required.clear("term-name"); }}
           placeholder={t("pt_namePlaceholder")}
           maxLength={40}
           className={field}
-          style={fieldStyle}
+          style={{ ...fieldStyle, ...required.style("term-name") }}
         />
+        {required.message("term-name")}
       </label>
 
       <div className={`grid ${cols} gap-1.5 text-[11px] font-medium mb-1.5`} style={{ color: "var(--color-muted)" }}>
@@ -1379,42 +1509,50 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
       <div className="flex flex-col gap-1.5">
         {rows.map((r) => (
           <div key={r.key}>
-          <div className={`grid ${cols} gap-1.5 items-center`}>
-            <input
+          <div className={`grid ${cols} gap-1.5 items-start`}>
+            <div className="min-w-0"><input
               value={r.name}
-              onChange={(e) => setRow(r.key, { name: e.target.value })}
+              data-gpa-field={`courseLabel:${r.key}`}
+              {...required.props(`name:${r.key}`)}
+              onChange={(e) => { setRow(r.key, { name: e.target.value }); if (e.target.value.trim()) required.clear(`name:${r.key}`); }}
               placeholder={t("pt_coursePlaceholder")}
               aria-label={t("pt_colCourse")}
               className={field}
-              style={fieldStyle}
-            />
-            <input
+              style={{ ...fieldStyle, ...required.style(`name:${r.key}`) }}
+            />{required.message(`name:${r.key}`)}</div>
+            <div className="min-w-0"><input
               value={r.hours}
-              onChange={(e) => setRow(r.key, { hours: e.target.value })}
+              {...required.props(`hours:${r.key}`)}
+              onChange={(e) => { setRow(r.key, { hours: e.target.value }); if (e.target.value.trim()) required.clear(`hours:${r.key}`); }}
               inputMode="decimal"
               dir="ltr"
               aria-label={t("pt_colHours")}
+              data-gpa-field={`courseHours:${r.key}`}
               className={field}
-              style={fieldStyle}
-            />
-            {scheme.percent ? (
+              style={{ ...fieldStyle, ...required.style(`hours:${r.key}`) }}
+            />{required.message(`hours:${r.key}`)}</div>
+            <div className="min-w-0">{scheme.percent ? (
               <input
                 value={r.grade}
-                onChange={(e) => setRow(r.key, { grade: e.target.value })}
+                {...required.props(`grade:${r.key}`)}
+                onChange={(e) => { setRow(r.key, { grade: e.target.value }); if (e.target.value.trim()) required.clear(`grade:${r.key}`); }}
                 inputMode="decimal"
                 dir="ltr"
                 aria-label={t("pt_colMark")}
+                data-gpa-field={`grade:${r.key}`}
                 className={field}
-                style={fieldStyle}
+                style={{ ...fieldStyle, ...required.style(`grade:${r.key}`) }}
               />
             ) : (
               <select
                 value={r.grade}
-                onChange={(e) => setRow(r.key, { grade: e.target.value })}
+                {...required.props(`grade:${r.key}`)}
+                onChange={(e) => { setRow(r.key, { grade: e.target.value }); if (e.target.value.trim()) required.clear(`grade:${r.key}`); }}
                 dir="ltr"
                 aria-label={t("pt_colLetter")}
+                data-gpa-field={`grade:${r.key}`}
                 className={field}
-                style={fieldStyle}
+                style={{ ...fieldStyle, ...required.style(`grade:${r.key}`) }}
               >
                 <option value="">—</option>
                 {scheme.bands.map((b) => (
@@ -1428,7 +1566,7 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
                   </option>
                 ))}
               </select>
-            )}
+            )}{required.message(`grade:${r.key}`)}</div>
             {!scheme.percent && (
               <input
                 value={r.pct}
@@ -1453,7 +1591,7 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
           </div>
           <div className="mt-1.5 mb-2 text-[11.5px] leading-relaxed">
             <label className="inline-flex items-start gap-2 cursor-pointer" style={{ color: "var(--color-ink)" }}>
-              <input type="checkbox" checked={r.excludedFromGpa} onChange={(e) => setRow(r.key, { excludedFromGpa: e.target.checked })} className="mt-1" style={{ accentColor: "var(--color-primary)" }} />
+              <input type="checkbox" data-gpa-field={`notCounted:${r.key}`} checked={r.excludedFromGpa} onChange={(e) => { setRow(r.key, { excludedFromGpa: e.target.checked }); if (e.target.checked) required.clear(`grade:${r.key}`); }} className="mt-1" style={{ accentColor: "var(--color-primary)" }} />
               {t("pt_exclude")}
             </label>
             {r.excludedFromGpa && <span className="ms-2 rounded-md px-2 py-0.5" style={{ background: "var(--color-primary-soft)", color: "var(--color-primary)" }}>{t("pt_excludedBadge")}</span>}
@@ -1492,16 +1630,19 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
         </span>
         <input
           value={portalRaw}
+          {...required.props("portal")}
           onChange={(e) => {
             setPortalRaw(e.target.value);
             setError("");
+            if (e.target.value.trim()) required.clear("portal");
           }}
           inputMode="decimal"
           dir="ltr"
           placeholder="0.00"
           className={`${field} w-32`}
-          style={fieldStyle}
+          style={{ ...fieldStyle, ...required.style("portal") }}
         />
+        {required.message("portal")}
       </label>
 
       <div className="mt-5">
@@ -1511,7 +1652,7 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
         <p className="text-[11.5px] mt-0.5 mb-2 leading-relaxed" style={{ color: "var(--color-muted)" }}>
           {t("pt_cumIntro")} {t("gpaHoursHint")}
         </p>
-        <label className="text-xs flex items-center gap-2 mb-2"><input type="checkbox" checked={cumBeforeRaw === "0" && cumHoursRaw === "0"} onChange={(e) => { if (e.target.checked) { previousDraft.current = { gpa: cumBeforeRaw, hours: cumHoursRaw }; setCumBeforeRaw("0"); setCumHoursRaw("0"); } else { setCumBeforeRaw(previousDraft.current?.gpa ?? ""); setCumHoursRaw(previousDraft.current?.hours ?? ""); } setError(""); }} />{t("gpa_noPrevious")}</label>
+        <label className="text-xs flex items-center gap-2 mb-2"><input type="checkbox" checked={cumBeforeRaw === "0" && cumHoursRaw === "0"} onChange={(e) => { if (e.target.checked) { previousDraft.current = { gpa: cumBeforeRaw, hours: cumHoursRaw }; setCumBeforeRaw("0"); setCumHoursRaw("0"); required.clear("pt_cumBefore"); required.clear("pt_cumHours"); } else { setCumBeforeRaw(previousDraft.current?.gpa ?? ""); setCumHoursRaw(previousDraft.current?.hours ?? ""); } setError(""); }} />{t("gpa_noPrevious")}</label>
         <div className="grid grid-cols-3 gap-2">
           {(
             [
@@ -1526,16 +1667,20 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
               </span>
               <input
                 value={value}
+                {...required.props(label)}
                 onChange={(e) => {
                   set(e.target.value);
                   setError("");
+                  if (e.target.value.trim()) required.clear(label);
                 }}
                 inputMode="decimal"
                 dir="ltr"
                 placeholder={ph}
+                data-gpa-field={label === "pt_cumHours" ? "past-prior-hours" : undefined}
                 className={field}
-                style={fieldStyle}
+                style={{ ...fieldStyle, ...required.style(label) }}
               />
+              {required.message(label)}
             </label>
           ))}
         </div>
@@ -1546,7 +1691,7 @@ function PastTermModal({ term, onClose }: { term: PastTerm | null; onClose: () =
       {error && <ErrorText>{error}</ErrorText>}
       <Footer>
         <Ghost onClick={onClose}>{t("tc_notNow")}</Ghost>
-        <Primary onClick={compare}>{t("pt_compare")}</Primary>
+        <Primary onClick={compareForm}>{t("pt_compare")}</Primary>
       </Footer>
     </Modal>
   );

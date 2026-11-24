@@ -21,6 +21,9 @@ import { NotificationsSection } from "./notifications";
 import { SubscriptionsSection } from "./subscriptions";
 import { PaymentsSection } from "./payments";
 import { SupportSection } from "./support";
+import { GpaReviewQueue, type ReviewEmailIntent } from "./gpa-review-queue";
+import { EmailTemplatesSection, type GpaEmailContext } from "./email-templates";
+import { adminGpaReviews, type AdminReview } from "@/lib/gpaReviewCases";
 import { CouponsSection } from "./coupons";
 import { TopUsersSection } from "./top-users";
 import { UniversitiesSection } from "./universities";
@@ -67,6 +70,9 @@ function AdminPage() {
   const [section, setSection] = useState<AdminSection>("dashboard");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [openUserId, setOpenUserId] = useState<string | null>(null);
+  const [gpaReviewId, setGpaReviewId] = useState<string | null>(null);
+  const [emailContext, setEmailContext] = useState<GpaEmailContext | undefined>();
+  const [emailOrigin, setEmailOrigin] = useState<"gpa-checks" | "support">("gpa-checks");
 
   // Paid-subscription sections are hidden by default (pre-launch); toggle persists
   // per-device. Kept out of the DB so it's an instant, admin-only preference.
@@ -88,6 +94,9 @@ function AdminPage() {
 
   // Sidebar badges (open tickets, failed payments)
   const [badges, setBadges] = useState<Partial<Record<AdminSection, number>>>({});
+  const [reviewData, setReviewData] = useState<Awaited<ReturnType<typeof adminGpaReviews>> | null>(null);
+  const [reviewUnavailable, setReviewUnavailable] = useState(false);
+  const reviewRequest = useRef(0);
 
   // ---- Auth lifecycle ----
   useEffect(() => {
@@ -104,6 +113,11 @@ function AdminPage() {
         calendarRequest.current++;
         setIsAdmin(null);
         setBadges({});
+        reviewRequest.current++;
+        setReviewData(null);
+        setReviewUnavailable(false);
+        setGpaReviewId(null);
+        setEmailContext(undefined);
         setCalendarsReady(0);
         setSection("dashboard");
         setOpenUserId(null);
@@ -168,7 +182,37 @@ function AdminPage() {
   }, [section, refreshCalendars]);
   // Only calendars waiting for approval count (Hanaa: the other notices were noise).
   const factsBadge = calendarsReady;
-  const allBadges = { ...badges, ...(factsBadge ? { facts: factsBadge } : {}) };
+  const reviewQueueVisible = section === "gpa-checks" || section === "support";
+  const refreshReviews = useCallback(async () => {
+    if (!accountId || !isAdmin || sessionRef.current?.user.id !== accountId) return;
+    const request = ++reviewRequest.current;
+    try {
+      const data = await adminGpaReviews(reviewQueueVisible);
+      if (request === reviewRequest.current && sessionRef.current?.user.id === accountId) {
+        setReviewData((previous) => ({ ...data, cases: reviewQueueVisible ? data.cases : previous?.cases ?? [] }));
+        setReviewUnavailable(false);
+      }
+    } catch {
+      if (request === reviewRequest.current) setReviewUnavailable(true);
+    }
+  }, [accountId, accountEpoch, isAdmin, reviewQueueVisible]);
+  useEffect(() => {
+    if (!isAdmin) return;
+    void refreshReviews();
+    const onFocus = () => { if (document.visibilityState === "visible") void refreshReviews(); };
+    window.addEventListener("focus", onFocus);
+    const timer = window.setInterval(onFocus, 60_000);
+    return () => {
+      reviewRequest.current++;
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+    };
+  }, [isAdmin, refreshReviews]);
+  const allBadges = {
+    ...badges,
+    ...(reviewData ? { support: reviewData.newSupport, "gpa-checks": reviewData.newGpa } : {}),
+    ...(factsBadge ? { facts: factsBadge } : {}),
+  };
 
   // ---- Handlers ----
   const handleLogin = async (e: React.FormEvent) => {
@@ -181,7 +225,22 @@ function AdminPage() {
   const handleSignOut = async () => { await supabase.auth.signOut(); };
   const openUser = (id: string) => setOpenUserId(id);
   const closeUser = () => setOpenUserId(null);
-  const goSection = (s: AdminSection) => { setOpenUserId(null); setReviewOwner(null); setSection(s); };
+  const goSection = (s: AdminSection) => {
+    setOpenUserId(null); setReviewOwner(null); setGpaReviewId(null); setEmailContext(undefined); setSection(s);
+  };
+  const openReviewEmail = (row: AdminReview, intent?: ReviewEmailIntent) => {
+    const kind = row.results.semester && row.results.cumulative ? "المعدل الفصلي والتراكمي" :
+      row.results.cumulative ? "المعدل التراكمي" : "المعدل الفصلي";
+    setEmailOrigin(section === "support" ? "support" : "gpa-checks");
+    setEmailContext({
+      term: row.label, kind, intent,
+      resolution: row.resolution === "matched" ? "تأكدنا من التطابق عند إعادة المقارنة." : row.resolution ?? undefined,
+    });
+    setSection("email-templates");
+  };
+  const gpaReviewQueue = <GpaReviewQueue rows={reviewData?.cases ?? []} unavailable={reviewUnavailable}
+    selectedId={gpaReviewId} onSelect={setGpaReviewId} onEmail={openReviewEmail} onChanged={refreshReviews} />;
+  const caseOpen = Boolean(reviewData?.cases.some((row) => row.id === gpaReviewId));
   const [reviewOwner, setReviewOwner] = useState<string | null>(null);
   const openGrowthReview = (id: string) => { setReviewOwner(id); setOpenUserId(null); setSection("referral-review"); };
 
@@ -266,7 +325,7 @@ function AdminPage() {
           ) : section === "universities" ? (
             <UniversitiesSection />
           ) : section === "gpa-checks" ? (
-            <GpaChecksSection onOpenUser={openUser} />
+            <>{gpaReviewQueue}{!caseOpen && <GpaChecksSection onOpenUser={openUser} />}</>
           ) : section === "havi-alerts" ? (
             <HaviAlertsSection onOpenUser={openUser} />
           ) : section === "facts" ? (
@@ -284,7 +343,13 @@ function AdminPage() {
           ) : section === "feedback" ? (
             <FeedbackSection />
           ) : section === "support" ? (
-            <SupportSection session={session} />
+            <>{gpaReviewQueue}{!caseOpen && <SupportSection session={session} onGpaTicket={setGpaReviewId} onTicketChanged={() => void refreshReviews()} />}</>
+          ) : section === "email-templates" ? (
+            <>
+              {emailContext && <InteractionButton type="button" style={S.btnSec} className="mb-4"
+                onClick={() => { setEmailContext(undefined); setSection(emailOrigin); }}>Back to request</InteractionButton>}
+              <EmailTemplatesSection context={emailContext} />
+            </>
           ) : section === "coupons" ? (
             <CouponsSection session={session} />
           ) : null}

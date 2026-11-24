@@ -16,7 +16,11 @@ interface Message {
   author_email: string; body: string; created_at: string;
 }
 
-export function SupportSection({ session }: { session: Session }) {
+export function SupportSection({ session, onGpaTicket, onTicketChanged }: {
+  session: Session;
+  onGpaTicket?: (id: string) => void;
+  onTicketChanged?: () => void;
+}) {
   const C = useC();
   const S = useS();
   const [rows, setRows] = useState<Ticket[]>([]);
@@ -92,7 +96,7 @@ export function SupportSection({ session }: { session: Session }) {
                 rows.map((t) => (
                   <tr
                     key={t.id}
-                    onClick={() => setSelected(t)}
+                    onClick={() => t.category === "gpa" && onGpaTicket ? onGpaTicket(t.id) : setSelected(t)}
                     className="transition-colors admin-hover-row cursor-pointer"
                     style={{ borderBottom: `1px solid ${C.border}` }}
                   >
@@ -124,8 +128,8 @@ export function SupportSection({ session }: { session: Session }) {
         </div>
       )}
 
-      {selected && <TicketModal session={session} ticket={selected} onClose={() => setSelected(null)} onChanged={() => { void load(); }} />}
-      {showCreate && <CreateTicketModal session={session} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); void load(); }} />}
+      {selected && <TicketModal session={session} ticket={selected} onClose={() => setSelected(null)} onChanged={() => { void load(); onTicketChanged?.(); }} />}
+      {showCreate && <CreateTicketModal session={session} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); void load(); onTicketChanged?.(); }} />}
     </div>
   );
 }

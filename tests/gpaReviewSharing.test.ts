@@ -29,6 +29,7 @@ function harness() {
     baseMeta: () => ({ ours: 4.5, portal: 4, scheme: "saudi5", university: "Test" }),
     courseMeta: () => courses,
     termCheck: { consent: false, grades: {} },
+    returnToCumulative: false,
     setStep: () => {}, finish: () => {},
   };
   return { events, saves, courses, bindings };
@@ -54,6 +55,23 @@ test("grade list and targeted correction both submit their diagnostic snapshot",
     assert.deepEqual(h.events[0].meta.courses, h.courses);
     assert.equal(h.saves[0].reviewShared, true);
   }
+});
+
+test("saving grades from a cumulative correction returns to cumulative without certifying the semester", () => {
+  const h = harness();
+  let step = "";
+  let returning = true;
+  callback("submit", 'via: "list"', {
+    ...h.bindings, gradesFromDraft: () => ({ c: { letter: "B" } }),
+    portal: 4, matches: true, returnToCumulative: true,
+    setError: assert.fail, t: (s: string) => s, finish: assert.fail,
+    setStep: (next: string) => { step = next; },
+    setReturnToCumulative: (value: boolean) => { returning = value; },
+  })();
+  assert.equal(step, "cum");
+  assert.equal(returning, false);
+  assert.equal(h.saves[0].answer, undefined);
+  assert.equal(h.events[0].meta.reviewShared, true);
 });
 
 test("cumulative comparison and its reason retain all diagnostic inputs", () => {

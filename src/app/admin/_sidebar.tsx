@@ -10,7 +10,7 @@ import type { Session } from "@supabase/supabase-js";
 export type AdminSection =
   | "dashboard" | "users" | "insights" | "retention" | "top-users" | "universities" | "gpa-checks" | "havi-alerts" | "facts"
   | "attendance" | "notifications" | "referral-review" | "growth"
-  | "subscriptions" | "payments" | "feedback" | "support" | "coupons";
+  | "subscriptions" | "payments" | "feedback" | "support" | "coupons" | "email-templates";
 
 /** Sections that are only relevant once paid subscriptions are live. Hidden by
  *  default behind the billing toggle so the dashboard stays focused on usage. */
@@ -40,7 +40,7 @@ export function AdminSidebar({
     { id: "retention",     label: "Retention",     icon: "🔁" },
     { id: "top-users",     label: "Top users",     icon: "🏆" },
     { id: "universities",  label: "Universities",  icon: "🎓" },
-    { id: "gpa-checks",    label: "GPA",           icon: "✅" },
+    { id: "gpa-checks",    label: "GPA Checks",    icon: "✅", badge: badges?.["gpa-checks"] },
     { id: "havi-alerts",   label: "Havi alerts",   icon: "" },
     { id: "facts",         label: "University facts", icon: "📅", badge: badges?.facts },
     { id: "attendance",    label: ATTENDANCE_CALC_SUSPENDED ? "Absence contributions" : "Attendance audit", icon: "📋" },
@@ -49,6 +49,7 @@ export function AdminSidebar({
     { id: "payments",      label: "Payments",      icon: "💰", badge: badges?.payments },
     { id: "feedback",      label: "Feedback",      icon: "💬" },
     { id: "support",       label: "Support",       icon: "🎫", badge: badges?.support },
+    { id: "email-templates", label: "Email Templates", icon: "" },
     { id: "coupons",       label: "Coupons",       icon: "🏷️" },
   ];
   const items = allItems.filter((it) => showBilling || !BILLING_SECTIONS.has(it.id));
@@ -78,15 +79,18 @@ export function AdminSidebar({
               }}
             >
               <span style={{ fontSize: 15 }}>{it.icon}</span>
-              <span className="flex-1">{it.label}</span>
+              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+              <span>{it.label}</span>
               {it.badge != null && Number(it.badge) > 0 && (
                 <span
-                  className="rounded-full px-2 text-[10px] font-semibold"
-                  style={{ background: isActive ? "rgba(255,255,255,0.2)" : C.dangerBg, color: isActive ? "#fff" : C.danger }}
+                  className="rounded-full px-2 text-[10px] font-semibold tabular-nums"
+                  aria-label={`${it.badge} ${it.id === "support" || it.id === "gpa-checks" ? "new requests" : "items"}`}
+                  style={{ background: C.dangerBg, color: C.danger }}
                 >
                   {it.badge}
                 </span>
               )}
+              </span>
             </InteractionButton>
           );
         })}
