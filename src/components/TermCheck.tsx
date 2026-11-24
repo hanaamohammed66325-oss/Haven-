@@ -672,6 +672,10 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
     const matches = portal != null && draftGpa != null && sameGpa(draftGpa, portal, scheme);
     const submit = () => {
       const grades = gradesFromDraft();
+      if (!required.validate(estCourses.flatMap((course) => [
+        !(course.creditHours > 0) && `current-hours:${course.id}`,
+        !course.gpaExcluded && !grades[course.id] && `current-grade:${course.id}`,
+      ]))) return;
       if (!Object.keys(grades).length) {
         setError(t("tc_gradesErr"));
         return;
@@ -715,35 +719,45 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                   <span className="block text-[11.5px]" style={{ color: "var(--color-muted)" }}>{t("pt_excludedBadge")}</span>
                 )}
               </span>
-              <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                {t("tc_hours", { n: c.creditHours })}
-              </span>
-              {scheme.percent ? (
+              <div className="min-w-0 text-xs" style={{ color: "var(--color-muted)" }}>
+                {c.creditHours > 0 ? t("tc_hours", { n: c.creditHours }) : (
+                  <InteractionButton type="button" {...required.props(`current-hours:${c.id}`)}
+                    className="max-w-full underline [overflow-wrap:anywhere]" onClick={() => openCourseEditor("courseHours", c.id)}>
+                    {t("tc_hours", { n: c.creditHours })}
+                  </InteractionButton>
+                )}
+                {required.message(`current-hours:${c.id}`)}
+              </div>
+              <div className="min-w-0">{scheme.percent ? (
                 <input
                   inputMode="decimal"
                   dir="ltr"
                   aria-label={c.name}
                   data-gpa-field={`current-grade:${c.id}`}
+                  {...required.props(`current-grade:${c.id}`)}
                   value={draft[c.id] ?? ""}
                   onChange={(e) => {
                     setDraft((d) => ({ ...d, [c.id]: e.target.value }));
+                    if (e.target.value.trim()) required.clear(`current-grade:${c.id}`);
                     setError("");
                   }}
-                  className="min-w-0 max-w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
-                  style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+                  className="w-full min-w-0 rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)", ...required.style(`current-grade:${c.id}`) }}
                 />
               ) : (
                 <select
                   dir="ltr"
                   aria-label={c.name}
                   data-gpa-field={`current-grade:${c.id}`}
+                  {...required.props(`current-grade:${c.id}`)}
                   value={draft[c.id] ?? ""}
                   onChange={(e) => {
                     setDraft((d) => ({ ...d, [c.id]: e.target.value }));
+                    if (e.target.value.trim()) required.clear(`current-grade:${c.id}`);
                     setError("");
                   }}
-                  className="min-w-0 max-w-full rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
-                  style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+                  className="w-full min-w-0 rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary)]"
+                  style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink)", ...required.style(`current-grade:${c.id}`) }}
                 >
                   <option value="">—</option>
                   {scheme.bands.map((b) => (
@@ -758,6 +772,7 @@ export function TermCheckFlow({ start = "ask", onClose }: { start?: Start; onClo
                   ))}
                 </select>
               )}
+              {required.message(`current-grade:${c.id}`)}</div>
             </div>
           ))}
         </div>
@@ -1370,11 +1385,9 @@ function PastTermModal({ term: initialTerm, onClose }: { term: PastTerm | null; 
   };
 
   const compareForm = () => {
-    const entered = rows.filter((r) => r.excludedFromGpa || [r.name, r.hours, r.grade, r.pct].some((value) => value.trim()));
-    const requiredRows = entered.length ? entered : rows.slice(0, 1);
     const withCumulative = Boolean(cumBeforeRaw.trim() || cumHoursRaw.trim() || cumAfterRaw.trim());
     if (required.validate([
-      ...requiredRows.flatMap((r) => [!r.hours.trim() && `hours:${r.key}`, !r.excludedFromGpa && !r.grade.trim() && `grade:${r.key}`]),
+      ...rows.flatMap((r) => [!r.hours.trim() && `hours:${r.key}`, !r.excludedFromGpa && !r.grade.trim() && `grade:${r.key}`]),
       !portalRaw.trim() && "portal",
       withCumulative && !cumBeforeRaw.trim() && "pt_cumBefore",
       withCumulative && !cumHoursRaw.trim() && "pt_cumHours",

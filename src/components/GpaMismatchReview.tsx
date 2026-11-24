@@ -95,8 +95,15 @@ export function GpaMismatchReview({ snapshot, destinations, onEdit, onReceived }
   const selectedCourse = options.some((course) => course.id === courseId) ? courseId : options.length === 1 ? options[0].id : "";
   const missing = requestDataMissing(snapshot);
   const courseTable = (snapshot.details as Partial<ReviewCaseData>).courseTable ?? [];
-  const incompleteCourse = courseTable.find((course) => !course.excluded &&
-    (!course.name.trim() || !(course.hours > 0) || course.points === null || !Number.isFinite(course.points)));
+  const incompleteCourses = courseTable.flatMap((course) => {
+    if (course.excluded) return [];
+    const fields: Array<"courseLabel" | "courseHours" | "grade"> = [];
+    if (!course.name.trim()) fields.push("courseLabel");
+    if (!(course.hours > 0) || !Number.isFinite(course.hours)) fields.push("courseHours");
+    if (course.points === null || !Number.isFinite(course.points)) fields.push("grade");
+    return fields.map((field) => ({ course, field, key: `${field}:${course.id}` }));
+  });
+  const generalMissing = missing.filter((field) => field !== "courses" || !incompleteCourses.length);
   const unnamedSelection = courseTable.some((course) => course.id === selectedCourse && !course.name.trim());
   const [state, setState] = useState<"idle" | "sending" | "received" | "resolved" | "error">("idle");
   const busy = useRef(false);
@@ -105,7 +112,7 @@ export function GpaMismatchReview({ snapshot, destinations, onEdit, onReceived }
   current.current = accountId;
   const send = async () => {
     if (!accountId || busy.current) return;
-    const valid = fields.validate([...missing, !reason && "reason", Boolean(options.length && !selectedCourse) && "course",
+    const valid = fields.validate([...generalMissing, ...incompleteCourses.map(({ key }) => key), !reason && "reason", Boolean(options.length && !selectedCourse) && "course",
       unnamedSelection && "selected-course-name", !confirmed && "confirmed"]);
     if (!valid || !reason) return;
     busy.current = true;
@@ -136,15 +143,25 @@ export function GpaMismatchReview({ snapshot, destinations, onEdit, onReceived }
   return (
     <div className="mt-4 min-w-0 space-y-3">
       <fieldset className="min-w-0 space-y-2" disabled={state === "sending"}>
-        {missing.map((field) => (
+        {generalMissing.map((field) => (
           <div key={field}>
             <InteractionButton type="button" className={buttonClass} {...fields.props(field)}
               style={{ borderColor: "var(--color-border)", ...fields.style(field) }}
               onClick={() => onEdit(field === "label" ? "termLabel" : field === "prior" ? "priorTotals" :
-                incompleteCourse && !incompleteCourse.name.trim() ? "courseLabel" : "grade", incompleteCourse?.id ?? destinations.grade?.courses?.[0]?.id)}>
+                "grade", destinations.grade?.courses?.[0]?.id)}>
               {labels.missing[field]}
             </InteractionButton>
             {fields.message(field)}
+          </div>
+        ))}
+        {incompleteCourses.map(({ course, field, key }) => (
+          <div key={key}>
+            <InteractionButton type="button" className={buttonClass} {...fields.props(key)}
+              style={{ borderColor: "var(--color-border)", ...fields.style(key) }}
+              onClick={() => onEdit(field, course.id)}>
+              {[course.name.trim(), field === "courseLabel" ? labels.missingCourseName : labels.fields[field]].filter(Boolean).join(" · ")}
+            </InteractionButton>
+            {fields.message(key)}
           </div>
         ))}
         <label className="block text-xs">

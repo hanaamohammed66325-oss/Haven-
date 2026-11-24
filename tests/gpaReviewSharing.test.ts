@@ -28,6 +28,8 @@ function harness() {
     reportTermCheck: (event: string, meta: any) => events.push({ event, meta }),
     baseMeta: () => ({ ours: 4.5, portal: 4, scheme: "saudi5", university: "Test" }),
     courseMeta: () => courses,
+    estCourses: [{ id: "c", creditHours: 3 }],
+    required: { validate: (fields: Array<string | false>) => !fields.some(Boolean) },
     termCheck: { consent: false, grades: {} },
     returnToCumulative: false,
     setStep: () => {}, finish: () => {},

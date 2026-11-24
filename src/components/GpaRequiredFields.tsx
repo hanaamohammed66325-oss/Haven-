@@ -35,7 +35,7 @@ export function useGpaRequiredFields() {
     "aria-describedby": missing.includes(field) ? key(field) : undefined,
   });
   const message = (field: string) => missing.includes(field)
-    ? <span dir="auto" id={key(field)} role="alert" className="block text-xs leading-snug" style={{ color: "var(--color-danger)" }}>
+    ? <span dir="auto" id={key(field)} role="alert" className="block text-[11px] leading-snug [overflow-wrap:anywhere]" style={{ color: "var(--color-danger)" }}>
         {lang === "ar" ? "هذا الحقل مطلوب" : "This field is required"}
       </span>
     : null;
