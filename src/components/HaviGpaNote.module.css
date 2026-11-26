@@ -17,6 +17,11 @@
   animation: rise 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
 }
 
+.note .inner {
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+
 .speech .inner {
   border-radius: 1rem;
 }
@@ -130,6 +135,85 @@
 .later:hover {
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.actions .later,
+.dismiss {
+  min-height: 44px;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: start;
+}
+
+.dismiss {
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.confirmActions > button {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 44px;
+  white-space: normal;
+}
+
+.confirmDismiss {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.returnToData {
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.confirmActions button:disabled,
+.actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.warning {
+  padding-inline-start: 0.85rem;
+  border-inline-start: 2px solid var(--color-warning);
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.dismissStatus {
+  margin-top: 0.65rem;
+  color: var(--color-muted);
+  font-size: 0.75rem;
 }
 
 /* Speech tail, pointing at Havi (flipped when the note sits below him). */

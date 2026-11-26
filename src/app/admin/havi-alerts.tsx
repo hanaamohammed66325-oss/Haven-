@@ -5,6 +5,7 @@
 // one row per student; a row opens that student's account.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { HaviNoteId } from "@/lib/haviFeatureNotes";
 import { supabase, useC, useS, SectionHeader, Loading, ErrorBanner } from "./_lib";
 
 interface AlertRow {
@@ -21,6 +22,51 @@ interface AlertRow {
   last_action_item: string | null;
   last_action_at: string | null;
   resolved_at: string | null;
+}
+
+interface DismissalRow {
+  user_id: string;
+  email: string | null;
+  notes: HaviNoteId[];
+}
+
+const NOTE_LABEL: Record<HaviNoteId, string> = {
+  gpa: "GPA data reminder",
+  groups: "Group sessions",
+  referral: "Invite friends",
+};
+
+export function HaviDismissalTable({ rows, onOpenUser }: { rows: DismissalRow[]; onOpenUser: (id: string) => void }) {
+  const C = useC();
+  const S = useS();
+
+  return (
+    <div className="rounded-xl border" style={{ borderColor: C.border }}>
+      <table className="w-full table-fixed text-[13px]">
+        <thead>
+          <tr><th style={S.tableHead} scope="col">Account</th><th style={S.tableHead} scope="col">Hidden messages</th></tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr><td colSpan={2} className="px-4 py-5 text-center" style={{ color: C.textDim }}>No saved dismissals yet.</td></tr>
+          ) : rows.map((row) => (
+            <tr key={row.user_id} className="admin-hover-row">
+              <td style={S.tableCell}>
+                <button type="button" className="text-start font-medium underline-offset-2 hover:underline [overflow-wrap:anywhere]" onClick={() => onOpenUser(row.user_id)} dir="ltr">
+                  {row.email ?? row.user_id}
+                </button>
+              </td>
+              <td style={{ ...S.tableCell, color: C.textMuted }}>
+                <ul className="flex flex-wrap gap-x-3 gap-y-1">
+                  {row.notes.map((id) => <li key={id}>{NOTE_LABEL[id]}</li>)}
+                </ul>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 const MISSING_LABEL: Record<string, string> = {
@@ -40,6 +86,8 @@ export function HaviAlertsSection({ onOpenUser }: { onOpenUser: (id: string) => 
   const [rows, setRows] = useState<AlertRow[] | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("open");
+  const [dismissals, setDismissals] = useState<DismissalRow[] | null>(null);
+  const [dismissalError, setDismissalError] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -51,7 +99,16 @@ export function HaviAlertsSection({ onOpenUser }: { onOpenUser: (id: string) => 
     }
     setRows((data ?? []) as AlertRow[]);
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  const loadDismissals = useCallback(async () => {
+    setDismissalError("");
+    const { data, error: e } = await supabase.rpc("admin_havi_message_dismissals");
+    if (e) {
+      setDismissalError("Saved dismissals could not be loaded.");
+      return;
+    }
+    setDismissals((data ?? []) as DismissalRow[]);
+  }, []);
+  useEffect(() => { void load(); void loadDismissals(); }, [load, loadDismissals]);
 
   const counts = useMemo(() => {
     const all = rows ?? [];
@@ -59,8 +116,14 @@ export function HaviAlertsSection({ onOpenUser }: { onOpenUser: (id: string) => 
   }, [rows]);
   const shown = (rows ?? []).filter((r) => (filter === "all" ? true : filter === "open" ? !r.resolved_at : !!r.resolved_at));
 
+  const gpaDismissed = useMemo(() => new Set(
+    (dismissals ?? []).filter((row) => row.notes.includes("gpa")).map((row) => row.user_id)
+  ), [dismissals]);
+
   const action = (r: AlertRow) =>
-    r.last_action === "havi_gpa_note_fix"
+    gpaDismissed.has(r.user_id)
+      ? "Do not show again"
+      : r.last_action === "havi_gpa_note_fix"
       ? `Opened ${MISSING_LABEL[r.last_action_item ?? ""] ?? r.last_action_item ?? "item"}`
       : r.last_action === "havi_gpa_note_later"
       ? "Remind me later"
@@ -71,6 +134,12 @@ export function HaviAlertsSection({ onOpenUser }: { onOpenUser: (id: string) => 
   return (
     <div>
       <SectionHeader title="Havi alerts" />
+      <section aria-labelledby="havi-dismissals-heading" className="mb-6 flex flex-col gap-2">
+        <h3 id="havi-dismissals-heading" className="text-sm font-semibold">Message dismissals</h3>
+        {dismissalError ? <ErrorBanner message={dismissalError} onRetry={loadDismissals} /> :
+          dismissals ? <HaviDismissalTable rows={dismissals} onOpenUser={onOpenUser} /> : <Loading />}
+      </section>
+      <h3 className="mb-2 text-sm font-semibold">GPA data alerts</h3>
       <p className="text-[12px] mb-4" style={{ color: C.textDim }}>
         Students Havi alerted about data missing for an accurate GPA. A student counts as resolved once everything was recorded after the last alert. Click a row to open the account.
       </p>

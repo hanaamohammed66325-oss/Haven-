@@ -35,16 +35,15 @@ const ICON: Record<SuggestionKind, React.ReactNode> = {
 
 export function SmartSuggestions() {
   const { t } = useT();
-  const { courses, semester, planner, gamification, gpaGoal, academic, attendanceEnabled, accountId } = useStore();
+  const { courses, semester, planner, gamification, gpaGoal, academic, attendanceEnabled, accountId, holidayDays, holidayCalendarReady } = useStore();
   const scheme = useScheme();
 
   const suggestions = useMemo(
-    () =>
-      buildSmartSuggestions(
-        { courses, planner, semester, gamification, gpaGoal, scheme, holidayCalendar: holidayCalendar(academic), attendanceEnabled },
+    () => holidayCalendarReady ? buildSmartSuggestions(
+        { courses, planner, semester, gamification, gpaGoal, scheme, holidayCalendar: holidayCalendar(academic), holidayDays, attendanceEnabled },
         t
-      ),
-    [courses, semester, planner, gamification, gpaGoal, scheme, academic, attendanceEnabled, t]
+      ) : [],
+    [courses, semester, planner, gamification, gpaGoal, scheme, academic, attendanceEnabled, t, holidayDays, holidayCalendarReady]
   );
 
   const seasonPrefix = `season:${semester.startDate}:${semester.endDate}:`;
@@ -64,6 +63,8 @@ export function SmartSuggestions() {
     }
     return () => { stopped = true; };
   }, [accountId, seasonKeys]);
+
+  if (suggestions.length === 0) return null;
 
   return (
     <div className="flex gap-2.5 overflow-x-auto pb-2 -mb-2 scrollbar-hide">

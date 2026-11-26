@@ -16,6 +16,9 @@ import { useStore } from "@/store";
 import { useT } from "@/i18n";
 import { logEvent } from "@/lib/db";
 import { gpaGaps, type GpaGap } from "@/lib/gpaReadiness";
+import { acquireHaviNote, releaseHaviNote } from "@/lib/haviNoteSlot";
+import { FEATURE_NOTE_VERSION, featureNoteSeenPage, isHaviNoteDismissed } from "@/lib/haviFeatureNotes";
+import { Modal } from "./Modal";
 import styles from "./HaviGpaNote.module.css";
 
 /** How long the student stays on one page (tab visible, Havi on screen). */
@@ -52,7 +55,7 @@ function writeState(accountId: string, state: NoteState) {
 type HaviApi = { bounds?: () => DOMRect | null };
 
 /** Havi's rect when he is on screen, else null. */
-function haviRect(): DOMRect | null {
+export function haviRect(): DOMRect | null {
   const r = (window as unknown as { havi?: HaviApi }).havi?.bounds?.() ?? null;
   if (!r || r.width === 0) return null;
   if (r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) return null;
@@ -64,7 +67,7 @@ const gapsKey = (gaps: GpaGap[]) => gaps.map((g) => g.kind).join(",");
 export function HaviGpaNote() {
   const pathname = usePathname();
   const router = useRouter();
-  const { hydrated, accountId, semester, historicalSemesterId, academic, courses, cumulativeGpa, cumulativeHours, setGpaMode } =
+  const { hydrated, accountId, semester, historicalSemesterId, academic, courses, cumulativeGpa, cumulativeHours, setGpaMode, whatsNewSeen, markWhatsNewSeen } =
     useStore();
 
   const ready = hydrated && !!accountId && !!semester && !historicalSemesterId;
@@ -75,6 +78,7 @@ export function HaviGpaNote() {
   const hasGaps = gaps.length > 0;
 
   const [open, setOpen] = useState(false);
+  const dismissed = isHaviNoteDismissed(whatsNewSeen ?? {}, "gpa");
   const [dream, setDream] = useState(false);
   const activityRef = useRef<string>("sleep");
   const noteRef = useRef<HTMLDivElement>(null);
@@ -106,12 +110,12 @@ export function HaviGpaNote() {
   // A new page starts the wait again and closes an open note.
   useEffect(() => {
     setOpen(false);
-  }, [pathname]);
+  }, [pathname, accountId]);
 
   // Count the time spent on this page while the tab is visible and Havi is
   // on screen; open once it is long enough and nothing is snoozed.
   useEffect(() => {
-    if (!ready || !hasGaps || open || !accountId) return;
+    if (!ready || !hasGaps || dismissed || open || !accountId) return;
     let stayed = 0;
     const id = window.setInterval(() => {
       if (document.visibilityState !== "visible" || !haviRect()) return;
@@ -119,6 +123,7 @@ export function HaviGpaNote() {
       if (stayed < DWELL_MS) return;
       const now = Date.now();
       if (readState(accountId).until > now) return;
+      if (!acquireHaviNote("gpa")) return; // his other note is open; keep waiting
       window.clearInterval(id);
       writeState(accountId, { until: now + SEEN_SNOOZE_MS, alerted: true });
       const shown = gapsRef.current;
@@ -132,7 +137,12 @@ export function HaviGpaNote() {
       setOpen(true);
     }, 1000);
     return () => window.clearInterval(id);
-  }, [ready, hasGaps, open, accountId, pathname, gapsKey(gaps)]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, hasGaps, dismissed, open, accountId, pathname, gapsKey(gaps)]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!open) return;
+    return () => releaseHaviNote("gpa");
+  }, [open]);
 
   // Follow Havi every frame while open; close if he leaves the screen.
   useEffect(() => {
@@ -151,8 +161,10 @@ export function HaviGpaNote() {
         const gap = dream ? 30 : 14;
         const cx = r.left + r.width / 2;
         const left = Math.min(Math.max(cx - w / 2, EDGE), window.innerWidth - w - EDGE);
-        const below = r.top - gap - h < EDGE;
-        const top = below ? r.bottom + gap : r.top - gap - h;
+        const aboveTop = r.top - gap - h;
+        const belowTop = r.bottom + gap;
+        const below = aboveTop < EDGE && window.innerHeight - belowTop > r.top - gap;
+        const top = Math.max(EDGE, Math.min(below ? belowTop : aboveTop, window.innerHeight - h - EDGE));
         note.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
         note.dataset.below = below ? "1" : "";
         if (tailRef.current) tailRef.current.style.left = `${Math.round(Math.min(Math.max(cx - left, 18), w - 18))}px`;
@@ -174,11 +186,18 @@ export function HaviGpaNote() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") later();
+      if (e.key === "Escape" && !e.defaultPrevented) later();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, later]);
+
+  const dismiss = async () => {
+    if (!accountId || !await markWhatsNewSeen(FEATURE_NOTE_VERSION, featureNoteSeenPage("gpa"))) return false;
+    void logEvent("havi_gpa_note_never", {}, accountId);
+    setOpen(false);
+    return true;
+  };
 
   const fix = (gap: GpaGap, courseId?: string) => {
     if (accountId) writeState(accountId, { until: Date.now() + SEEN_SNOOZE_MS, alerted: true });
@@ -191,7 +210,7 @@ export function HaviGpaNote() {
     } else router.push(`/courses${courseId ? `#${encodeURIComponent(courseId)}` : ""}`);
   };
 
-  if (!open || !hasGaps) return null;
+  if (!open || !hasGaps || dismissed) return null;
 
   return createPortal(
     <HaviGpaNoteCard
@@ -201,6 +220,7 @@ export function HaviGpaNote() {
       dream={dream}
       onFix={fix}
       onLater={later}
+      onDismiss={dismiss}
       style={{ visibility: "hidden" }}
     />,
     document.body
@@ -212,6 +232,7 @@ interface CardProps {
   dream: boolean;
   onFix: (gap: GpaGap, courseId?: string) => void;
   onLater: () => void;
+  onDismiss?: () => Promise<boolean>;
   /** in the page flow (the preview) instead of floating over Havi */
   inline?: boolean;
   style?: CSSProperties;
@@ -220,11 +241,26 @@ interface CardProps {
 }
 
 /** The note itself: shared by the live note and its preview page. */
-export function HaviGpaNoteCard({ gaps, dream, onFix, onLater, inline, style, ref, tailRef }: CardProps) {
+export function HaviGpaNoteCard({ gaps, dream, onFix, onLater, onDismiss, inline, style, ref, tailRef }: CardProps) {
   const { t } = useT();
+  const [confirm, setConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const closeConfirm = () => { if (!saving) setConfirm(false); };
+  const confirmDismiss = async () => {
+    if (!onDismiss || saving) return;
+    setSaving(true);
+    setSaveFailed(false);
+    const saved = await onDismiss();
+    setSaving(false);
+    if (saved) setConfirm(false);
+    else setSaveFailed(true);
+  };
+
   return (
     <div
       ref={ref}
+      data-havi-avoid
       role="dialog"
       aria-live="polite"
       aria-label={t(dream ? "haviGpa_dream" : "haviGpa_title")}
@@ -262,9 +298,14 @@ export function HaviGpaNoteCard({ gaps, dream, onFix, onLater, inline, style, re
           ))}
         </ul>
         {gaps.some((g) => g.kind === "grades") && <p className={styles.hint}>{t("haviGpa_gradesHint")}</p>}
-        <button type="button" className={styles.later} onClick={onLater}>
-          {t("haviGpa_later")}
-        </button>
+        <div className={styles.actions}>
+          <button type="button" className={styles.later} onClick={onLater}>{t("haviGpa_later")}</button>
+          {onDismiss && (
+            <button type="button" className={styles.dismiss} onClick={() => { setSaveFailed(false); setConfirm(true); }}>
+              {t("haviNote_never")}
+            </button>
+          )}
+        </div>
       </div>
       {dream ? (
         <span ref={tailRef} className={styles.thought} aria-hidden>
@@ -274,6 +315,27 @@ export function HaviGpaNoteCard({ gaps, dream, onFix, onLater, inline, style, re
         </span>
       ) : (
         <span ref={tailRef} className={styles.tail} aria-hidden />
+      )}
+      {onDismiss && (
+        <Modal
+          open={confirm}
+          onClose={closeConfirm}
+          title={t("haviGpa_dismissTitle")}
+          footer={
+            <div className={styles.confirmActions}>
+              <button type="button" className={styles.returnToData} disabled={saving} onClick={closeConfirm}>
+                {t("haviGpa_returnToData")}
+              </button>
+              <button type="button" className={styles.confirmDismiss} disabled={saving} onClick={confirmDismiss}>
+                {t("haviNote_never")}
+              </button>
+            </div>
+          }
+        >
+          <p className={styles.warning}>{t("haviGpa_dismissWarning")}</p>
+          {saving && <p className={styles.dismissStatus} role="status">{t("haviNote_savingDismissal")}</p>}
+          {saveFailed && <p className={styles.dismissStatus} role="alert">{t("haviNote_dismissFailed")}</p>}
+        </Modal>
       )}
     </div>
   );

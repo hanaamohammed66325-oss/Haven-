@@ -81,11 +81,12 @@ export function achievementBuckets(period: AchievementPeriod, mode: AchievementM
 /** Pomodoro progress inside the current semester only (the Pomodoro badges are
  *  a progress badge for this term): completed sessions and the longest run of
  *  active dates with the shared grace period, both within the term's dates. */
-export function semesterPomodoroProgress(stats: PomodoroStats, semester: AchievementSemester): { totalSessions: number; longestDailyStreak: number } {
+export function semesterPomodoroProgress(stats: PomodoroStats, semester: AchievementSemester, holidays?: ReadonlySet<string>): { totalSessions: number; longestDailyStreak: number } {
   const period = prepareAchievementHistory(stats, semester).periods[achievementPeriodId(semester)];
   const days = (period?.days ?? [])
     .filter((d) => d.sessions > 0 && inside(d.date, semester))
     .map((d) => d.date)
+    .filter(date => !holidays?.has(date))
     .sort();
   let totalSessions = 0;
   for (const d of period?.days ?? []) if (d.sessions > 0 && inside(d.date, semester)) totalSessions += d.sessions;
@@ -93,7 +94,7 @@ export function semesterPomodoroProgress(stats: PomodoroStats, semester: Achieve
   let run = 0;
   let prev = "";
   for (const date of days) {
-    run = advanceStreak(run, prev || null, date);
+    run = advanceStreak(run, prev || null, date, holidays);
     if (run > longest) longest = run;
     prev = date;
   }

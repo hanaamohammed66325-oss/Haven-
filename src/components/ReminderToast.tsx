@@ -8,7 +8,7 @@ import { EXIT, SURFACE } from "@/components/motion/springs";
 import { Bell, X } from "@/components/motion/icons";
 import { useStore } from "@/store";
 import { useT } from "@/i18n";
-import { formatTime } from "@/lib/dates";
+import { formatTime, toISODate } from "@/lib/dates";
 import { collectUpcoming } from "@/lib/reminders";
 import { noteTag } from "@/lib/plannerKind";
 import type { TranslationKey } from "@/i18n/translations/en";
@@ -22,7 +22,7 @@ const AUTO_DISMISS_MS = 10000;
 
 export function ReminderToast() {
   const { t, lang } = useT();
-  const { hydrated, courses, planner, semester, reminderDays } = useStore();
+  const { hydrated, courses, planner, semester, reminderDays, holidayDays, holidayCalendarReady } = useStore();
   const [lines, setLines] = useState<string[] | null>(null);
   const [mounted, setMounted] = useState(false);
   const firedRef = useRef(false);
@@ -32,10 +32,12 @@ export function ReminderToast() {
 
   useEffect(() => {
     // Fire once per mount (= once per app open), after the cloud data loads.
-    if (!hydrated || firedRef.current) return;
+    if (!hydrated || !holidayCalendarReady || firedRef.current) return;
     firedRef.current = true;
 
-    const items = collectUpcoming(courses, planner, semester, reminderDays);
+    const now = new Date();
+    const isHoliday = holidayDays.has(toISODate(now));
+    const items = collectUpcoming(isHoliday ? [] : courses, planner, semester, reminderDays, now);
     if (!items.length) return;
 
     setLines(
@@ -61,7 +63,7 @@ export function ReminderToast() {
       })
     );
     timerRef.current = setTimeout(() => setLines(null), AUTO_DISMISS_MS);
-  }, [hydrated, courses, planner, semester, reminderDays, t, lang]);
+  }, [hydrated, courses, planner, semester, reminderDays, holidayDays, holidayCalendarReady, t, lang]);
 
   useEffect(
     () => () => {

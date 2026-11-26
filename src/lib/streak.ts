@@ -6,14 +6,19 @@ export function streakDayGap(last: string, today: string): number {
   return (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${last}T12:00:00Z`)) / 86_400_000;
 }
 
-export function activeStreak(current: number, last: string | null, today: string): number {
+export function activeStreak(current: number, last: string | null, today: string, holidays?: ReadonlySet<string>): number {
   if (!last) return 0;
-  const gap = streakDayGap(last, today);
+  let gap = streakDayGap(last, today);
+  if (gap > STREAK_GRACE_DAYS && holidays) {
+    for (const day of holidays) {
+      if (day > last && day <= today) gap--;
+    }
+  }
   return Number.isFinite(gap) && gap <= STREAK_GRACE_DAYS ? current : 0;
 }
 
 /** Count activity dates only. Older deliveries must never rewind the anchor. */
-export function advanceStreak(current: number, last: string | null, date: string): number {
-  if (last && date <= last) return current;
-  return activeStreak(current, last, date) + 1;
+export function advanceStreak(current: number, last: string | null, date: string, holidays?: ReadonlySet<string>): number {
+  if (holidays?.has(date) || (last && date <= last)) return current;
+  return activeStreak(current, last, date, holidays) + 1;
 }

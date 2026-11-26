@@ -56,6 +56,7 @@ import { groupStudyAvailable } from "@/lib/featureFlags";
 import { pendingStudyAwards, applySemesterStudyAwardProjection } from "@/lib/study/client";
 import { addStudyAwards } from "@/lib/study/awards";
 import { activeStreak, advanceStreak } from "@/lib/streak";
+import { classOffDays } from "@/lib/holidays";
 import { appendAchievement, prepareAchievementHistory, semesterPomodoroProgress, type AchievementSemester } from "@/lib/pomodoro/achievementHistory";
 import { syncEarnedAwards } from "@/lib/study/awardSync";
 import { supabase, hasStoredSession } from "@/lib/supabase";
@@ -818,6 +819,8 @@ export interface StoreValue extends AppData {
   /** The key of the calendar the admin published for the student's university
    *  (lib/publishedCalendars), once fetched; null when there's none. */
   publishedCalendar: string | null;
+  holidayDays: ReadonlySet<string>;
+  holidayCalendarReady: boolean;
   /** Turn the whole absence system on/off (preferences.attendanceEnabled). */
   setAttendanceEnabled: (on: boolean) => void;
   /** Save (or clear) the student's own absence rule; applies to them at once. */
@@ -908,6 +911,7 @@ export function badgeContext({
   displayXp,
 }: Pick<AppData, "courses" | "planner" | "academic" | "semester"> & Partial<Pick<AppData, "pomodoroStats">> & { displayXp?: number }): BadgeContext {
   const scheme = resolveScheme(academic);
+  const calendar = holidayCalendar(academic);
   return {
     displayXp,
     courses,
@@ -917,9 +921,9 @@ export function badgeContext({
     semesterStartDate: semester.startDate,
     semesterWeeks: semester.weeks,
     semester,
-    holidayCalendar: holidayCalendar(academic),
+    holidayCalendar: calendar,
     // This term only: the Pomodoro badges reward the current semester's work.
-    pomodoro: pomodoroStats ? semesterPomodoroProgress(pomodoroStats, semester) : undefined,
+    pomodoro: pomodoroStats ? semesterPomodoroProgress(pomodoroStats, semester, new Set(classOffDays(semester, calendar))) : undefined,
   };
 }
 
@@ -944,14 +948,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", refresh);
     };
   }, []);
+  const [calendarLookup, setCalendarLookup] = useState<{ university: string; key: string | null } | null>(null);
+  const typedUni = mayHavePublishedCalendar(data.academic) ? data.academic.universityName.trim() : "";
+  const holidayCalendarReady = !typedUni || calendarLookup?.university === typedUni;
+  const publishedCalendar = typedUni && calendarLookup?.university === typedUni ? calendarLookup.key : null;
+  const calendar = publishedCalendar ?? holidayCalendar(data.academic);
+  const { startDate, endDate, customHolidays, dismissedHolidays } = data.semester;
+  const holidayDays = useMemo(
+    () => new Set(classOffDays({ startDate, endDate, customHolidays, dismissedHolidays }, calendar)),
+    [startDate, endDate, customHolidays, dismissedHolidays, calendar]
+  );
   // Expiration is a read-time projection, preserving dates and earned records
   // for delayed awards and device sync. No server write is needed on a timer.
   const visibleGamification = useMemo(() => ({ ...data.gamification,
-    streak: { ...data.gamification.streak, current: activeStreak(data.gamification.streak.current, data.gamification.streak.lastActiveDate, streakToday) },
-  }), [data.gamification, streakToday]);
+    streak: { ...data.gamification.streak, current: activeStreak(data.gamification.streak.current, data.gamification.streak.lastActiveDate, streakToday, holidayDays) },
+  }), [data.gamification, streakToday, holidayDays]);
   const visiblePomodoroStats = useMemo(() => ({ ...data.pomodoroStats,
-    currentDailyStreak: activeStreak(data.pomodoroStats.currentDailyStreak, data.pomodoroStats.lastSessionDate, streakToday),
-  }), [data.pomodoroStats, streakToday]);
+    currentDailyStreak: activeStreak(data.pomodoroStats.currentDailyStreak, data.pomodoroStats.lastSessionDate, streakToday, holidayDays),
+  }), [data.pomodoroStats, streakToday, holidayDays]);
   // The latest data for callbacks that must save what they computed: a setData
   // updater can run later (during the next render), so a value assigned inside
   // one isn't there yet when the call returns.
@@ -1668,12 +1682,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const recordAppOpen = useCallback(() => {
     if (historicalSelectionRef.current) return { xpEarned: 0, streakBroke: false, streakCurrent: dataRef.current.gamification.streak.current };
     const d = dataRef.current;
-    const r = updateStreak(d.gamification);
+    const today = toISODate(new Date());
+    const holidays = new Set(classOffDays(d.semester, holidayCalendar(d.academic)));
+    const r = updateStreak(d.gamification, today, holidays);
     if (r.state !== d.gamification) {
       commit({ gamification: r.state });
       persistGamification(r.state);
     }
-    return { xpEarned: r.xpEarned, streakBroke: r.streakBroke, streakCurrent: r.state.streak.current };
+    return { xpEarned: r.xpEarned, streakBroke: r.streakBroke, streakCurrent: activeStreak(r.state.streak.current, r.state.streak.lastActiveDate, today, holidays) };
   }, [commit, persistGamification]);
 
   const doCheckIn = useCallback(() => {
@@ -1714,6 +1730,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       gamification: d.gamification,
       pomodoroStats: d.pomodoroStats,
       today: toISODate(new Date()),
+      holidayDays: new Set(classOffDays(d.semester, holidayCalendar(d.academic))),
     };
     const r = refreshChallenges(d.gamification, cCtx);
     if (r.xpEarned === 0 && r.newlyCompleted.length === 0 && !r.weeklyReport && r.state === d.gamification) {
@@ -1839,7 +1856,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             },
             project: (progress, earned) => {
               before = dataRef.current;
-              const stats = addStudyAwards(readPomodoroStats(progress.pomodoroStats, achievementTerm), earned, achievementTerm);
+              const settings = progress.semesterSettings as Record<string, unknown> | undefined;
+              const holidayTerm = term.id === semesterIdRef.current ? before.semester : {
+                ...achievementTerm,
+                dismissedHolidays: Array.isArray(settings?.dismissedHolidays)
+                  ? settings.dismissedHolidays.filter((id): id is string => typeof id === "string")
+                  : undefined,
+                customHolidays: sanitizeCustomHolidays(settings?.customHolidays),
+              };
+              const holidays = new Set(classOffDays(holidayTerm, holidayCalendar(before.academic)));
+              const stats = addStudyAwards(readPomodoroStats(progress.pomodoroStats, achievementTerm), earned, achievementTerm, holidays);
               const credited = awardXP(readGamification(progress.gamification), earned.length * XP_REWARDS.COMPLETE_POMODORO);
               const game = term.id === semesterIdRef.current
                 ? checkBadges(credited, badgeContext({ ...dataRef.current, ...viewRef.current,
@@ -1899,16 +1925,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       while (recentDays.length > POMODORO_HISTORY_LIMIT) recentDays.shift();
 
-      // Active days extend within the grace period; missing dates earn no credit.
-      let current = prev.currentDailyStreak;
+      const holidays = new Set(classOffDays(d.semester, holidayCalendar(d.academic)));
       const last = prev.lastSessionDate;
-      if (last === today) {
-        current = Math.max(1, current);
-      } else if (last) {
-        current = advanceStreak(current, last, today);
-      } else {
-        current = 1;
-      }
+      const current = last === today && !holidays.has(today)
+        ? Math.max(1, prev.currentDailyStreak)
+        : advanceStreak(prev.currentDailyStreak, last, today, holidays);
+      const lastSessionDate = holidays.has(today) || (last && last > today) ? last : today;
 
       const pads = [...prev.pads, { date: today, courseId, minutes: focusMin, ...(task ? { task } : {}) }];
       while (pads.length > POMODORO_PAD_LIMIT) pads.shift();
@@ -1918,11 +1940,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         totalFocusMinutes: prev.totalFocusMinutes + focusMin,
         currentDailyStreak: current,
         longestDailyStreak: Math.max(prev.longestDailyStreak, current),
-        lastSessionDate: today,
+        lastSessionDate,
         recentDays,
         lilyPadCount: prev.lilyPadCount + 1,
         pads,
-        achievementHistory: appendAchievement(prepareAchievementHistory(prev, earnedSemester ?? d.semester), earnedSemester ?? d.semester, today, focusMin, current),
+        achievementHistory: appendAchievement(prepareAchievementHistory(prev, earnedSemester ?? d.semester), earnedSemester ?? d.semester, today, focusMin, activeStreak(current, lastSessionDate, today, holidays)),
       };
       const patch: Partial<AppData> = { pomodoroStats: stats };
       if (task) {
@@ -3325,13 +3347,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // A calendar the admin published for the student's university (outside
   // Saudi Arabia, not in the code): once fetched it's registered with the
   // others, and this re-renders every screen so the holidays follow it.
-  const [publishedCalendar, setPublishedCalendar] = useState<string | null>(null);
-  const typedUni = mayHavePublishedCalendar(data.academic) ? data.academic.universityName.trim() : "";
   useEffect(() => {
     if (!hydrated || !typedUni) return;
     let alive = true;
     void loadPublishedCalendar(typedUni).then((key) => {
-      if (alive) setPublishedCalendar(key);
+      if (alive) setCalendarLookup({ university: typedUni, key });
     });
     return () => {
       alive = false;
@@ -3361,6 +3381,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     universityPolicy,
     policyOptions,
     publishedCalendar,
+    holidayDays,
+    holidayCalendarReady,
     setAttendanceEnabled,
     setPersonalAttendanceRule,
     ackAttendancePolicy,

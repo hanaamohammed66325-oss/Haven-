@@ -27,6 +27,8 @@ import { canUseReferralReward, filterReferralPreferences } from "@/lib/referralR
 import { totalGamificationXp } from "@/lib/gamification";
 import { NoCollapse } from "./Collapsible";
 import { toISODate } from "@/lib/dates";
+import { classOffDays } from "@/lib/holidays";
+import { holidayCalendar } from "@/lib/universityCountry";
 
 // A fully self-contained, interactive copy of the store used ONLY by the demo
 // modal. It renders the REAL app pages, but every mutation stays in local React
@@ -523,6 +525,8 @@ export function DemoStoreProvider({ children, initial, referral = EMPTY_REFERRAL
       universityPolicy: null,
       policyOptions: [],
       publishedCalendar: null,
+      holidayCalendarReady: true,
+      holidayDays: new Set(classOffDays(data.semester, holidayCalendar(data.academic))),
       setAttendanceEnabled: () => {},
       setPersonalAttendanceRule: () => {},
       ackAttendancePolicy: () => {},

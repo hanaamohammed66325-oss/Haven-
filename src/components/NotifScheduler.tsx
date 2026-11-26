@@ -12,11 +12,10 @@ import { ATTENDANCE_CALC_SUSPENDED } from "@/lib/featureFlags";
 import { enqueueScheduledPush, reconcileScheduledPushes, syncAbsenceAlerts, type AbsenceAlertRow } from "@/lib/db";
 import { plannerItemDate } from "@/lib/reminders";
 import { holidayCalendar } from "@/lib/universityCountry";
-import { classOffDays } from "@/lib/holidays";
 import { fmtPct, plural } from "@/lib/format";
 
 export function NotifScheduler() {
-  const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic, attendanceEnabled, saveClassOff, accountId } = useStore();
+  const { hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, academic, attendanceEnabled, saveClassOff, accountId, holidayDays, holidayCalendarReady } = useStore();
   // The reminder's GPA must use the student's own system, like the dashboard.
   const scheme = useScheme();
   const { t, lang } = useT();
@@ -37,13 +36,10 @@ export function NotifScheduler() {
   // here or from the server (which also needs the student's time zone — a
   // student in the UAE is an hour ahead of Riyadh).
   const calendar = holidayCalendar(academic);
-  const offDays = useMemo(
-    () => classOffDays(semester, calendar),
-    [semester.startDate, semester.endDate, semester.dismissedHolidays, semester.customHolidays, calendar] // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  const offDays = useMemo(() => [...holidayDays], [holidayDays]);
   const offKey = offDays.join(",");
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !holidayCalendarReady) return;
     let tz = "Asia/Riyadh";
     try {
       tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz;
@@ -52,10 +48,10 @@ export function NotifScheduler() {
     }
     saveClassOff({ tz, days: offDays });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, offKey]);
+  }, [hydrated, holidayCalendarReady, offKey]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !holidayCalendarReady) return;
 
     // The next occurrence of the daily reminder hour — today if it's still
     // ahead, otherwise tomorrow — so opening the app at any time of day always
@@ -95,11 +91,11 @@ export function NotifScheduler() {
     syncAbsenceAlerts(accountId, absenceAlerts);
 
     // Smart and absence pushes have one server-owned delivery record across devices.
-    scheduleAll(courses, planner, semester, notifPrefs, lang, new Set(offDays));
+    scheduleAll(courses, planner, semester, notifPrefs, lang, holidayDays);
     const candidates = notifPrefs.exams.enabled
       ? smartCandidates(buildSmartSuggestions(
           { courses, planner, semester, gamification, gpaGoal, scheme,
-            holidayCalendar: calendar, attendanceEnabled: false, now: sendAt }, t
+            holidayCalendar: calendar, holidayDays, attendanceEnabled: false, now: sendAt }, t
         ), semester, sendAt)
       : [];
     void syncSmartNotifications(accountId, semester.startDate, semester.endDate,
@@ -166,7 +162,7 @@ export function NotifScheduler() {
 
     return cancelAll;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- enqueue only reads refs
-  }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, scheme, academic, attendanceEnabled, accountId, lang, t]);
+  }, [hydrated, courses, planner, semester, notifPrefs, gamification, gpaGoal, scheme, calendar, attendanceEnabled, accountId, lang, t, holidayDays, holidayCalendarReady]);
 
   return null;
 }

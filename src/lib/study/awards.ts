@@ -1,11 +1,11 @@
 import type { PomodoroStats } from "@/types";
 import type { PendingStudyAward } from "./types";
 import { toISODate } from "@/lib/dates";
-import { advanceStreak } from "@/lib/streak";
+import { activeStreak, advanceStreak } from "@/lib/streak";
 import { appendAchievement, prepareAchievementHistory, type AchievementSemester } from "@/lib/pomodoro/achievementHistory";
 
 /** Project only server-earned awards. Dates belong to the round, not the retry. */
-export function addStudyAwards(previous: PomodoroStats, awards: readonly PendingStudyAward[], semester?: AchievementSemester): PomodoroStats {
+export function addStudyAwards(previous: PomodoroStats, awards: readonly PendingStudyAward[], semester?: AchievementSemester, holidays?: ReadonlySet<string>): PomodoroStats {
   const next: PomodoroStats = { ...previous, recentDays: previous.recentDays.map((d) => ({ ...d })), pads: [...previous.pads] };
   if (semester) next.achievementHistory = prepareAchievementHistory(previous, semester);
   const seen = new Set<string>();
@@ -29,27 +29,29 @@ export function addStudyAwards(previous: PomodoroStats, awards: readonly Pending
   if (previous.lastSessionDate && !streakDays.some((d) => d.date === previous.lastSessionDate)) streakDays.push({ date: previous.lastSessionDate, completedSessions: 1, totalFocusMinutes: 0, abandonedSessions: 0 });
   streakDays.sort((a, b) => a.date.localeCompare(b.date));
   for (const day of streakDays) {
-    if (!day.completedSessions) continue;
-    run = advanceStreak(run, last, day.date);
+    if (!day.completedSessions || (holidays?.has(day.date) && day.date !== previous.lastSessionDate)) continue;
+    run = advanceStreak(run, last, day.date, holidays);
     if (day.date === previous.lastSessionDate) run = Math.max(run, previous.currentDailyStreak);
     longest = Math.max(longest, run); last = day.date;
   }
   if (last && (!previous.lastSessionDate || last > previous.lastSessionDate)) {
-    next.currentDailyStreak = Math.max(run, advanceStreak(previous.currentDailyStreak, previous.lastSessionDate, last));
+    next.currentDailyStreak = Math.max(run, advanceStreak(previous.currentDailyStreak, previous.lastSessionDate, last, holidays));
     next.lastSessionDate = last;
   } else if (last === previous.lastSessionDate) next.currentDailyStreak = Math.max(run, previous.currentDailyStreak);
   next.longestDailyStreak = Math.max(longest, next.currentDailyStreak);
   if (next.achievementHistory) {
-    const byDate = new Map(next.recentDays.filter(d => d.completedSessions > 0).map(d => [d.date, d]));
+    const dates = streakDays.filter(d => d.completedSessions > 0).map(d => d.date);
     let previousDate: string | null = null, length = 0;
-    for (const date of [...byDate.keys()].sort()) {
-      length = advanceStreak(length, previousDate, date);
+    for (const date of dates) {
+      const countsForStreak = !holidays?.has(date) || date === previous.lastSessionDate;
+      length = advanceStreak(length, previousDate, date, holidays);
       if (date === previous.lastSessionDate) length = Math.max(length, previous.currentDailyStreak);
       if (date === next.lastSessionDate) length = Math.max(length, next.currentDailyStreak);
+      const dayStreak = countsForStreak ? length : activeStreak(length, previousDate, date, holidays);
       for (const period of Object.values(next.achievementHistory.periods)) {
-        period.days = period.days.map(day => day.date === date && (date >= period.trackedFrom || day.streak !== null) && awards.some(a => toISODate(new Date(a.awardedAt)) === date) ? { ...day, streak: length } : day);
+        period.days = period.days.map(day => day.date === date && (date >= period.trackedFrom || day.streak !== null) && awards.some(a => toISODate(new Date(a.awardedAt)) === date) ? { ...day, streak: dayStreak } : day);
       }
-      previousDate = date;
+      if (countsForStreak) previousDate = date;
     }
   }
   next.recentDays = next.recentDays.slice(-30); next.pads = next.pads.slice(-200);

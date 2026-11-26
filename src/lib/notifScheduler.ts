@@ -114,7 +114,7 @@ function scheduleLectures(
   prefs: NotifPrefs,
   semester: Semester,
   lang: "en" | "ar",
-  offDays: Set<string>,
+  offDays: ReadonlySet<string>,
 ) {
   if (!prefs.lectures.enabled) return;
   if (!isWithinSemester(semester)) return;
@@ -194,7 +194,7 @@ export function scheduleAll(
   semester: Semester,
   notifPrefs: NotifPrefs,
   lang: "en" | "ar",
-  offDays: Set<string> = new Set(),
+  offDays: ReadonlySet<string> = new Set(),
 ) {
   clearAll();
   if (typeof window === "undefined") return;

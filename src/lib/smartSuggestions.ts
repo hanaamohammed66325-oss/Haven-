@@ -21,6 +21,7 @@ import {
 } from "./grades";
 import { buildUpcoming } from "./upcoming";
 import { toISODate } from "./dates";
+import { classOffDays } from "./holidays";
 import { POMODORO_ENABLED } from "./featureFlags";
 import { SAUDI5, effectiveGpaGoal, type GradeScheme } from "./gradeSchemes";
 
@@ -55,6 +56,7 @@ export interface SmartContext {
   scheme?: GradeScheme;
   /** whose holidays attendance uses (lib/universityCountry holidayCalendar). */
   holidayCalendar?: string | null;
+  holidayDays?: ReadonlySet<string>;
   /** false when the student turned absence tracking off: no absence nudges. */
   attendanceEnabled?: boolean;
   now?: Date;
@@ -68,11 +70,13 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
   const now = ctx.now ?? new Date();
   const today = toISODate(now);
   const checkedIn = gamification.checkedInToday === today;
+  const isHoliday = ctx.holidayDays?.has(today) ??
+    (!!ctx.holidayCalendar && classOffDays(semester, ctx.holidayCalendar).includes(today));
   const items: Suggestion[] = [];
 
   // 1. Attendance danger / warn
   // No absence nudges while the attendance calculation is suspended.
-  for (const c of ctx.attendanceEnabled === false || ATTENDANCE_CALC_SUSPENDED ? [] : courses) {
+  for (const c of isHoliday || ctx.attendanceEnabled === false || ATTENDANCE_CALC_SUSPENDED ? [] : courses) {
     const att = attendanceInfo(c, semester, ctx.holidayCalendar);
     if (att?.status === "danger") {
       items.push({
@@ -102,10 +106,10 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
   // 3. Upcoming exams/quizzes — individual (7-day window). A "tomorrow" exam
   // gets a warm, conversational nudge ("got an exam tomorrow — review a bit?")
   // instead of the dry "Name · Course — Tomorrow" line.
-  const upcoming = buildUpcoming(courses, planner, semester, now);
+  const upcoming = buildUpcoming(isHoliday ? [] : courses, planner, semester, now);
   for (const exam of upcoming.filter((u) => u.bucket === "exam" && u.diffDays <= 7)) {
     const text =
-      exam.diffDays === 1
+      !isHoliday && exam.diffDays === 1
         ? t("smart_examTomorrow", { exam: exam.name })
         : `${exam.name}${exam.courseName ? ` · ${exam.courseName}` : ""} — ${
             exam.diffDays === 0 ? t("dueToday") : t("dueInDays", { n: exam.diffDays })
@@ -116,7 +120,7 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
       text,
       // An imminent exam (today/tomorrow) sends the student straight to the focus
       // timer to actually prepare; a further-out one still opens the exam itself.
-      href: exam.diffDays <= 1 && POMODORO_ENABLED ? "/pomodoro" : exam.href,
+      href: !isHoliday && exam.diffDays <= 1 && POMODORO_ENABLED ? "/pomodoro" : exam.href,
       color: "#C77E2E",
       priority: exam.diffDays <= 1 ? 2 : 4,
     });
@@ -127,7 +131,7 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
   // lone task tomorrow gets its own conversational "knock it out now" nudge.
   const tasks = upcoming.filter((u) => u.bucket === "task");
   const tomorrowTasks = tasks.filter((task) => task.diffDays === 1);
-  const collapseTomorrow = tomorrowTasks.length >= 3;
+  const collapseTomorrow = !isHoliday && tomorrowTasks.length >= 3;
   if (collapseTomorrow) {
     items.push({
       id: "tasks-tomorrow-many",
@@ -141,7 +145,7 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
   for (const task of tasks) {
     if (collapseTomorrow && task.diffDays === 1) continue; // folded into the aggregate
     const text =
-      task.diffDays === 1
+      !isHoliday && task.diffDays === 1
         ? t("smart_taskTomorrowSoon", { task: task.name })
         : `${task.name}${task.courseName ? ` · ${task.courseName}` : ""} — ${
             task.diffDays === 0 ? t("dueToday") : t("dueInDays", { n: task.diffDays })
@@ -155,6 +159,8 @@ export function buildSmartSuggestions(ctx: SmartContext, t: T): Suggestion[] {
       priority: task.diffDays <= 1 ? 3 : 5,
     });
   }
+
+  if (isHoliday) return items.sort((a, b) => a.priority - b.priority);
 
   // 5. Ungraded components with past dates
   let ungradedCount = 0;

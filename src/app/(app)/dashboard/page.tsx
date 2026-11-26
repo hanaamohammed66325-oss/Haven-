@@ -89,27 +89,40 @@ export default function DashboardPage() {
       : tableStatus === "unknown"
       ? "gpaSchemeNudge"
       : null;
-  const { gamification, displayXp, recordAppOpen, doCheckIn, refreshGamChallenges } = store;
+  const { gamification, displayXp, recordAppOpen, doCheckIn, refreshGamChallenges, holidayDays, holidayCalendarReady } = store;
+  const today = toISODate(new Date());
+  const isHoliday = holidayDays.has(today);
+  const { daily, weekly } = gamification.challenges;
+  const dailyChallenges = daily.date !== today ? [] : isHoliday
+    ? daily.items.filter(item => item.type === "due-today")
+    : daily.items;
   const { profile, sub } = useSubscription();
   const isPremium = hasActiveAccess(profile, sub);
 
   const [revealGpa, setRevealGpa] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
 
-  // Record app open (streak + XP) + refresh challenges once per mount
-  const appOpenDone = useRef(false);
+  const appOpenDate = useRef("");
   useEffect(() => {
-    if (!hydrated || appOpenDone.current) return;
-    appOpenDone.current = true;
-    const r = recordAppOpen();
-    refreshGamChallenges();
-    if (!window.havi) return;
-    if (r.streakBroke) {
-      window.havi.poke();
-    } else if (STREAK_MILESTONES.includes(r.streakCurrent as (typeof STREAK_MILESTONES)[number])) {
-      window.havi.celebrate(1);
-    }
-  }, [hydrated]);
+    if (!hydrated || !holidayCalendarReady || isHoliday) return;
+    const record = () => {
+      if (document.visibilityState !== "visible" || appOpenDate.current === today || toISODate(new Date()) !== today) return;
+      appOpenDate.current = today;
+      const r = recordAppOpen();
+      if (!window.havi || !r.xpEarned) return;
+      if (r.streakBroke) {
+        window.havi.poke();
+      } else if (STREAK_MILESTONES.includes(r.streakCurrent as (typeof STREAK_MILESTONES)[number])) {
+        window.havi.celebrate(1);
+      }
+    };
+    record();
+    document.addEventListener("visibilitychange", record);
+    return () => document.removeEventListener("visibilitychange", record);
+  }, [hydrated, holidayCalendarReady, isHoliday, recordAppOpen, today]);
+  useEffect(() => {
+    if (hydrated && holidayCalendarReady) refreshGamChallenges();
+  }, [hydrated, holidayCalendarReady, today, holidayDays, courses, planner, semester, refreshGamChallenges]);
 
   const handleCheckIn = useCallback(() => {
     const r = doCheckIn();
@@ -227,7 +240,7 @@ export default function DashboardPage() {
       >
         {/* Check-in card (free) */}
         {(() => {
-          const checkedIn = gamification.checkedInToday === toISODate(new Date());
+          const checkedIn = gamification.checkedInToday === today;
           const streak = gamification.streak.current;
           return (
             <Card padding="p-5" className="flex items-center gap-4" data-tour="dash-checkin">
@@ -243,7 +256,7 @@ export default function DashboardPage() {
                 >
                   {checkedIn ? "✓" : "☀️"}
                 </InteractionButton>
-                {!checkedIn && gamification.totalCheckIns === 0 && (
+                {!isHoliday && !checkedIn && gamification.totalCheckIns === 0 && (
                   <span
                     className="absolute -top-1 -end-1 w-3 h-3 rounded-full animate-ping"
                     style={{ background: "var(--color-brass)" }}
@@ -255,7 +268,9 @@ export default function DashboardPage() {
                   {t("gam_checkin")}
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                  {checkedIn
+                  {isHoliday
+                    ? streak > 0 ? t("gam_checkinHolidayStreak", { n: String(streak) }) : t("gam_checkinHoliday")
+                    : checkedIn
                     ? streak > 1
                       ? t("gam_checkinStreak", { n: String(streak) })
                       : t("gam_checkinDone")
@@ -355,10 +370,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Challenges card (premium) ──────────────────────── */}
-      {isPremium && gamification.challenges.daily.items.length > 0 && (
+      {isPremium && holidayCalendarReady && dailyChallenges.length > 0 && (
         <ChallengesCard
-          daily={gamification.challenges.daily.items}
-          weekly={gamification.challenges.weekly.items}
+          daily={dailyChallenges}
+          weekly={isHoliday ? [] : weekly.items}
         />
       )}
 
@@ -608,7 +623,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Smart suggestions */}
-          <div data-tour="dash-smart" className="haven-fade-up mb-8" style={{ animationDelay: "0.11s" }}>
+          <div data-tour="dash-smart" className="haven-fade-up mb-8 empty:hidden" style={{ animationDelay: "0.11s" }}>
             <SmartSuggestions />
           </div>
 

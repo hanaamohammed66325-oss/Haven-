@@ -1,6 +1,7 @@
 import type { Course, PlannerData, PlannerNote, PomodoroStats, Semester } from "@/types";
 import { POMODORO_ENABLED } from "@/lib/featureFlags";
 import { noteBucket } from "./plannerKind";
+import { plannerItemDate } from "./reminders";
 import type { GamificationState, ChallengeItem, ChallengeState } from "./gamification";
 import { defaultChallenges } from "./gamification";
 import { toISODate } from "./dates";
@@ -15,6 +16,7 @@ export interface ChallengeContext {
   gamification: GamificationState;
   pomodoroStats: PomodoroStats;
   today: string;
+  holidayDays?: ReadonlySet<string>;
 }
 
 /** Completed focus sessions recorded today, from the rolling stats window. */
@@ -69,34 +71,31 @@ function noteIsExam(n: PlannerNote): boolean {
   return noteBucket(n.text, n.tag) === "exam";
 }
 
-const DAILY_POOL: ChallengeDef[] = [
-  {
-    type: "due-today",
-    xp: 15,
-    canGenerate: (ctx) =>
-      ctx.planner.notes.some(
-        (n) =>
-          !n.done &&
-          n.day != null &&
-          noteDate(ctx.semester.startDate, n.week, n.day) === ctx.today
-      ),
-    generate: (ctx) => {
-      const due = ctx.planner.notes.filter(
-        (n) =>
-          !n.done &&
-          n.day != null &&
-          noteDate(ctx.semester.startDate, n.week, n.day) === ctx.today
-      );
-      const pick = due[dateHash(ctx.today, "due-today") % due.length];
-      return { taskId: pick.id, taskName: pick.text };
-    },
-    isComplete: (ctx, p) => {
-      // Complete ONLY when the task still exists AND is marked done. A missing
-      // task means it was DELETED, not finished — deleting must never award XP.
-      const note = ctx.planner.notes.find((n) => n.id === p.taskId);
-      return !!note && !!note.done;
-    },
+function isDatedTaskToday(ctx: ChallengeContext, note: PlannerNote): boolean {
+  if (note.day == null || note.tag === "tagHoliday" || note.id.startsWith("temp-")) return false;
+  const date = plannerItemDate(ctx.semester, note.week, note.day);
+  return date !== null && toISODate(date) === ctx.today;
+}
+
+const DUE_TODAY: ChallengeDef = {
+  type: "due-today",
+  xp: 15,
+  canGenerate: (ctx) => ctx.planner.notes.some(note => !note.done && isDatedTaskToday(ctx, note)),
+  generate: (ctx) => {
+    const due = ctx.planner.notes.filter(note => !note.done && isDatedTaskToday(ctx, note));
+    const pick = due[dateHash(ctx.today, "due-today") % due.length];
+    return { taskId: pick.id, taskName: pick.text };
   },
+  isComplete: (ctx, p) => {
+    // Complete ONLY when the task still exists AND is marked done. A missing
+    // task means it was DELETED, not finished — deleting must never award XP.
+    const note = ctx.planner.notes.find((n) => n.id === p.taskId);
+    return !!note && !!note.done;
+  },
+};
+
+const DAILY_POOL: ChallengeDef[] = [
+  DUE_TODAY,
   {
     type: "exam-prep",
     xp: 20,
@@ -164,7 +163,7 @@ const DAILY_POOL: ChallengeDef[] = [
   {
     type: "open-streak",
     xp: 5,
-    canGenerate: (ctx) => activeStreak(ctx.gamification.streak.current, ctx.gamification.streak.lastActiveDate, ctx.today) > 1,
+    canGenerate: (ctx) => activeStreak(ctx.gamification.streak.current, ctx.gamification.streak.lastActiveDate, ctx.today, ctx.holidayDays) > 1,
     generate: () => ({}),
     isComplete: (ctx) => ctx.gamification.streak.lastActiveDate === ctx.today,
   },
@@ -285,7 +284,7 @@ const WEEKLY_POOL: ChallengeDef[] = [
     canGenerate: (ctx) => POMODORO_ENABLED && ctx.pomodoroStats.totalSessions > 0,
     generate: () => ({ targetDays: "3" }),
     isComplete: (ctx, p) =>
-      activeStreak(ctx.pomodoroStats.currentDailyStreak, ctx.pomodoroStats.lastSessionDate, ctx.today) >= parseInt(p.targetDays),
+      activeStreak(ctx.pomodoroStats.currentDailyStreak, ctx.pomodoroStats.lastSessionDate, ctx.today, ctx.holidayDays) >= parseInt(p.targetDays),
   },
 ];
 
@@ -346,6 +345,7 @@ export function refreshChallenges(
   let weeklySnapshot = state.weeklySnapshot ?? null;
   let lastWeeklyReport = state.lastWeeklyReport ?? null;
 
+  const isHoliday = ctx.holidayDays?.has(ctx.today) ?? false;
   let daily = challenges.daily;
   if (daily.date !== ctx.today) {
     daily = {
@@ -355,9 +355,25 @@ export function refreshChallenges(
     changed = true;
   }
 
+  if (isHoliday) {
+    const items = daily.items.flatMap(item => {
+      if (item.type !== "due-today" || item.done) return [item];
+      const note = ctx.planner.notes.find(note => note.id === item.params.taskId && isDatedTaskToday(ctx, note));
+      if (!note) return [];
+      return [note.text === item.params.taskName ? item : { ...item, params: { ...item.params, taskName: note.text } }];
+    });
+    if (!items.some(item => item.type === "due-today")) {
+      items.push(...pickChallenges([DUE_TODAY], 1, ctx, ctx.today));
+    }
+    if (items.length !== daily.items.length || items.some((item, index) => item !== daily.items[index])) {
+      daily = { ...daily, items };
+      changed = true;
+    }
+  }
+
   const currentWeekStart = sundayOfWeek(ctx.today);
   let weekly = challenges.weekly;
-  const isNewWeek = weekly.weekStart !== currentWeekStart || weekly.items.length < WEEKLY_COUNT;
+  const isNewWeek = weekly.weekStart !== currentWeekStart || (!isHoliday && weekly.items.length < WEEKLY_COUNT);
 
   if (isNewWeek) {
     // Compute report from last week's snapshot before resetting
@@ -369,7 +385,7 @@ export function refreshChallenges(
         checkIns: state.totalCheckIns - weeklySnapshot.totalCheckIns,
         tasksCompleted: currentTasksDone - weeklySnapshot.tasksDone,
         gradesEntered: currentGrades - weeklySnapshot.gradesEntered,
-        streak: activeStreak(state.streak.current, state.streak.lastActiveDate, ctx.today),
+        streak: activeStreak(state.streak.current, state.streak.lastActiveDate, ctx.today, ctx.holidayDays),
       };
       lastWeeklyReport = weeklySnapshot;
       changed = true;
@@ -413,7 +429,7 @@ export function refreshChallenges(
   for (const d of WEEKLY_POOL) defMap.set(d.type, d);
 
   const updatedDaily = daily.items.map((item) => {
-    if (item.done) return item;
+    if (item.done || (isHoliday && item.type !== "due-today")) return item;
     const def = defMap.get(item.type);
     if (def && def.isComplete(ctx, item.params)) {
       xpEarned += item.xp;
@@ -425,7 +441,7 @@ export function refreshChallenges(
   });
 
   const updatedWeekly = weekly.items.map((item) => {
-    if (item.done) return item;
+    if (item.done || isHoliday) return item;
     const def = defMap.get(item.type);
     if (def && def.isComplete(ctx, item.params)) {
       xpEarned += item.xp;

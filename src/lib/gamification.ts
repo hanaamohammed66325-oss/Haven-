@@ -113,17 +113,17 @@ function todayISO(): string {
   return toISODate(new Date());
 }
 
-export function updateStreak(state: GamificationState, today = todayISO()): {
+export function updateStreak(state: GamificationState, today = todayISO(), holidays?: ReadonlySet<string>): {
   state: GamificationState;
   xpEarned: number;
   streakBroke: boolean;
 } {
   const last = state.streak.lastActiveDate;
 
-  if (last && last >= today) return { state, xpEarned: 0, streakBroke: false };
+  if (holidays?.has(today) || (last && last >= today)) return { state, xpEarned: 0, streakBroke: false };
 
-  const streakBroke = !!last && state.streak.current > 0 && activeStreak(state.streak.current, last, today) === 0;
-  const current = advanceStreak(state.streak.current, last, today);
+  const streakBroke = !!last && state.streak.current > 0 && activeStreak(state.streak.current, last, today, holidays) === 0;
+  const current = advanceStreak(state.streak.current, last, today, holidays);
   const longest = Math.max(state.streak.longest, current);
   return {
     state: {
